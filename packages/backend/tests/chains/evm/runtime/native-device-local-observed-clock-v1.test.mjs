@@ -7,7 +7,7 @@ import vm from 'node:vm';
 import {observedNativeValueReceiverSecond} from '../../../../src/chains/shared/health/native-value-observed-clock-v1.mjs';
 async function actual(urls){for(const url of urls)try{return await readFile(url,'utf8');}catch(error){if(error.code!=='ENOENT')throw error;}throw new Error('HOST_ACTUAL_SOURCE_REQUIRED');}
 const clockSource=await actual([new URL('../../../../src/operations/recovery/native-device-local-observed-clock-v1.mjs',import.meta.url),new URL('../ops/native-device-local-observed-clock-v1.mjs',import.meta.url)]);
-const runtimeSource=await actual([new URL('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url),new URL('./owned-evm-v2-runtime.mjs',import.meta.url)]);
+const runtimeSource=await actual([new URL('../../../../src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs',import.meta.url),new URL('./owned-evm-runtime-backend-v1.mjs',import.meta.url)]);
 const hostAssert={...assert,deepEqual:(a,b,message)=>assert.deepEqual(structuredClone(a),structuredClone(b),message)};
 function region(start,end){const a=runtimeSource.indexOf(start),b=runtimeSource.indexOf(end,a);assert.ok(a>=0&&b>a,'HOST_ACTUAL_SOURCE_BOUNDARIES');return runtimeSource.slice(a,b);}
 function pairFixture(){

@@ -3,8 +3,9 @@
 import assert from 'node:assert/strict';
 import {exactRecord} from '@lianum/components/encoding/commitments';
 import {observedNativeValueReceiverSecond} from '../../chains/shared/health/native-value-observed-clock-v1.mjs';
-import {assertOwnedNativeDurableSourceReceiverV1,assertOwnedNativeDurableSourceGraphRuntimeV1,readOwnedNativeDurableSourceClockPairV1,refreshNativeValueReceiverClock,refreshOwnedNativeEconomicObservedGraphClockV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {assertOriginalNativeSourceCapsuleV1,createOriginalNativeSourceClockPairV1,readOriginalNativeSourceClockCheckpointV1,retainOriginalNativeSourceClockCheckpointV1} from './native-original-source-capsule-v1.mjs';
+import {assertOwnedNativeDurableSourceReceiverV1,assertOwnedNativeDurableSourceGraphRuntimeV1,readOwnedNativeDurableSourceClockPairV1} from './native-original-source-lifecycle-v1.mjs';
+import {refreshNativeValueReceiverClock,refreshOwnedNativeEconomicObservedGraphClockV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {assertOriginalNativeSourceCapsuleV1,createOriginalNativeSourceClockPairV1,readOriginalNativeSourceClockCheckpointV1,retainOriginalNativeSourceClockCheckpointV1} from './native-original-source-lifecycle-v1.mjs';
 const clocks=new WeakMap();
 function original(clock){const state=clocks.get(clock);assert.ok(state&&!state.closed,'NATIVE_SOURCE_ORIGINAL_CLOCK');assertOriginalNativeSourceCapsuleV1(state.authority);assertOwnedNativeDurableSourceReceiverV1(state.runtime);assertOwnedNativeDurableSourceGraphRuntimeV1(state.nativeRuntime);readOwnedNativeDurableSourceClockPairV1(state.runtime,state.nativeRuntime);return state;}
 export function assertOriginalNativeSourceObservedClockV1(clock,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','nativeRuntime']);const state=original(clock);assert.equal(input.runtime,state.runtime);assert.equal(input.nativeRuntime,state.nativeRuntime);return true;}

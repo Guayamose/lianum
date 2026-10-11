@@ -4,6 +4,10 @@
   "delivery": "archive/delivery",
   "rules": [
     {
+      "source": "packages/backend/src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/owned-evm-runtime-backend-v1.mjs"
+    },
+    {
       "source": "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
       "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/account/durable-generic-account-keeper.mjs"
     },
@@ -2774,6 +2778,10 @@
     {
       "source": "packages/proofs/src/execution/wallet-note-proof-worker.mjs",
       "runtime": "omnichain-product/src/wallet-note-proof-worker.mjs"
+    },
+    {
+      "source": "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-original-source-lifecycle-v1.mjs"
     }
   ],
   "files": [

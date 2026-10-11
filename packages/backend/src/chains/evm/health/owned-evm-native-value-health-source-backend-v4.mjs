@@ -1,5 +1,5 @@
 /** Private native-source backend. Source requests belong to this instance's
- * registry. The fixed runtime kernel installs exactly three purpose-specific
+ * registry. The fixed runtime kernel installs exactly four purpose-specific
  * ports; an independent backend cannot issue a request into that registry. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -13,8 +13,8 @@ import { PROFILE_SCHEMA } from '../transfers/evm-native-value-v2.mjs';
 
 export function buildOwnedEvmNativeSourceBackend(ports) {
   assert.equal(arguments.length, 1);
-  exactRecord(ports, ['assertOwnedLocalEvmNativeValueRuntime', 'openOwnedLocalEvmNativeValueSource', 'createOwnedEvmNativeValueHealthSource']);
-  const { assertOwnedLocalEvmNativeValueRuntime, openOwnedLocalEvmNativeValueSource, createOwnedEvmNativeValueHealthSource } = ports;
+  exactRecord(ports, ['isOwnedLocalEvmNativeValueRuntime', 'assertOwnedLocalEvmNativeValueRuntime', 'openOwnedLocalEvmNativeValueSource', 'createOwnedEvmNativeValueHealthSource']);
+  const { isOwnedLocalEvmNativeValueRuntime, assertOwnedLocalEvmNativeValueRuntime, openOwnedLocalEvmNativeValueSource, createOwnedEvmNativeValueHealthSource } = ports;
   for (const operation of Object.values(ports)) assert.equal(typeof operation, 'function');
 /** Genuine owned common-node local source bridge. This never accepts a URL,
  * transport, signer, clock, RPC callback, imported runtime or public brand.
@@ -87,7 +87,8 @@ async function rollupClients() {
     }
     assert(root!==parse(root).root,'OWNED_NATIVE_SOURCE_ORIGINAL_REPOSITORY_REQUIRED');root=realpathSync(root);
     const sourcePath=join(root,'scripts/development/owned-rollup-original-source-profile-v1.mjs');
-    const sourcePin='ffca4190b437257143c8dfed082638c6e9b37e1cb0a110d916da7ff76000a40c';
+    // Reviewed current diagnostics tables from 7e243fb; original publication stays fixed.
+    const sourcePin='c78669512cbf7b8a0a227a46400658fd1b11d3730ae40b58fa165d030d83ed6a';
     assert.equal(sha(readFileSync(sourcePath)),sourcePin,'OWNED_NATIVE_SOURCE_REVIEWED_ROLLUP_MODULE_CHANGED');
     const sourceModule=await import(pathToFileURL(sourcePath).href);
     assert.equal(sourceModule.readOriginalOwnedRollupSourceModuleV1(),sourcePin,'OWNED_NATIVE_SOURCE_LOADED_ROLLUP_MODULE_CHANGED');
@@ -99,7 +100,7 @@ async function rollupClients() {
       Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-arbitrum-nitro-v1.mjs')).href),
         prefix:'ArbitrumNitro',chainId:'42161',profile:'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1'}),
       await (async()=>{const path=join(root,'scripts/development/owned-bsc-original-source-profile-v3.mjs');
-        const pin='169e671383addff3686e6ddc8989423f59fcc6212ce60ecdd485c0b400d170cb';assert.equal(sha(readFileSync(path)),pin,'OWNED_NATIVE_SOURCE_REVIEWED_BSC_MODULE_CHANGED');
+        const pin='79a2995ad2f80a44c0843c6a607243a9bcc9168035cf7d73f488984d12e70150';assert.equal(sha(readFileSync(path)),pin,'OWNED_NATIVE_SOURCE_REVIEWED_BSC_MODULE_CHANGED');
         const profile=await import(pathToFileURL(path).href);assert.equal(profile.readOriginalOwnedBscSourceModuleV3(),pin,'OWNED_NATIVE_SOURCE_LOADED_BSC_MODULE_CHANGED');profile.inspectOriginalBscSourcesV3();
         return Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-bsc-posa-v1.mjs')).href),prefix:'BscPoSA',chainId:'714',profile:'OWNED_BSC_POSA_NATIVE_VALUE_714_V3',bsc:true});})()]);
   })();return originalRollupClients;
@@ -108,6 +109,11 @@ async function rollupClients() {
  * never opens this entry. Null lets the old fixed Tron branch stay unchanged. */
 async function openOriginalOwnedRollupNativeValueSourcesV1(nativeRuntime) {
   assert.equal(arguments.length,1,'OWNED_NATIVE_SOURCE_ORIGINAL_CLIENT_ARITY');
+  // Resolve the canonical common-node family by its private identity first.
+  // Its providers do not depend on unrelated Base/Nitro/BSC publications.
+  if(isOwnedLocalEvmNativeValueRuntime(nativeRuntime)){
+    await assertOwnedLocalEvmNativeValueRuntime(nativeRuntime);return null;
+  }
   const selected=(await rollupClients()).find(row=>row.module['isOwned'+row.prefix+'NativeValueCluster'+(row.bsc?'V3':'V1')](nativeRuntime));
   if(!selected)return null;
   const api=selected.module,assertLive=()=>api['assertOwned'+selected.prefix+'NativeValueLive'+(selected.bsc?'V3':'V1')](nativeRuntime);

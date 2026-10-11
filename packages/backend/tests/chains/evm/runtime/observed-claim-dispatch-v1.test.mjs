@@ -6,8 +6,8 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { observedNativeValueReceiverSecond } from '../../../../src/chains/shared/health/native-value-observed-clock-v1.mjs';
 let source;
-for(const url of [new URL('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url),
-  new URL('./owned-evm-v2-runtime.mjs',import.meta.url)]) {
+for(const url of [new URL('../../../../src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs',import.meta.url),
+  new URL('./owned-evm-runtime-backend-v1.mjs',import.meta.url)]) {
   try {source=await readFile(url,'utf8');break;} catch(error){if(error.code!=='ENOENT')throw error;}
 }
 assert.equal(typeof source,'string','HOST_FIXED_RUNTIME_SOURCE_REQUIRED');
@@ -56,20 +56,11 @@ function fixture(observedClock,{wrongKey=false,expired=false}={}) {
     assertAlive(){events.push('assertAlive');},revokeNativeEconomicCustodySigningV2(){throw new Error('HOST_NO_LOCAL_CUSTODY');},
   };
   let body=dispatchBody;
-  // Replace the three actual fixed import declarations only. Their paths are
-  // transformed by the public mapper; this port bridge works in both layouts.
-  for(const [declaration,binding] of [
-    ['const { assertOwnedEvmDispatchRequest } = ','modules.ordinaryGate'],
-    ['const { isOwnedClaimEvmDispatchRequest, assertOwnedClaimEvmDispatchRequest } = ','modules.gate'],
-    ['const { isOwnedClaimEvmDispatchRequest: isWrapped, assertOwnedClaimEvmDispatchRequest: openWrapped } = ','modules.wrappedGate'],
-  ]){
-    const start=body.indexOf(declaration),end=body.indexOf(';',start);
-    assert.ok(start>=0&&end>start,'HOST_FIXED_IMPORT_DECLARATION');
-    assert.equal(body.indexOf(declaration,start+1),-1,'HOST_FIXED_IMPORT_UNIQUE');
-    const expression=body.slice(start+declaration.length,end);
-    assert.ok(/^await import\('[^']+'\)$/.test(expression),'HOST_ORIGINAL_FIXED_IMPORT');
-    body=body.slice(0,start)+declaration+binding+body.slice(end);
-  }
+  context.dispatchContract={async claim(){return Object.freeze({
+    ...modules.ordinaryGate,...modules.gate,
+    isWrapped:modules.wrappedGate.isOwnedClaimEvmDispatchRequest,
+    openWrapped:modules.wrappedGate.assertOwnedClaimEvmDispatchRequest,
+  });}};
   const ports=vm.runInNewContext(clockBody+body+'\n({dispatch,dispatchObservedClaimV1,surface:({'+surface+'})});',context);
   const callbacks={transaction:{from:sender,to:target,data:'0x12345678',gas:'50000',value:'0'},
     async beforeSign(value){events.push('beforeSign');prepared=value;token={};return wrongKey?{}:token;},
@@ -116,7 +107,7 @@ test('original observed inclusion lower bound uses current time and rejects copi
   const context = { assert, ownedRuntimes, observedReceiverClocks, observedNativeValueReceiverSecond,
     assertAlive, lastTimestamp: 100n, Date: { now() { state.samples++; return state.walltime; } } };
   const observation = section('    const observedInclusionSecond=()=>{', '    const nextObservedSecond=');
-  const consumer = section('export function nativeValueReceiverInclusionSecondV1(runtime){', 'export function assertOwnedLocalEvmObservedClockV1(runtime){').replace(/^export /, '');
+  const consumer = section('function nativeValueReceiverInclusionSecondV1(runtime){', 'function assertOwnedLocalEvmObservedClockV1(runtime){').replace(/^export /, '');
   const ports = vm.runInNewContext(observation + consumer + '\n({ observedInclusionSecond, nativeValueReceiverInclusionSecondV1 });', context);
   observedReceiverClocks.set(runtime, { assertAlive, inclusionSecond: ports.observedInclusionSecond });
   assert.equal(ports.nativeValueReceiverInclusionSecondV1(legacy), null); assert.equal(state.samples, 0);

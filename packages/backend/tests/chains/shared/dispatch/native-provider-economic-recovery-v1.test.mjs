@@ -1,3 +1,4 @@
+import {legacyDataRoot} from '@lianum/environment';
 /** HOST only: original provider key/signature, Vault AEAD/CAS and issuer AEAD.
  * Native processes/system/quorum/recipient/proofs/journal decoding are explicit
  * private inert substitutes. No test supplies financial or chain acceptance. */
@@ -35,9 +36,9 @@ const relative=mapped?{
  admission:'../../../../../engine/src/execution/native/dispatch/native-admission.mjs',
  vault:'../../../../../engine/src/crypto/vault.mjs',
 };
-relative.source=mapped?'../ops/native-original-source-capsule-v1.mjs':'../../../../src/operations/recovery/native-original-source-capsule-v1.mjs';
+relative.source=mapped?'../ops/native-original-source-lifecycle-v1.mjs':'../../../../src/operations/recovery/native-original-source-lifecycle-v1.mjs';
 const urls=Object.fromEntries(Object.entries(relative).map(([key,path])=>[key,new URL(path,import.meta.url).href]));
-const fixedRoot=fileURLToPath(new URL('../../../',urls.authority));
+const fixedRoot=legacyDataRoot('wallet');
 
 // The same explicit HOST setup is evaluated in a fresh process for one-use
 // reopen. Only test substitutes are recreated, never native economic brands.
@@ -48,6 +49,7 @@ async function setup(urls){
  // Explicit inert SOURCE issuer ports: the provider and Vault/CAS/signature
  // bodies remain actual; no capsule, process recovery or financial authority
  // is established by these HOST tokens.
+ const originalRuntime=await import(urls.runtime);
  const sourceTokens=new WeakMap(),sourceHandles=new WeakMap();
  function sourceToken(data=null){const token=Object.freeze(Object.create(null));sourceTokens.set(token,{data,consumed:false,handle:null});return token;}
  const sourceWrites=[];
@@ -71,14 +73,18 @@ async function setup(urls){
   consumeOriginalNativeSourceSectionV1(token,section){assert.equal(section,'provider');const state=sourceTokens.get(token);assert.ok(state&&!state.consumed);state.consumed=true;return copy(state.data);},
   resumeOriginalNativeSourceSectionV1(token,section){assert.equal(section,'provider');const state=sourceTokens.get(token);assert.ok(state?.consumed);const handle=Object.freeze(Object.create(null));sourceHandles.set(handle,state);return handle;},
  }});
- const originalRuntime=await import(urls.runtime);
  const systems=new WeakMap(),native=new WeakMap(),recipients=new WeakSet(),bindRequests=new WeakMap();
  const original=(runtime,system)=>assert.equal(systems.get(system)?.runtime,runtime,'HOST_ORIGINAL_ECONOMIC_SYSTEM');
  mock.module(urls.system,{exports:{assertOwnedNativeValueSystem:original,nativeValueOriginalRecoverySourceV1(runtime,system){original(runtime,system);return h('source');}}});
  mock.module(urls.quorum,{exports:{assertOwnedNativeValueQuorum(quorum,{runtime,system}){original(runtime,system);assert.equal(system.quorum,quorum);}}});
  mock.module(urls.bootstrap,{exports:{assertNativeValueOperatorBootstrapForSystem(bootstrap,{runtime,system}){original(runtime,system);assert.equal(systems.get(system).bootstrap,bootstrap);return bootstrap.metadata;},
   assertNativeValueBootstrapNativeRuntime(bootstrap,{runtime,system,nativeRuntime}){original(runtime,system);assert.equal(systems.get(system).bootstrap,bootstrap);assert.ok(native.has(nativeRuntime));}}});
- mock.module(urls.runtime,{exports:{...originalRuntime,assertOwnedLocalEvmNativeValueRuntime(runtime){assert.ok(native.has(runtime),'HOST_ORIGINAL_NATIVE_RUNTIME');},assertOwnedLocalEvmObservedClockV1(){throw Error('HOST_UNUSED_TRON');}}});
+ mock.module(urls.runtime,{exports:{...originalRuntime,
+  assertOwnedLocalEvmNativeValueRuntime(runtime){assert.ok(native.has(runtime),'HOST_ORIGINAL_NATIVE_RUNTIME');},
+  // This explicit inert EVM family has no Base/Nitro/BSC client. Original
+  // module pins are exercised by the actual runtime, never replaced here.
+  async openOriginalOwnedRollupNativeValueSourcesV1(runtime){assert.ok(native.has(runtime),'HOST_ORIGINAL_NATIVE_RUNTIME');return null;},
+  assertOwnedLocalEvmObservedClockV1(){throw Error('HOST_UNUSED_TRON');}}});
  mock.module(urls.reader,{exports:{async createNativeValueSystemStateReader({runtime,system}){original(runtime,system);const view=Object.freeze({financialAcceptance:false});return {async read(){return view;},async assertCurrent(actual){assert.equal(actual,view);}};}}});
  mock.module(urls.recipient,{exports:{assertOwnedNativeRecipientProcess(value){assert.ok(recipients.has(value),'HOST_ORIGINAL_RECIPIENT');}}});
  const equal=(a,b)=>assert.deepEqual(a,b,'HOST_BINDING_REBOUND');

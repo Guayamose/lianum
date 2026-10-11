@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { constants } from 'node:fs';
-import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../operations/recovery/native-original-source-capsule-v1.mjs';
+import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { fork } from 'node:child_process';
 import { lstat, readFile, open, realpath } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';

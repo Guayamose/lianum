@@ -1,5 +1,5 @@
-import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../../operations/recovery/native-original-source-capsule-v1.mjs';
-import {assertOwnedNativeDurableSourceReceiverV1} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../../operations/recovery/native-original-source-lifecycle-v1.mjs';
+import {assertOwnedNativeDurableSourceReceiverV1} from '../../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import {buildOwnerNativeGraphRoute} from '../../account/preparation/owner-native-graph-review-v1.mjs';
 import {createHash as recoveryHash} from 'node:crypto';
 import {canonical as recoveryCanonical} from '@lianum/engine/crypto/privacy';

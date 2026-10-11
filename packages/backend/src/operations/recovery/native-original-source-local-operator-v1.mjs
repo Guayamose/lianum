@@ -28,8 +28,8 @@ import {prepareOriginalNativeSourceLocalProviderV1} from './native-device-local-
 import {normalizeOriginalNativeDeviceLocalConfigurationV1} from './native-device-local-restart-v1.mjs';
 import {createOriginalNativeSourceLiveRecoveryProducerV1} from './native-device-local-live-recovery-v1.mjs';
 import {createOriginalNativeSourceObservedClocksV1,reopenOriginalNativeSourceObservedClocksV1,refreshOriginalNativeSourceObservedClockV1} from './native-original-source-observed-clock-v1.mjs';
-import {bindOwnedNativeDurableSourceClockPairV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {createOriginalNativeSourceCapsuleV1,openOriginalNativeSourceCapsuleV1,assertOriginalNativeSourceCapsuleV1,originalNativeSourceCapsuleStatusV1,readOriginalNativeSourceOwnedProcessesV1,retainOriginalNativeSourceReferenceV1,reopenOriginalNativeSourceReferenceV1,createOriginalNativeSourceAccountV1,createOriginalNativeSourceSessionV1,finishOriginalNativeSourceBirthV1,finishOriginalNativeSourceReopenV1,closeOriginalNativeSourceCapsuleV1} from './native-original-source-capsule-v1.mjs';
+import {bindOwnedNativeDurableSourceClockPairV1} from './native-original-source-lifecycle-v1.mjs';
+import {createOriginalNativeSourceCapsuleV1,openOriginalNativeSourceCapsuleV1,assertOriginalNativeSourceCapsuleV1,originalNativeSourceCapsuleStatusV1,readOriginalNativeSourceOwnedProcessesV1,retainOriginalNativeSourceReferenceV1,reopenOriginalNativeSourceReferenceV1,createOriginalNativeSourceAccountV1,createOriginalNativeSourceSessionV1,finishOriginalNativeSourceBirthV1,finishOriginalNativeSourceReopenV1,closeOriginalNativeSourceCapsuleV1} from './native-original-source-lifecycle-v1.mjs';
 const services=new WeakMap();
 const fresh=()=>randomBytes(32).toString('hex');
 const local=join(ROOT,'.local/original-native-source-durable-operator-v1');

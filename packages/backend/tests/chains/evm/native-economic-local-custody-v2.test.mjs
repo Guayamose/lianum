@@ -92,7 +92,7 @@ test('HOST close during a fresh ciphertext read cannot publish authenticated pub
 test('HOST original external-note send branch uses the same frozen custody preparation after the final guard',async()=>{
  const {fileURLToPath}=await import('node:url');
  const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/chains/evm/native-economic-local-custody-v2.test.mjs');
- const source=await readFile(new URL(generated?'../../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url),'utf8');
+ const source=await readFile(new URL(generated?'../../chain-adapters/owned-evm-runtime-backend-v1.mjs':'../../../src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs',import.meta.url),'utf8');
  const start=source.indexOf('if(externalNoteScope){\n              // Private original source-note producer only.');
  const end=source.indexOf('}else signed=await signNativeEconomicCustodyTransactionV2(localCustody,expected);',start);
  assert.ok(start>=0&&end>start);
@@ -138,7 +138,7 @@ test('HOST live-armed observed runtime keeps its original pair and authenticated
  const fs=await import('node:fs/promises');
  const {fileURLToPath}=await import('node:url');
  const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/chains/evm/native-economic-local-custody-v2.test.mjs');
- const runtimeURL=new URL(generated?'../../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url);
+ const runtimeURL=new URL(generated?'../../chain-adapters/owned-evm-runtime-backend-v1.mjs':'../../../src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs',import.meta.url);
  const custodyURL=new URL(generated?'../../chain-adapters/native-economic-local-custody-backend-v2.mjs':'../../../src/chains/evm/runtime/native-economic-local-custody-backend-v2.mjs',import.meta.url);
  const signing=await import(new URL(generated?'../../chain-adapters/native-economic-local-signing-v2.mjs':'../../../src/chains/evm/runtime/native-economic-local-signing-v2.mjs',import.meta.url));
  const runtimeSource=await readFile(runtimeURL,'utf8'),custodySource=await readFile(custodyURL,'utf8');
@@ -159,7 +159,8 @@ test('HOST live-armed observed runtime keeps its original pair and authenticated
   nativeLiveArmedRecoverySectionIdentityV1(token,family){const identity=identities.get(token);assert.ok(identity&&identity.family===family,'HOST_ORIGINAL_LIVE_ARMED_TOKEN');return identity.identity;},
   consumeNativeLiveArmedRecoverySectionV1(token,family){assert.equal(identities.get(token)?.family,family);const record=records.get(token);assert.ok(record,'HOST_ORIGINAL_ONE_USE');records.delete(token);return record;}
  };
- const factorySource=cut('/** Fixed two-process producer.','export async function refreshOwnedNativeEconomicObservedGraphClockV2(runtime){').replaceAll('export ','');
+ context.recoveryContract=context;
+ const factorySource=cut('/** Fixed two-process producer.','async function refreshOwnedNativeEconomicObservedGraphClockV2(runtime){').replaceAll('export ','');
  const ports=vm.runInNewContext(factorySource+'\n({createOwnedNativeLiveArmedObservedClockPairV1,readOwnedNativeLiveArmedObservedClockPairV1,bindOwnedNativeLiveArmedObservedClockPairV1,reopenOwnedNativeLiveArmedReceiverV1,reopenOwnedNativeLiveArmedGraphRuntimeV1});',context);
  const pair=await ports.createOwnedNativeLiveArmedObservedClockPairV1();assert.deepEqual(events,['create-receiver','create-graphNative','retain-receiver','retain-graphNative']);assert.equal(ports.readOwnedNativeLiveArmedObservedClockPairV1(pair.receiver,pair.native),pair);
  assert.throws(()=>ports.readOwnedNativeLiveArmedObservedClockPairV1({...pair.receiver},pair.native),/ORIGINAL_RUNTIME/);assert.throws(()=>ports.bindOwnedNativeLiveArmedObservedClockPairV1(pair.receiver,pair.native),/ALREADY_BOUND/);
@@ -200,7 +201,7 @@ test('HOST original F reorg invalidates both AEAD journals before one exact reta
  const {fileURLToPath}=await import('node:url'),{canonical}=await import('@lianum/engine/crypto/privacy');
  const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/chains/evm/native-economic-local-custody-v2.test.mjs');
  const moduleURL=(name,canonicalPath)=>new URL(generated?'../../'+name:canonicalPath,import.meta.url);
- const runtimeSource=await readFile(moduleURL('chain-adapters/owned-evm-v2-runtime.mjs','../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),'utf8');
+ const runtimeSource=await readFile(moduleURL('chain-adapters/owned-evm-runtime-backend-v1.mjs','../../../src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs'),'utf8');
  const executionSource=await readFile(moduleURL('paeg/native-value-execution-v2.mjs','../../../src/execution/native-value/execution/native-value-execution-v2.mjs'),'utf8');
  const accountSource=await readFile(moduleURL('global-state/native-value-account-authority-v2.mjs','../../../src/accounts/authority/native-value-account-authority-v2.mjs'),'utf8');
  const accountExecutionSource=await readFile(moduleURL('global-state/native-value/native-value-authority-execution.mjs','../../../src/accounts/authority/native-value/native-value-authority-execution.mjs'),'utf8');
@@ -213,7 +214,7 @@ test('HOST original F reorg invalidates both AEAD journals before one exact reta
  const {createHash}=await import('node:crypto');
  const cut=(text,a,b)=>{const start=text.indexOf(a),end=text.indexOf(b,start);assert.ok(start>=0&&end>start);return text.slice(start,end);};
  const compile=(body,ports)=>new Function(...Object.keys(ports),body)(...Object.values(ports));
- const replaceImport=(text,name)=>{const hits=text.match(/await import\('[^']+'\)/g);assert.equal(hits?.length,1);return text.replace(hits[0],name);};
+ const replaceImport=(text,name)=>{const hits=text.match(/await (?:import\('[^']+'\)|reorgContract\.(?:probe|recovery)\(\))/g);assert.equal(hits?.length,1);return text.replace(hits[0],name);};
  const cloned=x=>JSON.parse(canonical(x)),detached=x=>Object.freeze(cloned(x));
  const sha=x=>createHash('sha256').update(canonical(x)).digest('hex'),dataHash=x=>createHash('sha256').update(Buffer.from(x.slice(2),'hex')).digest('hex');
  const word=n=>BigInt(n).toString(16).padStart(64,'0'),bare=x=>x.slice(2),ref='a'.repeat(64),bridge=Object.freeze({}),pool={address:'0x'+'22'.repeat(20)};

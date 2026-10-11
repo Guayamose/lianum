@@ -33,7 +33,7 @@ import { normalizeNativeValueDispatchBinding,bindNativeValueDispatchRequest,equa
 import { createNativeValueDispatchJournal,readNativeValueDispatchJournal,assertNativeValueRetainedIntent } from './native-value-dispatch-journal-v2.mjs';
 import { loadPinned,resourceModuleURL } from '@lianum/proofs/tooling/tooling';
 import { assertNativeProviderRecoveryAuthorityV1,retainNativeProviderRecoveryV1,nativeProviderRecoverySectionIdentityV1,consumeNativeProviderRecoverySectionV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
-import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../../operations/recovery/native-original-source-capsule-v1.mjs';
+import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import {openOriginalOwnedRollupNativeValueSourcesV1} from '../../evm/runtime/owned-evm-v2-runtime.mjs';
 const leases=new WeakMap(),custodies=new WeakMap(),copy=cloneInput,freeze=frozenInput;
 export const NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS=Object.freeze(['NEW_NATIVE_VALUE_SYSTEM_RELEASE_ARTIFACTS_ABSENT','ACTUAL_LOCAL_NATIVE_PROVIDER_INTEGRATION_UNEXECUTED','ACTUAL_TRON_NATIVE_AND_DISPATCH_ACCEPTANCE_UNEXECUTED']);

@@ -79,7 +79,7 @@ function inventoryFailure(blockers){
   failure.causeCodes=Object.freeze(codes);return failure;
 }
 const pool = n => { assert.ok(Number.isSafeInteger(n) && !Object.is(n, -0) && n >= 0 && n < 2, 'NATIVE_VALUE_POOL_INDEX'); return n; };
-import { nativeSourceRecoverySectionIdentityV1 } from '../../recovery/native-original-source-capsule-v1.mjs';
+import { nativeSourceRecoverySectionIdentityV1 } from '../../recovery/native-original-source-lifecycle-v1.mjs';
 const signerSlot = n => { assert.ok(Number.isSafeInteger(n) && !Object.is(n, -0) && n >= 0 && n < 4, 'NATIVE_VALUE_SIGNER_INDEX'); return n; };
 const word = n => BigInt(n).toString(16).padStart(64, '0');
 const b32 = n => '0x' + n;

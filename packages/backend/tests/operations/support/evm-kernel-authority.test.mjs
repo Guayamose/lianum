@@ -5,6 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as kernel from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import * as sourceLifecycle from '../../../src/operations/recovery/native-original-source-lifecycle-v1.mjs';
 import * as custody from '../../../src/chains/evm/runtime/native-economic-local-custody-v2.mjs';
 import { buildNativeEconomicCustodyBackend } from '../../../src/chains/evm/runtime/native-economic-local-custody-backend-v2.mjs';
 import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/local-evm-profiles.mjs';
@@ -38,7 +39,7 @@ test('a custody backend with a forged issuer cannot mint or consume original cap
     // Rejected cross-instance consumption must not burn either original lease.
     assert.equal(typeof custody.consumeNativeEconomicCustodySigningV2(originalHandle, originalLease, originalPrepared).nativeWire, 'string');
     assert.equal(typeof foreign.consumeNativeEconomicCustodySigningV2(foreignHandle, foreignLease, foreignPrepared).nativeWire, 'string');
-    assert.throws(() => kernel.assertOwnedNativeDurableSourceRuntimeV1(foreignHandle), /NATIVE_SOURCE_ORIGINAL_RUNTIME_REQUIRED/);
+    assert.throws(() => sourceLifecycle.assertOwnedNativeDurableSourceRuntimeV1(foreignHandle), /NATIVE_SOURCE_ORIGINAL_RUNTIME_REQUIRED/);
     assert.equal(kernel.isOwnedNativeEconomicRuntimeV2(foreignHandle), false);
   } finally {
     if (originalLease) custody.revokeNativeEconomicCustodySigningV2(originalLease);
@@ -56,6 +57,7 @@ test('a source backend cannot lend tokens to the original runtime or retain them
   const descriptor = Object.freeze({ sourceIndex: '2', explicitHostDataOnly: true });
   let request, failOpening = false, foreign;
   foreign = buildOwnedEvmNativeSourceBackend({
+    isOwnedLocalEvmNativeValueRuntime(value) { return value === runtime; },
     assertOwnedLocalEvmNativeValueRuntime(value) { assert.equal(value, runtime); },
     async openOwnedLocalEvmNativeValueSource(value, token) {
       request = token;
@@ -70,6 +72,7 @@ test('a source backend cannot lend tokens to the original runtime or retain them
   });
   for (const name of Object.keys(foreign)) assert.equal(facade[name], kernel[name]);
   await assert.rejects(kernel.describeOwnedLocalEvmNativeValueSource(runtime, 2), /OWNED_NATIVE_VALUE_ORIGINAL_RUNTIME_REQUIRED/);
+  assert.equal(await foreign.openOriginalOwnedRollupNativeValueSourcesV1(runtime), null);
   assert.equal(await foreign.describeOwnedLocalEvmNativeValueSource(runtime, 2), descriptor);
   failOpening = true;
   await assert.rejects(foreign.describeOwnedLocalEvmNativeValueSource(runtime, 2), /EXPLICIT_HOST_OPEN_FAILURE/);

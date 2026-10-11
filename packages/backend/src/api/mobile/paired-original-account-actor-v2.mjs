@@ -1,4 +1,4 @@
-import {nativeSourceRecoveryOriginalReferenceV1,nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1,consumeOriginalNativeSourceActorCheckpointV1} from '../../operations/recovery/native-original-source-capsule-v1.mjs';
+import {nativeSourceRecoveryOriginalReferenceV1,nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1,consumeOriginalNativeSourceActorCheckpointV1} from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 /** Private same-realm bootstrap only. Public platform HTTP is not connected.
  * Holds original session/approval/owner references; no factories or callbacks.
  * Diagnostics and separately consented account/pool state use the same opaque

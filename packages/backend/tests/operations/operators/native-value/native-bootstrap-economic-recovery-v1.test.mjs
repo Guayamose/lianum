@@ -1,3 +1,4 @@
+import {legacyDataRoot} from '@lianum/environment';
 /** HOST only: real four operator keys, encrypted CAS stores and native issuer.
  * Runtime/system/readers/sources are explicit inert WeakMap substitutes. This
  * verifies retention boundaries; no native or financial acceptance is emitted. */
@@ -33,11 +34,13 @@ let operators;
 // Keep actual decoders/source consumers used by the original wire modules.
 // Importing these modules creates no runtime; backend subjects still follow mocks.
 const [actualRuntime,actualHealth]=await Promise.all([import(urls.runtime),import(urls.health)]);
-mock.module(urls.runtime,{exports:{...actualRuntime,isOwnedLocalEvmNativeValueRuntime:value=>native.has(value),
- assertOwnedLocalEvmNativeValueRuntimeLive(value){assert.ok(native.has(value),'HOST_ORIGINAL_NATIVE_RUNTIME');}}});
-mock.module(urls.health,{exports:{...actualHealth,async describeOwnedLocalEvmNativeValueSource(value,index){assert.ok(native.has(value));return {
+
+const inertHealthPorts={async describeOwnedLocalEvmNativeValueSource(value,index){assert.ok(native.has(value));return {
  publicNetwork:false,genesis:h('genesis'),chainId:'1',identity:{endpointIdentity:h('slot'+index),clientRelease:h('client'),chainConfiguration:h('configuration')}};},
- async createOwnedLocalEvmNativeValueHealthSource(){throw Error('HOST_NO_NATIVE_OBSERVATION_OR_SIGNATURE');}}});
+ async createOwnedLocalEvmNativeValueHealthSource(){throw Error('HOST_NO_NATIVE_OBSERVATION_OR_SIGNATURE');}};
+mock.module(urls.health,{exports:{...actualHealth,...inertHealthPorts}});
+mock.module(urls.runtime,{exports:{...actualRuntime,...inertHealthPorts,isOwnedLocalEvmNativeValueRuntime:value=>native.has(value),
+ assertOwnedLocalEvmNativeValueRuntimeLive(value){assert.ok(native.has(value),'HOST_ORIGINAL_NATIVE_RUNTIME');}}});
 function original(runtime,system){assert.equal(systems.get(system)?.runtime,runtime,'HOST_ORIGINAL_SYSTEM');}
 mock.module(urls.system,{exports:{assertOwnedNativeValueSystem:original,nativeValueOriginalRecoverySourceV1(runtime,system){original(runtime,system);return h('source');},nativeValueOperatorResources(runtime,system,token){
  original(runtime,system);const request=operators.consumeNativeValueOperatorBootstrapRequest(token,{runtime,system});
@@ -60,7 +63,7 @@ mock.module(urls.issuer,{exports:{...actualIssuer,consumeNativeEconomicRecoveryS
 // Backend imports follow mocks; ESM hoisting must not load concrete dependencies.
 operators=await import(urls.operators);
 const bootstrapModule=await import(urls.bootstrap),issuer=await import(urls.issuer),storeModule=await import(urls.store),profile=await import(urls.profile);
-const fixedRoot=fileURLToPath(new URL('../../../',urls.issuer));
+const fixedRoot=legacyDataRoot('wallet');
 async function fixture(t){
  const runId=randomUUID(),directory=join(fixedRoot,'.local/native-value-economic-recovery-v1','attempt-'+runId,'private-audit');
  await mkdir(directory,{recursive:true,mode:0o700});

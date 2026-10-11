@@ -1,6 +1,6 @@
 import { assertNativeValueRegistrations } from './native-value-registry-v2.mjs';
-import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../recovery/native-original-source-capsule-v1.mjs';
-import {assertOwnedNativeDurableSourceReceiverV1} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../recovery/native-original-source-lifecycle-v1.mjs';
+import {assertOwnedNativeDurableSourceReceiverV1} from '../../recovery/native-original-source-lifecycle-v1.mjs';
 /** Genuine-artifact-bound new native-value graph-only local bootstrap. This module never starts an EVM or owns its
  * lifecycle. Only a golden createLocalEvm capability can receive deployments.
  * Importing it loads no artifacts, compiler, prover, backend or runtime. */

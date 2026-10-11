@@ -1,6 +1,6 @@
 import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1,
   updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1, nativeSourceRecoveryOwnedProcessV1 }
-  from '../../operations/recovery/native-original-source-capsule-v1.mjs';
+  from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { assertOriginalNativeAccountSourceV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 /** Private source-authenticated composition of the existing portfolio, mixed keeper
  * and FlatAccountSession. No new journal, graph schema or HTTP factory.

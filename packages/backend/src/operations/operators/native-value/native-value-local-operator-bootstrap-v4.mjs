@@ -30,7 +30,7 @@ import { isOwnedLocalEvmNativeValueRuntime, assertOwnedLocalEvmNativeValueRuntim
 import { describeOwnedLocalEvmNativeValueSource, createOwnedLocalEvmNativeValueHealthSource, openOriginalOwnedRollupNativeValueSourcesV1 }
   from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { NATIVE_QUORUM_PROFILE } from '@lianum/engine/evidence/native-quorum';
-import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../recovery/native-original-source-capsule-v1.mjs';
+import { nativeSourceRecoverySectionIdentityV1, nativeSourceRecoveryOwnedProcessV1, retainOriginalNativeSourceSectionV1, updateOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1 } from '../../recovery/native-original-source-lifecycle-v1.mjs';
 export const NATIVE_VALUE_LOCAL_BOOTSTRAP_PROFILE = 'OWNED_LOCAL_FULL_HISTORY_NATIVE_VALUE_BOOTSTRAP_V4';
 const owns=new WeakMap(),claimedNativeRuntimes=new WeakSet(),pendingNativeRuntimes=new WeakSet(),copy=cloneInput,freeze=frozenInput;
 const operatorRecoveryTokens=new WeakMap();

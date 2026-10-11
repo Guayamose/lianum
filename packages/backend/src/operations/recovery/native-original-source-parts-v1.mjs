@@ -2,8 +2,8 @@
  * path, callback, serialized capability or CAPTURED fallback is accepted. */
 import assert from 'node:assert/strict';
 import {exactRecord} from '@lianum/components/encoding/commitments';
-import {nativeSourceRecoveryOriginalReferenceV1} from './native-original-source-capsule-v1.mjs';
-import {createOwnedNativeDurableSourceRuntimeV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {nativeSourceRecoveryOriginalReferenceV1} from './native-original-source-lifecycle-v1.mjs';
+import {createOwnedNativeDurableSourceRuntimeV1} from './native-original-source-lifecycle-v1.mjs';
 import {retainOriginalNativeSourceBootstrapV1,reopenOriginalNativeSourceBootstrapV1} from '../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import {retainOriginalNativeSystemSourceV1,reopenOriginalNativeSystemSourceV1} from '../deployments/native-value/native-value-system-v2.mjs';
 import {retainOriginalNativeSourceProviderV1,reopenOriginalNativeSourceProviderV1} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';

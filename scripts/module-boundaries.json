@@ -242,7 +242,7 @@
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
         "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
         "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
         "packages/backend/src/operations/wallet/wrapped-wallet-composition-v1.mjs"
       ],
@@ -387,7 +387,7 @@
         "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
         "packages/backend/src/operations/wallet/wrapped-wallet-composition-v1.mjs"
       ],
       "packages/backend/src/api/claims/native-claim-session.mjs": [
@@ -417,7 +417,7 @@
         "packages/backend/src/api/accounts/flat-account-session.mjs",
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs": [
         "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
@@ -488,18 +488,7 @@
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
       ],
       "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs": [
-        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
-        "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs",
-        "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs",
-        "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs",
-        "packages/backend/src/chains/evm/health/evm-native-value-health-source-v4.mjs",
-        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
-        "packages/backend/src/claims/controller/controller.mjs",
-        "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
-        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/chains/evm/vault/evm-vault-delivery-observer.mjs": [
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -534,7 +523,7 @@
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs": [
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
@@ -793,7 +782,7 @@
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/native-value-owner-observer-v2.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs": [
         "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
@@ -902,7 +891,7 @@
         "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
         "packages/backend/src/operations/wallet/wrapped-wallet-composition-v1.mjs"
       ],
       "packages/backend/src/execution/native-value/preparation/native-value-dev-admission-consumer-v5.mjs": [
@@ -1008,14 +997,13 @@
       ],
       "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs": [
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
-        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-deployment-checks-v2.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/operations/deployments/system/deploy-system.mjs": [
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
@@ -1122,7 +1110,7 @@
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs": [
         "packages/backend/src/chains/shared/health/native-value-health-source-v4.mjs",
@@ -1130,7 +1118,7 @@
         "packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs": [
         "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
@@ -1194,29 +1182,38 @@
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs"
       ],
-      "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs": [
+      "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
         "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
-        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs",
+        "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs",
+        "packages/backend/src/chains/evm/health/evm-native-value-health-source-v4.mjs",
+        "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
+        "packages/backend/src/claims/controller/controller.mjs",
+        "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
         "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
         "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs"
       ],
       "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": [
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs": [
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
         "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
-        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
         "packages/backend/src/custody/processes/native-value-owner-process-v2.mjs",
         "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
-        "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs": [
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
@@ -2760,6 +2757,320 @@
           "formerValidator": "packages/backend/src/operations/deployments/wrapped/wrapped-claim-wallet-binding-v1.mjs",
           "owner": "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
           "export": "assertOwnedWrappedClaimWalletSystemV1"
+        }
+      ]
+    },
+    "sourceLifecycleReview": {
+      "baselineCommit": "3ed7d9e",
+      "scope": "Exact import provenance for the closed SOURCE/EVM composition; backend mechanics have no cyclic module imports. No newly discovered dependency is admitted automatically.",
+      "reviewedImportMoves": [
+        {
+          "from": [
+            "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/custody/processes/native-value-owner-process-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/custody/processes/native-value-owner-process-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/operators/native-value/native-value-operators-v4.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+            "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+            "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+            "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/chains/evm/dispatch/evm-dispatch-gate.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/chains/evm/dispatch/native-value-evm-dispatch-gate.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/chains/evm/health/evm-native-value-health-source-v4.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/chains/evm/health/evm-native-value-health-source-v4.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/claims/controller/controller.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/claims/controller/controller.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+            "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
+        },
+        {
+          "from": [
+            "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs"
+          ],
+          "to": [
+            "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs",
+            "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+          ],
+          "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
         }
       ]
     }

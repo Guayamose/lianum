@@ -16,7 +16,7 @@ import { FIELD_MODULUS, encodeStatement, RELATIONS } from '@lianum/components/en
 import { FLAT_TRANSACTION_METHODS } from '../../../../src/execution/encoding/transaction-codec.mjs';
 import { validateFlatExecutionPreparation } from '../../../../src/execution/account/execution/flat-native-execution.mjs';
 import * as actualReadiness from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
-import { assertOwnedNativeDurableSourceReceiverV1, isOwnedOriginalNativeFReorgReceiverV1 } from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import { isOwnedOriginalNativeFReorgReceiverV1 } from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { readOriginalNativeRecoveryCheckpointV1 as readActualNativeRecoveryCheckpointV1 } from '../../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 const h = value => createHash('sha256').update('terminal-first host: ' + value).digest('hex');
 const field = value => '00' + h(value).slice(2), p = value => '0x' + value;
@@ -41,7 +41,7 @@ mockModule(new URL('../../../../src/chains/shared/dispatch/wrapped-claim-dispatc
 mockModule(new URL('../../../../src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs', import.meta.url), { createOwnedNativeValueProvider: unusedWrapped });
 mockModule(new URL('../../../../src/execution/wrapped/preparation/wrapped-wallet-graph-admission-v1.mjs', import.meta.url), { createOwnedWrappedWalletGraphAdmissionV1: unusedWrapped });
 mockModule(new URL('../../../../src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs', import.meta.url), { createWrappedWalletStateReaderV1: unusedWrapped });
-mockModule(new URL('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs', import.meta.url), { assertOwnedNativeDurableSourceReceiverV1, isOwnedOriginalNativeFReorgReceiverV1, async refreshNativeValueReceiverClock(runtime) {
+mockModule(new URL('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs', import.meta.url), { isOwnedOriginalNativeFReorgReceiverV1, async refreshNativeValueReceiverClock(runtime) {
   assert.ok(states.has(runtime));
 } });
 mockModule(new URL('../../../../src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url), { async assertLocalEvm(runtime) { assert.ok(states.has(runtime)); } });

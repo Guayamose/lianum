@@ -13,7 +13,7 @@ import {spawn} from 'node:child_process';
 import {types} from 'node:util';
 import {deflateRawSync,inflateRawSync} from 'node:zlib';
 const generated=fileURLToPath(import.meta.url).includes('/wallet-platform/modules/');
-const capsuleURL=new URL(generated?'../ops/native-original-source-capsule-v1.mjs':'../../../src/operations/recovery/native-original-source-capsule-v1.mjs',import.meta.url);
+const capsuleURL=new URL(generated?'../ops/native-original-source-lifecycle-v1.mjs':'../../../src/operations/recovery/native-original-source-lifecycle-v1.mjs',import.meta.url);
 const accountURL=new URL(generated?'../global-state/native-value-account-authority-v2.mjs':'../../../src/accounts/authority/native-value-account-authority-v2.mjs',import.meta.url);
 const actorURL=new URL(generated?'../mobile/paired-original-account-actor-v2.mjs':'../../../src/api/mobile/paired-original-account-actor-v2.mjs',import.meta.url);
 const reviewURL=new URL(generated?'../../../../../mobile-protocol/src/original-account-review-v2.mjs':'../../../../mobile-protocol/src/original-account-review-v2.mjs',import.meta.url);
@@ -41,7 +41,11 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE fixed session co
 });
 async function capsule(root,options={}){
  const raw=await readFile(capsuleURL,'utf8');let source=raw.replace(/^import[\s\S]*?;[\r\n]+/gm,'').replace(/^export /gm,'');
- let imports=0;source=source.replace(/await import\('([^']+)'\)/g,(_full,path)=>{imports++;const key=path.includes('owned-evm-v2-runtime')?'runtimePort':path.includes('observed-clock')?'clockPort':path.includes('source-parts')?'partsPort':path.includes('account-authority')?'accountPort':path.includes('paired-original-account-actor')?'actorPort':path.includes('flat-manual-graph-session')?'sessionPort':null;assert.ok(key,'HOST_FIXED_IMPORT_PORT');return key;});assert.equal(imports,10,'HOST_SOURCE_IMPORT_CUT');
+ // This HOST fixture exercises the real journal with inert native snapshots.
+ // Remove only the fixed native composition, never journal validation or CAS.
+ source=source.replace(/const originalEvmRuntimeBackend = buildOwnedEvmRuntimeBackendV1\(Object\.freeze\(\{[\s\S]*?\n\}\)\);/, 'const originalEvmRuntimeBackend = Object.freeze({sourceRuntime:Object.freeze({})});');
+ source=source.replace(/const sourceRuntimeAPI = Object\.freeze\(\{[\s\S]*?\}\);/, 'const sourceRuntimeAPI = runtimePort;');
+ let imports=0;source=source.replace(/await import\('([^']+)'\)/g,(_full,path)=>{imports++;const key=path.includes('observed-clock')?'clockPort':path.includes('source-parts')?'partsPort':path.includes('account-authority')?'accountPort':path.includes('paired-original-account-actor')?'actorPort':path.includes('flat-manual-graph-session')?'sessionPort':null;assert.ok(key,'HOST_FIXED_IMPORT_PORT');return key;});assert.equal(imports,7,'HOST_SOURCE_IMPORT_CUT');
  const brands=new WeakMap(),resources={};let api;const handles={};let stopAfterCandidate=false,faultEnabled=false,faultIdentity=null,rootFault=false;
  class HostVault extends Vault{async update(...args){if(rootFault){rootFault=false;throw Error('HOST_ORIGINAL_BODY_ROOT_CAS_WINDOW');}if(stopAfterCandidate){stopAfterCandidate=false;throw Error('HOST_ORIGINAL_COMPLETED_CAS_WINDOW');}const result=await super.update(...args);if(faultEnabled&&await api?._hostNativeCandidate(result,faultIdentity,args[0])){stopAfterCandidate=true;}return result;}}
  async function retain(token,section,resource){const identity=api.nativeSourceRecoverySectionIdentityV1(token,section),value={schema:schemas[section],sourceSHA256:identity.sourceSHA256,ownedProcesses:[],confirmed:{schema:'EXPLICIT_INERT_SOURCE_HOST_SECTION_V1',section,financialAcceptance:false,...(section==='system'?{originalContracts:[randomBytes(700000).toString('base64'),randomBytes(700000).toString('base64')]}:{})},candidate:null};handles[section]=await api.retainOriginalNativeSourceSectionV1(token,section,value);resources[section]=resource;return resource;}

@@ -42,7 +42,7 @@ test('unmocked wrapper consumers reject shape, callback, proxy and legacy-name l
 });
 
 test('original wrapped scope migration and narrow fixed runtime routing are coherent',()=>{
-  const controller=source('./wrapped-controller-v1.mjs'),gate=source('./wrapped-evm-dispatch-gate-v1.mjs'),evm=source('../chain-adapters/owned-evm-v2-runtime.mjs');
+  const controller=source('./wrapped-controller-v1.mjs'),gate=source('./wrapped-evm-dispatch-gate-v1.mjs'),evm=source('../chain-adapters/owned-evm-runtime-backend-v1.mjs');
   assert.match(controller,/WRAPPED_CLAIM_AUTHORIZATION_LIFECYCLE_V4/);
   assert.match(controller,/openWrappedClaimOriginalAuthorizationLeaseV4\(token, quorum, result\)/);
   assert.match(controller,/return payoutKeyAuthorityV4\(row, prepared, authorization\)/);

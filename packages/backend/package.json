@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "API, cuentas, ejecución, adaptadores de redes y DeFi",
+  "description": "API, cuentas, ejecuci\u00f3n, adaptadores de redes y DeFi",
   "exports": {
     "./accounts/session": "./src/api/accounts/flat-account-session.mjs",
     "./accounts/http": "./src/api/accounts/flat-account-http.mjs",
@@ -25,7 +25,8 @@
     "./accounts/state/original-wallet-economic-state-v1": "./src/accounts/state/original-wallet-economic-state-v1.mjs",
     "./wallet/http-service": "./src/api/wallet/http-service.mjs",
     "./api/wallet/http/exact-action-capabilities": "./src/api/wallet/http/exact-action-capabilities.mjs",
-    "./api/wallet/http/public-errors": "./src/api/wallet/http/public-errors.mjs"
+    "./api/wallet/http/public-errors": "./src/api/wallet/http/public-errors.mjs",
+    "./operations/recovery/native-original-source-lifecycle-v1": "./src/operations/recovery/native-original-source-lifecycle-v1.mjs"
   },
   "lianum": {
     "status": "active"

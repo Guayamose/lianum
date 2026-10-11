@@ -9,7 +9,7 @@ import { createNativeValueAccountInterface } from './native-value/native-value-a
 
 import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1,
   updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1, consumeOriginalNativeSourceAccountCheckpointV1 }
-  from '../../operations/recovery/native-original-source-capsule-v1.mjs';
+  from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { assertOriginalNativeSourceObservedClockV1 } from '../../operations/recovery/native-original-source-observed-clock-v1.mjs';
 
 import { ownedNativeValueProviderCustodyReview as recoveryProviderReviewV1 } from '../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs';
