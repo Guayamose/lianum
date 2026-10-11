@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, statfsSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { PRIVATE_RESOURCE_FLOORS } from '../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { PRIVATE_RESOURCE_FLOORS } from '@lianum/components/resources/private-resource-policy';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const experiment = root + 'experiments/private-core-proof/';

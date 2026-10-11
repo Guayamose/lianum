@@ -7,7 +7,7 @@ import { gunzipSync } from 'node:zlib';
 import { ROOT, GOLDEN } from '../../../packages/proofs/src/catalog.mjs';
 import { regular, hash, jsonBytes, verifyAPI, loadPinned } from '../../../packages/proofs/src/tooling/tooling.mjs';
 import { compileSoliditySources } from '../../../packages/proofs/src/tooling/solidity-compiler.mjs';
-import { verifyToolchain, verifyCRS, CRS } from '../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+import { verifyToolchain, verifyCRS, CRS } from '@lianum/components/resources/wallet-resources';
 import { nativeValueDevHostSourcePinsV5 } from '../../../packages/backend/src/operations/releases/native-value/native-value-dev-source-pins-v5.mjs';
 import { W39_DEV_DIRECTORY_V5, W39_DEV_FILES_V5, W39_DEV_SOURCE_V5, W39_DEV_HISTORICAL_MISSING_V5, W39_DEV_KIND_V5,
   W39_DEV_NOIR_VERSION_V5, W39_DEV_SETTINGS_V5, W39_DEV_COUNTERS_V5, w39DevDigestV5,

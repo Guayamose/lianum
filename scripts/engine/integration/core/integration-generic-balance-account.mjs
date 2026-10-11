@@ -26,7 +26,7 @@ import { NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../packages/engine/src/ex
 import { createProofProcess } from '../../../../packages/proofs/src/execution/proof-process.mjs';
 import { wipePrivate } from '../../../../packages/proofs/src/execution/proof-worker.mjs';
 import { objectDigest } from '../../../../packages/engine/src/execution/balances/generic-balance-custody.mjs';
-import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const hash = value => createHash('sha256').update(value).digest('hex');

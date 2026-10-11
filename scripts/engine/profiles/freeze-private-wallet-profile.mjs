@@ -1,4 +1,4 @@
-import {PRIVATE_RESOURCE_POLICY,PRIVATE_RESOURCE_FLOORS} from '../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import {PRIVATE_RESOURCE_POLICY,PRIVATE_RESOURCE_FLOORS} from '@lianum/components/resources/private-resource-policy';
 /** Explicit local build step. Freezes public source/key lineage only; never
  * copies custody/runtime directories or witnesses, and never runs a node. */
 import assert from 'node:assert/strict';import {readFile,writeFile,readdir,stat} from 'node:fs/promises';import {join} from 'node:path';import {createHash} from 'node:crypto';import {projectRoot} from '../../../packages/engine/src/chains/shared/runtime-harness.mjs';

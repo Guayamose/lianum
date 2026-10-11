@@ -6,8 +6,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, realpat
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
-import { verifyToolchain, verifyCRS, hash, CRS, guard, resources } from '../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
-import { PRIVATE_RESOURCE_POLICY } from '../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { verifyToolchain, verifyCRS, hash, CRS, guard, resources } from '@lianum/components/resources/wallet-resources';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { ROOT, NATIVE_PROFILES, KEY_FORMAT, KEY_CLASSIFICATION, nativePaths, keySettings,
   assertCompiledNative, verifyNativeVerifier, validateNativeKeyBytes, validateNativeKey, installNativePin } from '../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
 

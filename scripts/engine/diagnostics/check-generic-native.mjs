@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join, resolve, relative, sep } from 'node:path';
-import { verifyToolchain } from '../../../experiments/engine/private-core-proof/wallet-notes/resources.mjs';
+import { verifyToolchain } from '@lianum/components/resources/wallet-resources';
 import { NATIVE_PROFILES } from '../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));

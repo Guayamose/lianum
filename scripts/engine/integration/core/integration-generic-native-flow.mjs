@@ -28,7 +28,7 @@ import { prepareNativeAdmission, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../.
 import { prepareNativeAggregatePair, prepareNativeAggregateAll, prepareNativeFulfillment } from '../../../../packages/engine/src/execution/native/dispatch/native-fulfillment.mjs';
 import { nativeReceiptCommitment } from '../../../../packages/engine/src/execution/native/state/native-receipt.mjs';
 import { reserveInputs, refundInputs, publicWords, digestHex } from '../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
-import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { parseGenericNativeFlowArguments, runPartialRefundNativeFlow } from '../../lib/generic-native-flow-profiles.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));

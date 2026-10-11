@@ -14564,6 +14564,20 @@
       "sha256": "f276c0866e468d63e2defbe875437601856c4f2516a596c1d9f6af7b55582434",
       "bytes": 144,
       "mode": "0644"
+    },
+    {
+      "path": "omnichain-product/src/private-resource-policy.mjs",
+      "sha256": "cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c",
+      "bytes": 833,
+      "mode": "0644",
+      "source": "packages/engine/src/crypto/private-resource-policy.mjs"
+    },
+    {
+      "path": "omnichain-product/src/private-verifier-crs.mjs",
+      "sha256": "ace66e3bcec0dfa278b1527f8338b16bf64d655d707b61dc42668947b3a740a0",
+      "bytes": 2188,
+      "mode": "0644",
+      "source": "packages/engine/src/crypto/private-verifier-crs.mjs"
     }
   ],
   "importSpellings": {
@@ -22787,8 +22801,6 @@
     "apps/wallet/src/server/errors/public-errors.mjs": "packages/backend/src/api/wallet/http/public-errors.mjs",
     "apps/wallet/src/server/security/exact-action-capabilities.mjs": "packages/backend/src/api/wallet/http/exact-action-capabilities.mjs",
     "apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs": "packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs",
-    "packages/engine/src/crypto/private-resource-policy.mjs": "packages/components/src/resources/private-resource-policy.mjs",
-    "packages/engine/src/crypto/private-verifier-crs.mjs": "packages/components/src/resources/private-verifier-crs.mjs",
     "packages/proofs/src/toolchain/wallet-resources.mjs": "packages/components/src/resources/wallet-resources.mjs",
     "apps/mobile/src/custody/poseidon2-bn254-v1.mjs": "packages/crypto/src/portable/poseidon2-bn254-v1.mjs",
     "packages/proofs/src/jobs/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs",

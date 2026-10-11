@@ -7,7 +7,7 @@ import {
   PRIVATE_RESOURCE_POLICY,
   PRIVATE_RESOURCE_FLOORS,
   PRIVATE_PROOF_WORKER_RSS_LIMIT,
-} from '../../../packages/engine/src/crypto/private-resource-policy.mjs';
+} from '@lianum/components/resources/private-resource-policy';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const mode = process.argv[2];

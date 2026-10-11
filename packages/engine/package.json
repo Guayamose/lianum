@@ -89,7 +89,9 @@
     "./wallet/resources/private-wallet-resource-telemetry": "./src/wallet/resources/private-wallet-resource-telemetry.mjs",
     "./wallet/runtime/private-wallet-runtime": "./src/wallet/runtime/private-wallet-runtime.mjs",
     "./wallet/runtime/private-wallet-session": "./src/wallet/runtime/private-wallet-session.mjs",
-    "./chains/shared/owned-process-lifecycle": "./src/chains/shared/owned-process-lifecycle.mjs"
+    "./chains/shared/owned-process-lifecycle": "./src/chains/shared/owned-process-lifecycle.mjs",
+    "./crypto/private-resource-policy": "./src/crypto/private-resource-policy.mjs",
+    "./crypto/private-verifier-crs": "./src/crypto/private-verifier-crs.mjs"
   },
   "lianum": {
     "status": "active"

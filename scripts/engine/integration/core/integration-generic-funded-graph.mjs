@@ -14,7 +14,7 @@ import { compileGenericPool, deployGenericPool } from '../../../../packages/engi
 import { genericVerifierSources } from '../../../../packages/engine/src/execution/local/local-profile.mjs';
 import { inspectGenericSnapshot, reserveProjection } from '../../../../packages/engine/src/execution/local/local-ledger.mjs';
 import { reserveInputs, refundInputs, publicWords, A0, digestHex } from '../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
-import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 
 const project = fileURLToPath(new URL('../', import.meta.url));
 export const GENERIC_FUNDED_ARGUMENT = '--authorized-local-generic-funded-graph';

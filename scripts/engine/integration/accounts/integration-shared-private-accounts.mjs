@@ -1,4 +1,4 @@
-import {PRIVATE_RESOURCE_POLICY} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 /** One explicitly authorized, local-only M26 functional acceptance attempt.
  * This CLI is deliberately inert when imported. It uses the production HTTP,
  * encrypted account, surviving keeper, proof and native-runtime paths. Only

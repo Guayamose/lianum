@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync, statfsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createOwnedBitcoinRuntime } from '../../../packages/engine/src/chains/bitcoin/bitcoin-runtime.mjs';
-import { PRIVATE_RESOURCE_FLOORS, PRIVATE_RESOURCE_POLICY } from '../../../packages/engine/src/crypto/private-resource-policy.mjs';
+import { PRIVATE_RESOURCE_FLOORS, PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 
 assert.deepEqual(process.argv.slice(2), ['--authorized-local-bitcoin-presign-observation'], 'BITCOIN_PROBE_ARGUMENTS');
 const root = fileURLToPath(new URL('../', import.meta.url));
