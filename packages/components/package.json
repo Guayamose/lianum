@@ -14,7 +14,8 @@
     "./plain-input": "./src/plain-input.mjs",
     "./resources/wallet-resources": "./src/resources/wallet-resources.mjs",
     "./resources/private-resource-policy": "./src/resources/private-resource-policy.mjs",
-    "./resources/private-verifier-crs": "./src/resources/private-verifier-crs.mjs"
+    "./resources/private-verifier-crs": "./src/resources/private-verifier-crs.mjs",
+    "./verification/current-sources": "./src/verification/current-source-generation.mjs"
   },
   "lianum": {
     "status": "active"

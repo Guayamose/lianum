@@ -1,3 +1,4 @@
+import {hasAdoptedSourceGeneration,assertAdoptedSourceGeneration} from './current-source-generation.mjs';
 /** REVIEW-ONLY, UNINSTALLED SOURCE INSPECTOR. This is not an activation entry,
  * supervisor identity, source-registration API, artifact owner, or permission.
  * The root below is a NEW proposed external installation input, not an existing
@@ -8,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { join } from 'node:path';
 import { legacyDataRoot } from '@lianum/environment';
 
 const APPROVED_WRAPPED_INSTALLATION_MANIFEST_SHA256_V2 = '58b9001db1337461301a3ae69e32f1fb292e1d68d2916ac5bac4921742c30ddd';
@@ -17,117 +18,8 @@ const MANIFEST_PATH = 'drafts/wrapped-activation-installation-v2/source-manifest
 const BOOTSTRAP_PATH = 'omnichain-flat-profile/flat-wallet/integration/wrapped-installation-source-inspector-v2.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
-// BEGIN PURE DATA CONTRACT. Tests extract this section only; they do not replace
-// the production root or manufacture an original supervisor/artifact identity.
-const SCHEMA = 'LIANUM_WRAPPED_INSTALLATION_SOURCE_MANIFEST_V2';
-const PURPOSE = 'SOURCE_AUTHENTICATION_ONLY_NO_EXECUTION_PERMISSION';
-const ANCHOR_ROLES = Object.freeze({
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/begin-payout-audit-policy-v1.mjs': 'raw-begin-payout-audit-release',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/wrapped-claim-release-v1.mjs': 'wrapped-claim-release',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/wrapped-wallet-release-v1.mjs': 'wrapped-account-release',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-value-wallet-host-source-pins-v4.mjs': 'native-host-table',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-value-wallet-release-v4.mjs': 'native-deployment-release',
-  'omnichain-flat-profile/flat-wallet/proof-workers/wrapped-claim-proof-pins-v1.mjs': 'wrapped-proof-pins',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/wrapped-withdrawal-release-v1.mjs': 'wrapped-withdrawal-release',
-  'omnichain-flat-profile/flat-wallet/proof-workers/native-value-wallet-role-source-pins-v4.mjs': 'native-role-table',
-  'omnichain-flat-profile/flat-wallet/proof-workers/native-value-wallet-role-release-v4.mjs': 'native-role-release',
-  'omnichain-flat-profile/flat-wallet/integration/wrapped-wallet-fixed-policy-v1.mjs': 'wrapped-entry-policy',
-  'omnichain-flat-profile/flat-wallet/integration/native-wallet-real-release-v4.mjs': 'native-entry-policy',
-});
-const REQUIRED_CONSUMERS = Object.freeze([
-  'omnichain-flat-profile/flat-wallet/integration/run-wrapped-deployment-only-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/integration/wrapped-deployment-only-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/integration/run-native-claim-begin-payout-audit-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/integration/run-wrapped-wallet-fixed-preflight-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/integration/run-wrapped-wallet-fixed-acceptance-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/integration/native-flow-supervisor.mjs',
-  'omnichain-flat-profile/flat-wallet/mobile-core/wrapped-claim-owner-process-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/mobile-core/flat-owner-custody.mjs',
-  'omnichain-flat-profile/flat-wallet/integration/wrapped-wallet-fixed-driver-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/integration/wrapped-wallet-fixed-fixture-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/wrapped-claim-deployment-artifacts-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/wrapped-claim-proof-artifacts-v1.mjs',
-  'omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/wrapped-claim-system-v1.mjs',
-]);
-function record(value, keys) {
-  assert.ok(value && typeof value === 'object' && !Array.isArray(value), 'WRAPPED_INSTALL_RECORD');
-  assert.deepEqual(Object.keys(value).sort(), [...keys].sort(), 'WRAPPED_INSTALL_FIELDS');
-}
-function canonical(value) {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
-  if (typeof value === 'number') {
-    assert.ok(Number.isSafeInteger(value) && value >= 0, 'WRAPPED_INSTALL_INTEGER');
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
-  assert.ok(value && typeof value === 'object', 'WRAPPED_INSTALL_JSON_VALUE');
-  return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical(value[key])).join(',') + '}';
-}
-function sourcePath(path) {
-  assert.equal(typeof path, 'string');
-  assert.ok(path.length <= 1024 && /^[A-Za-z0-9_./-]+$/.test(path) && !path.startsWith('/') &&
-    !path.split('/').some(part => !part || part === '.' || part === '..'), 'WRAPPED_INSTALL_PATH');
-  assert.ok(['omnichain-flat-profile/', 'omnichain-product/',
-    'drafts/native-value-verifier-preparation/', 'drafts/generic-native-admission-compile/'].some(prefix => path.startsWith(prefix)), 'WRAPPED_INSTALL_ROOT');
-  assert.notEqual(path, BOOTSTRAP_PATH, 'WRAPPED_INSTALL_ROOT_MUST_BE_EXTERNAL');
-  return path;
-}
-function validateManifest(raw, expectedDigest) {
-  assert.ok(Buffer.isBuffer(raw) && raw.length > 0 && raw.length <= 4 * 1024 * 1024, 'WRAPPED_INSTALL_MANIFEST_SIZE');
-  assert.match(expectedDigest, /^[0-9a-f]{64}$/, 'WRAPPED_INSTALL_TRUSTED_ROOT_REQUIRED');
-  assert.equal(sha(raw), expectedDigest, 'WRAPPED_INSTALL_MANIFEST_PIN');
-  const text = raw.toString('utf8'), manifest = JSON.parse(text);
-  assert.equal(Buffer.from(text, 'utf8').compare(raw), 0, 'WRAPPED_INSTALL_UTF8');
-  assert.equal(text, canonical(manifest) + '\n', 'WRAPPED_INSTALL_CANONICAL_JSON');
-  record(manifest, ['schema', 'version', 'purpose', 'state', 'sourceFiles']);
-  assert.equal(manifest.schema, SCHEMA, 'WRAPPED_INSTALL_SCHEMA');
-  assert.equal(manifest.version, 2, 'WRAPPED_INSTALL_VERSION');
-  assert.equal(manifest.purpose, PURPOSE, 'WRAPPED_INSTALL_PURPOSE');
-  assert.ok(['CLOSED_SOURCE_ONLY', 'POPULATED_SOURCE_ONLY'].includes(manifest.state), 'WRAPPED_INSTALL_STATE');
-  assert.ok(Array.isArray(manifest.sourceFiles) && manifest.sourceFiles.length > 0 && manifest.sourceFiles.length <= 10000, 'WRAPPED_INSTALL_ROWS');
-  let previous = '';
-  const paths = new Set();
-  for (const row of manifest.sourceFiles) {
-    record(row, ['path', 'role', 'bytes', 'sha256']); sourcePath(row.path);
-    assert.ok(row.path > previous, 'WRAPPED_INSTALL_SORT_OR_DUPLICATE'); previous = row.path;
-    assert.equal(row.role, ANCHOR_ROLES[row.path] ?? 'source', 'WRAPPED_INSTALL_ROLE');
-    assert.ok(Number.isSafeInteger(row.bytes) && row.bytes > 0 && row.bytes <= 16 * 1024 * 1024, 'WRAPPED_INSTALL_SOURCE_SIZE');
-    assert.match(row.sha256, /^[0-9a-f]{64}$/, 'WRAPPED_INSTALL_SOURCE_HASH');
-    paths.add(row.path); Object.freeze(row);
-  }
-  for (const path of [...Object.keys(ANCHOR_ROLES), ...REQUIRED_CONSUMERS])
-    assert.ok(paths.has(path), 'WRAPPED_INSTALL_REQUIRED_' + path);
-  Object.freeze(manifest.sourceFiles); return Object.freeze(manifest);
-}
-function validateSourceBytes(manifest, snapshot) {
-  assert.ok(snapshot instanceof Map && snapshot.size === manifest.sourceFiles.length, 'WRAPPED_INSTALL_EXACT_SNAPSHOT');
-  for (const row of manifest.sourceFiles) {
-    const bytes = snapshot.get(row.path);
-    assert.ok(Buffer.isBuffer(bytes), 'WRAPPED_INSTALL_SOURCE_MISSING');
-    assert.equal(bytes.length, row.bytes, 'WRAPPED_INSTALL_SOURCE_BYTES');
-    assert.equal(sha(bytes), row.sha256, 'WRAPPED_INSTALL_SOURCE_PIN');
-  }
-  return true;
-}
-function validateSnapshot(manifest, snapshot) {
-  validateSourceBytes(manifest, snapshot);
-  const known = new Set(manifest.sourceFiles.map(row=>row.path));
-  for (const row of manifest.sourceFiles) {
-    if (!row.path.endsWith('.mjs')) continue;
-    const text = snapshot.get(row.path).toString('utf8');
-    for (const match of text.matchAll(/(?:\bfrom\s+|^\s*import\s+|\bimport\s*\(\s*)(['"])([^'"]+)\1/gm)) {
-      const specifier = match[2]; if (specifier.startsWith('node:')) continue;
-      if (row.path === 'omnichain-product/experiments/private-core-proof/wallet-notes/prover.mjs' &&
-          ['@noir-lang/noir_js','@aztec/bb.js'].includes(specifier)) continue;
-      assert.ok(specifier.startsWith('.'), 'WRAPPED_INSTALL_FIXED_IMPORT');
-      const target = posix.normalize(posix.join(posix.dirname(row.path),specifier));
-      if (target === BOOTSTRAP_PATH) continue; // The ONE independently installed external TCB module.
-      sourcePath(target); assert.ok(known.has(target), 'WRAPPED_INSTALL_UNPINNED_IMPORT_' + target);
-    }
-  }
-  return true;
-}
-// END PURE DATA CONTRACT.
+import { SCHEMA, record, sourcePath, validateManifest, validateSourceBytes, validateSnapshot } from './wrapped-installation-data-v2.mjs';
+
 
 // Only pure pathname derivation is retained. No filesystem fact, source byte,
 // hash result, liveness observation or authority is cached by this map.
@@ -151,6 +43,7 @@ function fixedRead(relative, maximum) {
   assert.equal(bytes.length, before.size, 'WRAPPED_INSTALL_READ_SIZE'); return bytes;
 }
 let firstManifestBytes = null, firstBootstrapBytes = null, lastManifest = null, permanentlyFaulted = false;
+let firstSourceMode = null, firstAdoptedGeneration = null;
 const sourceWork = { inspections: 0, elapsedMilliseconds: 0, available: true, saturated: false };
 /** Bounded no-options work accounting only. No reset, configuration, source
  * bytes, paths, observation cache or authority is exposed by this snapshot. */
@@ -173,6 +66,33 @@ export function inspectWrappedInstallationSourcesV2() {
   sourceWork.inspections = Math.min(1_000_000_000, sourceWork.inspections + 1);
   sourceWork.saturated ||= sourceWork.inspections === 1_000_000_000;
   try {
+    const adoptedMode = hasAdoptedSourceGeneration();
+    const mode = adoptedMode ? 'ADOPTED_CURRENT_SOURCES' : 'ORIGINAL_INSTALLED_SOURCES';
+    firstSourceMode ??= mode;
+    assert.equal(mode, firstSourceMode, 'WRAPPED_INSTALLATION_SOURCE_MODE_CHANGED');
+    if (adoptedMode) {
+      // The explicitly reviewed generation authenticates current code. The
+      // original installation manifest remains a fixed immutable data contract
+      // for retained release/ABI/proof consumers; it never becomes new code.
+      const adopted = assertAdoptedSourceGeneration();
+      firstAdoptedGeneration ??= adopted.generation;
+      assert.equal(adopted.generation, firstAdoptedGeneration, 'WRAPPED_INSTALLATION_GENERATION_CHANGED');
+      assert.ok(adopted.sourceFiles.some(row => row.source ===
+        'packages/components/src/verification/wrapped-installation-source-inspector-v2.mjs'),
+        'WRAPPED_INSTALLATION_INSPECTOR_NOT_ADOPTED');
+      const raw = fixedRead(MANIFEST_PATH, 4 * 1024 * 1024);
+      if (firstManifestBytes !== null) assert.equal(raw.compare(firstManifestBytes), 0, 'WRAPPED_INSTALLATION_MANIFEST_CHANGED');
+      const manifest = lastManifest ?? validateManifest(raw, APPROVED_WRAPPED_INSTALLATION_MANIFEST_SHA256_V2);
+      const final = assertAdoptedSourceGeneration();
+      assert.equal(final.generation, adopted.generation, 'WRAPPED_INSTALLATION_GENERATION_CHANGED');
+      assert.equal(fixedRead(MANIFEST_PATH, 4 * 1024 * 1024).compare(raw), 0, 'WRAPPED_INSTALLATION_MANIFEST_CHANGED');
+      firstManifestBytes ??= Buffer.from(raw); lastManifest = manifest;
+      return Object.freeze({schema: SCHEMA, state: manifest.state,
+        sourceCount: adopted.sources, originalSourceCount: manifest.sourceFiles.length,
+        manifestSHA256: APPROVED_WRAPPED_INSTALLATION_MANIFEST_SHA256_V2,
+        adoptedSourceGeneration: adopted.generation, sourceBytesMatch: true,
+        immutableLifetimeEstablished: false, activationAuthorized: false});
+    }
     const bootstrap = fixedRead(BOOTSTRAP_PATH, 128 * 1024);
     if (firstBootstrapBytes !== null) assert.equal(bootstrap.compare(firstBootstrapBytes), 0, 'WRAPPED_INSTALLATION_BOOTSTRAP_CHANGED');
     const raw = fixedRead(MANIFEST_PATH, 4 * 1024 * 1024);
