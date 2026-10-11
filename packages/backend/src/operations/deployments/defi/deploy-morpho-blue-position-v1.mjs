@@ -3,9 +3,7 @@
  * The PAEG router/observer layer must use this private brand, not MetaMorpho. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
-import { ROOT } from '@lianum/proofs/catalog';
+import { loadOriginalProtocolAbiToolsV1 } from './official-protocol-resources-v1.mjs';
 import { assertOwnedLocalEvmV2 } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOfficialProtocolFixture } from './official-protocol-fixture-v3.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
@@ -58,9 +56,7 @@ async function buildOriginalBluePosition(input,saved) {
   await assertOwnedLocalEvmV2(runtime); assertOfficialProtocolFixture(runtime,p);
   assert.equal(runtime.metadata.chainId,'31337','ORIGINAL_BLUE_LOCAL_PROFILE');
   assert.ok(p.blue && p.first && p.marketId,'ORIGINAL_BLUE_MARKET_REQUIRED');
-  const directory = join(ROOT,'wallet-platform/artifacts/private-external-v1');
-  const require = createRequire(join(directory,'abi-tools/package.json'));
-  const {Interface,keccak256} = require('ethers'), build = compileOriginalMorphoBluePositionContractsV1();
+  const {Interface,keccak256} = loadOriginalProtocolAbiToolsV1(), build = compileOriginalMorphoBluePositionContractsV1();
   const artifact = build.artifacts.OriginalMorphoBluePositionV1, iface = new Interface(artifact.abi);
   if(saved){
     exactRecord(saved,['schema','profile','genesis','head','receipt','address','codeSHA256','compiler','inputSHA256','sourceRecords']);

@@ -6,16 +6,19 @@ import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, sep } from 'node:path';
-import { ROOT } from '@lianum/proofs/catalog';
-import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
+import { sourcePath, resourcePath } from '@lianum/environment';
 import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 export function compileOriginalMorphoBluePositionContractsV1() {
   assert.equal(arguments.length, 0);
   const sources = {};
-  for (const name of ['OriginalMorphoBluePositionV1.sol', 'PrivateMorphoBluePositionDeliveryV1.sol'])
-    sources['contracts/defi/' + name] = {content: readFileSync(join(ROOT, 'contracts/defi', name), 'utf8')};
+  const currentContracts = {
+    'OriginalMorphoBluePositionV1.sol': sourcePath('contracts/wallet/defi/OriginalMorphoBluePositionV1.sol'),
+    'PrivateMorphoBluePositionDeliveryV1.sol': sourcePath('contracts/wallet/defi/PrivateMorphoBluePositionDeliveryV1.sol'),
+  };
+  for (const [name,path] of Object.entries(currentContracts))
+    sources['contracts/defi/' + name] = {content: readFileSync(path, 'utf8')};
   const sha = value => createHash('sha256').update(value).digest('hex');
-  const tools = realpathSync(join(projectRoot,'tools/solidity-js'));
+  const tools = realpathSync(resourcePath('engine','tools/solidity-js'));
   const lock = readFileSync(join(tools,'package-lock.json'));
   assert.equal(sha(lock),GENERIC_COMPILER_PIN.lockSHA256,'BLUE_POSITION_SOLC_LOCK_PIN');
   const dependency = JSON.parse(lock).packages['node_modules/solc'];

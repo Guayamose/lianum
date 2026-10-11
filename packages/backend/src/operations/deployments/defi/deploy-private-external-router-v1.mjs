@@ -4,9 +4,8 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {createRequire} from 'node:module';
-import {dirname,join} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {join} from 'node:path';
+import {OFFICIAL_PROTOCOL_RESOURCE_DIRECTORY_V1 as D,loadOriginalProtocolAbiToolsV1} from './official-protocol-resources-v1.mjs';
 import {assertOfficialProtocolFixture} from './official-protocol-fixture-v3.mjs';
 import {assertOwnedLocalEvmV2} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertOwnedFlatSystem} from '../system/deploy-system.mjs';
@@ -16,7 +15,7 @@ import { officialAaveFixtureCompilationV1, assertOfficialAaveFixtureV1 } from '.
 import { expectedAaveRuntimeCodeV1 } from './aave-v3-runtime-code-v1.mjs';
 import { assertOwnedOriginalMorphoBluePositionV1, readOwnedOriginalMorphoBluePositionContextV1, readOwnedOriginalMorphoBluePositionCompilationV1 } from './deploy-morpho-blue-position-v1.mjs';
 const BLUE='MORPHO_BLUE_V1_EXACT_SHARE_SUPPLY';
-const D=join(dirname(fileURLToPath(import.meta.url)),'../../artifacts/private-external-v1'),owned=new WeakMap();
+const owned=new WeakMap();
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const bare=x=>{assert.ok(/^0x[0-9a-f]+$/.test(x));return x.slice(2);};
 const freeze=x=>{if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x);}return x;};
@@ -63,9 +62,7 @@ async function buildOwnedPrivateExternalRouterV1(input,recovery,position=null){
  assert.equal(pool.assetMetadata.address,output.address);assert.equal(pool.assetMetadata.kind,'ERC20');
  const parsed=aave||blue?null:metadata(),build=blue?readOwnedOriginalMorphoBluePositionCompilationV1(runtime,position):aave?officialAaveFixtureCompilationV1(runtime,p):null;
  const name=uni?'PrivateUniswapV3Delivery':'PrivateMetaMorphoDelivery',artifact=blue?build.artifacts.PrivateMorphoBluePositionDeliveryV1:aave?build.artifacts.PrivateAaveStaticDelivery:parsed.contracts['PrivateExternalDelivery.sol'][name];
- const vendorRaw=readFileSync(join(D,'protocol-fixture-artifact-pins.json'));assert.equal(sha(vendorRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8','FIXED_PROTOCOL_ARTIFACT_MANIFEST');const vendor=JSON.parse(vendorRaw);
- for(const row of vendor.files.filter(x=>x.path.startsWith('abi-tools/')))assert.equal(sha(readFileSync(join(D,row.path))),row.sha256,'ABI_VENDOR_PIN');
- const require=createRequire(join(D,'abi-tools/package.json')),{Interface}=require('ethers'),iface=new Interface(artifact.abi),solver=runtime.accounts[0];
+ const {Interface}=loadOriginalProtocolAbiToolsV1(),iface=new Interface(artifact.abi),solver=runtime.accounts[0];
  const initial=await runtime.block();await runtime.assertCanonical(initial);
  const poolCode=await runtime.code(pool.address,initial.number);
  const values={solver:bare(solver).padStart(64,'0'),inputAsset:bare(p.first.address).padStart(64,'0'),outputAsset:bare(output.address).padStart(64,'0'),

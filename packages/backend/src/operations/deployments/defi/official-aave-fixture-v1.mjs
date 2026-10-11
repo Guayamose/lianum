@@ -2,11 +2,10 @@
  * the genuine Pool/aToken, with a real paid flash-loan premium for yield. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {GENERIC_COMPILER_PIN} from '@lianum/engine/execution/local/local-deployment';
-import { ROOT } from '@lianum/proofs/catalog';
+import { sourcePath } from '@lianum/environment';
+import { loadOriginalProtocolAbiToolsV1 } from './official-protocol-resources-v1.mjs';
 import { assertOwnedLocalEvmV2 } from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { loadBackedAssetDeploymentArtifacts } from './deploy-backed-assets.mjs';
 import {loadOfficialAaveWrapperSourcesV1} from './aave-v3-official-material-v1.mjs';
@@ -42,12 +41,7 @@ export function officialAaveFixtureCompilationV1(runtime, fixture) {
 export async function createOfficialAaveFixtureV1(runtime) {
   assert.equal(arguments.length, 1); await assertOwnedLocalEvmV2(runtime); assert.equal(runtime.metadata.chainId, '31337');
   assertOfficialAaveSourceReviewV1();
-  const abiD = join(ROOT, 'wallet-platform/artifacts/private-external-v1');
-  const manifestRaw = readFileSync(join(abiD, 'protocol-fixture-artifact-pins.json'));
-  assert.equal(sha(manifestRaw), '9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8');
-  for (const row of JSON.parse(manifestRaw).files.filter(row => row.path.startsWith('abi-tools/')))
-    assert.equal(sha(readFileSync(join(abiD,row.path))), row.sha256);
-  const require = createRequire(join(abiD, 'abi-tools/package.json')), {Interface} = require('ethers');
+  const {Interface} = loadOriginalProtocolAbiToolsV1();
   const core = loadOfficialAaveCoreArtifactsV1(), build = compileAaveDevelopmentContractsV1();
   assert.equal(build.inputSHA256,OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1.compilationInputSHA256,'AAVE_REVIEWED_COMPILATION_INPUT');
   assert.equal(sha(JSON.stringify({artifacts:build.artifacts,sourceASTs:build.sourceASTs})),
@@ -199,7 +193,13 @@ function aaveRecoveryArtifactsV1(core,build){
 }
 function assertRetainedAaveBuildV1(build){
  assertOfficialAaveSourceReviewV1();assert.equal(build.compiler,GENERIC_COMPILER_PIN.version);assert.deepEqual(build.compilerPin,GENERIC_COMPILER_PIN);const sources=loadOfficialAaveWrapperSourcesV1();
- for(const name of ['BoundedMetaMorphoExit.sol','BoundedAaveStaticExit.sol','LocalAaveFlashYield.sol','PrivateAaveStaticDelivery.sol'])sources['contracts/defi/'+name]={content:readFileSync(join(ROOT,'contracts/defi',name),'utf8')};
+ const currentContracts = {
+  'BoundedMetaMorphoExit.sol': sourcePath('contracts/wallet/defi/BoundedMetaMorphoExit.sol'),
+  'BoundedAaveStaticExit.sol': sourcePath('contracts/wallet/defi/BoundedAaveStaticExit.sol'),
+  'LocalAaveFlashYield.sol': sourcePath('contracts/wallet/defi/LocalAaveFlashYield.sol'),
+  'PrivateAaveStaticDelivery.sol': sourcePath('contracts/wallet/defi/PrivateAaveStaticDelivery.sol'),
+ };
+ for(const [name,path] of Object.entries(currentContracts))sources['contracts/defi/'+name]={content:readFileSync(path,'utf8')};
  const settings={optimizer:{enabled:true,runs:200},evmVersion:'cancun',outputSelection:{'*':{'*':['abi','evm.bytecode','evm.deployedBytecode'],'':['ast']}}};
  assert.deepEqual(build.settings,settings);assert.equal(sha(JSON.stringify({language:'Solidity',sources,settings})),build.inputSHA256);assert.equal(build.inputSHA256,OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1.compilationInputSHA256);
  assert.equal(sha(JSON.stringify({artifacts:build.artifacts,sourceASTs:build.sourceASTs})),OFFICIAL_AAVE_DEVELOPMENT_SOURCE_REVIEW_V1.compilationOutputSHA256);
@@ -217,9 +217,7 @@ export async function captureOfficialAaveFixtureRecoveryV1(runtime,fixture){
 export async function reopenOfficialAaveFixtureRecoveryV1(token){
  assert.equal(arguments.length,1);const {consumeExternalDefiProtocolFixtureReopenV1}=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');const {runtime,record:r}=consumeExternalDefiProtocolFixtureReopenV1(token);
  exactRecord(r,['schema','genesis','head','buildFrame','records','proxies','actors']);assert.equal(r.schema,'ORIGINAL_OFFICIAL_AAVE_FIXTURE_V1');assert.equal(r.genesis,runtime.metadata.evmGenesis);await assertOwnedLocalEvmV2(runtime);assert.deepEqual(await runtime.block(),r.head);const retainedBuild=aaveBuildFromFrameV1(r.buildFrame);assertRetainedAaveBuildV1(retainedBuild);
- const pinsRaw=readFileSync(join(ROOT,'wallet-platform/artifacts/private-external-v1/protocol-fixture-artifact-pins.json'));assert.equal(sha(pinsRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8');
- for(const row of JSON.parse(pinsRaw).files.filter(row=>row.path.startsWith('abi-tools/')))assert.equal(sha(readFileSync(join(ROOT,'wallet-platform/artifacts/private-external-v1',row.path))),row.sha256);
- const {Interface}=createRequire(join(ROOT,'wallet-platform/artifacts/private-external-v1/abi-tools/package.json'))('ethers'),core=loadOfficialAaveCoreArtifactsV1(),artifacts=aaveRecoveryArtifactsV1(core,retainedBuild),deployments=[],byAddress=new Map(),libraries={};
+ const {Interface}=loadOriginalProtocolAbiToolsV1(),core=loadOfficialAaveCoreArtifactsV1(),artifacts=aaveRecoveryArtifactsV1(core,retainedBuild),deployments=[],byAddress=new Map(),libraries={};
  const libraryNames=new Set(Object.values(core.artifacts).flatMap(artifact=>Object.values(artifact.evm.bytecode.linkReferences).flatMap(refs=>Object.keys(refs))));
  for(const row of r.records){assert.ok(artifacts[row.name]&&!byAddress.has(row.address),'AAVE_ORIGINAL_DEPLOYMENT_REQUIRED');const artifact=artifacts[row.name];assert.equal(sha(JSON.stringify(artifact)),row.artifactSHA256);const originals=runtime.transactions.filter(tx=>tx.transactionHash===row.receipt.transactionHash);assert.equal(originals.length,1);const tx=originals[0];assert.equal(tx.label,'aave-official-deploy-'+row.name);assert.equal(tx.phase,'mined');assert.equal(tx.request.from,runtime.accounts[0]);assert.ok(tx.request.data.startsWith(linkAaveCreationCodeV1(artifact,libraries)));assert.equal(sha(Buffer.from(tx.request.data.slice(2),'hex')),row.creationSHA256);assert.deepEqual(tx.receipt,row.receipt);assert.equal(row.receipt.status,'0x1');assert.equal(row.receipt.contractAddress.toLowerCase(),row.address);await runtime.checkReceipt(row.receipt);await runtime.assertCanonical(row.receipt);assert.equal(await runtime.code(row.address,r.head.number),row.code);const record=Object.freeze({...structuredClone(row),iface:new Interface(artifact.abi)});deployments.push(record);byAddress.set(record.address,record);if(libraryNames.has(row.name))libraries[row.name]=row.address;}
  const proxies=[];

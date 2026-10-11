@@ -6,12 +6,12 @@ import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { Vault } from '@lianum/engine/crypto/vault';
 import { canonical } from '@lianum/engine/crypto/privacy';
-import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
-import { ROOT } from '@lianum/proofs/catalog';
+import { sourcePath } from '@lianum/environment';
+import { compileSoliditySources } from '@lianum/proofs/tooling/solidity-compiler';
+import { loadOriginalProtocolAbiToolsV1 } from '../../operations/deployments/defi/official-protocol-resources-v1.mjs';
 import { assertOwnedLocalEvmV2 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOfficialProtocolFixture } from '../../operations/deployments/defi/official-protocol-fixture-v3.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
@@ -52,15 +52,10 @@ export function readOriginalOfficialVaultNativeCostsV1(value, result) {
 }
 
 function compileExit() {
-  const source = readFileSync(join(ROOT, 'contracts/defi/BoundedMetaMorphoExit.sol'), 'utf8');
-  const require = createRequire(join(projectRoot, 'tools/solidity-js/package.json')), solc = require('solc');
-  assert.match(solc.version(), /^0\.8\.37\+commit\.f401782d/);
-  const settings = { optimizer: { enabled: true, runs: 200 }, evmVersion: 'cancun',
-    outputSelection: { '*': { '*': ['abi', 'evm.bytecode', 'evm.deployedBytecode'], '': ['ast'] } } };
-  const output = JSON.parse(solc.compile(JSON.stringify({ language: 'Solidity', sources: { 'BoundedMetaMorphoExit.sol': { content: source } }, settings })));
-  assert.deepEqual((output.errors ?? []).filter(row => row.severity === 'error'), [], 'METAMORPHO_EXIT_COMPILATION');
+  const source = readFileSync(sourcePath('contracts/wallet/defi/BoundedMetaMorphoExit.sol'), 'utf8');
+  const output = compileSoliditySources({ 'BoundedMetaMorphoExit.sol': { content: source, sha256: sha(source) } }, { profile: 'metamorpho-exit' });
   return { artifact: output.contracts['BoundedMetaMorphoExit.sol'].BoundedMetaMorphoExit,
-    ast: output.sources['BoundedMetaMorphoExit.sol'].ast, sourceSHA256: sha(source), compiler: solc.version() };
+    ast: output.sourceASTs['BoundedMetaMorphoExit.sol'], sourceSHA256: sha(source), compiler: output.compiler.version };
 }
 function expectedCode(build, vault, asset) {
   const names = Object.fromEntries(build.ast.nodes.filter(node => node.nodeType === 'ContractDefinition')
@@ -110,12 +105,12 @@ async function createOwnedProtocolVaultV1(input, variant, retained = null, posit
   const deploymentLabel=blue?'deploy-bounded-morpho-blue-position-exit':aave?'deploy-bounded-aave-static-exit':'deploy-bounded-metamorpho-exit';
   await assertOwnedLocalEvmV2(runtime); if(aave)assertOfficialAaveFixtureV1(runtime,fixture);else assertOfficialProtocolFixture(runtime, originalFixture);
   assert.equal(runtime.metadata.chainId, '31337');
-  const require = createRequire(join(ROOT, 'wallet-platform/artifacts/private-external-v1/abi-tools/package.json'));
+  const { Interface } = loadOriginalProtocolAbiToolsV1();
   const originalBuild = aave ? officialAaveFixtureCompilationV1(runtime,fixture) : null;
-  const { Interface } = require('ethers'), build = aave ? {...originalBuild,artifact:originalBuild.artifacts.BoundedAaveStaticExit,sourceSHA256:originalBuild.inputSHA256} : (retained?.saved?retained.saved.build:compileExit()), iface = new Interface(build.artifact.abi);
+  const build = aave ? {...originalBuild,artifact:originalBuild.artifacts.BoundedAaveStaticExit,sourceSHA256:originalBuild.inputSHA256} : (retained?.saved?retained.saved.build:compileExit()), iface = new Interface(build.artifact.abi);
   const sender = runtime.accounts[0], vault = fixture.vault, asset = fixture.first;
   const creation = '0x' + build.artifact.evm.bytecode.object + iface.encodeDeploy([vault.address]).slice(2);
-  if(retained?.saved){assert.equal(retained.saved.schema,'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_V1');assert.equal(retained.saved.variant,variant);assert.deepEqual(retained.saved.build,build);if(!aave)assert.equal(build.sourceSHA256,sha(readFileSync(join(ROOT,'contracts/defi/BoundedMetaMorphoExit.sol'),'utf8')));assert.match(build.compiler,/^0\.8\.37\+commit\.f401782d/);}
+  if(retained?.saved){assert.equal(retained.saved.schema,'EXTERNAL_ORIGINAL_OFFICIAL_VAULT_V1');assert.equal(retained.saved.variant,variant);assert.deepEqual(retained.saved.build,build);if(!aave)assert.equal(build.sourceSHA256,sha(readFileSync(sourcePath('contracts/wallet/defi/BoundedMetaMorphoExit.sol'),'utf8')));assert.match(build.compiler,/^0\.8\.37\+commit\.f401782d/);}
   const deployment = retained?.saved ? retained.saved.deployment : await runtime.send(deploymentLabel, { from: sender, data: creation });
   if(retained?.saved){const original=runtime.transactions.filter(row=>row.transactionHash===deployment.transactionHash);assert.equal(original.length,1);assert.equal(original[0].label,deploymentLabel);assert.equal(original[0].phase,'mined');assert.equal(original[0].request.from,sender);assert.equal(original[0].request.data,creation);assert.deepEqual(original[0].receipt,deployment);await runtime.checkReceipt(deployment);}
   await runtime.assertCanonical(deployment); const router = deployment.contractAddress.toLowerCase();

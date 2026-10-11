@@ -3,12 +3,10 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import {assertOwnedLocalEvmV2} from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {loadBackedAssetDeploymentArtifacts} from './deploy-backed-assets.mjs';
-import { legacyDataRoot } from '@lianum/environment';
-const D=join(legacyDataRoot('wallet'),'wallet-platform/artifacts/private-external-v1'),require=createRequire(join(D,'abi-tools/package.json'));
+import {OFFICIAL_PROTOCOL_RESOURCE_DIRECTORY_V1 as D,loadOriginalProtocolAbiToolsV1} from './official-protocol-resources-v1.mjs';
 let Interface,AbiCoder,keccak256;
 const zero='0x'+'0'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
 import { assertOfficialAaveFixtureV1 } from './official-aave-fixture-v1.mjs';
@@ -20,7 +18,7 @@ export async function createOfficialProtocolFixture(runtime){
  assert.equal(arguments.length,1);await assertOwnedLocalEvmV2(runtime);assert.equal(runtime.metadata.chainId,'31337');
  const pinsRaw=readFileSync(join(D,'protocol-fixture-artifact-pins.json'));assert.equal(sha(pinsRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8','FIXED_PROTOCOL_ARTIFACT_MANIFEST');const pins=JSON.parse(pinsRaw);
  for(const row of pins.files)assert.equal(sha(readFileSync(join(D,row.path))),row.sha256,'PROTOCOL_FIXTURE_ARTIFACT_PIN');
- ({Interface,AbiCoder,keccak256}=require('ethers'));
+ ({Interface,AbiCoder,keccak256}=loadOriginalProtocolAbiToolsV1());
  const sender=runtime.accounts[0],deployments=[];
  async function deploy(name,a,args){
   const iface=new Interface(a.abi),data=creation(a)+iface.encodeDeploy(args).slice(2);
@@ -95,7 +93,7 @@ async function reopenOfficialProtocolRecordV1({runtime,record:r},exitOnly=false)
  assert.equal(sha(pinsRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8','FIXED_PROTOCOL_ARTIFACT_MANIFEST');
  // Same fixed resource manifest as the original constructor.
  const sourcePins=JSON.parse(pinsRaw);for(const row of sourcePins.files)assert.equal(sha(readFileSync(join(D,row.path))),row.sha256);
- ({Interface,AbiCoder,keccak256}=require('ethers'));const artifacts=recoveryArtifactsV1();assert.deepEqual(r.records.map(x=>x.name),Object.keys(artifacts));
+ ({Interface,AbiCoder,keccak256}=loadOriginalProtocolAbiToolsV1());const artifacts=recoveryArtifactsV1();assert.deepEqual(r.records.map(x=>x.name),Object.keys(artifacts));
  const deployments=[];
  for(const packed of r.records){
   const a=artifacts[packed.name];assert.equal(sha(Buffer.from(JSON.stringify(a))),packed.artifactSHA256);

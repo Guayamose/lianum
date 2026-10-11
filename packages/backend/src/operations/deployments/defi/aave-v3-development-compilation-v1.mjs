@@ -5,17 +5,22 @@ import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, sep } from 'node:path';
-import { ROOT } from '@lianum/proofs/catalog';
-import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
+import { sourcePath, resourcePath } from '@lianum/environment';
 import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 import { loadOfficialAaveWrapperSourcesV1 } from './aave-v3-official-material-v1.mjs';
 export function compileAaveDevelopmentContractsV1() {
   assert.equal(arguments.length, 0);
   const sources = loadOfficialAaveWrapperSourcesV1();
-  for (const name of ['BoundedMetaMorphoExit.sol', 'BoundedAaveStaticExit.sol', 'LocalAaveFlashYield.sol', 'PrivateAaveStaticDelivery.sol'])
-    sources['contracts/defi/' + name] = {content: readFileSync(join(ROOT, 'contracts/defi', name), 'utf8')};
+  const currentContracts = {
+    'BoundedMetaMorphoExit.sol': sourcePath('contracts/wallet/defi/BoundedMetaMorphoExit.sol'),
+    'BoundedAaveStaticExit.sol': sourcePath('contracts/wallet/defi/BoundedAaveStaticExit.sol'),
+    'LocalAaveFlashYield.sol': sourcePath('contracts/wallet/defi/LocalAaveFlashYield.sol'),
+    'PrivateAaveStaticDelivery.sol': sourcePath('contracts/wallet/defi/PrivateAaveStaticDelivery.sol'),
+  };
+  for (const [name,path] of Object.entries(currentContracts))
+    sources['contracts/defi/' + name] = {content: readFileSync(path, 'utf8')};
   const sha = value => createHash('sha256').update(value).digest('hex');
-  const tools = realpathSync(join(projectRoot,'tools/solidity-js'));
+  const tools = realpathSync(resourcePath('engine','tools/solidity-js'));
   const lock = readFileSync(join(tools,'package-lock.json'));
   assert.equal(sha(lock),GENERIC_COMPILER_PIN.lockSHA256,'AAVE_SOLC_LOCK_PIN');
   const dependency = JSON.parse(lock).packages['node_modules/solc'];

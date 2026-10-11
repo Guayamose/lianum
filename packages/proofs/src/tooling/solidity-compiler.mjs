@@ -5,15 +5,16 @@ import { createRequire } from 'node:module';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
-import { legacyDataRoot } from '@lianum/environment';
+import { resourcePath } from '@lianum/environment';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
 export function compileSoliditySources(sourceMap, { profile = 'standard' } = {}) {
-  assert.ok(['standard', 'ledger-size', 'verifier'].includes(profile), 'SOLIDITY_FIXED_PROFILE');
+  assert.ok(['standard', 'ledger-size', 'verifier', 'metamorpho-exit'].includes(profile), 'SOLIDITY_FIXED_PROFILE');
   assert.ok(sourceMap && Object.getPrototypeOf(sourceMap) === Object.prototype);
   const names = Object.keys(sourceMap).sort();
   assert.ok(names.length > 0 && names.length <= 64, 'SOLIDITY_SOURCE_COUNT');
+  if (profile === 'metamorpho-exit') assert.deepEqual(names, ['BoundedMetaMorphoExit.sol'], 'SOLIDITY_METAMORPHO_SOURCE');
   const sources = {}, records = [];
   for (const name of names) {
     assert.match(name, /^[A-Za-z0-9_/-]+\.sol$/);
@@ -25,7 +26,7 @@ export function compileSoliditySources(sourceMap, { profile = 'standard' } = {})
     sources[name] = { content: record.content };
     records.push({ name, sha256: record.sha256, bytes: Buffer.byteLength(record.content) });
   }
-  const tools = realpathSync(join(legacyDataRoot('engine'), 'tools/solidity-js'));
+  const tools = realpathSync(resourcePath('engine', 'tools/solidity-js'));
   const lock = readFileSync(join(tools, 'package-lock.json'));
   assert.equal(sha(lock), GENERIC_COMPILER_PIN.lockSHA256, 'SOLIDITY_LOCK_PIN');
   const dependency = JSON.parse(lock).packages['node_modules/solc'];
@@ -41,7 +42,12 @@ export function compileSoliditySources(sourceMap, { profile = 'standard' } = {})
   const reset = compiler.cwrap('solidity_reset', null, []);
   // The linked ledger pair is deployment-size constrained. This fixed profile
   // trades runtime gas for bytecode size; it changes no EVM limit or predicate.
-  const settings = { optimizer: { enabled: true, runs: profile === 'standard' ? 200 : 1 }, viaIR: profile !== 'verifier',
+  // Retain MetaMorpho's original compiler settings, including metadata and
+  // the absence of viaIR: existing recovery records bind the exact bytecode.
+  const settings = profile === 'metamorpho-exit' ? {
+    optimizer: { enabled: true, runs: 200 }, evmVersion: 'cancun',
+    outputSelection: { '*': { '*': ['abi', 'evm.bytecode', 'evm.deployedBytecode'], '': ['ast'] } },
+  } : { optimizer: { enabled: true, runs: profile === 'standard' ? 200 : 1 }, viaIR: profile !== 'verifier',
     evmVersion: 'cancun', metadata: { bytecodeHash: 'none' },
     outputSelection: { '*': { '': ['ast'], '*': ['abi', 'evm.bytecode.object', 'evm.bytecode.linkReferences',
       'evm.deployedBytecode.object', 'evm.deployedBytecode.linkReferences',
