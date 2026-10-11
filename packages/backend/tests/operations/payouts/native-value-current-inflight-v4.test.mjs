@@ -2,19 +2,11 @@
  * These four races establish no native, signer, deployment or financial authority.
  * No production export, fake successful current-view certificate, key or proof.
  */
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createOriginalCurrentRoundChecksV4} from '../../../src/operations/operators/native-value/original-current-round-v4.mjs';
-let source;
-try { source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../src/operations/operators/native-value/native-value-operators-v4.mjs'), 'utf8'); }
-catch (error) {
-  // ./dev maps this existing domain directory to the same runtime ops folder.
-  assert.equal(error.code, 'ENOENT');
-  source = readFileSync(new URL('./native-value-operators-v4.mjs', import.meta.url), 'utf8');
-}
+import {createOriginalNativeInventoryRoundV4} from '../../../src/operations/operators/native-value/original-inventory-round-v4.mjs';
+import {nativeValueWatermark as watermark} from '../../../src/operations/operators/native-value/native-value-inventory-v4.mjs';
 function fixture(assertCurrent) {
   const checks = createOriginalCurrentRoundChecksV4();
   const reader = Object.freeze({assertCurrent});
@@ -78,7 +70,7 @@ test('settled phase is never cached and next phase rechecks an adverse head', as
 });
 
 
-/** HOST storage defect only. Execute the original audit/unchanged/save bodies
+/** HOST storage defect only. Exercise the complete original inventory mechanism
  * against the real encrypted V3 store. Native observation, binding validation
  * and current-view ports below are explicit inert data fixtures; no key, native
  * runtime, consensus, proof or financial acceptance is created. */
@@ -87,22 +79,9 @@ test('HOST original native audit avoids key-order-only AEAD commits and keeps ev
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
   const { isDeepStrictEqual } = await import('node:util');
-  const moduleURL = (canonical, mapped) => {
-    const candidate = new URL(canonical, import.meta.url);
-    try { readFileSync(candidate); return candidate; }
-    catch (error) { assert.equal(error.code, 'ENOENT'); const fallback = new URL(mapped, import.meta.url); readFileSync(fallback); return fallback; }
-  };
-  const storeModule = await import(moduleURL('../../../src/claims/storage/segmented-record-store.mjs', '../native-claims/segmented-record-store.mjs').href);
-  const readiness = await import(moduleURL('../../../src/execution/account/preparation/readiness-inputs.mjs', '../paeg/readiness-inputs.mjs').href);
-  const commitments = await import(moduleURL('../../../../components/src/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
-  const inventorySource = readFileSync(moduleURL('../../../src/operations/operators/native-value/native-value-inventory-v4.mjs', './native-value-inventory-v4.mjs'), 'utf8');
-  const watermarkLine = inventorySource.split('\n').filter(line => line.startsWith('export const nativeValueWatermark = '));
-  assert.equal(watermarkLine.length, 1);
-  const watermark = Function(watermarkLine[0].replace('export ', '') + '\nreturn nativeValueWatermark;')();
-  const unchangedAt = source.indexOf('  async function unchanged() {'), saveEnd = source.indexOf('  async function current() {', unchangedAt);
-  const auditAt = source.indexOf('  async function auditAll('), auditEnd = source.indexOf('  async function coverage(', auditAt);
-  assert.ok(unchangedAt >= 0 && saveEnd > unchangedAt && auditAt >= 0 && auditEnd > auditAt);
-  const bodies = source.slice(unchangedAt, saveEnd) + source.slice(auditAt, auditEnd);
+  const storeModule = await import('../../../src/claims/storage/segmented-record-store.mjs');
+  const readiness = await import('../../../src/execution/account/preparation/readiness-inputs.mjs');
+  const commitments = await import('../../../../components/src/encoding/commitments.mjs');
   const blockId = 'a'.repeat(64), nativeId = 'b'.repeat(64), gid = 'c'.repeat(64);
   const initial = { lastClock: '1000', inventories: [{ profileCommitment: 'd'.repeat(64), entries: [{
     original: { nativeId, facts: { nativeGid: gid } }, watermark: watermark({ finalizedBlockId: blockId, finalizedBlockHeight: '5' }),
@@ -140,8 +119,9 @@ test('HOST original native audit avoids key-order-only AEAD commits and keeps ev
       original: { facts: { finalizedBlockId: blockId, finalizedBlockHeight: control.height } },
     }; },
   };
-  const names = Object.keys(ports);
-  const live = Function(...names, bodies + '\nreturn {audit:auditAll, read:()=>record};')(...names.map(name => ports[name]));
+  const scope = {bound:ports.bound, active:ports.active, record:ports.record};
+  const mechanism = createOriginalNativeInventoryRoundV4(scope, ports);
+  const live = {audit:mechanism.audit, read:()=>scope.record};
   await live.audit(); await live.audit();
   assert.deepEqual({ reads: control.reads, currents: control.currents, observations: control.observations, commits: control.commits },
     { reads: 4, currents: 4, observations: 2, commits: 0 });
@@ -163,7 +143,7 @@ test('HOST original native audit avoids key-order-only AEAD commits and keeps ev
 });
 
 
-/** The actual certify/unchanged/save bodies over the real encrypted journal.
+/** Complete certification and journal transitions over the real encrypted journal.
  * Observation, facts encoding and serial entry are explicit inert ports here;
  * the retained fixture certificate conveys no signature/native authority. */
 test('HOST original retained native certification persists only a changed observation', async t => {
@@ -172,22 +152,9 @@ test('HOST original retained native certification persists only a changed observ
   const { join } = await import('node:path');
   const { createHash } = await import('node:crypto');
   const { isDeepStrictEqual } = await import('node:util');
-  const moduleURL = (canonical, mapped) => {
-    const candidate = new URL(canonical, import.meta.url);
-    try { readFileSync(candidate); return candidate; }
-    catch (error) { assert.equal(error.code, 'ENOENT'); const fallback = new URL(mapped, import.meta.url); readFileSync(fallback); return fallback; }
-  };
-  const storeModule = await import(moduleURL('../../../src/claims/storage/segmented-record-store.mjs', '../native-claims/segmented-record-store.mjs').href);
-  const readiness = await import(moduleURL('../../../src/execution/account/preparation/readiness-inputs.mjs', '../paeg/readiness-inputs.mjs').href);
-  const commitments = await import(moduleURL('../../../../components/src/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
-  const inventory = readFileSync(moduleURL('../../../src/operations/operators/native-value/native-value-inventory-v4.mjs', './native-value-inventory-v4.mjs'), 'utf8');
-  const watermarkLine = inventory.split('\n').filter(line => line.startsWith('export const nativeValueWatermark = '));
-  assert.equal(watermarkLine.length, 1);
-  const watermark = Function(watermarkLine[0].replace('export ', '') + '\nreturn nativeValueWatermark;')();
-  const unchangedAt = source.indexOf('  async function unchanged() {'), saveEnd = source.indexOf('  async function current() {', unchangedAt);
-  const certifyAt = source.indexOf('  async function certify('), certifyEnd = source.indexOf('  const operator = ', certifyAt);
-  assert.ok(unchangedAt >= 0 && saveEnd > unchangedAt && certifyAt >= 0 && certifyEnd > certifyAt);
-  const bodies = source.slice(unchangedAt, saveEnd) + source.slice(certifyAt, certifyEnd);
+  const storeModule = await import('../../../src/claims/storage/segmented-record-store.mjs');
+  const readiness = await import('../../../src/execution/account/preparation/readiness-inputs.mjs');
+  const commitments = await import('../../../../components/src/encoding/commitments.mjs');
   const hash = bytes => createHash('sha256').update(bytes).digest('hex');
   const nativeId = 'b'.repeat(64), profile = 'd'.repeat(64), blockId = 'a'.repeat(64);
   const facts = { nativeGid: 'c'.repeat(64), finalizedBlockId: blockId, finalizedBlockHeight: '5' };
@@ -232,8 +199,9 @@ test('HOST original retained native certification persists only a changed observ
     assertNativeValueSignature() { throw Error('HOST_UNEXPECTED_NEW_SIGNATURE'); },
     factsSchema() { throw Error('HOST_UNEXPECTED_NEW_CERTIFICATE'); }, signerIndex: 0,
   };
-  const names = Object.keys(ports);
-  live = Function(...names, bodies + '\nreturn {certify, checkJournal:unchanged, read:()=>record};')(...names.map(name => ports[name]));
+  const scope = {bound:ports.bound, active:ports.active, record:ports.record};
+  const mechanism = createOriginalNativeInventoryRoundV4(scope, ports);
+  live = {certify:mechanism.certify, checkJournal:mechanism.unchanged, read:()=>scope.record};
   const request = { poolIndex: 0, profileCommitment: profile, nativeId };
   assert.deepEqual(await live.certify(request), retained);
   assert.deepEqual(await live.certify(request), retained);

@@ -1,3 +1,4 @@
+import {createOriginalNativeInventoryRoundV4} from './original-inventory-round-v4.mjs';
 import {assertOriginalNativeAuditBudgetV4,runOriginalNativeAuditV4} from './original-audit-round-v4.mjs';
 import {createOriginalCurrentRoundChecksV4} from './original-current-round-v4.mjs';
 /** Fixed-purpose owned V2 operators. One private key and one atomic CAS journal
@@ -7,7 +8,7 @@ import {createOriginalCurrentRoundChecksV4} from './original-current-round-v4.mj
 import assert from 'node:assert/strict';
 import { privateFailureDiagnostic } from '../../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { retainNativeValueOriginalAuditTimingV1 } from '../../../execution/native-value/reconciliation/native-value-failure-retention.mjs';
-import { types, isDeepStrictEqual } from 'node:util';
+import { types } from 'node:util';
 import { createPrivateKey, createPublicKey, generateKeyPairSync } from 'node:crypto';
 import { signature as sign } from '@lianum/engine/notes/private-note-encoding';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
@@ -116,22 +117,15 @@ function createNativeOperator(raw,recovery=null) {
     finally { if (timing) timing.storeMilliseconds += performance.now() - began; }
   }
   function timingPhase(value) { if (active) active.timing.phase = value; }
-  async function unchanged() {
-    try { equal(await timedStore('load', () => bound.resources.store.load()), record); }
-    catch (cause) { poison(); throw new Error('NATIVE_VALUE_JOURNAL_UNAVAILABLE_OR_CHANGED', { cause }); }
-  }
-  async function save(next) {
-    try {
-      owned(); await unchanged(); const state = validateNativeValueOperatorInventory(next, bound.binding);
-      // A new revision is unnecessary when fresh validation leaves the whole
-      // retained state unchanged. Liveness, physical reads and validation above
-      // retain their original order and failure/poison semantics.
-      if (isDeepStrictEqual(state, record.state)) return;
-      const result = await timedStore('commit', () => bound.resources.store.commit(freeze({ expectedRevision: record.revision, nextState: copy(state) })));
-      exactRecord(result, ['revision', 'state']); assert.equal(inputUint(result.revision), BigInt(record.revision) + 1n); equal(result.state, state);
-      equal(await timedStore('load', () => bound.resources.store.load()), result); record = copy(result);
-    } catch (cause) { poison(); throw new Error('NATIVE_VALUE_DURABLE_WRITE_UNCERTAIN', { cause }); }
-  }
+  const inventoryRound = createOriginalNativeInventoryRoundV4({
+    get bound() {return bound;}, get record() {return record;},
+    set record(value) {record=value;}, get active() {return active;},
+  }, Object.freeze({copy,freeze,equal,exactRecord,inputUint,validateNativeValueOperatorInventory,
+    nativeValueWatermark,MAX_CERTIFICATES_PER_ORIGINAL,owned,poison,timedStore,current,observe,
+    profileCommitment,encodeFacts,sha256,bytes32,pool,serial,timingPhase,coverage,keySign,
+    assertNativeValueSignature,factsSchema,signerIndex,publicKey}));
+  const unchanged = () => inventoryRound.unchanged();
+  const save = next => inventoryRound.save(next);
   async function current() {
     const timing = active?.timing, began = performance.now();
     if (timing) timing.currentChecks++;
@@ -199,44 +193,7 @@ function createNativeOperator(raw,recovery=null) {
         sourceFailureCode:sourceExceptionCode(cause)??(diagnostic.code==='FLAT_EXECUTION_ORIGINAL_OUTCOME_UNRESOLVED'?null:diagnostic.code) };
     }
   }
-  async function auditAll(allowedPending = null) {
-    await current(); await unchanged(); const next = copy(record.state), blockers = [], observations = [];
-    next.lastClock = active.view.head.timestamp;
-    for (let i = 0; i < next.inventories.length; i++) {
-      const inventory = next.inventories[i], finality = new Map();
-      if (inventory.entries.length >= 64) blockers.push({ profileCommitment: inventory.profileCommitment, reason: 'NATIVE_VALUE_INVENTORY_SATURATED' });
-      for (const entry of inventory.entries) {
-        // Deliberately includes expired, unadmitted, unsigned and adverse rows.
-        const result = await observe(i, entry.original.nativeId, entry);
-        observations.push({ profileCommitment: inventory.profileCommitment, nativeId: entry.original.nativeId,
-          attempted: true, nativeObservationReturned: result.observed, authenticatedNativeReadCount: result.nativeReadCount, sourceStatus: result.sourceStatus, priorAdverse: entry.status === 'adverse' });
-        if (entry.status !== 'adverse') { entry.status = result.status; entry.reason = result.reason; }
-        entry.lastCheckedAt = active.view.head.timestamp;
-        if (result.status === 'live') {
-          entry.watermark = nativeValueWatermark(result.original.facts);
-          const height = entry.watermark.blockHeight, prior = finality.get(height);
-          if (prior && prior !== entry.watermark.blockId) { entry.status = 'adverse'; entry.reason = 'NATIVE_VALUE_PROFILE_FINALITY_DISAGREEMENT'; }
-          finality.set(height, entry.watermark.blockId);
-        }
-        if (entry.status !== 'live') blockers.push({ profileCommitment: inventory.profileCommitment, nativeId: entry.original.nativeId, nativeGid: entry.original.facts.nativeGid, status: entry.status, reason: entry.reason, sourceFailureCode: result.sourceFailureCode ?? null });
-        if (entry.pending && entry.pending.digest !== allowedPending) blockers.push({ profileCommitment: inventory.profileCommitment,
-          nativeId: entry.original.nativeId, reason: 'NATIVE_VALUE_UNFINISHED_SIGNING_INTENT' });
-        if (entry.history.length >= MAX_CERTIFICATES_PER_ORIGINAL) blockers.push({ profileCommitment: inventory.profileCommitment,
-          nativeId: entry.original.nativeId, reason: 'NATIVE_VALUE_SIGNED_HISTORY_SATURATED' });
-      }
-    }
-    for (const authorization of next.authorizations)
-      if (authorization.signature === null && authorization.digest !== allowedPending)
-        blockers.push({ reason: 'NATIVE_VALUE_UNFINISHED_HEALTH_INTENT' });
-    if (next.authorizations.length >= 256) blockers.push({ reason: 'NATIVE_VALUE_HEALTH_HISTORY_SATURATED' });
-    for (const authorization of next.checkpoints)
-      if (authorization.signature === null && authorization.digest !== allowedPending)
-        blockers.push({ reason: 'NATIVE_VALUE_UNFINISHED_CHECKPOINT_INTENT' });
-
-    if (!isDeepStrictEqual(next, record.state)) await save(next);
-    await current(); await unchanged();
-    return freeze({ head: copy(active.view.head), inventoryCount: String(observations.length), observations, blockers });
-  }
+  const auditAll = (pending = null) => inventoryRound.audit(pending);
   async function coverage(pending = null) {
     const report = await auditAll(pending); assertNativeValueHealthAllowed(active.view.healthState);
     if(report.blockers.length!==0)throw inventoryFailure(report.blockers); return report;
@@ -334,48 +291,7 @@ function createNativeOperator(raw,recovery=null) {
       return freeze({ message: copy(row.message), signature: row.signature, abiSignature: copy(row.abiSignature), signerIndex, head: copy(view.head), audit });
     }, shared);
   }
-  async function certify(request, shared = null) {
-    const input = copy(request); exactRecord(input, ['poolIndex', 'profileCommitment', 'nativeId']); pool(input.poolIndex); bytes32(input.nativeId, true); bytes32(input.profileCommitment, true);
-    return serial(input.poolIndex, async () => {
-      active.timing.operation = 'certify'; timingPhase('initial-coverage');
-      await coverage(); const i = bound.binding.profiles.findIndex(row => profileCommitment(row.profile) === input.profileCommitment);
-      assert.ok(i >= 0, 'NATIVE_VALUE_UNREGISTERED_PROFILE'); const inventory = record.state.inventories[i];
-      let position = inventory.entries.findIndex(entry => entry.original.nativeId === input.nativeId);
-      const previous = inventory.entries[position]; timingPhase('new-original-observation');
-      const result = await observe(i, input.nativeId, previous);
-      if (previous) {
-        const checked = copy(record.state), entry = checked.inventories[i].entries[position];
-        checked.lastClock = active.view.head.timestamp; entry.lastCheckedAt = active.view.head.timestamp;
-        if (entry.status !== 'adverse') { entry.status = result.status; entry.reason = result.reason; }
-        if (result.status === 'live') entry.watermark = nativeValueWatermark(result.original.facts);
-        timingPhase('checked-original-save'); await save(checked);
-      }
-      if(result.status!=='live'){
-        const failure=new Error('NATIVE_VALUE_NEW_ORIGINAL_UNAVAILABLE');
-        failure.causeCodes=Object.freeze([result.reason,result.sourceFailureCode].filter(value=>typeof value==='string'));
-        throw failure;
-      }
-      const facts = result.original.facts, bytes = encodeFacts(facts, bound.policies[i]), digest = sha256(bytes);
-      const retained = previous?.history.find(certificate => certificate.digest === digest);
-      if (retained) { timingPhase('retained-certificate-coverage'); await coverage(); return copy(retained); }
-      const next = copy(record.state);
-      if (position < 0) {
-        position = next.inventories[i].entries.length;
-        next.inventories[i].entries.push({ original: result.original, history: [], pending: null, watermark: nativeValueWatermark(facts),
-          status: 'live', reason: null, lastCheckedAt: active.view.head.timestamp, maximumEvidenceUntil: '0' });
-      }
-      const entry = next.inventories[i].entries[position];
-      entry.pending = { facts, frameHex: bytes.toString('hex'), digest }; next.lastClock = active.view.head.timestamp;
-      timingPhase('unsigned-intent-save'); await save(next); timingPhase('pre-key-coverage'); await coverage(digest);
-      timingPhase('key-sign'); const signature = keySign(bytes); assertNativeValueSignature(publicKey, signature, bytes);
-      const certificate = { schema: factsSchema(bound.policies[i]), signerIndex: String(signerIndex), facts, frameHex: bytes.toString('hex'), digest, signature };
-      const signed = copy(record.state), row = signed.inventories[i].entries[position];
-      row.history.push(certificate); row.pending = null;
-      if (BigInt(facts.observation.evidenceUntil) > BigInt(row.maximumEvidenceUntil)) row.maximumEvidenceUntil = facts.observation.evidenceUntil;
-      timingPhase('signed-save'); await save(signed); timingPhase('post-key-coverage'); await coverage();
-      timingPhase('return'); return freeze(copy(certificate));
-    }, shared);
-  }
+  const certify = (request, shared = null) => inventoryRound.certify(request, shared);
   const operator = Object.freeze({ profile: NATIVE_VALUE_OPERATOR_PROFILE, signerIndex, publicKey,
     async bind(input) {
       exactRecord(input, ['runtime', 'system']); live(); assert.ok(!bindAttempted, 'NATIVE_VALUE_BIND_ONCE'); bindAttempted = true;

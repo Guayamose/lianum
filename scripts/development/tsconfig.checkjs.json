@@ -75,6 +75,7 @@
     "../../apps/mobile/src/custody/device-graph-string-table-v5.ts",
     "../../apps/mobile/src/custody/device-note-stored-state-v1.ts",
     "../../apps/mobile/src/custody/device-recovery-copy-gate-v1.ts",
-    "../../packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs"
+    "../../packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
+    "../../packages/backend/src/operations/operators/native-value/original-inventory-round-v4.mjs"
   ]
 }
