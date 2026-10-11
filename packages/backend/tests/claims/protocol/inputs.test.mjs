@@ -231,13 +231,7 @@ test('same ticket with a new observed effect keeps ticket commitment; canonical 
 
 
 test('device-root CI51 public preparation matches original signed facts without accepting a note opening',async()=>{
- // Load only these two original pure bodies. Importing the full retained
- // owner module would load an unrelated compiler/layout at module startup.
- // Every framing/quorum dependency below is the real original implementation.
- const {readFile}=await import('node:fs/promises'),source=await readFile(new URL(import.meta.resolve('../../../src/claims/controller/controller-retained-state.mjs')),'utf8');
- const C=await import('@lianum/components/encoding/commitments'),R=await import('../../../src/execution/account/preparation/readiness-inputs.mjs'),F=await import('@lianum/engine/claims/framing'),N=await import('@lianum/engine/native/native-receipt-binding'),A=await import('@lianum/engine/execution/native/dispatch/native-admission'),Q=await import('@lianum/engine/evidence/native-quorum');
- const ports={assert,...C,...R,...F,...N,...A,...Q},start=source.indexOf('const ROOT_CLAIM_COMMON_FIELDS='),body=source.slice(start).replace('export async function buildDeviceRootClaimIngressPublicV2','async function buildDeviceRootClaimIngressPublicV2');assert.ok(start>0);
- const buildDeviceRootClaimIngressPublicV2=Function(...Object.keys(ports),body+'\nreturn buildDeviceRootClaimIngressPublicV2;')(...Object.values(ports));
+ const {buildDeviceRootClaimIngressPublicV2}=await import('../../../src/claims/controller/controller-retained-state.mjs');
  const raw=await fixture(),original=await buildClaimIngressInputs(raw,{hashFields});
  const outputQ=original.statement.outputQ,claimDomain=original.statement.claimDomain,
   receiptBinding={secret:claimReceiptSecret({claimDomain,noteSecret:raw.noteOpening.noteSecret,outputQ}),
