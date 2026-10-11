@@ -12,6 +12,10 @@
       "runtime": "omnichain-product/src/storage/"
     },
     {
+      "source": "packages/backend/src/accounts/authority/native-value/",
+      "runtime": "omnichain-flat-profile/flat-wallet/modules/account/"
+    },
+    {
       "source": "packages/environment/src/",
       "runtime": "omnichain-product/src/environment/"
     },

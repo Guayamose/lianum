@@ -310,32 +310,13 @@
     "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs": [
       "packages/custody/src/observers/native-value-owner-observer-v2.mjs",
       "packages/custody/src/observers/wrapped-claim-owner-observer-v1.mjs",
-      "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
       "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs",
-      "packages/custody/src/preparation/native-value-owner-manual-preparation-v1.mjs",
       "packages/custody/src/processes/native-value-owner-process-v2.mjs",
       "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs",
-      "packages/custody/src/signing/authorized-envelope.mjs",
       "packages/engine/src/crypto/vault.mjs",
       "packages/engine/src/execution/accounts/generic-account-journal.mjs",
       "packages/engine/src/execution/balances/generic-balance-native-preparation.mjs",
-      "packages/engine/src/execution/graph/funded-graph.mjs",
-      "packages/engine/src/execution/local/local-ledger.mjs",
-      "packages/engine/src/execution/proofs/proof-process.mjs",
-      "packages/engine/src/notes/private-note-encoding.mjs",
-      "packages/engine/src/notes/private-note-tree.mjs",
       "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
-      "packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-exit-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
-      "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs",
-      "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
-      "packages/proofs/src/jobs/native-device-private-deposit-client-v2.mjs",
-      "packages/proofs/src/jobs/native-device-private-exit-client-v2.mjs",
-      "packages/proofs/src/jobs/role-client.mjs",
       "packages/proofs/src/tooling/scoped-proof-tools.mjs"
     ],
     "packages/backend/src/accounts/portfolio/catalogue-owner-requests.mjs": [
@@ -1600,6 +1581,58 @@
       "packages/backend/src/execution/account/preparation/readiness-inputs.mjs",
       "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs"
+    ],
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs": [
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
+      "packages/engine/src/execution/proofs/proof-process.mjs",
+      "packages/engine/src/notes/private-note-encoding.mjs",
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
+      "packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
+      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
+      "packages/proofs/src/jobs/native-device-private-deposit-client-v2.mjs"
+    ],
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs": [
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
+      "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
+      "packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs"
+    ],
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs": [
+      "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs",
+      "packages/custody/src/preparation/native-value-owner-manual-preparation-v1.mjs",
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+    ],
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs": [
+      "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs"
+    ],
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs": [
+      "packages/custody/src/preparation/native-value-owner-manual-binding-v1.mjs",
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
+      "packages/engine/src/execution/local/local-ledger.mjs",
+      "packages/engine/src/execution/proofs/proof-process.mjs",
+      "packages/proofs/src/tooling/scoped-proof-tools.mjs"
+    ],
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs": [
+      "packages/custody/src/signing/authorized-envelope.mjs",
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
+      "packages/engine/src/execution/balances/generic-balance-native-preparation.mjs",
+      "packages/engine/src/execution/graph/funded-graph.mjs",
+      "packages/engine/src/execution/local/local-ledger.mjs",
+      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
+      "packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
+      "packages/proofs/src/jobs/role-client.mjs",
+      "packages/proofs/src/tooling/scoped-proof-tools.mjs"
+    ],
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs": [
+      "packages/engine/src/execution/accounts/generic-account-journal.mjs",
+      "packages/engine/src/execution/balances/generic-balance-native-preparation.mjs",
+      "packages/engine/src/execution/proofs/proof-process.mjs",
+      "packages/engine/src/notes/private-note-encoding.mjs",
+      "packages/engine/src/notes/private-note-tree.mjs",
+      "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
+      "packages/mobile-protocol/src/device-exit-consent-v1.mjs",
+      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
+      "packages/proofs/src/jobs/native-device-private-exit-client-v2.mjs"
     ]
   },
   "legacySupportImports": {
