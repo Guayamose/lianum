@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { ROOT, FLAT, GOLDEN, CANDIDATE, relation, NOIR_VERSION, SETTINGS } from '@lianum/proofs/catalog';
 import { assertABI, circuitIdentity, loadCompiled, loadPrepared, versionDirectory } from '@lianum/proofs/tooling/tooling';
 import { NATIVE_VALUE_ADMISSION_SPEC, NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256, assertNativeValueCompiledIdentity } from '@lianum/proofs/native-value/metadata/native-value-v2-profile';
+import { inspectRetainedNodeArtifactsForPreparationV1 } from '@lianum/proofs/tooling/retained-node-artifacts-v1';
 import { loadProofProfile } from '@lianum/proofs/execution/proof-worker';
 import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables } from '@lianum/engine/execution/local/local-deployment';
 import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
@@ -207,7 +208,8 @@ async function loadOriginalW39Verifier(pin,words,release) {
   inspectOriginalW39Adapter();return fixed.verifier;
 }
 
-async function loadVerifier(pin,role,words,release) {
+async function loadVerifier(pin,role,words,release,retainedNode=null) {
+  assert.ok(retainedNode===null||role==='node','RETAINED_NODE_FIXED_ROLE');
   if(role==='withdraw')return loadOriginalW39Verifier(pin,words,release);
   exactRecord(pin,['source','compiled','settingsSHA256','artifactSHA256','program','key','generation','constraints','lineage']);
   const sourceBytes=pinned(pin.source),compilation=json(pin.compiled);compiler(compilation,pin.settingsSHA256);
@@ -241,8 +243,8 @@ async function loadVerifier(pin,role,words,release) {
       context={spec,identity,toolchain:release.toolchain,sourceVersion,directory:versionDirectory(spec,sourceVersion)};
     }
     assert.equal(sourceVersion,pin.lineage.sourceVersion,'NATIVE_VALUE_ARTIFACT_CURRENT_SOURCE');assertABI(spec,program);
-    const compiled=role==='admission'?fixed.compiled:await loadCompiled(context);
-    const prepared=role==='admission'?fixed.prepared:await loadPrepared(context,compiled,release.crs);
+    const compiled=role==='admission'?fixed.compiled:retainedNode?.compiled??await loadCompiled(context);
+    const prepared=role==='admission'?fixed.prepared:retainedNode?.prepared??await loadPrepared(context,compiled,release.crs);
     assert.equal(compiled.manifestSHA256,pin.lineage.compiledManifestSHA256,'NATIVE_VALUE_ARTIFACT_COMPILED_LINEAGE');
     if(role==='node')assert.equal(prepared.pins.provenanceSHA256,pin.generation.sha256,'NATIVE_VALUE_ARTIFACT_NODE_GENERATION_REPORT');
     else assert.equal(prepared.manifestSHA256,pin.generation.sha256,'NATIVE_VALUE_ARTIFACT_KEY_MANIFEST_LINEAGE');
@@ -305,13 +307,14 @@ export async function loadNativeValueDeploymentArtifacts() {
 
 // Private shared validator only. The historical entry retains its exact V4
 // fences; the development entry never reuses or changes that host pin table.
-async function loadRetainedNativeValueArtifacts(release, producedLedger, producedW39) {
+async function loadRetainedNativeValueArtifacts(release, producedLedger, producedW39, preparePublishedReuse=false) {
+  const retainedNode = preparePublishedReuse ? await inspectRetainedNodeArtifactsForPreparationV1() : null;
   const ledger = loadLedger(release, producedLedger?.compiled ?? release.ledger.compiled);
   exactRecord(release.verifiers, NATIVE_VALUE_VERIFIER_ORDER.map(([role]) => role));
   const verifiers = {};
   for (const [role, words] of NATIVE_VALUE_VERIFIER_ORDER)
-    verifiers[role] = role==='withdraw'&&producedW39 ? producedW39.verifier : await loadVerifier(release.verifiers[role], role, words, release);
-  return { ledger, verifiers };
+    verifiers[role] = role==='withdraw'&&producedW39 ? producedW39.verifier : await loadVerifier(release.verifiers[role], role, words, release, role==='node'?retainedNode:null);
+  return { ledger, verifiers, nodeReuseReceipt:retainedNode?.receipt??null };
 }
 function retainedRawFilesUnchanged(release, producedLedger) {
   // Every path comes from the fixed original record. Re-read the raw artifact,
@@ -343,7 +346,7 @@ async function inspectFixedRetainedNativeValueArtifactsV5(compilerEvidenceOnly =
   assert.deepEqual(verifyCRS(), retained.crs, 'NATIVE_VALUE_DEV_CRS');
   const producedLedger = inspectProducedNativeValueLedgerV5();
   const producedW39 = inspectW39();
-  const loaded = await loadRetainedNativeValueArtifacts(retained, producedLedger, producedW39);
+  const loaded = await loadRetainedNativeValueArtifacts(retained, producedLedger, producedW39, preparePublishedReuse);
   retainedRawFilesUnchanged(retained, producedLedger);
   assert.deepEqual(nativeValueDevRetainedMetadataV5(), retained, 'NATIVE_VALUE_DEV_ORIGINAL_RECORD_CHANGED');
   assert.deepEqual(verifyToolchain(), retained.toolchain, 'NATIVE_VALUE_DEV_TOOLCHAIN_CHANGED');
@@ -405,6 +408,7 @@ export async function inspectRetainedNativeValueReuseForPreparationV6() {
     retainedMetadataSHA256: NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
     producedLedger: loaded.producedLedger, producedW39: loaded.producedW39.descriptor,
     verifierRoles: Object.keys(loaded.verifiers), reuseReceipt: loaded.producedW39.reuseReceipt,
+    nodeReuseReceipt: loaded.nodeReuseReceipt,
     artifactBundleIssued: false, compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
     toolchain: loaded.retained.toolchain, crs: loaded.retained.crs });
 }

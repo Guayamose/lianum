@@ -43,7 +43,8 @@
     "./execution/assembly-workers": "./src/execution/assembly-workers.mjs",
     "./execution/private-assembly-actor-process": "./src/execution/private-assembly-actor-process.mjs",
     "./execution/private-assembly-owner-process": "./src/execution/private-assembly-owner-process.mjs",
-    "./execution/private-wallet-signer-process": "./src/execution/private-wallet-signer-process.mjs"
+    "./execution/private-wallet-signer-process": "./src/execution/private-wallet-signer-process.mjs",
+    "./tooling/retained-node-artifacts-v1": "./src/tooling/retained-node-artifacts-v1.mjs"
   },
   "lianum": {
     "status": "active"
