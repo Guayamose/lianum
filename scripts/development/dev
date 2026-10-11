@@ -63,6 +63,7 @@ case "$task_command" in
     exec "$task_node_dir/node" --max-old-space-size=384 "$task_root/apps/platform/src/entry.mjs" "$@" ;;
   pins) exec python3 -B "$task_helpers/source_pins.py" "$@" ;;
   resources) exec python3 -B "$task_helpers/local_resources.py" "$@" ;;
+  bundle) exec python3 -B "$task_helpers/source_bundle.py" "$@" ;;
   sources) exec python3 -B "$task_helpers/source_generations.py" "$@" ;;
   legacy)
     task_legacy_command="${1:-help}"
