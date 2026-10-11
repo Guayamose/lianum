@@ -145,8 +145,11 @@ Un contrato tipado de un puerto no acredita el tipado de su implementación.
 SOURCE conserva la emisión y consumo de sus tokens privados de checkpoint y
 llama directamente al reconciliador de datos del journal. Ya no delega esa
 lectura a la autoridad de cuenta. Las entradas wrapped de cuenta, ejecutor,
-terminal, claims y sesión tienen consumidores directos a sus propietarios;
-las seis fachadas versionadas restantes solo están referenciadas por evidencia.
+terminal, claims y sesión tienen consumidores directos a sus propietarios.
+Las seis fachadas versionadas retiradas se conservan como `.source` con hash
+en `archive/source-evidence/retired-facades`, fuera de `src` y sin copias de
+ejecución. Los nombres antiguos de sus publicaciones se resuelven como evidencia;
+sus imports históricos no se siguen ni se ejecutan.
 
 Las excepciones identifican consumidor y destino exactos. Las reubicaciones
 conservan su procedencia; no conceden permiso para añadir nuevas dependencias.

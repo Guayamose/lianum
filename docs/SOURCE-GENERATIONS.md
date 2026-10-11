@@ -39,6 +39,12 @@ Los resultados viven en `.local/generations/`, fuera del código versionado:
 
 Repetir la preparación con las mismas fuentes reutiliza la generación y los objetos existentes. No crea otra copia del repositorio, herramientas, redes, custodia o compilaciones. Una modificación del objeto guardado se detecta y detiene la preparación.
 
+Las fuentes retiradas de los tres recolectores y seis fachadas tienen una
+reubicación explícita a evidencia `.source` nombrada por SHA-256. Sus nombres
+antiguos siguen sirviendo para comprobar publicaciones anteriores, pero no son
+entradas de ejecución. La captura verifica sus bytes, no sigue sus imports y
+rechaza una evidencia alterada. El constructor deja de generar sus copias.
+
 ## Qué se considera una dependencia
 
 La captura sigue los imports ESM literales, las URLs de módulos y los exports públicos declarados en los paquetes `@lianum/*` conocidos, partiendo del inventario publicado y sus reubicaciones explícitas. Los archivos TypeScript móviles están inventariados por bytes; este comando no certifica el cierre del bundler móvil. Las cargas con `createRequire` se enumeran como recursos que necesitan validación del consumidor. Incluye el `package.json` que decide cada export y el código al que apunta. Rechaza paquetes desconocidos, exports privados, rutas que escapan del paquete y enlaces simbólicos. Vuelve a comprobar los bytes tras la inspección para detectar ediciones concurrentes.
