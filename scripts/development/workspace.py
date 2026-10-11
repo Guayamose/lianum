@@ -100,6 +100,8 @@ def source_files(config):
             relative = str(path.relative_to(ROOT))
             if path.name in {'package.json', 'package-lock.json'} and relative not in known_sources:
                 continue
+            if relative in config.get('canonicalRuntimeSources', {}).values():
+                continue
             target = runtime_relative(relative, config)
             if target is None and path.suffix == ".md":
                 continue

@@ -2592,10 +2592,6 @@
       "runtime": "omnichain-product/src/paeg/note-withdraw-native-worker-v1.mjs"
     },
     {
-      "source": "packages/proofs/src/execution/note-native-execution-v1.mjs",
-      "runtime": "omnichain-product/src/paeg/note-native-execution-v1.mjs"
-    },
-    {
       "source": "packages/backend/src/operations/local/device-paged-graph-recipient-v3.mjs",
       "runtime": "omnichain-product/src/paeg/device-paged-graph-recipient-v3.mjs"
     },
@@ -2782,6 +2778,10 @@
     {
       "source": "packages/backend/src/api/accounts/native-manual-session-backend-v1.mjs",
       "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/native-manual-session-backend-v1.mjs"
+    },
+    {
+      "source": "packages/backend/src/api/accounts/native-manual-session-contract-v1.mjs",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/native-manual-session-contract-v1.mjs"
     },
     {
       "source": "packages/backend/src/api/mobile/paired-original-account-actor-contract-v2.mjs",
@@ -5030,13 +5030,6 @@
       "source": "tests/integration/wallet/manual/manual-wallet-handoff-acceptance.test.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/integration/manual-wallet-source-pins.mjs",
-      "sha256": "44bf75dc8f6e37d10131f1db81c8a52c009f68051729930ebe9226cf814cb28c",
-      "bytes": 2803,
-      "mode": "0644",
-      "source": "tests/integration/wallet/manual/manual-wallet-source-pins.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/integration/native-claim-begin-payout-audit-policy-v1.mjs",
       "sha256": "d34c11c31febdfed60b6ec4ff5841f2a8718806796a3b19d09324cae55673f26",
       "bytes": 5357,
@@ -5454,7 +5447,7 @@
       "sha256": "8db7a71a727dba5fc87acf1a0186e35133ced038c4dc4294f1707f644391a24b",
       "bytes": 3187,
       "mode": "0644",
-      "source": "packages/proofs/src/verification/sources/native-wallet-source-pins-v1.mjs"
+      "source": "tests/integration/wallet/native/native-wallet-real-source-pins-v1.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/integration/owned-evm-vault-fixture.mjs",
@@ -5797,7 +5790,7 @@
       "sha256": "6a1965d17b0067c8d5aa29ba760aba336ae6051ee8872e7823818a6a8eef258c",
       "bytes": 6864,
       "mode": "0644",
-      "source": "packages/proofs/src/verification/sources/flow-source-pins.mjs"
+      "source": "tests/integration/runners/source-pins.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/integration/synthetic-completion-fixture.mjs",
@@ -5846,7 +5839,7 @@
       "sha256": "43f0404c81fbe6961c24255a73509caec99014026cd2eb23795abd2b5b8298f7",
       "bytes": 1416,
       "mode": "0644",
-      "source": "packages/proofs/src/verification/sources/flow-task-catalog.mjs"
+      "source": "tests/integration/runners/task-catalog.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/integration/verifier-compilation-worker.mjs",
@@ -6633,13 +6626,6 @@
       "source": "packages/proofs/src/catalog.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/proof-workers/native-flow-proof-scope-v1.mjs",
-      "sha256": "fc2a76ef1497d0389e15d1973f8e52f9228ce4eba80c6dd468b2a863f0e2a0e3",
-      "bytes": 12152,
-      "mode": "0644",
-      "source": "packages/proofs/src/jobs/native-flow-proof-scope-v1.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/proof-workers/native-flow-proof-scope-v1.test.mjs",
       "sha256": "e204ce810ef806916c1f6186824e117d59428bf4a64956a86127da67116df5c4",
       "bytes": 13122,
@@ -6666,13 +6652,6 @@
       "bytes": 7535,
       "mode": "0644",
       "source": "packages/backend/src/proving/native-ingress/tooling/native-ingress-v3-run-bounded.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/proof-workers/native-ingress-v3-tooling.mjs",
-      "sha256": "dd9403b4db23996a5bdf2e5533e8f037267d111fbf5bb1afb4ed8699f006534f",
-      "bytes": 4779,
-      "mode": "0644",
-      "source": "packages/backend/src/proving/native-ingress/tooling/native-ingress-v3-tooling.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/proof-workers/native-ingress-v3-worker.mjs",
@@ -6780,13 +6759,6 @@
       "source": "packages/proofs/src/verification/pinned-verifier.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/proof-workers/role-client.mjs",
-      "sha256": "4ff7957b1d6ac5b339d868600078e76b4bd7836f0e25dd03dbd904e9afccaf44",
-      "bytes": 9327,
-      "mode": "0644",
-      "source": "packages/backend/src/proving/roles/role-client.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/proof-workers/role-client.test.mjs",
       "sha256": "3adc01e710e53f9d0d68da4f76ec614a4752675ef8bdf2353a5dc94b43a9e4ea",
       "bytes": 1089,
@@ -6799,20 +6771,6 @@
       "bytes": 2447,
       "mode": "0644",
       "source": "packages/proofs/src/jobs/role-process.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/proof-workers/run-bounded.mjs",
-      "sha256": "ddc99882668abdf735fdbaa0ccc1cc87911a16e576ca7edd1b5efa8ff3a026e0",
-      "bytes": 14761,
-      "mode": "0644",
-      "source": "packages/proofs/src/jobs/run-bounded.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/proof-workers/scoped-proof-tools.mjs",
-      "sha256": "25798d6235d4a78a6a8eb91b3725406c782cb5968dfb548ce468357c533b11a4",
-      "bytes": 3612,
-      "mode": "0644",
-      "source": "packages/proofs/src/tooling/scoped-proof-tools.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs",
@@ -6834,13 +6792,6 @@
       "bytes": 6830,
       "mode": "0644",
       "source": "packages/proofs/src/jobs/trusted-jobs.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/proof-workers/worker.mjs",
-      "sha256": "2a4710ea5f4fe921ac2d3b8b04c6f25dbdd94b10efb4b26fc7d9311838288a45",
-      "bytes": 23260,
-      "mode": "0644",
-      "source": "packages/proofs/src/jobs/worker.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/proof-workers/wrapped-claim-abi-reviewed-v2.json",
@@ -16353,12 +16304,6 @@
     "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs": {
       "../controller/wrapped-controller-v1.mjs": "./wrapped-controller-v1.mjs"
     },
-    "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs": {
-      "../../../execution/encoding/commitments.mjs": "../paeg/commitments.mjs",
-      "../../../chains/evm/runtime/owned-evm-v2-runtime.mjs": "../chain-adapters/owned-evm-v2-runtime.mjs",
-      "../../storage/segmented-record-store.mjs": "./segmented-record-store.mjs",
-      "./wrapped-recovery-authority-v1.mjs": "./wrapped-recovery-authority-v1.mjs"
-    },
     "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs": {
       "../../../execution/encoding/commitments.mjs": "../paeg/commitments.mjs",
       "../../storage/segmented-record-store.mjs": "./segmented-record-store.mjs",
@@ -20150,14 +20095,6 @@
       "../../../../tests/integration/native/native-flow-owned-files-v1.mjs": "../integration/native-flow-owned-files-v1.mjs",
       "./begin-payout-audit-policy-v1.mjs": "../wallet-platform/modules/native-claims/begin-payout-audit-policy-v1.mjs"
     },
-    "packages/proofs/src/jobs/role-client.mjs": {
-      "./native-flow-proof-scope-v1.mjs": "./native-flow-proof-scope-v1.mjs",
-      "../catalog.mjs": "./catalog.mjs",
-      "../native-ingress/metadata/native-ingress-v3-profile.mjs": "./native-ingress-v3-profile.mjs",
-      "../tooling/tooling.mjs": "./tooling.mjs",
-      "../../../backend/src/execution/account/preparation/readiness-inputs.mjs": "../wallet-platform/modules/paeg/readiness-inputs.mjs",
-      "../../../backend/src/execution/encoding/commitments.mjs": "../wallet-platform/modules/paeg/commitments.mjs"
-    },
     "packages/proofs/src/jobs/role-process.mjs": {
       "./native-flow-proof-scope-v1.mjs": "./native-flow-proof-scope-v1.mjs",
       "../catalog.mjs": "./catalog.mjs",
@@ -22399,11 +22336,6 @@
       "../../../packages/backend/src/execution/encoding/statements.mjs": "../wallet-platform/modules/paeg/statements.mjs",
       "../../../packages/proofs/src/verification/sources/flow-source-pins.mjs": "./source-pins.mjs"
     },
-    "packages/proofs/src/verification/sources/flow-source-pins.mjs": {
-      "../../catalog.mjs": "../proof-workers/catalog.mjs",
-      "../../tooling/tooling.mjs": "../proof-workers/tooling.mjs",
-      "./flow-task-catalog.mjs": "./task-catalog.mjs"
-    },
     "tests/integration/wallet/manual/manual-wallet-acceptance-policy.test.mjs": {
       "./manual-wallet-acceptance-policy.mjs": "./manual-wallet-acceptance-policy.mjs",
       "../../native/native-flow-supervisor.mjs": "./native-flow-supervisor.mjs",
@@ -22436,11 +22368,6 @@
       "./manual-wallet-acceptance-policy.mjs": "./manual-wallet-acceptance-policy.mjs",
       "../../../../packages/backend/src/defi/vaults/owned-backed-vault.mjs": "../wallet-platform/modules/defi-adapters/owned-backed-vault.mjs",
       "../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs": "../wallet-platform/modules/defi-adapters/private-vault-exit.mjs"
-    },
-    "tests/integration/wallet/manual/manual-wallet-source-pins.mjs": {
-      "../../../../packages/proofs/src/catalog.mjs": "../proof-workers/catalog.mjs",
-      "../../../../packages/proofs/src/tooling/tooling.mjs": "../proof-workers/tooling.mjs",
-      "../../../../packages/proofs/src/verification/sources/flow-source-pins.mjs": "./source-pins.mjs"
     },
     "tests/integration/wallet/manual/run-manual-wallet-acceptance.mjs": {
       "../../native/native-flow-supervisor.mjs": "./native-flow-supervisor.mjs"
@@ -22512,11 +22439,6 @@
     },
     "tests/integration/wallet/native/native-wallet-real-preflight-v1.mjs": {
       "./native-wallet-real-driver-v1.mjs": "./native-wallet-real-driver-v1.mjs"
-    },
-    "packages/proofs/src/verification/sources/native-wallet-source-pins-v1.mjs": {
-      "../../catalog.mjs": "../proof-workers/catalog.mjs",
-      "../../tooling/tooling.mjs": "../proof-workers/tooling.mjs",
-      "./flow-source-pins.mjs": "./source-pins.mjs"
     },
     "tests/integration/wallet/native/run-native-wallet-real-acceptance-v1.mjs": {
       "../../native/native-flow-supervisor.mjs": "./native-flow-supervisor.mjs"
@@ -22807,11 +22729,17 @@
     "apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs": "packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs",
     "packages/proofs/src/toolchain/wallet-resources.mjs": "packages/components/src/resources/wallet-resources.mjs",
     "apps/mobile/src/custody/poseidon2-bn254-v1.mjs": "packages/crypto/src/portable/poseidon2-bn254-v1.mjs",
-    "packages/proofs/src/jobs/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs",
     "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+    "packages/proofs/src/jobs/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs",
     "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-system-recovery-backend-v1.mjs",
     "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
     "packages/backend/tests/support/authority-source-host.mjs": "packages/backend/tests/support/native-source-host.mjs",
+    "packages/proofs/src/verification/sources/flow-source-pins.mjs": "tests/integration/runners/source-pins.mjs",
+    "packages/proofs/src/verification/sources/flow-task-catalog.mjs": "tests/integration/runners/task-catalog.mjs",
+    "packages/proofs/src/verification/sources/native-wallet-source-pins-v1.mjs": "tests/integration/wallet/native/native-wallet-real-source-pins-v1.mjs",
+    "tests/integration/wallet/manual/manual-wallet-source-pins.mjs": "archive/source-evidence/retired-source-collectors/a60426934c91ea38ec06a6890c5b7507233985320d5b171a5fe5c9ac9535aebe.source",
+    "tests/integration/wallet/manual/manual-wallet-browser-source-pins.mjs": "archive/source-evidence/retired-source-collectors/dc36be69d200b5729e9b4c949535727edcaf6157a45a659b01bbd2a88e0918ab.source",
+    "tests/integration/wallet/manual/manual-wallet-browser-recovery-source-pins.mjs": "archive/source-evidence/retired-source-collectors/2b928a14bd0b27888143bb40298f2f845576cbdf89b35e9d07309fa9c28ce425.source",
     "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": "packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs",
     "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-deposit-bridge-backend-v1.mjs",
     "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-reservation-bridge-backend-v1.mjs",
@@ -22826,9 +22754,67 @@
     ]
   },
   "retiredRuntimeSources": {
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs": "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+    "omnichain-product/src/paeg/device-paged-graph-recipient-v3.mjs": "packages/engine/src/execution/local/device-paged-graph-recipient-v3.mjs",
+    "omnichain-product/src/paeg/device-paged-private-graph-v3.mjs": "packages/engine/src/execution/local/device-paged-private-graph-v3.mjs",
+    "omnichain-product/src/paeg/device-paged-proof-recipient-v3.mjs": "packages/engine/src/execution/local/device-paged-proof-recipient-v3.mjs",
+    "omnichain-product/src/paeg/funded-graph-paged-deployment-v3.mjs": "packages/engine/src/execution/local/funded-graph-paged-deployment-v3.mjs",
+    "omnichain-product/src/paeg/note-deposit-native-worker-v1.mjs": "packages/engine/src/execution/proofs/note-deposit-native-worker-v1.mjs",
+    "omnichain-product/src/paeg/note-withdraw-native-worker-v1.mjs": "packages/engine/src/execution/proofs/note-withdraw-native-worker-v1.mjs",
+    "omnichain-product/src/funded-graph-paged-wallet-v3.mjs": "packages/engine/src/wallet/notes/funded-graph-paged-wallet-v3.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/private-proof-transit-v1.mjs": "packages/proofs/src/jobs/private-proof-transit-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-claims-build-worker.mjs": "packages/proofs/src/native-ingress/runtime/native-claims-build-worker.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-claims-build-common.mjs": "packages/proofs/src/native-ingress/tooling/native-claims-build-common.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-artifacts.mjs": "packages/proofs/src/native-value/metadata/native-value-dev-live-v5-artifacts.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-client.mjs": "packages/proofs/src/native-value/runtime/native-value-dev-live-v5-client.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-native-execution.mjs": "packages/proofs/src/native-value/runtime/native-value-dev-live-v5-native-execution.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-public-crs.mjs": "packages/proofs/src/native-value/runtime/native-value-dev-live-v5-public-crs.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-role-process.mjs": "packages/proofs/src/native-value/runtime/native-value-dev-live-v5-role-process.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-worker.mjs": "packages/proofs/src/native-value/runtime/native-value-dev-live-v5-worker.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-run-bounded.mjs": "packages/proofs/src/native-value/tooling/native-value-dev-live-v5-run-bounded.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-value-dev-live-v5-tooling.mjs": "packages/proofs/src/native-value/tooling/native-value-dev-live-v5-tooling.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/view-model.mjs": "apps/wallet/src/client/state/view-model.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/owner-graph-review-v1.mjs": "apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/exact-action-browser-review.mjs": "apps/wallet/src/client/features/accounts/exact-action-browser-review.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/manual-action-handoff.mjs": "apps/wallet/src/client/features/accounts/manual-action-handoff.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/native-note-review.mjs": "apps/wallet/src/client/features/claims/native-note-review.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/wrapped-withdrawal-resume-actions.mjs": "apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/wrapped-withdrawal-review.mjs": "apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-review.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/generation-defi-contract.mjs": "apps/wallet/src/client/features/defi/generation-defi-contract.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/owner-portfolio-contract.mjs": "apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/generation-position-state-v2.mjs": "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/public-token-observations.mjs": "apps/wallet/src/client/features/portfolio/public-token-observations.mjs",
+    "omnichain-flat-profile/flat-wallet/workspace-support/apps/wallet/src/server/errors/public-errors.mjs": "apps/wallet/src/server/errors/public-errors.mjs",
+    "omnichain-flat-profile/flat-wallet/workspace-support/apps/wallet/src/server/security/exact-action-capabilities.mjs": "apps/wallet/src/server/security/exact-action-capabilities.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-app/public/original-economic-state-v1.mjs": "apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/toolchain/wallet-resources.mjs": "packages/proofs/src/toolchain/wallet-resources.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-system-composition-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/test-support/authority-source-host.mjs": "packages/backend/tests/support/authority-source-host.mjs",
+    "omnichain-flat-profile/flat-wallet/integration/manual-wallet-source-pins.mjs": "tests/integration/wallet/manual/manual-wallet-source-pins.mjs",
+    "omnichain-flat-profile/flat-wallet/integration/manual-wallet-browser-source-pins.mjs": "tests/integration/wallet/manual/manual-wallet-browser-source-pins.mjs",
+    "omnichain-flat-profile/flat-wallet/integration/manual-wallet-browser-recovery-source-pins.mjs": "tests/integration/wallet/manual/manual-wallet-browser-recovery-source-pins.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/paired-original-account-actor-v2.mjs": "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
+  },
+  "canonicalRuntimeSources": {
+    "omnichain-flat-profile/flat-wallet/proof-workers/wallet-note-private-prover-v4.mjs": "packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-private-note-process-v3.mjs": "packages/proofs/src/jobs/native-private-note-process-v3.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-private-note-execution-v3.mjs": "packages/proofs/src/jobs/native-private-note-execution-v3.mjs",
+    "omnichain-product/src/paeg/note-native-execution-v1.mjs": "packages/proofs/src/execution/note-native-execution-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/worker.mjs": "packages/proofs/src/jobs/worker.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/run-bounded.mjs": "packages/proofs/src/jobs/run-bounded.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/authorization-native-execution-v1.mjs": "packages/proofs/src/jobs/authorization-native-execution-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/node-native-execution-v1.mjs": "packages/proofs/src/jobs/node-native-execution-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/reservation-native-execution-v1.mjs": "packages/proofs/src/jobs/reservation-native-execution-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/standard-proof-resources-v1.mjs": "packages/proofs/src/jobs/standard-proof-resources-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/proving-execution.mjs": "packages/proofs/src/jobs/proving-execution.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-flow-proof-scope-v1.mjs": "packages/proofs/src/jobs/native-flow-proof-scope-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/scoped-proof-tools.mjs": "packages/proofs/src/tooling/scoped-proof-tools.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/native-ingress-v3-tooling.mjs": "packages/backend/src/proving/native-ingress/tooling/native-ingress-v3-tooling.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/proving/roles/scoped-proof-runner.mjs": "packages/backend/src/proving/roles/scoped-proof-runner.mjs"
   }
 }

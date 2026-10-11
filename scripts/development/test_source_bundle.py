@@ -1,5 +1,6 @@
 """Offline packaging/execution from a clean source checkout without legacy data."""
 import copy
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -96,6 +97,69 @@ console.log(JSON.stringify({state: exported.value, arguments: process.argv.slice
         child = subprocess.run([sys.executable, str(moved / 'run-source-bundle.py'), 'run'],
                                cwd='/', capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(child.stdout)['state'], 7)
+
+    def adopted_fixture(self, alias=False):
+        # Production adoption entry AND its actual owner/export closure. The
+        # entry may re-export a lower package; copying only that facade would
+        # omit the implementation whose validation this fixture must exercise.
+        reader_files, dependencies, _ = bundle.source_closure(bundle.ROOT, bundle.ADOPTION_READER, [])
+        self.assertFalse(dependencies)
+        for relative in reader_files:
+            self.write(relative, (bundle.ROOT / relative).read_text())
+        evidence = 'archive/source-evidence/test-original.source'
+        self.write(evidence, 'original publication remains immutable\n')
+        rows = []
+        for path in sorted(self.root.rglob('*')):
+            if not path.is_file():
+                continue
+            name = path.relative_to(self.root).as_posix()
+            rows.append({'path': name, 'source': name, 'sha256': bundle.sha(path),
+                         'sourceSHA256': bundle.sha(path), 'bytes': path.stat().st_size, 'status': 'PRESENT'})
+        if alias:
+            rows[0]['path'] = '.internal/runtime/obsolete.mjs'
+        source_hash = hashlib.sha256(bundle.canonical(rows)).hexdigest()
+        sources = bundle.canonical({'schema': 'LIANUM_DEVELOPMENT_SOURCE_GENERATION_V1',
+                                    'currentSourceContract': {'files': rows, 'sourceClosureSHA256': source_hash}})
+        generation = hashlib.sha256(sources).hexdigest()
+        base = '.local/generations/' + generation
+        self.write(base + '/sources.json', sources.decode())
+        candidate = bundle.canonical({'schema': 'LIANUM_DEVELOPMENT_RELEASE_CANDIDATE_V7',
+                                      'sourceGeneration': generation, 'currentSourceClosureSHA256': source_hash,
+                                      'artifactInspection': {'status': 'VERIFIED_RETAINED_ARTIFACTS'},
+                                      'pagedReuseReceipt': {'manifestSHA256': 'f' * 64}})
+        self.write(base + '/candidate-release.json', candidate.decode())
+        self.write(bundle.ADOPTION, json.dumps({'schema': 'LIANUM_ADOPTED_SOURCE_GENERATION_V1',
+                                               'generation': generation,
+                                               'candidateSHA256': hashlib.sha256(candidate).hexdigest()}))
+        return generation
+
+    def test_adopted_generation_relocates_with_exact_metadata_and_real_reader(self):
+        generation = self.adopted_fixture()
+        self.build(adopted_generation=True)
+        moved = self.output.with_name('moved-adopted-worker')
+        self.output.rename(moved)
+        shutil.rmtree(self.root)
+        manifest = bundle.verify(moved)
+        self.assertEqual(manifest['adoptedGeneration'], generation)
+        self.assertFalse((moved / '.internal').exists())
+        validated = bundle.validate_transported_adoption(moved, moved / 'resources/tools/node')
+        self.assertEqual(validated['generation'], generation)
+        self.assertEqual(validated['sources'], len(manifest['adoptedSourceFiles']))
+        (moved / 'packages/fixture/src/state.mjs').write_text('export const state={value:99};')
+        with self.assertRaisesRegex(ValueError, 'CURRENT_SOURCE_PIN'):
+            bundle.validate_transported_adoption(moved, moved / 'resources/tools/node')
+
+    def test_adopted_generation_refuses_aliases_and_changed_metadata(self):
+        self.adopted_fixture(alias=True)
+        with self.assertRaisesRegex(ValueError, 'requires a compatibility alias'):
+            self.build(adopted_generation=True)
+        self.assertFalse(self.output.exists())
+        pointer = json.loads((self.root / bundle.ADOPTION).read_text())
+        candidate = self.root / '.local/generations' / pointer['generation'] / 'candidate-release.json'
+        candidate.write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'Adopted candidate bytes changed'):
+            self.build(adopted_generation=True)
+        self.assertFalse(self.output.exists())
 
     def test_tamper_and_unlisted_files_stop_before_worker(self):
         self.build()

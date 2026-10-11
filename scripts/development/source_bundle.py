@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 
@@ -184,14 +185,80 @@ def external_resources(document):
     return sorted(result, key=lambda row: row['destination'])
 
 
+ADOPTION = 'scripts/development/adopted-generation.json'
+ADOPTION_READER = 'packages/proofs/src/toolchain/current-source-generation.mjs'
+
+
+def adopted_source_inventory(root):
+    """Transport the existing generation unchanged; its real reader validates it.
+
+    Current code must already be canonical. Historical rows in sources.json are
+    evidence only and never cause copies under .internal to be recreated.
+    """
+    pointer = physical(root, ADOPTION)
+    adoption = json.loads(pointer.read_text())
+    generation = adoption.get('generation')
+    if not isinstance(generation, str) or not re.fullmatch('[0-9a-f]{64}', generation):
+        raise ValueError('Invalid adopted source generation digest')
+    base = '.local/generations/' + generation
+    source_name, candidate_name = base + '/sources.json', base + '/candidate-release.json'
+    sources_path = physical(root, source_name)
+    if sha(sources_path) != generation:
+        raise ValueError('Adopted source generation bytes changed')
+    candidate_path = physical(root, candidate_name)
+    if sha(candidate_path) != adoption.get('candidateSHA256'):
+        raise ValueError('Adopted candidate bytes changed')
+    sources = json.loads(sources_path.read_text())
+    rows = sources.get('currentSourceContract', {}).get('files')
+    if not isinstance(rows, list) or not 0 < len(rows) <= 8192:
+        raise ValueError('Invalid adopted current source inventory')
+    files = {}
+    for row in rows:
+        name = safe_relative(row['source'])
+        parts = PurePosixPath(name).parts
+        if row['path'] != name or name.startswith('.internal/'):
+            raise ValueError('Adopted execution still requires a compatibility alias: ' + row['path'])
+        if (name not in {'dev', 'package.json', 'package-lock.json'} and
+                not (parts[0] in SOURCE_AREAS or name.startswith('archive/source-evidence/'))):
+            raise ValueError('Adoption names a non-source path: ' + name)
+        if set(parts).intersection(IGNORED) or any(part.startswith('.env') for part in parts):
+            raise ValueError('Adoption names private/generated data: ' + name)
+        digest = row['sourceSHA256']
+        if (not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest)
+                or name in files or row['sha256'] != digest):
+            raise ValueError('Invalid or duplicate adopted source owner: ' + name)
+        files[name] = digest
+    if ADOPTION_READER not in files:
+        raise ValueError('The adopted generation must include its actual validation owner')
+    metadata = {ADOPTION: sha(pointer), source_name: generation,
+                candidate_name: adoption['candidateSHA256']}
+    return files, metadata, generation
+
+
+def validate_transported_adoption(root, node):
+    """Use the unmodified production owner, including all race/hash checks."""
+    script = ('const {assertAdoptedSourceGeneration}=await import(' +
+              json.dumps((root / ADOPTION_READER).as_uri()) + ');' +
+              'const value=assertAdoptedSourceGeneration();' +
+              'process.stdout.write(JSON.stringify({generation:value.generation,sources:value.sources}));')
+    child = subprocess.run([str(node), '--input-type=module'], input=script,
+                           cwd=root, env={'LANG': 'C.UTF-8', 'PATH': '/usr/bin:/bin'},
+                           text=True, capture_output=True, timeout=30)
+    if child.returncode != 0:
+        raise ValueError('Transported source adoption failed its production reader: ' + child.stderr[-2000:])
+    return json.loads(child.stdout)
+
+
 def build(root, output, entry, resource_document, external_root, node_resource, additional=(), cwd_family=None,
-          state_directories=()):
+          state_directories=(), adopted_generation=False):
     root, external_root, output = root.resolve(), external_root.resolve(), output.absolute()
     if output.exists() or output.is_symlink():
         raise ValueError('Bundle destination must not exist; existing originals are never overwritten')
     if output.is_relative_to(root / 'archive') or output.is_relative_to(root / '.internal/runtime'):
         raise ValueError('A candidate must not replace original or compatibility resources')
     files, dependencies, manifests = source_closure(root, entry, additional)
+    adopted, metadata, generation = adopted_source_inventory(root) if adopted_generation else ({}, {}, None)
+    files.update(adopted)
     resources = external_resources(resource_document)
     errors = []
     for row in resources:
@@ -237,7 +304,9 @@ def build(root, output, entry, resource_document, external_root, node_resource, 
             inventory[destination] = record
 
         for relative in sorted(files):
-            copy(physical(root, relative), relative)
+            copy(physical(root, relative), relative, adopted.get(relative))
+        for relative, expected in metadata.items():
+            copy(physical(root, relative), relative, expected)
         for row in resources:
             copy(physical(external_root, row['source']), row['destination'], row['sha256'], row['mode'])
         for manifest in manifests.values():
@@ -263,10 +332,17 @@ def build(root, output, entry, resource_document, external_root, node_resource, 
                     'stateDirectories': writable,
                     'sourceFiles': sorted(files), 'additionalSources': sorted(additional),
                     'closure': 'literal-imports-and-explicit-additional-sources',
+                    'adoptedGeneration': generation,
+                    'adoptedSourceFiles': sorted(adopted),
+                    'adoptionMetadata': sorted(metadata),
                     'resources': [{key: value for key, value in row.items() if key != 'source'} for row in resources],
                     'files': dict(sorted(inventory.items())), 'links': dict(sorted(links.items()))}
         (stage / 'source-bundle.json').write_bytes(canonical(manifest))
         verify(stage)
+        if generation:
+            validated = validate_transported_adoption(stage, stage / node_destination)
+            if validated['generation'] != generation or validated['sources'] != len(adopted):
+                raise ValueError('Transported adoption identity changed')
         stage.rename(output)
         return {'bundleSHA256': sha(output / 'source-bundle.json'), 'status': 'candidate',
                 'financialAcceptance': False, 'sourceFiles': len(files), 'resourceFiles': len(resources)}
@@ -341,6 +417,8 @@ def main():
     pack.add_argument('--resource-root', type=Path, required=True)
     pack.add_argument('--node-resource', required=True)
     pack.add_argument('--include-source', action='append', default=[])
+    pack.add_argument('--adopted-generation', action='store_true',
+                      help='Carry unchanged adopted metadata and all canonical owners; rejects runtime aliases')
     pack.add_argument('--cwd-family', choices=sorted(FAMILIES))
     pack.add_argument('--state-directory', action='append', default=[],
                       help='Explicit writable resource-relative directory; cannot overlap pinned files')
@@ -355,7 +433,7 @@ def main():
         if args.command == 'build':
             result = build(args.root, args.output, args.entry, json.loads(args.resources.read_text()),
                            args.resource_root, args.node_resource, args.include_source, args.cwd_family,
-                           args.state_directory)
+                           args.state_directory, args.adopted_generation)
             print(json.dumps(result, sort_keys=True))
         else:
             root = args.bundle.resolve()

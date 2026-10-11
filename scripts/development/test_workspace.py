@@ -66,6 +66,23 @@ class WorkspaceExecutionTests(unittest.TestCase):
             self.assertEqual(path.stat().st_nlink, 1)
         self.assertEqual(self.run_entry(), "1")
 
+    def test_retired_worker_copy_is_removed_and_canonical_owner_is_never_regenerated(self):
+        workspace.build(quiet=True)
+        path = workspace.LAYOUT
+        config = json.loads(path.read_text())
+        config['canonicalRuntimeSources'] = {'app/public/value.mjs': self.value}
+        config['files'] = [row for row in config['files'] if row['source'] != self.value]
+        path.write_text(json.dumps(config))
+        result = workspace.build(quiet=True)
+        self.assertIn('app/public/value.mjs', result['removed'])
+        self.assertFalse((self.runtime / 'app/public/value.mjs').exists())
+        self.assertEqual(self.run_entry(), '1')
+        (self.root / self.value).write_text('export default 9;\n')
+        workspace.build(quiet=True)
+        self.assertFalse((self.runtime / 'app/public/value.mjs').exists())
+        self.assertEqual(self.run_entry(), '9')
+        self.assertNotIn(self.value, {row['source'] for row in workspace.source_files(workspace.layout()).values()})
+
     def test_new_file_edits_and_deletion_change_actual_execution(self):
         workspace.build(quiet=True)
         extra = self.root / "apps/wallet/src/server/extra.mjs"

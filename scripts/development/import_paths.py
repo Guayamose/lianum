@@ -28,6 +28,13 @@ def map_path(path, config, direction):
     suffix_match = re.search(r"[?#].*$", path)
     suffix = suffix_match.group(0) if suffix_match else ""
     path = path[:-len(suffix)] if suffix else path
+    canonical = config.get('canonicalRuntimeSources', {})
+    if direction == 'workspace' and path in canonical:
+        return canonical[path] + suffix
+    if direction == 'runtime':
+        for runtime, source in canonical.items():
+            if path == source:
+                return runtime + suffix
     exact = path_indexes(config)[direction].get(path)
     if exact is not None:
         return exact + suffix
@@ -46,12 +53,22 @@ def translate(text, source, runtime, config, direction, original_spellings=None)
 
     def replace(match, resource=False):
         specifier = match.group(2)
+        # These exact owners no longer have generated execution copies. Even a
+        # retained compatibility consumer reaches the same canonical instance.
+        if direction == 'runtime':
+            target = (config.get('_workspaceExports', {}).get(specifier)
+                      if specifier.startswith('@lianum/') else
+                      posixpath.normpath(posixpath.join(posixpath.dirname(base), specifier)))
+            if target in config.get('canonicalRuntimeSources', {}).values():
+                converted = posixpath.relpath(target, posixpath.dirname('.internal/runtime/' + destination))
+                start, end = match.span(2)
+                return match.group(0)[:start - match.start()] + converted + match.group(0)[end - match.start():]
         if specifier.startswith('@lianum/'):
             if direction != 'runtime':
                 return match.group(0)
             target = config.get('_workspaceExports', {}).get(specifier)
             if target is None:
-                raise RuntimeError(f'Unknown public workspace import: {specifier}')
+                raise RuntimeError(f'{source}: unknown public workspace import: {specifier}')
             # A reviewed gateway may deliberately share a canonical authority
             # with source callers. Keep only its exact declared public imports;
             # ordinary modules still resolve within their compatibility layout.
