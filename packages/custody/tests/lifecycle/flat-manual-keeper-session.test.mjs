@@ -15,7 +15,7 @@ mock.module(new URL('./flat-owner-process.mjs', import.meta.url).href, { exports
 } });
 const { createFlatManualAccountKeeper, assertOwnedFlatManualAccountKeeper } = await import('../../../backend/src/accounts/storage/flat-manual-account-keeper.mjs');
 const { createFlatAccountSession } = await import('@lianum/backend/accounts/session');
-const { projectWalletState } = await import('../../../../apps/wallet/src/client/state/view-model.mjs');
+const { projectWalletState } = await import('../../../mobile-protocol/src/wallet/client/view-model.mjs');
 const h = n => n.toString(16).padStart(64, '0');
 test('durable CONFIRMED duplicate execute/reconcile and session restart do not repeat authority execution', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'flat-keeper-session-')); t.after(() => rm(directory, { recursive: true, force: true }));

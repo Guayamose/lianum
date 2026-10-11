@@ -13,7 +13,7 @@ import { sha, genericAccountIdentity } from '@lianum/engine/accounts/journal';
 import * as actualSystemState from '../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { encodeStatement } from '@lianum/components/encoding/statements';
 import { flatAccountGraphBinding } from '../../../../packages/backend/src/accounts/authority/flat-account-validation.mjs';
-import { createWalletClient, accountReviewDetails } from '../../../../apps/wallet/src/client/state/view-model.mjs';
+import { createWalletClient, accountReviewDetails } from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
 const h = text => createHash('sha256').update(text).digest('hex'), a = n => String(n).repeat(40);
 const worlds = new WeakMap(), owners = new WeakMap(), executors = new WeakMap(), policies = new WeakMap();

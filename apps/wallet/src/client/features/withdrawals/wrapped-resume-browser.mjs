@@ -1,7 +1,7 @@
 /** Manual browser recovery. Grants come only from the original local shell;
  * no grant issuer, ambient message listener, polling or automatic next step. */
-import {WRAPPED_RESUME_ACTIONS} from './wrapped-withdrawal-resume-actions.mjs';
-import {handoffData,sameHandoff,handoffDescriptor} from '../accounts/manual-action-handoff.mjs';
+import {WRAPPED_RESUME_ACTIONS} from '../../../../../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs';
+import {handoffData,sameHandoff,handoffDescriptor} from '../../../../../../packages/mobile-protocol/src/wallet/contracts/manual-action-handoff.mjs';
 const need=ok=>{if(!ok)throw Error('WALLET_RESUME_BROWSER_INVALID');};
 const exact=(v,keys)=>v&&Object.keys(v).sort().join(',')===[...keys].sort().join(',');
 const uint=(v,bits)=>typeof v==='string'&&v.length<=(bits===64?20:78)&&/^(0|[1-9][0-9]*)$/.test(v)&&BigInt(v)<(1n<<BigInt(bits));

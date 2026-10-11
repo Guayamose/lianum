@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
-import { validateFlatOwnerReadPayload, GENERATION_PORTFOLIO_PROFILE, ORIGINAL_SPL_USDC_UNITS_V1 } from '../../src/client/features/portfolio/owner-portfolio-contract.mjs';
+import { validateFlatOwnerReadPayload, GENERATION_PORTFOLIO_PROFILE, ORIGINAL_SPL_USDC_UNITS_V1 } from '../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
 import { ACTIONS, DEFI_ACTIONS, ACCOUNT_ACTIONS, DEFI_PROFILE, WALLET_PROFILE, atomic, displayUnits, validateWalletState, projectWalletState,
   buildActionBody, actionReview, createWalletClient, NATIVE_IDENTITY_PROFILE, originalNativeIdentity,
-  nativeIdentityDetails, nativeAmountDetails, accountAssetChoices, accountActionContext, accountReviewDetails } from '../../src/client/state/view-model.mjs';
+  nativeIdentityDetails, nativeAmountDetails, accountAssetChoices, accountActionContext, accountReviewDetails } from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 const clientSourceURLs = {
   'index.html': new URL('../../src/client/index.html', import.meta.url),
   'app.mjs': new URL('../../src/client/app.mjs', import.meta.url),

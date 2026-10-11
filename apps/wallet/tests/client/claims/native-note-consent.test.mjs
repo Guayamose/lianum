@@ -12,8 +12,8 @@ import { derivePrivateAssetIdentity } from '../../../../../packages/engine/src/n
 import { sha } from '../../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs';
 import { encodeWalletPoolInputs } from '../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import * as actualState from '../../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import { createWalletClient, accountReviewDetails } from '../../../src/client/state/view-model.mjs';
-import { validNativeNoteReview } from '../../../src/client/features/claims/native-note-review.mjs';
+import { createWalletClient, accountReviewDetails } from '../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
+import { validNativeNoteReview } from '../../../../../packages/mobile-protocol/src/wallet/contracts/native-note-review.mjs';
 const h = text => createHash('sha256').update(text).digest('hex'), a = n => String(n).repeat(40), clone = x => structuredClone(x);
 const worlds = new WeakMap(), owners = new WeakMap();
 const forbidden = () => { throw Error('SYNTHETIC_LOWER_FACTORY_FORBIDDEN'); };

@@ -235,7 +235,7 @@ async function joined(count = 2, includeUnderlying = true, sharedRuntime = null)
 }
 
 
-const { projectWalletState, validateWalletState } = await import('../../../../../apps/wallet/src/client/state/view-model.mjs');
+const { projectWalletState, validateWalletState } = await import('../../../../mobile-protocol/src/wallet/client/view-model.mjs');
 
 test('actual loopback GET and shared SDK accept genuine generation producer with same-head floor and fixed module route', async t => {
   const f = await joined(), [old, next] = f.worlds; old.totalAssets = '333';

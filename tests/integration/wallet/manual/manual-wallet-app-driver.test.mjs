@@ -11,7 +11,7 @@ import { assertOwnedFlatPortfolioAccount as actualPortfolioAccount, bindFlatPort
 import { ownedFlatManualEvmGraphReview as actualExecutorReview } from '../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs';
 import { ownedFlatEvmVaultProviderReview as actualProviderReview } from '../../../../packages/backend/src/providers/evm-vault-provider.mjs';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
-import { buildActionBody, accountReviewDetails } from '../../../../apps/wallet/src/client/state/view-model.mjs';
+import { buildActionBody, accountReviewDetails } from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 
 const accounts = new WeakMap(), portfolios = new WeakMap(), approvals = new WeakMap(), controls = new WeakMap();
 const fail = code => { throw Object.assign(new Error(code), { code }); };

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { GENERATION_PORTFOLIO_PROFILE, validateFlatOwnerReadPayload } from '../../../src/client/features/portfolio/owner-portfolio-contract.mjs';
-import { GENERATION_DEFI_POSITIONS, GENERATION_DEFI_EXITS, validateGenerationDefiRead, projectGenerationDefiRead } from '../../../src/client/features/defi/generation-defi-contract.mjs';
-import { ACTIONS, DEFI_ACTIONS, validateWalletState, projectWalletState, createWalletClient, buildActionBody } from '../../../src/client/state/view-model.mjs';
+import { GENERATION_PORTFOLIO_PROFILE, validateFlatOwnerReadPayload } from '../../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
+import { GENERATION_DEFI_POSITIONS, GENERATION_DEFI_EXITS, validateGenerationDefiRead, projectGenerationDefiRead } from '../../../../../packages/mobile-protocol/src/wallet/contracts/generation-defi-contract.mjs';
+import { ACTIONS, DEFI_ACTIONS, validateWalletState, projectWalletState, createWalletClient, buildActionBody } from '../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 const hex = n => BigInt(n).toString(16).padStart(64, '0'), address = n => BigInt(n).toString(16).padStart(40, '0');
 const copy = value => structuredClone(value);
 const observed = { observedAt: 100, blockNumber: '4', blockHash: hex(77), timestamp: '1200' };

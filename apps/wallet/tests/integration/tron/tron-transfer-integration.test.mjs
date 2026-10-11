@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { startWalletApplication } from '../../../src/server/server.mjs';
-import { validateWalletState, projectWalletState } from '../../../src/client/state/view-model.mjs';
+import { validateWalletState, projectWalletState } from '../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 import { createWalletApplicationClient } from '../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
 import { createFlatAccountSession } from '../../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
 import { createTronNativeTransferObserver } from '../../../../../packages/backend/src/chains/tron/observations/tron-native-transfer-observer.mjs';

@@ -2660,14 +2660,6 @@
       "runtime": "omnichain-flat-profile/flat-wallet/workspace-support/experiments/engine/private-core-proof/generic-wrappers/pin-owner-key.mjs"
     },
     {
-      "source": "apps/wallet/src/server/errors/public-errors.mjs",
-      "runtime": "omnichain-flat-profile/flat-wallet/workspace-support/apps/wallet/src/server/errors/public-errors.mjs"
-    },
-    {
-      "source": "apps/wallet/src/server/security/exact-action-capabilities.mjs",
-      "runtime": "omnichain-flat-profile/flat-wallet/workspace-support/apps/wallet/src/server/security/exact-action-capabilities.mjs"
-    },
-    {
       "source": "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs",
       "runtime": "omnichain-flat-profile/flat-wallet/workspace-support/tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
     },
@@ -7112,20 +7104,6 @@
       "source": "apps/wallet/src/client/app.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/generation-defi-contract.mjs",
-      "sha256": "4e253aa4862e907476f79f78f966ef01d1ab9a1a5a769d135fccb96f70e46ccb",
-      "bytes": 14594,
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/defi/generation-defi-contract.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/generation-position-state-v2.mjs",
-      "bytes": 5617,
-      "sha256": "faa60be8edc76588354316594ba7c9cac90714e8363e9817c5ec8b1d6d641399",
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/index.html",
       "sha256": "7c87c472387a9579d62897bf15941d85a0760294a9558c2e85ae517f62ed7c3e",
       "bytes": 15243,
@@ -7140,41 +7118,6 @@
       "source": "apps/wallet/src/client/features/accounts/manual-action-dom.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/manual-action-handoff.mjs",
-      "sha256": "7830951a50bec0df0d2510f54e4ffe4be56e91992ce8f8ff686b499ad9032773",
-      "bytes": 7167,
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/accounts/manual-action-handoff.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/native-note-review.mjs",
-      "sha256": "0e5afba78d7b3b99b74a401f49ac5a1f03c81797f7f935ae2374889b702c36e7",
-      "bytes": 4777,
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/claims/native-note-review.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/owner-graph-review-v1.mjs",
-      "bytes": 10825,
-      "sha256": "1e3f88f8905590fa9cf02d5eb674ef1f1865b438ec0ee88a70638a2bbaa3dbd5",
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/owner-portfolio-contract.mjs",
-      "sha256": "832034a675aee8c9e2f42713b57f382082624479ddbea4f4b95ae1a88298bc62",
-      "bytes": 13177,
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/public-token-observations.mjs",
-      "bytes": 3768,
-      "sha256": "a794436b542e1d297adffcd133442df16ad6b5ce6a7f276896c71a48f6095442",
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/portfolio/public-token-observations.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/style.css",
       "sha256": "64a2e987367889e7104ee1acc2d36078be80c921b23eb343a2e8a4d39b24b2a5",
       "bytes": 15152,
@@ -7182,32 +7125,11 @@
       "source": "apps/wallet/src/client/style.css"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/view-model.mjs",
-      "sha256": "0883336bdacb75764d43304268655146db9a9c667485b9ebb1ec2c8688ffb193",
-      "bytes": 91834,
-      "mode": "0644",
-      "source": "apps/wallet/src/client/state/view-model.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/wrapped-resume-browser.mjs",
       "bytes": 10451,
       "sha256": "97e3ce4af4006185cd8489eec289bbf159f756ca196821e785219efcd3b2f174",
       "mode": "0644",
       "source": "apps/wallet/src/client/features/withdrawals/wrapped-resume-browser.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/wrapped-withdrawal-resume-actions.mjs",
-      "bytes": 1315,
-      "sha256": "8bb5c0b93475afef61dfa03644ffc49b7227af74d53783e7db52c16ff477fe8c",
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-app/public/wrapped-withdrawal-review.mjs",
-      "sha256": "e4aa6b2ea13732d68e54b51f901a648e010b670cee4cc536a17d99f5f2c403f1",
-      "bytes": 5518,
-      "mode": "0644",
-      "source": "apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-review.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/wallet-app/run.mjs",
@@ -14673,110 +14595,11 @@
     }
   ],
   "importSpellings": {
-    "apps/wallet/src/client/app.mjs": {
-      "./features/withdrawals/wrapped-resume-browser.mjs": "./wrapped-resume-browser.mjs",
-      "./features/withdrawals/wrapped-withdrawal-review.mjs": "./wrapped-withdrawal-review.mjs",
-      "./features/accounts/manual-action-dom.mjs": "./manual-action-dom.mjs",
-      "./state/view-model.mjs": "./view-model.mjs"
-    },
-    "apps/wallet/src/client/features/accounts/manual-action-handoff.mjs": {
-      "../claims/native-note-review.mjs": "./native-note-review.mjs"
-    },
-    "apps/wallet/src/client/features/defi/generation-defi-contract.mjs": {
-      "../portfolio/generation-position-state-v2.mjs": "./generation-position-state-v2.mjs",
-      "../portfolio/owner-portfolio-contract.mjs": "./owner-portfolio-contract.mjs"
-    },
-    "apps/wallet/src/client/features/withdrawals/wrapped-resume-browser.mjs": {
-      "./wrapped-withdrawal-resume-actions.mjs": "./wrapped-withdrawal-resume-actions.mjs",
-      "../accounts/manual-action-handoff.mjs": "./manual-action-handoff.mjs"
-    },
-    "apps/wallet/src/client/state/view-model.mjs": {
-      "../features/accounts/owner-graph-review-v1.mjs": "./owner-graph-review-v1.mjs",
-      "../features/portfolio/public-token-observations.mjs": "./public-token-observations.mjs",
-      "../features/withdrawals/wrapped-withdrawal-resume-actions.mjs": "./wrapped-withdrawal-resume-actions.mjs",
-      "../features/withdrawals/wrapped-withdrawal-review.mjs": "./wrapped-withdrawal-review.mjs",
-      "../features/claims/native-note-review.mjs": "./native-note-review.mjs",
-      "../features/accounts/manual-action-handoff.mjs": "./manual-action-handoff.mjs",
-      "../features/defi/generation-defi-contract.mjs": "./generation-defi-contract.mjs",
-      "../features/portfolio/owner-portfolio-contract.mjs": "./owner-portfolio-contract.mjs"
-    },
     "apps/wallet/src/server/run.mjs": {
       "./server.mjs": "./server.mjs"
     },
     "packages/backend/src/api/wallet/http/exact-action-capabilities.mjs": {
       "../../../../../../apps/wallet/src/client/state/view-model.mjs": "./public/view-model.mjs"
-    },
-    "apps/wallet/src/server/server.mjs": {
-      "../../../../packages/backend/src/chains/evm/portfolio/http-erc20-portfolio.mjs": "../wallet-platform/modules/chain-adapters/http-erc20-portfolio.mjs",
-      "../client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs": "./public/wrapped-withdrawal-resume-actions.mjs",
-      "../../../../packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs": "../wallet-platform/modules/api/wrapped-withdrawal-session-v1.mjs",
-      "../../../../packages/backend/src/api/wallet/http/public-errors.mjs": "./public-errors.mjs",
-      "../client/features/accounts/manual-action-handoff.mjs": "./public/manual-action-handoff.mjs",
-      "../client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../../packages/backend/src/api/wallet/http/exact-action-capabilities.mjs": "./exact-action-capabilities.mjs",
-      "../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs": "../wallet-platform/modules/api/flat-manual-graph-session.mjs",
-      "../../../../packages/backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../packages/backend/src/api/claims/native-claim-session.mjs": "../wallet-platform/modules/api/native-claim-session.mjs",
-      "../../../../packages/backend/src/chains/shared/portfolio/http-portfolio-registry.mjs": "../wallet-platform/modules/chain-adapters/http-portfolio-registry.mjs",
-      "../../../../packages/backend/src/chains/shared/portfolio/portfolio-registry.mjs": "../wallet-platform/modules/chain-adapters/portfolio-registry.mjs",
-      "../../../../packages/backend/src/chains/tron/observations/tron-native-transfer-observer.mjs": "../wallet-platform/modules/chain-adapters/tron-native-transfer-observer.mjs",
-      "../../../../packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-observer.mjs",
-      "../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs": "../wallet-platform/modules/defi-adapters/private-vault-exit.mjs",
-      "../../../../packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs": "../wallet-platform/modules/defi-adapters/generation-private-vault-exit.mjs"
-    },
-    "apps/wallet/tests/client/accounts/manual-action-handoff.test.mjs": {
-      "../../../../../packages/engine/src/notes/private-asset-runtime.mjs": "../../../omnichain-product/src/private-asset-runtime.mjs",
-      "../../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs": "../../../omnichain-product/src/paeg/generic-account-journal.mjs",
-      "../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs": "../wallet-platform/modules/paeg/flat-system-state.mjs",
-      "../../../../../packages/backend/src/execution/encoding/statements.mjs": "../wallet-platform/modules/paeg/statements.mjs",
-      "../../../../../packages/backend/src/accounts/authority/flat-account-validation.mjs": "../wallet-platform/modules/global-state/flat-account-validation.mjs",
-      "../../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../src/client/features/accounts/manual-action-dom.mjs": "./public/manual-action-dom.mjs",
-      "../../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs": "../wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "../../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs": "../wallet-platform/modules/global-state/flat-portfolio-authority.mjs",
-      "../../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs": "../wallet-platform/modules/global-state/flat-journal-catalogue.mjs",
-      "../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs": "../wallet-platform/modules/api/flat-manual-graph-session.mjs",
-      "../../../src/server/server.mjs": "./server.mjs"
-    },
-    "apps/wallet/tests/client/accounts/manual-graph-actions.test.mjs": {
-      "../../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs": "../wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "../../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs": "../wallet-platform/modules/global-state/flat-portfolio-authority.mjs",
-      "../../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs": "../wallet-platform/modules/paeg/flat-native-execution.mjs",
-      "../../../../../packages/backend/src/providers/evm-vault-provider.mjs": "../wallet-platform/modules/solvers/evm-vault-provider.mjs",
-      "../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs",
-      "../../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs": "../wallet-platform/modules/api/flat-manual-graph-session.mjs",
-      "../../../src/server/server.mjs": "./server.mjs"
-    },
-    "apps/wallet/tests/client/claims/native-note-consent.test.mjs": {
-      "../../../../../packages/engine/src/notes/private-asset-runtime.mjs": "../../../omnichain-product/src/private-asset-runtime.mjs",
-      "../../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs": "../../../omnichain-product/src/paeg/generic-account-journal.mjs",
-      "../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs": "../../../omnichain-product/src/private-wallet-note-encoding.mjs",
-      "../../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs": "../wallet-platform/modules/paeg/native-value-system-state-v2.mjs",
-      "../../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../src/client/features/claims/native-note-review.mjs": "./public/native-note-review.mjs",
-      "../../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs": "../wallet-platform/modules/global-state/native-value-account-authority-v2.mjs",
-      "../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs": "../wallet-platform/modules/api/flat-manual-graph-session.mjs",
-      "../../../../../packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs": "../mobile-core/native-value-owner-manual-preparation-v1.mjs",
-      "../../../src/server/server.mjs": "./server.mjs",
-      "../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs"
-    },
-    "apps/wallet/tests/client/defi/generation-defi-reader.test.mjs": {
-      "../../../src/client/features/portfolio/owner-portfolio-contract.mjs": "./public/owner-portfolio-contract.mjs",
-      "../../../src/client/features/defi/generation-defi-contract.mjs": "./public/generation-defi-contract.mjs",
-      "../../../src/client/state/view-model.mjs": "./public/view-model.mjs"
-    },
-    "apps/wallet/tests/client/portfolio/generation-portfolio.test.mjs": {
-      "../../../src/client/features/portfolio/owner-portfolio-contract.mjs": "./public/owner-portfolio-contract.mjs",
-      "../../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../src/server/server.mjs": "./server.mjs",
-      "../../../../../packages/backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs"
-    },
-    "apps/wallet/tests/client/ui.test.mjs": {
-      "../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../../packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-observer.mjs",
-      "../../../../packages/backend/tests/fixtures/chains/evm/transfers/evm-native-transfer-fixture.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-fixture.mjs"
     },
     "apps/wallet/tests/client/withdrawals/wrapped-wallet-join.test.mjs": {
       "../../../../../packages/engine/src/notes/private-asset-runtime.mjs": "../../../omnichain-product/src/private-asset-runtime.mjs",
@@ -14789,44 +14612,6 @@
       "../../../../../packages/backend/src/api/wallet/wrapped-wallet-session-v1.mjs": "../wallet-platform/modules/api/wrapped-wallet-session-v1.mjs",
       "../../../src/server/server.mjs": "./server.mjs",
       "../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs"
-    },
-    "apps/wallet/tests/client/withdrawals/wrapped-withdrawal-ui.test.mjs": {
-      "../../helpers/inert-dom.mjs": "./test-support/inert-dom.mjs",
-      "../../../src/server/server.mjs": "./server.mjs",
-      "../../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../src/client/app.mjs?inert=": "./public/app.mjs?inert="
-    },
-    "apps/wallet/tests/integration/tron/tron-transfer-integration.test.mjs": {
-      "../../../src/server/server.mjs": "./server.mjs",
-      "../../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs",
-      "../../../../../packages/backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../../packages/backend/src/chains/tron/observations/tron-native-transfer-observer.mjs": "../wallet-platform/modules/chain-adapters/tron-native-transfer-observer.mjs",
-      "../../../../../packages/backend/src/chains/tron/transfers/tron-native-transfer-http.mjs": "../wallet-platform/modules/chain-adapters/tron-native-transfer-http.mjs",
-      "../../../../../packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-observer.mjs",
-      "../../../../../packages/backend/tests/fixtures/chains/evm/transfers/evm-native-transfer-fixture.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-fixture.mjs",
-      "../../../../../packages/backend/tests/fixtures/chains/tron/transfers/tron-native-transfer-fixture.mjs": "../wallet-platform/modules/chain-adapters/tron-native-transfer-fixture.mjs"
-    },
-    "apps/wallet/tests/server/exact-action-capabilities.test.mjs": {
-      "../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../../../packages/backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs",
-      "../../src/server/server.mjs": "./server.mjs"
-    },
-    "apps/wallet/tests/server/public-errors.test.mjs": {
-      "../../../../packages/backend/src/api/wallet/http/public-errors.mjs": "./public-errors.mjs",
-      "../../src/client/state/view-model.mjs": "./public/view-model.mjs"
-    },
-    "apps/wallet/tests/server/server.test.mjs": {
-      "../../../../packages/backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../packages/backend/src/chains/evm/transfers/evm-native-transfer-http.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-http.mjs",
-      "../../../../packages/backend/src/chains/evm/observations/evm-native-transfer-observer.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-observer.mjs",
-      "../../../../packages/backend/tests/fixtures/chains/evm/transfers/evm-native-transfer-fixture.mjs": "../wallet-platform/modules/chain-adapters/evm-native-transfer-fixture.mjs",
-      "../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs": "../../../omnichain-product/src/paeg/generic-account-journal.mjs",
-      "../../../../packages/backend/src/api/claims/native-claim-session.mjs": "../wallet-platform/modules/api/native-claim-session.mjs",
-      "../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs": "../wallet-platform/modules/defi-adapters/private-vault-exit.mjs",
-      "../../src/client/state/view-model.mjs": "./public/view-model.mjs",
-      "../../src/server/server.mjs": "./server.mjs"
     },
     "archive/legacy-client/native.mjs": {
       "./native-outcome.mjs": "./native-outcome.mjs"
@@ -17656,15 +17441,6 @@
       "../../../../../../apps/wallet/src/server/server.mjs": "../../../wallet-app/server.mjs",
       "../../../../src/api/wallet/wallet-application-client.mjs": "./wallet-application-client.mjs"
     },
-    "packages/backend/tests/api/wallet/wallet-application-client.test.mjs": {
-      "../../../../../apps/wallet/src/server/server.mjs": "../../../wallet-app/server.mjs",
-      "../../../../../apps/wallet/src/client/state/view-model.mjs": "../../../wallet-app/public/view-model.mjs",
-      "../../../src/api/wallet/wallet-application-client.mjs": "./wallet-application-client.mjs"
-    },
-    "packages/backend/tests/api/wallet/wallet-application-client.transport.test.mjs": {
-      "../../../../../apps/wallet/src/client/state/view-model.mjs": "../../../wallet-app/public/view-model.mjs",
-      "../../../src/api/wallet/wallet-application-client.mjs": "./wallet-application-client.mjs"
-    },
     "packages/backend/tests/chains/bitcoin/runtime/owned-bitcoin-runtime.test.mjs": {
       "../../../../../engine/src/native/native-receipt-binding.mjs": "./native-receipt-binding.mjs",
       "../../../../src/claims/operations/backing-audit.mjs": "../native-claims/backing-audit.mjs",
@@ -18123,19 +17899,6 @@
     },
     "packages/backend/tests/defi/vaults/backed-vault.test.mjs": {
       "../../../src/defi/vaults/backed-vault.mjs": "./backed-vault.mjs"
-    },
-    "packages/backend/tests/defi/vaults/generation-private-vault-reader.test.mjs": {
-      "../../../../engine/src/execution/accounts/generic-account-journal.mjs": "../../../../../omnichain-product/src/paeg/generic-account-journal.mjs",
-      "../../../../engine/src/crypto/vault.mjs": "../../../../../omnichain-product/src/vault.mjs",
-      "../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs": "../../../../../omnichain-product/src/private-wallet-note-encoding.mjs",
-      "../../../src/execution/encoding/transaction-codec.mjs": "../paeg/transaction-codec.mjs",
-      "../../../src/defi/withdrawals/private-vault-exit.mjs": "./private-vault-exit.mjs",
-      "../../../src/accounts/storage/flat-journal-catalogue.mjs": "../global-state/flat-journal-catalogue.mjs",
-      "../../../src/api/accounts/flat-manual-graph-session.mjs": "../api/flat-manual-graph-session.mjs",
-      "../../../src/defi/withdrawals/generation-private-vault-exit.mjs": "./generation-private-vault-exit.mjs",
-      "../../../../../apps/wallet/src/server/server.mjs": "../../../wallet-app/server.mjs",
-      "../../../src/api/wallet/wallet-application-client.mjs": "../api/wallet-application-client.mjs",
-      "../../../../../apps/wallet/src/client/state/view-model.mjs": "../../../wallet-app/public/view-model.mjs"
     },
     "packages/backend/tests/defi/vaults/owned-backed-vault-idempotency.test.mjs": {
       "../../../src/execution/encoding/commitments.mjs": "../paeg/commitments.mjs",
@@ -18841,24 +18604,6 @@
       "../../../engine/src/encoding/evm-vault-delivery.mjs": "../wallet-platform/modules/chain-adapters/evm-vault-delivery.mjs",
       "../claims/flat-owner-claim-transition.mjs": "./flat-owner-claim-transition.mjs",
       "../preparation/native-value-owner-manual-binding-v1.mjs": "./native-value-owner-manual-binding-v1.mjs"
-    },
-    "packages/custody/tests/lifecycle/flat-manual-keeper-session.test.mjs": {
-      "../../../backend/src/accounts/storage/flat-manual-account-keeper.mjs": "../wallet-platform/modules/global-state/flat-manual-account-keeper.mjs",
-      "../../../backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../apps/wallet/src/client/state/view-model.mjs": "../wallet-app/public/view-model.mjs"
-    },
-    "packages/custody/tests/lifecycle/flat-manual-lifecycle-v2.test.mjs": {
-      "../../../engine/src/crypto/vault.mjs": "../../../omnichain-product/src/vault.mjs",
-      "../../../backend/src/execution/encoding/transaction-codec.mjs": "../wallet-platform/modules/paeg/transaction-codec.mjs",
-      "../../../engine/src/notes/private-asset-runtime.mjs": "../../../omnichain-product/src/private-asset-runtime.mjs",
-      "../../../engine/src/execution/accounts/generic-account-journal.mjs": "../../../omnichain-product/src/paeg/generic-account-journal.mjs",
-      "../../../backend/src/accounts/storage/flat-manual-account-keeper.mjs": "../wallet-platform/modules/global-state/flat-manual-account-keeper.mjs",
-      "../../../backend/src/accounts/authority/flat-account-authority.mjs": "../wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "../../../engine/src/notes/private-note-tree.mjs": "../../../omnichain-product/src/private-note-tree.mjs",
-      "../../src/signing/flat-owner-custody.mjs": "./flat-owner-custody.mjs",
-      "../../../backend/src/custody/preparation/flat-owner-manual-preparation.mjs": "./flat-owner-manual-preparation.mjs",
-      "../../../backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../apps/wallet/src/client/state/view-model.mjs": "../wallet-app/public/view-model.mjs"
     },
     "packages/custody/tests/lifecycle/flat-owner-durable-manual-authority.test.mjs": {
       "../../../engine/src/notes/private-asset-runtime.mjs": "../../../omnichain-product/src/private-asset-runtime.mjs",
@@ -21822,33 +21567,6 @@
     "tests/integration/accounts/recovery/run-account-recovery.mjs": {
       "../../native/native-flow-supervisor.mjs": "./native-flow-supervisor.mjs"
     },
-    "tests/integration/chains/evm/evm-vault-flow.mjs": {
-      "../../../../packages/engine/src/execution/accounts/generic-account-keeper.mjs": "../../../omnichain-product/src/paeg/generic-account-keeper.mjs",
-      "../../../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs": "../../../omnichain-product/src/paeg/native-recipient-process.mjs",
-      "../../../../packages/proofs/src/execution/proof-process.mjs": "../../../omnichain-product/src/paeg/proof-process.mjs",
-      "../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs": "../../../omnichain-product/src/private-wallet-note-encoding.mjs",
-      "../../../../packages/engine/src/notes/private-note-tree.mjs": "../../../omnichain-product/src/private-note-tree.mjs",
-      "../../../../packages/backend/src/execution/native/dispatch/native-deployment.mjs": "../../../omnichain-product/src/paeg/native-deployment.mjs",
-      "../../../../packages/proofs/src/catalog.mjs": "../proof-workers/catalog.mjs",
-      "../../../../packages/proofs/src/tooling/tooling.mjs": "../proof-workers/tooling.mjs",
-      "../../fixtures/chains/evm/owned-evm-vault-fixture.mjs": "./owned-evm-vault-fixture.mjs",
-      "../../fixtures/runners/owned-flat-fixture.mjs": "./owned-flat-fixture.mjs",
-      "../../../../packages/proofs/src/verification/sources/flow-source-pins.mjs": "./source-pins.mjs",
-      "../../native/native-flow-supervisor.mjs": "./native-flow-supervisor.mjs",
-      "./evm-vault-terminal-checks.mjs": "./evm-vault-terminal-checks.mjs",
-      "../../../../packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs": "../wallet-platform/modules/ops/deploy-backed-assets.mjs",
-      "../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs": "../wallet-platform/modules/paeg/flat-native-execution.mjs",
-      "../../../../packages/backend/src/execution/encoding/transaction-codec.mjs": "../wallet-platform/modules/paeg/transaction-codec.mjs",
-      "../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs": "../wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs": "../wallet-platform/modules/global-state/flat-portfolio-authority.mjs",
-      "../../../../packages/backend/src/api/accounts/flat-account-session.mjs": "../wallet-platform/modules/api/flat-account-session.mjs",
-      "../../../../packages/backend/src/api/accounts/flat-account-http.mjs": "../wallet-platform/modules/api/flat-account-http.mjs",
-      "../../../../apps/wallet/src/server/server.mjs": "../wallet-app/server.mjs",
-      "./evm-vault-wallet-app-driver.mjs": "./evm-vault-wallet-app-driver.mjs",
-      "../../../../packages/backend/src/defi/vaults/owned-backed-vault.mjs": "../wallet-platform/modules/defi-adapters/owned-backed-vault.mjs",
-      "../../../../packages/backend/src/defi/vaults/private-vault-position.mjs": "../wallet-platform/modules/defi-adapters/private-vault-position.mjs",
-      "../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs": "../wallet-platform/modules/defi-adapters/private-vault-exit.mjs"
-    },
     "tests/integration/chains/evm/evm-vault-terminal-checks.mjs": {
       "../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs": "../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs",
       "../../../../packages/backend/src/execution/encoding/commitments.mjs": "../wallet-platform/modules/paeg/commitments.mjs"
@@ -22729,36 +22447,6 @@
       "../../../../packages/backend/src/defi/vaults/owned-backed-vault.mjs": "../wallet-platform/modules/defi-adapters/owned-backed-vault.mjs",
       "../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs": "../wallet-platform/modules/defi-adapters/private-vault-exit.mjs"
     },
-    "tests/integration/wallet/manual/manual-wallet-app-driver.mjs": {
-      "../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs",
-      "../../../../apps/wallet/src/client/state/view-model.mjs": "../wallet-app/public/view-model.mjs"
-    },
-    "tests/integration/wallet/manual/manual-wallet-app-driver.test.mjs": {
-      "../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs": "../wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs": "../wallet-platform/modules/global-state/flat-portfolio-authority.mjs",
-      "../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs": "../wallet-platform/modules/paeg/flat-native-execution.mjs",
-      "../../../../packages/backend/src/providers/evm-vault-provider.mjs": "../wallet-platform/modules/solvers/evm-vault-provider.mjs",
-      "../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs",
-      "../../../../apps/wallet/src/client/state/view-model.mjs": "../wallet-app/public/view-model.mjs",
-      "../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs": "../wallet-platform/modules/api/flat-manual-graph-session.mjs",
-      "../../../../apps/wallet/src/server/server.mjs": "../wallet-app/server.mjs",
-      "./manual-wallet-app-driver.mjs": "./manual-wallet-app-driver.mjs"
-    },
-    "tests/integration/wallet/manual/manual-wallet-handoff-acceptance.test.mjs": {
-      "../../../../packages/engine/src/notes/private-asset-runtime.mjs": "../../../omnichain-product/src/private-asset-runtime.mjs",
-      "../../../../packages/engine/src/execution/accounts/generic-account-journal.mjs": "../../../omnichain-product/src/paeg/generic-account-journal.mjs",
-      "../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs": "../wallet-platform/modules/paeg/flat-system-state.mjs",
-      "../../../../packages/backend/src/execution/encoding/statements.mjs": "../wallet-platform/modules/paeg/statements.mjs",
-      "../../../../packages/backend/src/accounts/authority/flat-account-validation.mjs": "../wallet-platform/modules/global-state/flat-account-validation.mjs",
-      "../../../../apps/wallet/src/client/state/view-model.mjs": "../wallet-app/public/view-model.mjs",
-      "../../../../packages/backend/src/api/wallet/wallet-application-client.mjs": "../wallet-platform/modules/api/wallet-application-client.mjs",
-      "../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs": "../wallet-platform/modules/global-state/flat-account-authority.mjs",
-      "../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs": "../wallet-platform/modules/global-state/flat-portfolio-authority.mjs",
-      "../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs": "../wallet-platform/modules/global-state/flat-journal-catalogue.mjs",
-      "../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs": "../wallet-platform/modules/api/flat-manual-graph-session.mjs",
-      "../../../../apps/wallet/src/server/server.mjs": "../wallet-app/server.mjs",
-      "./manual-wallet-app-driver.mjs": "./manual-wallet-app-driver.mjs"
-    },
     "tests/integration/wallet/manual/manual-wallet-source-pins.mjs": {
       "../../../../packages/proofs/src/catalog.mjs": "../proof-workers/catalog.mjs",
       "../../../../packages/proofs/src/tooling/tooling.mjs": "../proof-workers/tooling.mjs",
@@ -23112,7 +22800,21 @@
     "packages/proofs/src/wrapped-claims/tooling/wrapped-claim-tooling-v1.mjs": "packages/backend/src/proving/wrapped-claims/tooling/wrapped-claim-tooling-v1.mjs",
     "packages/engine/src/assembly/private-assembly-owner-process.mjs": "packages/proofs/src/execution/private-assembly-owner-process.mjs",
     "packages/engine/src/assembly/private-assembly-actor-process.mjs": "packages/proofs/src/execution/private-assembly-actor-process.mjs",
-    "packages/engine/src/wallet/custody/private-wallet-signer-process.mjs": "packages/proofs/src/execution/private-wallet-signer-process.mjs"
+    "packages/engine/src/wallet/custody/private-wallet-signer-process.mjs": "packages/proofs/src/execution/private-wallet-signer-process.mjs",
+    "apps/wallet/src/client/state/view-model.mjs": "packages/mobile-protocol/src/wallet/client/view-model.mjs",
+    "apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs": "packages/mobile-protocol/src/wallet/contracts/owner-graph-review-v1.mjs",
+    "apps/wallet/src/client/features/accounts/exact-action-browser-review.mjs": "packages/mobile-protocol/src/wallet/contracts/exact-action-browser-review.mjs",
+    "apps/wallet/src/client/features/accounts/manual-action-handoff.mjs": "packages/mobile-protocol/src/wallet/contracts/manual-action-handoff.mjs",
+    "apps/wallet/src/client/features/claims/native-note-review.mjs": "packages/mobile-protocol/src/wallet/contracts/native-note-review.mjs",
+    "apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs": "packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs",
+    "apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-review.mjs": "packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-review.mjs",
+    "apps/wallet/src/client/features/defi/generation-defi-contract.mjs": "packages/mobile-protocol/src/wallet/contracts/generation-defi-contract.mjs",
+    "apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs": "packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs",
+    "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs": "packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs",
+    "apps/wallet/src/client/features/portfolio/public-token-observations.mjs": "packages/mobile-protocol/src/wallet/contracts/public-token-observations.mjs",
+    "apps/wallet/src/server/errors/public-errors.mjs": "packages/backend/src/api/wallet/http/public-errors.mjs",
+    "apps/wallet/src/server/security/exact-action-capabilities.mjs": "packages/backend/src/api/wallet/http/exact-action-capabilities.mjs",
+    "apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs": "packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [

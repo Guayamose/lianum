@@ -1,20 +1,12 @@
 /** Wallet UI composition; the shared HTTP service owns session and request handling. */
 import {startWalletApplication as startWalletHttpService} from '@lianum/backend/wallet/http-service';
-const assets = { '/': [new URL('../client/index.html', import.meta.url), 'text/html; charset=utf-8'],
+const assets = {
+  '/': [new URL('../client/index.html', import.meta.url), 'text/html; charset=utf-8'],
   '/app.mjs': [new URL('../client/app.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/owner-graph-review-v1.mjs': [new URL('../client/features/accounts/owner-graph-review-v1.mjs', import.meta.url), 'text/javascript; charset=utf-8'], '/generation-position-state-v2.mjs': [new URL('../client/features/portfolio/generation-position-state-v2.mjs', import.meta.url), 'text/javascript; charset=utf-8'], '/public-token-observations.mjs': [new URL('../client/features/portfolio/public-token-observations.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/wrapped-resume-browser.mjs': [new URL('../client/features/withdrawals/wrapped-resume-browser.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/wrapped-withdrawal-resume-actions.mjs': [new URL('../client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/wrapped-withdrawal-review.mjs': [new URL('../client/features/withdrawals/wrapped-withdrawal-review.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/native-note-review.mjs': [new URL('../client/features/claims/native-note-review.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/manual-action-handoff.mjs': [new URL('../client/features/accounts/manual-action-handoff.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
   '/manual-action-dom.mjs': [new URL('../client/features/accounts/manual-action-dom.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/exact-action-browser-review.mjs': [new URL('../client/features/accounts/exact-action-browser-review.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/view-model.mjs': [new URL('../client/state/view-model.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/generation-defi-contract.mjs': [new URL('../client/features/defi/generation-defi-contract.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/original-economic-state-v1.mjs': [new URL('../client/features/portfolio/original-economic-state-v1.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/owner-portfolio-contract.mjs': [new URL('../client/features/portfolio/owner-portfolio-contract.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
-  '/style.css': [new URL('../client/style.css', import.meta.url), 'text/css; charset=utf-8'] };
+  '/wrapped-resume-browser.mjs': [new URL('../client/features/withdrawals/wrapped-resume-browser.mjs', import.meta.url), 'text/javascript; charset=utf-8'],
+  '/style.css': [new URL('../client/style.css', import.meta.url), 'text/css; charset=utf-8'],
+};
 // Expose the same explicit asset set at its canonical client paths.
 const clientRoot = new URL('../client/', import.meta.url);
 for (const [url, type] of Object.values(assets)) {

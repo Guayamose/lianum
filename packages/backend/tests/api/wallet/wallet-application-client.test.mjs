@@ -6,7 +6,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { startWalletApplication } from '../../../../../apps/wallet/src/server/server.mjs';
 import { ALL_ACTIONS, ACCOUNT_ACTIONS, DEFI_ACTIONS, WALLET_PROFILE, DEFI_PROFILE,
-  NATIVE_IDENTITY_PROFILE } from '../../../../../apps/wallet/src/client/state/view-model.mjs';
+  NATIVE_IDENTITY_PROFILE } from '../../../../mobile-protocol/src/wallet/client/view-model.mjs';
 import { createWalletApplicationClient } from '../../../src/api/wallet/wallet-application-client.mjs';
 
 const ownerToken = 'a'.repeat(64), actionToken = 'b'.repeat(64);
@@ -270,7 +270,7 @@ test('production bridge shares the wallet workflow and exposes only explicit man
   const source = await readFile(sourceURL, 'utf8');
   const module = await import('../../../src/api/wallet/wallet-application-client.mjs');
   assert.deepEqual(Object.keys(module).sort(), ['createWalletApplicationClient', 'submitWrappedWithdrawalResume']);
-  const sharedWorkflow = await import('../../../../../apps/wallet/src/client/state/view-model.mjs');
+  const sharedWorkflow = await import('../../../../mobile-protocol/src/wallet/client/view-model.mjs');
   const focusedEntries = [
     ['ALL_ACTIONS', new URL('../../../../mobile-protocol/src/wallet/client/actions/catalog.mjs', import.meta.url)],
     ['buildActionBody', new URL('../../../../mobile-protocol/src/wallet/client/actions/rules.mjs', import.meta.url)],

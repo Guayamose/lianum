@@ -12,10 +12,10 @@ import {Vault} from '@lianum/engine/crypto/vault';
 import {sha, genericAccountIdentity} from '@lianum/engine/accounts/journal';
 import {exactRecord} from '@lianum/components/encoding/commitments';
 let createFlatAccountSession;
-import {ORIGINAL_SPL_USDC_UNITS_V1} from '../../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
+import {ORIGINAL_SPL_USDC_UNITS_V1} from '../../../../mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
 import {validateOriginalWalletEconomicStateV1, projectOriginalWalletEconomicStateV1, originalEconomicRouteKeyV1}
-  from '../../../../../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs';
-import {validateWalletState, projectWalletState} from '../../../../../apps/wallet/src/client/state/view-model.mjs';
+  from '../../../../mobile-protocol/src/original-wallet-economic-state-v1.mjs';
+import {validateWalletState, projectWalletState} from '../../../../mobile-protocol/src/wallet/client/view-model.mjs';
 const mapped = new URL(import.meta.url).pathname.includes('/wallet-platform/modules/');
 const moduleURL = (raw, flat) => new URL(mapped ? flat : raw, import.meta.url);
 const catalogues = new WeakMap(), natives = new WeakMap(), pairs = new WeakMap(), positions = new WeakMap(), wrapped = new WeakMap();

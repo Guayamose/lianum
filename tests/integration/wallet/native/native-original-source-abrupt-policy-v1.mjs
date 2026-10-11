@@ -1,7 +1,7 @@
 /** Fixed original mobile SOURCE continuation after two unclosed backend exits, with the same durable ARM. */
 import assert from 'node:assert/strict';
 import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1} from '@lianum/proofs/execution/note-native-execution-v1';
-import {validateOriginalWalletEconomicStateV1,ORIGINAL_ECONOMIC_STATE_V1} from '../../../../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs';
+import {validateOriginalWalletEconomicStateV1,ORIGINAL_ECONOMIC_STATE_V1} from '../../../../packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';
 export const NATIVE_SOURCE_ABRUPT_PROFILE_V1='native-original-source-abrupt-v1';
 export const NATIVE_SOURCE_ABRUPT_RESULT_V1='LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_RESULT_V1';

@@ -13,7 +13,7 @@ import { sha, genericAccountIdentity } from '../../../../../packages/engine/src/
 import * as actualSystemState from '../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs';
 import { encodeStatement } from '@lianum/components/encoding/statements';
 import { flatAccountGraphBinding } from '../../../../../packages/backend/src/accounts/authority/flat-account-validation.mjs';
-import { createWalletClient, accountReviewDetails } from '../../../src/client/state/view-model.mjs';
+import { createWalletClient, accountReviewDetails } from '../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 import { bindManualActionConsent } from '../../../src/client/features/accounts/manual-action-dom.mjs';
 const h = text => createHash('sha256').update(text).digest('hex'), a = n => String(n).repeat(40);
 const worlds = new WeakMap(), owners = new WeakMap(), executors = new WeakMap(), policies = new WeakMap();
@@ -266,7 +266,7 @@ test('pending grant is deeply immutable and optional versioned metadata remains 
   const response = await fetch(f.app.origin + '/api/wallet/state', { headers: { Origin: f.app.origin, 'x-wallet-owner-token': f.app.ownerAccess.token } });
   const data = await response.json(); assert.equal(JSON.stringify(data).includes(g.access.token), false);
   assert.equal(data.manualActionHandoff.grant.reviewId, g.request.reviewId);
-  const { validateWalletState } = await import('../../../src/client/state/view-model.mjs');
+  const { validateWalletState } = await import('../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs');
   assert.ok(validateWalletState(data));
   const legacy = structuredClone(data); delete legacy.manualActionHandoff; assert.ok(validateWalletState(legacy));
   const bad = structuredClone(data); bad.manualActionHandoff.grant.token = g.access.token; assert.throws(() => validateWalletState(bad));

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { projectCatalogueOwnerRequests } from '../../../src/accounts/portfolio/catalogue-owner-requests.mjs';
-import { accountActionContext } from '../../../../../apps/wallet/src/client/state/view-model.mjs';
+import { accountActionContext } from '../../../../mobile-protocol/src/wallet/client/view-model.mjs';
 
 const h = n => n.repeat(64), id = 'original_top_up_01';
 const generationId = h('1'), request = { requestId: id, kind: 'TOP_UP', assetId: h('2'), ownerOperationRef: h('3') };

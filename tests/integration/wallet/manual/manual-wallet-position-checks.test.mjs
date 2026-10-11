@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { projectPrivatePositionStateV2 }
   from '../../../../packages/backend/src/defi/positions/private-position-state-v2.mjs';
 import { POSITION_STATE_PROFILE }
-  from '../../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs';
+  from '../../../../packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs';
 import { assertManualWalletConvertedPosition } from './manual-wallet-position-checks.mjs';
 const h = n => n.repeat(64), a = n => n.repeat(40);
 function fixture() {

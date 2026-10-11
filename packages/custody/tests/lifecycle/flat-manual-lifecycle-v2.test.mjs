@@ -321,7 +321,7 @@ test('new keeper refuses an existing legacy journal and another live keeper with
   assert.equal((await keeper.privateStatus()).requests.length, 1);
 });
 import { createFlatAccountSession } from '@lianum/backend/accounts/session';
-import { WALLET_PROFILE, validateWalletState, projectWalletState, accountActionContext } from '../../../../apps/wallet/src/client/state/view-model.mjs';
+import { WALLET_PROFILE, validateWalletState, projectWalletState, accountActionContext } from '../../../mobile-protocol/src/wallet/client/view-model.mjs';
 test('real FlatAccountSession and wallet view model display typed stop safely and require separate manual reauthorization', async t => {
   const { f, keeper, id } = await lifecycle(t), session = await createFlatAccountSession({ keeper, ownerHandoff: { ownerView: f.account.ownerView } });
   const wallet = snapshot => ({ version: 1, profile: WALLET_PROFILE, connection: 'CONNECTED', nativeClaims: null,

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { syncBuiltinESMExports } from 'node:module';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
-import { ALL_ACTIONS } from '../../../../apps/wallet/src/client/state/view-model.mjs';
+import { ALL_ACTIONS } from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const actionName = (section, method) => section + method[0].toUpperCase() + method.slice(1);

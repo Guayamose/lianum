@@ -3,10 +3,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 const pairs = [
-  ['@lianum/mobile-protocol/wallet/client', '../../../apps/wallet/src/client/state/view-model.mjs'],
-  ['@lianum/mobile-protocol/wallet/owner-graph-review-v1', '../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs'],
-  ['@lianum/mobile-protocol/wallet/owner-portfolio-contract', '../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs'],
-  ['@lianum/mobile-protocol/wallet/generation-position-state-v2', '../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs'],
+  ['@lianum/mobile-protocol/wallet/client', '../src/wallet/client/view-model.mjs'],
+  ['@lianum/mobile-protocol/wallet/owner-graph-review-v1', '../src/wallet/contracts/owner-graph-review-v1.mjs'],
+  ['@lianum/mobile-protocol/wallet/owner-portfolio-contract', '../src/wallet/contracts/owner-portfolio-contract.mjs'],
+  ['@lianum/mobile-protocol/wallet/generation-position-state-v2', '../src/wallet/contracts/generation-position-state-v2.mjs'],
   ['@lianum/crypto/portable-poseidon2', '../../../apps/mobile/src/custody/poseidon2-bn254-v1.mjs'],
   ['@lianum/engine/storage/records', '../../backend/src/claims/storage/segmented-record-store.mjs'],
   ['@lianum/proofs/host/process-files', '../../../tests/integration/native/native-flow-owned-files-v1.mjs'],

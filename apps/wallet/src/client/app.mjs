@@ -1,8 +1,8 @@
 import {createWrappedResumeBrowser} from './features/withdrawals/wrapped-resume-browser.mjs';
-import { WRAPPED_WITHDRAWAL_ACTIONS, isWrappedWithdrawalAction } from './features/withdrawals/wrapped-withdrawal-review.mjs';
+import { WRAPPED_WITHDRAWAL_ACTIONS, isWrappedWithdrawalAction } from '../../../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-review.mjs';
 import { bindManualActionConsent } from './features/accounts/manual-action-dom.mjs';
 import { ACTIONS, DEFI_ACTIONS, ACCOUNT_ACTIONS, ALL_ACTIONS, atomic, createWalletClient, projectWalletState,
-  originalNativeIdentity, nativeIdentityDetails, nativeAmountDetails, accountAssetChoices, accountActionContext, accountReviewDetails } from './state/view-model.mjs';
+  originalNativeIdentity, nativeIdentityDetails, nativeAmountDetails, accountAssetChoices, accountActionContext, accountReviewDetails } from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 
 const labels = { fresh: 'Observado por RPC', unknown: 'Desconocido', stale: 'Desactualizado', reorged: 'Reorganización detectada',
   READY_TO_REDEEM: 'Preparado para redimir', REDEMPTION_UNRESOLVED: 'Redención sin resolver', REDEEMED: 'Redimido según servicio',

@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { setImmediate as nextTurn } from 'node:timers/promises';
-import { ACTIONS } from '../../../../apps/wallet/src/client/state/view-model.mjs';
+import { ACTIONS } from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 import { createManualWalletDomDriver } from './manual-wallet-dom-driver.mjs';
 
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };

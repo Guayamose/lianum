@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert, { AssertionError } from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { publicCode } from '../../src/server/errors/public-errors.mjs';
-import { createWalletClient, WALLET_PROFILE, NATIVE_IDENTITY_PROFILE } from '../../src/client/state/view-model.mjs';
+import { publicCode } from '../../../../packages/backend/src/api/wallet/http/public-errors.mjs';
+import { createWalletClient, WALLET_PROFILE, NATIVE_IDENTITY_PROFILE } from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 
 const failure = code => Object.assign(new Error(code), { code });
 const fallback = native => native ? 'NATIVE_CLAIM_OPERATION_FAILED' : 'WALLET_OPERATION_FAILED';

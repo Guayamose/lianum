@@ -3,9 +3,9 @@
  * the estimate never becomes a spendable underlying balance. */
 import assert from 'node:assert/strict';
 import { validatePositionStateEnvelope, samePositionHead }
-  from '../../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs';
+  from '../../../../packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs';
 import { validateFlatOwnerReadPayload }
-  from '../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
+  from '../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
 
 export function assertManualWalletConvertedPosition({ positions, portfolio, generationId, shareAssetId, underlyingAssetId }) {
   validatePositionStateEnvelope(positions);

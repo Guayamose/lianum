@@ -24,8 +24,8 @@ import { prepareOwnedMetaMorphoGraphDescriptorV1, assertOwnedMetaMorphoGraphDeli
   prepareOwnedUniswapGraphDescriptorV1, assertOwnedUniswapGraphDeliveryFactsV1, readOriginalEvmGraphDeliveryEconomicFactsV1 }
   from '../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs';
 
-import { validateOwnerGraphReview, canonicalOwnerGraphTerms, ownerFlatDeFiEconomicAllocationV1 } from '../../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
-import { accountReviewDetails } from '../../../../../../apps/wallet/src/client/state/view-model.mjs';
+import { validateOwnerGraphReview, canonicalOwnerGraphTerms, ownerFlatDeFiEconomicAllocationV1 } from '../../../../../mobile-protocol/src/wallet/contracts/owner-graph-review-v1.mjs';
+import { accountReviewDetails } from '../../../../../mobile-protocol/src/wallet/client/view-model.mjs';
 
 const h = n => n.toString(16).padStart(2, '0').repeat(32), a = n => n.toString(16).padStart(2, '0').repeat(20);
 const word = n => BigInt(n).toString(16).padStart(64, '0');

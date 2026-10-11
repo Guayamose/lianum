@@ -31,7 +31,7 @@ import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/a
 import {assertOwnedFlatJournalCatalogueAccount} from '../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
 import { startFlatAccountHttp } from '@lianum/backend/accounts/http';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
-import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
+import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
 import { createManualWalletAppDriver } from '../../wallet/manual/manual-wallet-app-driver.mjs';
 import { createOwnedMetaMorphoVault, createOwnedAaveStaticVaultV1, assertOwnedMetaMorphoReceipt } from '../../../../packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs';
 import { createPrivateVaultPortfolioView } from '../../../../packages/backend/src/defi/vaults/private-vault-position.mjs';

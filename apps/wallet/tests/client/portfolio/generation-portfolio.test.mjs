@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { GENERATION_PORTFOLIO_PROFILE, validateFlatOwnerReadPayload, ownerPortfolioAssetRows } from '../../../src/client/features/portfolio/owner-portfolio-contract.mjs';
-import { ACTIONS, validateWalletState, projectWalletState, accountAssetChoices, accountActionContext } from '../../../src/client/state/view-model.mjs';
+import { GENERATION_PORTFOLIO_PROFILE, validateFlatOwnerReadPayload, ownerPortfolioAssetRows } from '../../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
+import { ACTIONS, validateWalletState, projectWalletState, accountAssetChoices, accountActionContext } from '../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 import { startWalletApplication } from '../../../src/server/server.mjs';
 import { createFlatAccountSession } from '../../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
 import { createWalletApplicationClient } from '../../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';

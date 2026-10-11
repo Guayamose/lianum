@@ -3,7 +3,7 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { WALLET_PROFILE, NATIVE_IDENTITY_PROFILE } from '../../../../../apps/wallet/src/client/state/view-model.mjs';
+import { WALLET_PROFILE, NATIVE_IDENTITY_PROFILE } from '../../../../mobile-protocol/src/wallet/client/view-model.mjs';
 
 const ownerToken = 'a'.repeat(64), actionToken = 'b'.repeat(64), requestId = 'original_transport_01';
 const state = () => ({ version: 1, profile: WALLET_PROFILE, connection: 'CONNECTED', portfolio: null,

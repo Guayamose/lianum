@@ -9,7 +9,7 @@ const sessions = new WeakSet();
 mock.module(new URL('../wallet-platform/modules/api/wrapped-withdrawal-session-v1.mjs', import.meta.url).href,
   { exports: { assertOwnedWrappedWithdrawalSessionV1(session) { assert.ok(sessions.has(session), 'INERT_SERVICE_ONLY'); } } });
 const { startWalletApplication } = await import('../../../src/server/server.mjs');
-const { createWalletClient } = await import('../../../src/client/state/view-model.mjs');
+const { createWalletClient } = await import('../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs');
 const h = c => c.repeat(64), a = c => '0x' + c.repeat(40);
 const terms = role => ({ version: 1, profile: 'ORIGINAL_WRAPPED_WITHDRAWAL_TERMS_V1', role,
   actor: { kind: role === 'change' ? 'ORIGINAL_WRAPPED_SOURCE_OWNER_CHANGE' : 'ORIGINAL_GRAPH_PAYOUT_RECIPIENT', identitySHA256: h(role === 'change' ? '1' : '2'), processIdentitySHA256: h(role === 'change' ? '3' : '4'), generation: role === 'change' ? 7 : 1 },

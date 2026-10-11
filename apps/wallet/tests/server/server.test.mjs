@@ -19,10 +19,10 @@ import { assertNativeClaimSession as actualNativeAssertion, nativeClaimApiErrorC
 import { assertOwnedPrivateVaultExit as actualDefiAssertion }
   from '../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs';
 import { WALLET_PROFILE, ACTIONS, DEFI_ACTIONS, validateWalletState, projectWalletState }
-  from '../../src/client/state/view-model.mjs';
+  from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 const clientSourceURLs = {
   'app.mjs': new URL('../../src/client/app.mjs', import.meta.url),
-  'view-model.mjs': new URL('../../src/client/state/view-model.mjs', import.meta.url),
+  'view-model.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs', import.meta.url),
   'style.css': new URL('../../src/client/style.css', import.meta.url),
 };
 
@@ -266,6 +266,27 @@ function assertTransferMetadata(row, original) {
   assert.equal(JSON.stringify(row).includes(original.nativeWire.slice(2)), false);
 }
 
+test('all browser imports are served from their real owners after removing compatibility modules', async t => {
+  const app = await application(t);
+  const pending = ['/app.mjs'], visited = new Set();
+  while (pending.length) {
+    const path = pending.pop();
+    if (visited.has(path)) continue;
+    visited.add(path);
+    const response = await request(app, path);
+    assert.equal(response.status, 200, path);
+    assert.ok(response.headers['content-type'].startsWith('text/javascript'), path);
+    const statements = [/^import\s+(?:[^;]*?\s+from\s*)?['"]([^'"]+)['"]/gm,
+      /^export\s+(?:\*|\{[^}]*\})\s+from\s*['"]([^'"]+)['"]/gm];
+    for (const pattern of statements) for (const match of response.text.matchAll(pattern)) {
+      assert.ok(match[1].startsWith('.'), 'Browser module must resolve without Node: ' + match[1]);
+      pending.push(new URL(match[1], app.origin + path).pathname);
+    }
+  }
+  assert.ok(visited.has('/packages/mobile-protocol/src/wallet/client/view-model.mjs'));
+  assert.ok(visited.has('/packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-review.mjs'));
+});
+
 test('real HTML/static assets and disconnected state form the same authenticated UI contract', async t => {
   const app = await application(t), html = await request(app, '/');
   assert.equal(html.status, 200); assert.match(html.headers['content-type'], /^text\/html/);
@@ -283,7 +304,7 @@ test('real HTML/static assets and disconnected state form the same authenticated
   assert.equal(html.headers['cross-origin-opener-policy'], 'same-origin');
   assert.match(html.headers['permissions-policy'], /camera=\(\), microphone=\(\), geolocation=\(\)/);
   for (const [path, name, type] of [['/app.mjs', 'app.mjs', 'text/javascript'],
-    ['/view-model.mjs', 'view-model.mjs', 'text/javascript'], ['/style.css', 'style.css', 'text/css']]) {
+    ['/packages/mobile-protocol/src/wallet/client/view-model.mjs', 'view-model.mjs', 'text/javascript'], ['/style.css', 'style.css', 'text/css']]) {
     const response = await request(app, path); assert.equal(response.status, 200);
     assert.ok(response.headers['content-type'].startsWith(type));
     assert.equal(response.text, await readFile(clientSourceURLs[name], 'utf8'));

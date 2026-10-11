@@ -58,7 +58,7 @@ test('HOST actual retained-note guard requires the original TOP_UP and EXIT term
 });
 
 
-import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
+import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
 test('HOST actual owner-view helper joins only the original catalogue generation and head without inventing balances',()=>{
   // Explicit public metadata fixtures; no owner, journal, node, proof or financial authority.
   const source=readFileSync(join(ROOT,'integration/evm-vault-flow.mjs'),'utf8');

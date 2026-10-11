@@ -3,7 +3,7 @@
  * original journals, genuine proofs, lifecycle and scoped policy are reviewed. */
 import assert from 'node:assert/strict';
 import { ALL_ACTIONS, DEFI_PROFILE, accountActionContext, accountReviewDetails, actionReview, buildActionBody, validateWalletState }
-  from '../../../../apps/wallet/src/client/state/view-model.mjs';
+  from '../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 
 const actionName = (section, method) => section + method[0].toUpperCase() + method.slice(1);
 const idle = snapshot => snapshot?.phase === 'READY' && snapshot.available === true
