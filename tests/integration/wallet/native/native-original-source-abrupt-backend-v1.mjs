@@ -10,7 +10,7 @@ import {createOriginalNativeSourceLocalOperatorV1,reopenOriginalNativeSourceLoca
  readOriginalNativeSourceLocalArmedAuditV1} from '../../../../packages/backend/src/operations/recovery/native-original-source-local-operator-v1.mjs';
 import {readOriginalSessionWalletEconomicStateV1} from '@lianum/backend/accounts/manual-graph';
 import {assertOriginalWalletEconomicStateV1,originalWalletEconomicStateBindingsV1} from '@lianum/backend/accounts/state/original-wallet-economic-state-v1';
-import {originalNativeSourceCapsuleStatusV1} from '../../../../packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs';
+import {originalNativeSourceCapsuleStatusV1} from '../../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs';
 import {readOriginalNativeSourceProofReceiptsV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import {nativeProcStatV1} from '../../native/native-flow-owned-files-v1.mjs';
