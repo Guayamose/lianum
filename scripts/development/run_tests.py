@@ -29,6 +29,13 @@ DEFAULT_TESTS = [
     "packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs",
     "packages/backend/tests/execution/account/reconciliation/flat-terminal-observer.test.mjs",
     "packages/backend/tests/execution/encoding/flat-pure-math-cache.test.mjs",
+    'packages/backend/tests/claims/operations/original-btc-payout-completion-v3.test.mjs',
+    'packages/backend/tests/accounts/authority/source-proof-receipts-v1.test.mjs',
+    'packages/backend/tests/accounts/authority/native-source-kernel-composition.test.mjs',
+    'packages/backend/tests/claims/operations/device-root-spl-source-binding-v3.test.mjs',
+    'packages/backend/tests/claims/recovery/device-root-claim-observation-v3.test.mjs',
+    'packages/backend/tests/operations/support/wrapped-recovery-composition.test.mjs',
+    'packages/backend/tests/operations/support/device-graph-recovery-contracts.test.mjs',
 ]
 
 
