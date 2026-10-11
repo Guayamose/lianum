@@ -17,12 +17,13 @@ const accountURL=new URL(runtimeLayout?'./native-value-account-authority-v2.mjs'
 const runtimeURL=new URL(runtimeLayout?'../chain-adapters/owned-evm-v2-runtime.mjs':'../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs',import.meta.url);
 const readURL=new URL(runtimeLayout?'./device-d26-observation-recovery-v1.mjs':'../../../src/accounts/authority/device-d26-observation-recovery-v1.mjs',import.meta.url);
 const fixedRoot=legacyDataRoot('wallet');
+const [actualAccount,actualRuntime]=await Promise.all([import(accountURL),import(runtimeURL)]);
 const accounts=new WeakSet(),runtimes=new WeakSet();let captured=0,stopped=0;
-mock.module(accountURL,{exports:{async captureOriginalDeviceD26ObservationV1(input){
+mock.module(accountURL,{exports:{...actualAccount,async captureOriginalDeviceD26ObservationV1(input){
   assert.ok(accounts.has(input.account));assert.ok(runtimes.has(input.runtime));captured++;
   return {schema:'EXPLICIT_INERT_HOST_DEVICE_SNAPSHOT',jobId:input.jobId,financialAcceptance:false,system:{retainedHostSourceSHA256:'12'.repeat(32)}};
 }}});
-mock.module(runtimeURL,{exports:{async captureOwnedEvmRecoveryV1(runtime){assert.ok(runtimes.has(runtime));stopped++;
+mock.module(runtimeURL,{exports:{...actualRuntime,async captureOwnedEvmRecoveryV1(runtime){assert.ok(runtimes.has(runtime));stopped++;
   return {schema:'EXPLICIT_INERT_HOST_RECEIVER_CAPTURE',family:'receiver',terminal:{ownedProcessStopped:true,forced:false}};
 }}});
 const authority=await import(authorityURL);
