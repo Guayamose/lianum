@@ -62,7 +62,7 @@ importar la aplicación. Los contratos y el cliente sin DOM pertenecen a
 | Despliegues DeFi y composición local wrapped | `packages/backend/src/operations/` | Los fixtures anteriores remiten a la implementación operativa |
 | Identidad de procesos y observación RSS | `packages/proofs/src/host/` | Helpers de tests reexportan la implementación |
 | Mecánica de runtime EVM y custodia por instancia | `packages/backend/src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs` | La fachada `owned-evm-v2-runtime.mjs` conserva las funciones del propietario original |
-| Journal SOURCE y composición original de runtime | `packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs` | La cápsula anterior reexporta el mismo propietario |
+| Journal SOURCE y composición original de runtime | `packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs` | La fachada de cápsula anterior está retirada como evidencia `.source`; los consumidores usan este propietario |
 
 Las pruebas importan implementaciones operativas. Los imports literales activos
 ya no apuntan a conductores de pruebas ni módulos ejecutables de `experiments/`.
@@ -132,7 +132,7 @@ El grupo restante reúne cinco familias principales: recuperación wrapped
 DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
 siguen visibles; no son cinco componentes independientes ni deuda resuelta.
 
-La selección estricta tiene **86 entradas explícitas**. Se comprueban los cuerpos
+La selección estricta tiene **87 entradas explícitas**. Se comprueban los cuerpos
 completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
 de los mecanismos de journal, recuperación, observación y formatos extraídos.
 El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos
@@ -146,7 +146,7 @@ SOURCE conserva la emisión y consumo de sus tokens privados de checkpoint y
 llama directamente al reconciliador de datos del journal. Ya no delega esa
 lectura a la autoridad de cuenta. Las entradas wrapped de cuenta, ejecutor,
 terminal, claims y sesión tienen consumidores directos a sus propietarios.
-Las seis fachadas versionadas retiradas se conservan como `.source` con hash
+Las siete fachadas versionadas retiradas se conservan como `.source` con hash
 en `archive/source-evidence/retired-facades`, fuera de `src` y sin copias de
 ejecución. Los nombres antiguos de sus publicaciones se resuelven como evidencia;
 sus imports históricos no se siguen ni se ejecutan.
@@ -186,3 +186,12 @@ Los comandos `./dev bundle build`, `verify` y `run` están en
 [COMMANDS.md](COMMANDS.md). Preparar o trasladar un bundle no publica una release
 ni acredita una ejecución económica. La compatibilidad de generaciones previas
 sigue disponible de forma explícita; consulta [STRUCTURE.md](STRUCTURE.md).
+
+El recorrido fijo BTC→SOL para SPL SOURCE pertenece a
+`operations/recovery/device-root-spl-source-execution-v4.mjs`; HTTP compone los
+recursos originales y delega el ciclo completo. Su prueba importa el propietario
+real, con puertos financieros inferiores explícitamente inertes. El cifrado de
+estados de SOURCE pertenece a `source-journal/native-state-cipher-v1.mjs`, bajo
+tipado estricto; no tiene autoridad, registro ni acceso al sistema de archivos.
+La orquestación SOURCE conserva sus guardas y funciones, ahora formateadas; su
+composición superior sigue pendiente de separación y tipado completo.

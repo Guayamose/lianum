@@ -34,13 +34,13 @@ La reorganización actual deja estos resultados comprobados:
 
 - **Paquetes y consumidores:** cero ciclos entre paquetes, cero imports privados
   activos entre paquetes y cero enlaces activos hacia pruebas/experimentos.
-  La comprobación inspecciona 955 fuentes y 1.749 imports públicos. Los trece
+  La comprobación inspecciona 956 fuentes y 1.752 imports públicos. Los trece
   enlaces de soporte de `protocol` son históricos y permanecen separados.
 - **Familias privadas:** mecánica EVM, reloj SOURCE, tres bridges, actor móvil y
   sesión nativa tienen propietarios por instancia y contratos concretos. La
   composición original conserva las funciones públicas y los validadores no
   aceptan marcas de otro builder. Se mantienen AEAD, CAS y tokens de un uso.
-- **Tipado:** la comprobación estricta tiene 86 entradas explícitas, frente a
+- **Tipado:** la comprobación estricta tiene 87 entradas explícitas, frente a
   las 27 anteriores. Comprueba los cuerpos completos del actor y sesión nativa,
   depósitos y ejecución de cuenta, además de los mecanismos extraídos de
   journal, recuperación, observación, DeFi y formatos móviles. Incluye también
@@ -51,12 +51,12 @@ La reorganización actual deja estos resultados comprobados:
 - **Simplificación:** se retiraron las catorce fachadas duplicadas de wallet,
   fachadas privadas sustituidas y tres recolectores manuales de fuentes. Los
   consumidores usan sus propietarios actuales; los exports públicos útiles
-  conservan su identidad. Veintidós copias de fuentes del runtime histórico
-  dejaron de regenerarse: las dieciséis iniciales (277.111 bytes) y seis fachadas
+  conservan su identidad. Veintitrés copias de fuentes del runtime histórico
+  dejaron de regenerarse: las dieciséis iniciales (277.111 bytes) y siete fachadas
   adicionales. Las herramientas y originales no se
   eliminaron para reducir artificialmente el tamaño del proyecto.
-  Los consumidores activos de seis fachadas backend ya llaman a sus propietarios
-  definitivos. Las seis fachadas se retiraron de `src` y sus bytes exactos
+  Los consumidores activos de siete fachadas backend ya llaman a sus propietarios
+  definitivos. Las siete fachadas se retiraron de `src` y sus bytes exactos
   (2.353 bytes) quedan como `.source` en `archive/source-evidence/retired-facades`;
   las publicaciones previas las resuelven como evidencia, sin ejecutarlas.
   SOURCE reconcilia el checkpoint de cuenta mediante
@@ -73,8 +73,8 @@ La reorganización actual deja estos resultados comprobados:
   generales, módulos variables, campos sobrantes y acceso general a escritura.
 
 La adopción actual es
-`b1794a4e987c7d42b5e468c462ec8a28b9bb49fdb5cc4fb2a8f06c142382230f`, con
-**1.448 fuentes y cero aliases de ejecución** en su contrato. Preparación y
+`b0a2cbbb5aee39a1e2c8ec40f80429b785914ca6d6f9406b1215cf219f8572aa`, con
+**1.450 fuentes y cero aliases de ejecución** en su contrato. Preparación y
 adopción autentican los doce roles nativos y los cinco paginados, los originales
 W39/N32, programas, claves, compiler inputs y recibos. Los catálogos anteriores
 quedan archivados por sus bytes exactos; no se ejecutan ni se reescriben.
@@ -90,8 +90,8 @@ Node autorizado a leer únicamente dentro del paquete. Sus lectores reales
 aceptan las fuentes adoptadas y rechazan una clave paginada original alterada.
 Para I84 rechazan alteraciones de clave, programa, recibo de verificación y
 cápsula. Lleva 375 recursos públicos (248.167.371 bytes); el paquete completo
-ocupó 290.379.144 bytes, unos 277 MiB, y fue eliminado después. La última
-comprobación sobre la adopción actual terminó en 9,8 segundos. No usa el
+ocupó 290.400.469 bytes, unos 277 MiB, y fue eliminado después. La última
+comprobación sobre la adopción actual terminó en 6,3 segundos. No usa el
 checkout, laboratorio ni `.internal/runtime` de la máquina original.
 
 I84 autentica una publicación inmutable del resultado del lector original y
@@ -101,6 +101,24 @@ programa, clave, Solidity, pruebas y recibos; no ejecuta los módulos histórico
 Su exportación añadió aproximadamente 6,34 MiB de cápsula y evidencia de fuentes;
 reutiliza herramientas, parámetros y artefactos restaurados. Los directorios
 absolutos del resultado son etiquetas de procedencia, no rutas de lectura.
+
+El recorrido SPL SOURCE tiene ahora un propietario canónico fuera del transporte
+HTTP. La regresión importa su módulo completo con puertos inferiores explícitos;
+conserva Vault/AEAD/CAS, nacimiento antes de FUND, finalidad y wire originales,
+UNKNOWN tras respuesta perdida, observación sin otra prueba/envío y cierre de
+recursos. Dos instancias mantienen sus referencias originales por separado y
+rechazan un proveedor copiado. El cuerpo sustituido se retiró del archivo HTTP.
+
+El cifrado de estados nativos SOURCE tiene un propietario completo bajo tipado
+estricto. Conserva el formato V1 y la derivación/AAD originales; comprueba un
+frame sintético anterior a la extracción y rechaza alteraciones de identidad,
+clave, familia, generación, genesis, head y ciphertext. Borra el texto provisional
+emitido por AES-GCM incluso cuando falla su tag. Los cinco casos pasan con AES
+real. Los 102 cuerpos de funciones restantes de SOURCE conservan su AST tras
+hacer legible el archivo; esto no declara tipada toda su composición. La regresión
+con salida física de un proceso, publicación nativa, OPENING y CAS de cuenta pasa
+en 14,8 segundos. La última fachada SOURCE, 1.929 bytes, queda conservada como
+evidencia `.source` y su consumidor abrupt-backend importa directamente al dueño.
 
 **Deuda que permanece:** el SCC interno pasó de 154 archivos/845 imports a
 **133 archivos/756 imports**, pero sigue reuniendo SOURCE, autoridad nativa,
@@ -119,11 +137,11 @@ Estado concreto de los seis puntos de deuda y cinco de simplificación:
 | Deuda 2: adopción económica | Generación actual adoptada; lectura real paginada/nativa/wrapped y rechazo de copia del bundle. | No se cuenta esta lectura como una nueva operación financiera. |
 | Deuda 3: pins actuales | Inventario gestionado de móvil, plataforma, callers y runtime; 200 verificaciones inmutables separadas. | Las ampliaciones futuras deben declarar sus fuentes; no se actualizan hashes históricos. |
 | Deuda 4: disposición y recursos | Fuentes canónicas, bundle wallet y lectores paginado/wrapped/I84 trasladados; recursos declarados sin fallback. | Portar y aceptar todos los workers y recorridos económicos/DeFi con sus recursos reales. |
-| Deuda 5: tipado del núcleo | 86 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, keeper duradero, sesión general, SOURCE y recuperación GRAPH/DeFi. |
+| Deuda 5: tipado del núcleo | 87 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, keeper duradero, sesión general, SOURCE y recuperación GRAPH/DeFi. |
 | Deuda 6: pruebas por interfaces | Actor, sesión, journal, recuperación y fixtures wrapped usan interfaces completas; autorización e I84 ya no extraen JavaScript. | Migrar las extracciones restantes y aceptar las matrices wrapped completas. |
 | Limpieza 1: histórico separado | Búsquedas, dependencias cotidianas y clones de desarrollo excluyen el histórico; originales conservados. | Nada adicional identificado en este bloque. |
-| Limpieza 2: fachadas | Catorce fachadas wallet y seis backend retiradas; consumidores directos y bytes históricos autenticados fuera de `src`. | Nada adicional identificado entre las fachadas retiradas de este bloque; se conservan las entradas públicas útiles. |
-| Limpieza 3: caminos de ejecución | Veintidós copias retiradas; las tres fuentes nuevas compartidas no generan otra copia. | Retirar la compatibilidad que todavía usa el sistema económico completo. |
+| Limpieza 2: fachadas | Catorce fachadas wallet y siete backend retiradas; consumidores directos y bytes históricos autenticados fuera de `src`. | Nada adicional identificado entre las fachadas retiradas de este bloque; se conservan las entradas públicas útiles. |
+| Limpieza 3: caminos de ejecución | Veintitrés copias retiradas; las cinco fuentes nuevas compartidas no generan otra copia. | Retirar la compatibilidad que todavía usa el sistema económico completo. |
 | Limpieza 4: herramientas y pruebas | Catálogo de comandos comprobado; campañas largas explícitas y selección diaria acotada. | Pruebas frágiles restantes y validación de las matrices migradas. |
 | Limpieza 5: legibilidad y propietarios | Helpers sustituidos retirados, puertos económicos explícitos y codecs con un propietario. | Descomprimir/separar las composiciones superiores junto con sus contratos y pruebas. |
 

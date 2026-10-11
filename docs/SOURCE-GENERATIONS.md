@@ -39,7 +39,7 @@ Los resultados viven en `.local/generations/`, fuera del código versionado:
 
 Repetir la preparación con las mismas fuentes reutiliza la generación y los objetos existentes. No crea otra copia del repositorio, herramientas, redes, custodia o compilaciones. Una modificación del objeto guardado se detecta y detiene la preparación.
 
-Las fuentes retiradas de los tres recolectores y seis fachadas tienen una
+Las fuentes retiradas de los tres recolectores y siete fachadas tienen una
 reubicación explícita a evidencia `.source` nombrada por SHA-256. Sus nombres
 antiguos siguen sirviendo para comprobar publicaciones anteriores, pero no son
 entradas de ejecución. La captura verifica sus bytes, no sigue sus imports y
