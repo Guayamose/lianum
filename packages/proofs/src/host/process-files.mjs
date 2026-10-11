@@ -2,8 +2,15 @@
 import assert from 'node:assert/strict';
 import { constants, openSync, closeSync, fstatSync, readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+/** @typedef {{pid:number,ppid:number,state:string,pgrp:number,session:number,startTimeTicks:string}} NativeProcStat */
+/** @typedef {'PPID'|'PGRP'|'SESSION'} IdentityField */
+/** @typedef {{field:IdentityField,tokenShape:'missing'|'negative'|'unsafeInteger'|'nonDecimal',originalIntegerFailure:true,identityMinusOne:boolean}} IntegerDiagnostic */
+/** @param {number} value */
 const integer = value => { assert.ok(Number.isSafeInteger(value) && value >= 0, 'NATIVE_RESOURCE_INTEGER'); return value; };
+/** @type {WeakMap<object,{diagnostic:Readonly<IntegerDiagnostic>,identityMinusOne:boolean}>} */
 const originalProcIntegerFailures = new WeakMap();
+/** @param {string | undefined} token @param {IdentityField} field */
 function procInteger(token, field) {
   const value = Number(token);
   try { return integer(value); }
@@ -12,6 +19,7 @@ function procInteger(token, field) {
       : /^-\d+$/.test(token) ? 'negative'
       : /^\d+$/.test(token) && !Number.isSafeInteger(value) ? 'unsafeInteger' : 'nonDecimal';
     const identityMinusOne = token === '-1' && (field === 'PGRP' || field === 'SESSION');
+    assert.ok(error instanceof Error);
     originalProcIntegerFailures.set(error, Object.freeze({
       diagnostic: Object.freeze({ field, tokenShape, originalIntegerFailure: true, identityMinusOne }),
       identityMinusOne,
@@ -20,16 +28,19 @@ function procInteger(token, field) {
   }
 }
 /** Diagnostic-only: original failure identity required, no text/value/PID. */
+/** @param {unknown} error */
 export function nativeProcStatIntegerDiagnosticV1(error) {
   assert.equal(arguments.length, 1);
-  return originalProcIntegerFailures.get(error)?.diagnostic ?? null;
+  return error && typeof error === 'object' ? originalProcIntegerFailures.get(error)?.diagnostic ?? null : null;
 }
 /** Only an original parser rejection of the exact kernel identity sentinel. */
+/** @param {unknown} error */
 export function isOriginalNativeProcStatMinusOneV1(error) {
   assert.equal(arguments.length, 1);
-  return originalProcIntegerFailures.get(error)?.identityMinusOne === true;
+  return Boolean(error && typeof error === 'object' && originalProcIntegerFailures.get(error)?.identityMinusOne === true);
 }
 
+/** @param {string} path @param {number} [maximumBytes] */
 export function readNativeFlowRegularV1(path, maximumBytes = 8 * 1024 * 1024) {
   assert.equal(realpathSync(path), resolve(path), 'NATIVE_FILE_SYMLINK');
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -43,6 +54,7 @@ export function readNativeFlowRegularV1(path, maximumBytes = 8 * 1024 * 1024) {
   } finally { closeSync(fd); }
 }
 
+/** @param {number} pid @param {string} text @returns {NativeProcStat} */
 export function parseNativeProcStat(pid, text) {
   const end = text.lastIndexOf(') '), first = text.indexOf(' ');
   assert.ok(Number.isSafeInteger(pid) && pid > 0 && end > first
@@ -54,7 +66,8 @@ export function parseNativeProcStat(pid, text) {
   assert.match(startTimeTicks, /^\d+$/, 'NATIVE_PROC_START_IDENTITY');
   return { pid, ppid, state: fields[0], pgrp, session, startTimeTicks };
 }
+/** @param {number} pid */
 export function nativeProcStatV1(pid) {
   try { return parseNativeProcStat(pid, readFileSync(`/proc/${pid}/stat`, 'utf8')); }
-  catch (error) { if (['ENOENT', 'ESRCH'].includes(error.code)) return null; throw error; }
+  catch (error) { if (error instanceof Error && 'code' in error && ['ENOENT', 'ESRCH'].includes(String(error.code))) return null; throw error; }
 }

@@ -6,10 +6,15 @@ import { types } from 'node:util';
 export const PROFILE = 'LIANUM_PAEG_P2_V1';
 export const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 const F = 'field32', B = 'bytes32', TIME = 'u64';
+/** @typedef {{name:string,type:string}} StatementField */
+/** @typedef {string | ReadonlyArray<string>} StatementValue */
+/** @typedef {keyof typeof RELATIONS} RelationName */
+/** @param {string} name @param {string} type */
 const field = (name, type) => Object.freeze({ name, type });
 const commonReadiness = [field('domainCommitment', F), field('authorizationRoot', F),
   field('checkpoint', B), field('readinessEvidenceState', F), field('joinCommitment', F)];
 
+/** @param {string} role @param {readonly StatementField[]} fields */
 function relation(role, fields) {
   return Object.freeze({ role, fields: Object.freeze(fields), wordCount:
     fields.reduce((sum, item) => sum + (item.type === TIME ? 1 : item.type.endsWith('[4]') ? 32 : 8), 0) });
@@ -51,10 +56,12 @@ export const RELATIONS = Object.freeze({
     field('settleBefore', TIME)]),
 });
 
+/** @param {RelationName} mode */
 function profile(mode) {
   assert.ok(Object.hasOwn(RELATIONS, mode), 'UNKNOWN_PROOF_RELATION');
   return RELATIONS[mode];
 }
+/** @param {unknown} record @param {readonly string[]} keys @returns {asserts record is Record<string,unknown>} */
 function exact(record, keys) {
   assert.ok(record && typeof record === 'object' && !types.isProxy(record)
     && Object.getPrototypeOf(record) === Object.prototype, 'STATEMENT_PLAIN_RECORD');
@@ -65,6 +72,7 @@ function exact(record, keys) {
       'STATEMENT_DATA_FIELDS');
   }
 }
+/** @param {unknown} values @param {number} length @returns {asserts values is unknown[]} */
 function array(values, length) {
   assert.ok(Array.isArray(values) && !types.isProxy(values)
     && Object.getPrototypeOf(values) === Array.prototype && values.length === length,
@@ -73,21 +81,24 @@ function array(values, length) {
   for (let i = 0; i < length; i++)
     assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(values, String(i)) ?? {}, 'value'), 'STATEMENT_DENSE_ARRAY');
 }
+/** @param {unknown} value @param {number} width */
 function integer(value, width) {
-  assert.equal(typeof value, 'string', 'STATEMENT_INTEGER_STRING');
+  assert.ok(typeof value === 'string', 'STATEMENT_INTEGER_STRING');
   assert.ok(value.length <= 20 && /^(0|[1-9][0-9]*)$/.test(value), 'STATEMENT_INTEGER_ENCODING');
   const result = BigInt(value);
   assert.equal(result.toString(), value, 'STATEMENT_INTEGER_ROUNDTRIP');
   assert.ok(result < (1n << BigInt(width)), 'STATEMENT_INTEGER_RANGE');
   return result;
 }
+/** @param {unknown} value @param {string} type */
 function digest(value, type) {
-  assert.equal(typeof value, 'string', 'STATEMENT_DIGEST_STRING');
+  assert.ok(typeof value === 'string', 'STATEMENT_DIGEST_STRING');
   assert.equal(value.length, 64, 'STATEMENT_DIGEST_LENGTH');
   assert.match(value, /^[0-9a-f]{64}$/, 'STATEMENT_DIGEST_ENCODING');
   if (type === F) assert.ok(BigInt('0x' + value) < FIELD_MODULUS, 'STATEMENT_FIELD_RANGE');
   return value;
 }
+/** @param {unknown} value @param {string} type @returns {string[]} */
 function encodeValue(value, type) {
   if (type === TIME) return [integer(value, 64).toString()];
   if (type.endsWith('[4]')) {
@@ -97,6 +108,7 @@ function encodeValue(value, type) {
   const bytes = Buffer.from(digest(value, type), 'hex');
   return Array.from({ length: 8 }, (_, index) => bytes.readUInt32BE(index * 4).toString());
 }
+/** @param {RelationName} mode @param {unknown} statement */
 export function encodeStatement(mode, statement) {
   const spec = profile(mode);
   exact(statement, spec.fields.map(item => item.name));
@@ -104,38 +116,48 @@ export function encodeStatement(mode, statement) {
   assert.equal(words.length, spec.wordCount);
   return Object.freeze(words);
 }
+/** @param {RelationName} mode @param {unknown} words */
 export function decodeStatement(mode, words) {
   const spec = profile(mode); array(words, spec.wordCount);
   let offset = 0;
-  const read = type => {
+  /** @param {string} type */
+  const readScalar = type => {
     if (type === TIME) return integer(words[offset++], 64).toString();
-    if (type.endsWith('[4]')) return Object.freeze(Array.from({ length: 4 }, () => read(type.slice(0, -3))));
     const result = Array.from({ length: 8 }, () => integer(words[offset++], 32).toString(16).padStart(8, '0')).join('');
     return digest(result, type);
   };
+  /** @param {string} type @returns {StatementValue} */
+  const read = type => type.endsWith('[4]')
+    ? Object.freeze(Array.from({ length: 4 }, () => readScalar(type.slice(0, -3))))
+    : readScalar(type);
   const statement = Object.fromEntries(spec.fields.map(item => [item.name, read(item.type)]));
   assert.equal(offset, spec.wordCount);
   return Object.freeze(statement);
 }
+/** @param {RelationName} mode @param {unknown} value */
 export function validateStatement(mode, value) {
   return decodeStatement(mode, [...encodeStatement(mode, value)]);
 }
+/** @param {Readonly<Record<string,StatementValue>>} left @param {Readonly<Record<string,StatementValue>>} right @param {readonly string[]} names */
 function equalFields(left, right, names) {
   for (const name of names) assert.equal(left[name], right[name], `BUNDLE_${name}_MISMATCH`);
 }
 
+/** @param {unknown} authorization @param {unknown} reservation */
 export function joinReservation(authorization, reservation) {
   const u = validateStatement('authorization', authorization);
   const s = validateStatement('reservation', reservation);
   equalFields(u, s, ['domainCommitment', 'envelope']);
   return s;
 }
+/** @param {unknown} dependency @param {unknown} ready */
 export function joinReadiness(dependency, ready) {
   const p = validateStatement('dependency', dependency);
   const r = validateStatement('ready', ready);
   equalFields(p, r, [...commonReadiness.map(item => item.name), 'readyFrom', 'readyUntil']);
   return r;
 }
+/** @param {unknown} dependency @param {unknown} ready @param {unknown} admission */
 export function joinAdmission(dependency, ready, admission) {
   const r = joinReadiness(dependency, ready);
   const i = validateStatement('admission', admission);
@@ -144,6 +166,7 @@ export function joinAdmission(dependency, ready, admission) {
   // readinessEvidenceState. The transaction must match it to current hub state.
   return i;
 }
+/** @param {unknown} nodes @param {unknown} settlement */
 export function joinSettlement(nodes, settlement) {
   array(nodes, 4);
   const t = validateStatement('settlement', settlement);

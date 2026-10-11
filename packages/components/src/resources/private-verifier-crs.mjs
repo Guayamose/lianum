@@ -24,11 +24,18 @@ export const PRIVATE_VERIFIER_CRS = Object.freeze({
   g2SHA256: '01797bfc4de5a96f0e516a9ea4537d18786dc30cb991aca4274c95822b69c32f',
   fullCRSIntegrityRequired: true,
 });
+/** @param {string | NodeJS.ArrayBufferView} bytes */
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
 /** generator is the official BN254_G1_GENERATOR export, never proof input. */
+/**
+ * @param {{srsInitSrs(input:{pointsBuf:Uint8Array,numPoints:number,g2Point:Uint8Array}):Promise<unknown>}} api
+ * @param {unknown} generator
+ * @param {unknown} originalG2
+ */
 export async function initializePrivateVerifierCRS(api, generator, originalG2) {
-  assert.ok(generator?.x instanceof Uint8Array && generator?.y instanceof Uint8Array, 'PC18_VERIFIER_G1_BYTES');
+  assert.ok(generator && typeof generator === 'object' && 'x' in generator && 'y' in generator
+    && generator.x instanceof Uint8Array && generator.y instanceof Uint8Array, 'PC18_VERIFIER_G1_BYTES');
   assert.equal(generator.x.length, 32, 'PC18_VERIFIER_G1_SIZE');
   assert.equal(generator.y.length, 32, 'PC18_VERIFIER_G1_SIZE');
   assert.ok(originalG2 instanceof Uint8Array, 'PC18_VERIFIER_G2_BYTES');

@@ -28,6 +28,16 @@
     "../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
     "../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
     "../../packages/backend/src/operations/recovery/native-original-source-process-v1.mjs",
-    "../../packages/engine/src/chains/shared/owned-process-lifecycle.mjs"
+    "../../packages/engine/src/chains/shared/owned-process-lifecycle.mjs",
+    "../../packages/components/src/resources/private-resource-policy.mjs",
+    "../../packages/components/src/resources/private-verifier-crs.mjs",
+    "../../packages/components/src/resources/wallet-resources.mjs",
+    "../../packages/components/src/plain-input.mjs",
+    "../../packages/components/src/encoding/commitments.mjs",
+    "../../packages/components/src/encoding/statements.mjs",
+    "../../packages/components/src/encoding/native-value-statements-v2.mjs",
+    "../../packages/proofs/src/host/process-files.mjs",
+    "../../packages/proofs/src/host/process-rss.mjs",
+    "../../packages/engine/src/accounts/account-prepare-contract.mjs"
   ]
 }

@@ -6,12 +6,22 @@
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {parseNativeProcStat,isOriginalNativeProcStatMinusOneV1} from './process-files.mjs';
-const missing=error=>['ENOENT','ESRCH'].includes(error.code);
+/** @typedef {import('./process-files.mjs').NativeProcStat} NativeProcStat */
+/** @typedef {Pick<NativeProcStat,'pid'|'pgrp'|'session'|'startTimeTicks'>} ProcessIdentity */
+/** @typedef {{stat:NativeProcStat,rssBytes:number} & ({rssSource:'VmRSS'} | {rssSource:'task-VmRSS-or-statm-zero',liveThreadCount:number})} OwnedRSSMeasurement */
+/** @typedef {{readFileSync(path:string,encoding:'utf8'):string,readdirSync(path:string):string[]}} ProcFilesystem */
+/** @param {unknown} error */
+const missing=error=>error instanceof Error && 'code' in error && ['ENOENT','ESRCH'].includes(String(error.code));
+/** @param {NativeProcStat} stat */
 const live=stat=>!/[ZX]/.test(stat.state);
+/** @param {number} value */
 const integer=value=>{assert.ok(Number.isSafeInteger(value)&&value>=0,'NATIVE_RESOURCE_INTEGER');return value;};
+/** @param {ProcessIdentity|null} a @param {ProcessIdentity|null} b */
 const same=(a,b)=>a&&b&&a.pid===b.pid&&a.startTimeTicks===b.startTimeTicks
   &&a.pgrp===b.pgrp&&a.session===b.session;
+/** @param {ProcessIdentity} a @param {NativeProcStat} b */
 const checked=(a,b)=>{assert.ok(same(a,b),'NATIVE_MEASURED_PROCESS_CHANGED');return b;};
+/** @param {string|null} status */
 function vmRSS(status){
   if(status===null)return null;
   const matches=[...status.matchAll(/^VmRSS:\s+(\d+)\s+kB$/gm)];
@@ -21,10 +31,13 @@ function vmRSS(status){
 }
 /** Pure filesystem seam for HOST regressions. The supervisor calls only the
  * fixed wrapper below, never a caller-selected filesystem, PID or threshold. */
+/** @param {ProcessIdentity} expected @param {ProcFilesystem} fs @returns {OwnedRSSMeasurement|null} */
 export function observeNativeOwnedRSSV1(expected,fs){
   const pid=integer(expected.pid);assert.ok(pid>1,'NATIVE_OWNED_GROUP_ID');
   const base=`/proc/${pid}`;
+  /** @param {string} path */
   const read=path=>{try{return fs.readFileSync(path,'utf8');}catch(error){if(missing(error))return null;throw error;}};
+  /** @param {number} id @param {string} path */
   const stat=(id,path)=>{const text=read(path);return text===null?null:parseNativeProcStat(id,text);};
   let identityRereads=0;
   const leader=()=>{
@@ -94,5 +107,6 @@ export function observeNativeOwnedRSSV1(expected,fs){
   }
   throw Error('NATIVE_OWNED_RSS_UNAVAILABLE');
 }
+/** @param {ProcessIdentity} expected */
 export function nativeOwnedRSSV1(expected){assert.equal(arguments.length,1);
   return observeNativeOwnedRSSV1(expected,{readFileSync,readdirSync});}
