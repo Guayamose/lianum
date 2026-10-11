@@ -11,6 +11,7 @@ import {assertAdoptedSourceGeneration} from '@lianum/components/verification/cur
 import {inspectWrappedInstallationSourcesV2} from '@lianum/components/verification/wrapped-installation';
 import {loadFundedPagedGraphArtifactsV3} from '@lianum/proofs/toolchain/paged-artifacts-v3';
 import {loadRetainedI84ArtifactsV1} from '@lianum/proofs/tooling/retained-i84-artifacts-v1';
+import {selectFixedDeviceRootClaimFinancialProfileV3} from '../../../scripts/validation/device-root-native-claim-v3/flow.mjs';
 
 export function readPortableEconomicSources() {
   assert.equal(arguments.length,0,'PORTABLE_READBACK_NO_OPTIONS');
@@ -30,6 +31,10 @@ export function readPortableEconomicSources() {
   const abi=new sdk.Interface(['function transfer(address,uint256)']);
   const encoded=abi.encodeFunctionData('transfer',['0x'+'11'.repeat(20),7n]);
   assert.equal(encoded,'0xa9059cbb'+'11'.repeat(20).padStart(64,'0')+'7'.padStart(64,'0'));
+  const claimProfile=selectFixedDeviceRootClaimFinancialProfileV3(['node','fixed','--spl-source']);
+  assert.equal(claimProfile.entry,'run-spl-source.mjs');
+  assert.equal(claimProfile.source,true);
+  assert.equal(typeof claimProfile.create,'function');
   assert.deepEqual(assertAdoptedSourceGeneration(),before,'PORTABLE_READBACK_GENERATION_CHANGED');
   return Object.freeze({generation:before.generation,currentSources:before.sources,
     pagedRoles:Object.keys(paged.roles),wrappedOriginalSourceRows:wrapped.originalSourceCount,
@@ -37,7 +42,8 @@ export function readPortableEconomicSources() {
     nativeFixedPathReaderIncluded:false,retainedI84ReaderIncluded:true,
     i84PublicWords:84,i84FixtureProfiles:Object.keys(i84.proofs),
     originalSolidityCompilerLoaded:true,solcVersion:compiler.version,
-    originalAbiToolsLoaded:true,ethersVersion:sdk.version,solidityCompiled:false});
+    originalAbiToolsLoaded:true,ethersVersion:sdk.version,solidityCompiled:false,
+    originalClaimDriverLoaded:true,claimProfileConstructorCalled:false});
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

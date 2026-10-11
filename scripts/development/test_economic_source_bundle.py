@@ -158,6 +158,8 @@ class EconomicSourceBundleTests(unittest.TestCase):
             self.assertTrue(actual['originalSolidityCompilerLoaded'])
             self.assertEqual(actual['solcVersion'], '0.8.37+commit.f401782d.Emscripten.clang')
             self.assertTrue(actual['originalAbiToolsLoaded'])
+            self.assertTrue(actual['originalClaimDriverLoaded'])
+            self.assertFalse(actual['claimProfileConstructorCalled'])
             self.assertFalse(actual['solidityCompiled'])
             self.assertEqual(actual['i84FixtureProfiles'], ['ethereum', 'base', 'arbitrum', 'bnb', 'tron'])
             self.assertFalse(actual['proofGenerated'])
@@ -222,6 +224,7 @@ class EconomicSourceBundleTests(unittest.TestCase):
                               'nativeFixedPathReaderIncluded': False,
                               'retainedI84ReaderIncluded': True, 'i84TamperCasesRejected': 4,
                               'originalCompilerLoaded': True, 'originalAbiToolsLoaded': True,
+                              'originalClaimDriverLoaded': True, 'claimProfileConstructorCalled': False,
                               'toolTamperCasesRejected': 4}))
 
 
