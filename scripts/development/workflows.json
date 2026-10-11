@@ -31,7 +31,8 @@
         "packages/backend/tests/operations/support/operational-support-ownership.test.mjs",
         "packages/backend/tests/payments/private-payment-operational-sources.test.mjs",
         "packages/backend/tests/claims/recovery/wrapped-data-location.test.mjs",
-        "packages/backend/tests/accounts/authority/device-bridge-backend-isolation.test.mjs"
+        "packages/backend/tests/accounts/authority/device-bridge-backend-isolation.test.mjs",
+        "packages/backend/tests/accounts/authority/native-value-deposits.test.mjs"
       ]
     },
     "custody": {

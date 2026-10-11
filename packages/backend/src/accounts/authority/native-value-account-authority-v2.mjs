@@ -1,3 +1,7 @@
+import { readOriginalNativePrivateDepositDerivationV2 } from '@lianum/proofs/jobs/native-device-private-deposit-client-v2';
+import { createNativeEconomicNoteProofProcessV1, createProofProcess } from '@lianum/proofs/execution/proof-process';
+import { nullifier } from '@lianum/engine/notes/private-note-encoding';
+import { encodeFlatTransaction } from '../../execution/encoding/transaction-codec.mjs';
 import {buildDeviceDepositBridgeBackendV1} from './device-deposit-bridge-backend-v1.mjs';
 import {buildDeviceReservationBridgeBackendV1} from './device-reservation-bridge-backend-v1.mjs';
 import {buildDeviceExecutionBridgeBackendV1} from './device-execution-bridge-backend-v1.mjs';
@@ -57,7 +61,7 @@ import { decodeStatement } from '@lianum/components/encoding/statements';
 import { assertOwnedNativeValueOwnerProcess as nativeOwner } from '../../custody/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueOwnerObserver as nativeObserver, assertOwnedNativeValueOwnerObserver as nativeObserverAssert } from '../../custody/observers/native-value-owner-observer-v2.mjs';
 import {createFlatProofRunner} from '@lianum/backend/proving/roles/scoped-proof-runner';
-import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash } from './flat-account-validation.mjs';
+import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash, validateFlatAccountOwnerObservation } from './flat-account-validation.mjs';
 
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
@@ -134,7 +138,7 @@ export function assertNativeValueAccountManualGraphExecution(capability) {
   manualGraphs.get(capability).checkRoute();
 }
 import { validateNativeValueManualReview } from '@lianum/custody/preparation/native-value-owner-manual-binding-v1';
-import { decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
+import { decodeWalletPoolInputs, walletInputPublicWords } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 
 import { createHash } from 'node:crypto';
 
@@ -983,7 +987,10 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       bare,
       reference,
       sourceProofReceiptFrame,
-      transportProof
+      transportProof, copy, sha,
+      validateObservation: validateFlatAccountOwnerObservation,
+      calldataHash: flatAccountCalldataHash, walletInputPublicWords, decodeWalletPoolInputs,
+      nullifier, encodeTransaction: encodeFlatTransaction
     }),
     continuity: Object.freeze({
       nativeSourceOriginal,
@@ -991,6 +998,8 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     }),
     proofs: Object.freeze({
       onPrivateAudit,
+      createNativeEconomicNoteProofProcessV1, createProofProcess,
+      readOriginalNativePrivateDepositDerivationV2,
       onProof
     }),
     operations: Object.freeze({
