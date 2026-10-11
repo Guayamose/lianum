@@ -1,3 +1,6 @@
+import {externalResourcesRoot} from '@lianum/environment';
+import {loadRetainedI84ArtifactsV1,inspectRetainedI84ReaderPinsV1 as inspectNativeValueAdmissionReaderPins} from '@lianum/proofs/tooling/retained-i84-artifacts-v1';
+export {inspectNativeValueAdmissionReaderPins};
 /** Read-only fixed-release loader. It cannot compile, prove, start a node, accept
  * caller paths/pins, or mint system ownership. A private bundle brand is issued
  * only after every fixed file, ABI, source, program, key and artifact join passes. */
@@ -32,10 +35,8 @@ import { inspectProducedW39ArtifactsV5 as inspectCurrentW39CompilerArtifactsV5 }
 import { inspectPublishedW39ReuseArtifactsV6 } from './native-value-dev-w39-reused-artifacts-v6.mjs';
 import { isDevelopmentWorkspacePackageLabelV1 } from '../../releases/native-value/workspace-package-source-v1.mjs';
 const issued = new WeakSet();
-const ADMISSION_PREPARED_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/native-value-verifier-preparation';
-const ADMISSION_COMPILE_ROOT = '/workspace/scratch/770c47ebf757/lianum-recovery-20261005-0655/drafts/generic-native-admission-compile';
-const ADMISSION_READER_PIN = Object.freeze({path:'admission-prepared/read-native-value-artifacts.mjs',sha256:'5e1ea4272221d8790a93bb1ab4c0399c1a475bfc23ea87a1676cd7202549ef63'});
-const ADMISSION_DRIVER_PIN = Object.freeze({path:'admission-prepared/driver-source-manifest.json',sha256:'09ffe3beb3a3024e65f36aeaa4b80d32e6a2a43a31d20e3f7bb63ea54e091d3e'});
+const ADMISSION_PREPARED_ROOT = join(externalResourcesRoot,'drafts/native-value-verifier-preparation');
+const ADMISSION_COMPILE_ROOT = join(externalResourcesRoot,'drafts/generic-native-admission-compile');
 const sha = b => createHash('sha256').update(b).digest('hex');
 export const NATIVE_VALUE_VERIFIER_ORDER = frozenInput([
   ['authorization',16],['reservation',58],['dependency',42],['ready',50],['admission',84],['node',32],
@@ -67,34 +68,12 @@ function bytes(path, maximum = 128*1024*1024) {
 }
 function pinned(entry) { exactRecord(entry,['path','sha256']); const b=bytes(entry.path); assert.equal(sha(b),hash(entry.sha256),'NATIVE_VALUE_ARTIFACT_RAW_PIN'); return b; }
 function json(entry) { return JSON.parse(pinned(entry)); }
-/** Checks the fixed reader AND every imported driver/external source before
- * importing it. This function performs only filesystem reads and grants no brand. */
-export function inspectNativeValueAdmissionReaderPins() {
-  assert.equal(arguments.length,0,'NATIVE_VALUE_I_READER_NO_OPTIONS');
-  pinned(ADMISSION_READER_PIN);const manifest=json(ADMISSION_DRIVER_PIN);
-  assert.ok(Array.isArray(manifest.files)&&manifest.files.length>0);
-  for(const item of manifest.files){
-    const b=pinned({path:'admission-prepared/'+item.path,sha256:item.sha256});assert.equal(b.length,item.bytes,'NATIVE_VALUE_I_DRIVER_SOURCE_BYTES');
-  }
-  for(const item of manifest.readOnlyExternalFiles){
-    // These exact absolute sources belong to the fixed, hash-pinned manifest,
-    // never a caller manifest or a directory selected by external content.
-    assert.equal(typeof item.path,'string');assert.equal(resolve(item.path),item.path);
-    const stat=lstatSync(item.path);assert.ok(stat.isFile()&&!stat.isSymbolicLink());
-    const b=readFileSync(item.path);assert.equal(b.length,item.bytes);assert.equal(sha(b),hash(item.sha256),'NATIVE_VALUE_I_EXTERNAL_SOURCE_PIN');
-  }
-  return Object.freeze({readerSHA256:ADMISSION_READER_PIN.sha256,driverSourceManifestSHA256:ADMISSION_DRIVER_PIN.sha256,sourceFiles:manifest.files.length+manifest.readOnlyExternalFiles.length});
-}
 async function loadFixedNativeValueAdmission() {
-  inspectNativeValueAdmissionReaderPins();
-  const module=await import(pathToFileURL(join(ADMISSION_PREPARED_ROOT,'read-native-value-artifacts.mjs')));
-  assert.equal(typeof module.loadNativeValueArtifacts,'function');const loaded=await module.loadNativeValueArtifacts();
-  assert.equal(loaded.driverSourceManifestSHA256,ADMISSION_DRIVER_PIN.sha256,'NATIVE_VALUE_I_READER_MANIFEST_JOIN');
-  inspectNativeValueAdmissionReaderPins();return loaded;
+  return loadRetainedI84ArtifactsV1();
 }
 /** Read-only original I84 material for the separate V5 consumer. No bundle
- * brand is issued here, and the fixed /workspace reader and all of its proof,
- * source, program, VK and resource joins are retained unchanged. */
+ * brand is issued here. Original proof, source, program, VK and resource bytes
+ * remain authenticated by the immutable public publication. */
 export async function inspectRetainedNativeValueAdmissionForDevV5() {
  assert.equal(arguments.length,0,'NATIVE_VALUE_DEV_I84_INSPECT_NO_OPTIONS');
  return loadFixedNativeValueAdmission();

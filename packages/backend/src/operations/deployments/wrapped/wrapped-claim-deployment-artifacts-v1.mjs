@@ -1,3 +1,6 @@
+import {externalResourcesRoot} from '@lianum/environment';
+import {loadRetainedI84ArtifactsV1,inspectRetainedI84ReaderPinsV1 as inspectNativeValueAdmissionReaderPins} from '@lianum/proofs/tooling/retained-i84-artifacts-v1';
+export {inspectNativeValueAdmissionReaderPins};
 import { inspectWrappedInstallationSourcesV2 } from '@lianum/components/verification/wrapped-installation';
 /** Read-only fixed-release loader. It cannot compile, prove, start a node, accept
  * caller paths/pins, or mint system ownership. A private bundle brand is issued
@@ -21,10 +24,8 @@ import { WRAPPED_CLAIM_OPERATIONAL_RELEASE_V1, WRAPPED_CLAIM_DEPLOYMENT_RELEASE_
   WRAPPED_CLAIM_RELEASE_SCHEMA_V1, WRAPPED_CLAIM_REQUIRED_ARTIFACTS_V1 } from '../../releases/wrapped/wrapped-claim-release-v1.mjs';
 import { loadWrappedClaimProofArtifactsV1, assertWrappedClaimProofArtifactsV1 } from '../../releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs';
 const issued = new WeakSet();
-const ADMISSION_PREPARED_ROOT = resolve(ROOT, '../../drafts/native-value-verifier-preparation');
-const ADMISSION_COMPILE_ROOT = resolve(ROOT, '../../drafts/generic-native-admission-compile');
-const ADMISSION_READER_PIN = Object.freeze({path:'admission-prepared/read-native-value-artifacts.mjs',sha256:'5e1ea4272221d8790a93bb1ab4c0399c1a475bfc23ea87a1676cd7202549ef63'});
-const ADMISSION_DRIVER_PIN = Object.freeze({path:'admission-prepared/driver-source-manifest.json',sha256:'09ffe3beb3a3024e65f36aeaa4b80d32e6a2a43a31d20e3f7bb63ea54e091d3e'});
+const ADMISSION_PREPARED_ROOT = join(externalResourcesRoot,'drafts/native-value-verifier-preparation');
+const ADMISSION_COMPILE_ROOT = join(externalResourcesRoot,'drafts/generic-native-admission-compile');
 const sha = b => createHash('sha256').update(b).digest('hex');
 export const WRAPPED_CLAIM_GRAPH_VERIFIER_ORDER_V1 = frozenInput([
   ['authorization',16],['reservation',58],['dependency',42],['ready',50],['admission',84],['node',32],
@@ -53,30 +54,8 @@ function bytes(path, maximum = 128*1024*1024) {
 }
 function pinned(entry) { exactRecord(entry,['path','sha256']); const b=bytes(entry.path); assert.equal(sha(b),hash(entry.sha256),'NATIVE_VALUE_ARTIFACT_RAW_PIN'); return b; }
 function json(entry) { return JSON.parse(pinned(entry)); }
-/** Checks the fixed reader AND every imported driver/external source before
- * importing it. This function performs only filesystem reads and grants no brand. */
-export function inspectNativeValueAdmissionReaderPins() {
-  assert.equal(arguments.length,0,'NATIVE_VALUE_I_READER_NO_OPTIONS');
-  pinned(ADMISSION_READER_PIN);const manifest=json(ADMISSION_DRIVER_PIN);
-  assert.ok(Array.isArray(manifest.files)&&manifest.files.length>0);
-  for(const item of manifest.files){
-    const b=pinned({path:'admission-prepared/'+item.path,sha256:item.sha256});assert.equal(b.length,item.bytes,'NATIVE_VALUE_I_DRIVER_SOURCE_BYTES');
-  }
-  for(const item of manifest.readOnlyExternalFiles){
-    // These exact absolute sources belong to the fixed, hash-pinned manifest,
-    // never a caller manifest or a directory selected by external content.
-    assert.equal(typeof item.path,'string');assert.equal(resolve(item.path),item.path);
-    const stat=lstatSync(item.path);assert.ok(stat.isFile()&&!stat.isSymbolicLink());
-    const b=readFileSync(item.path);assert.equal(b.length,item.bytes);assert.equal(sha(b),hash(item.sha256),'NATIVE_VALUE_I_EXTERNAL_SOURCE_PIN');
-  }
-  return Object.freeze({readerSHA256:ADMISSION_READER_PIN.sha256,driverSourceManifestSHA256:ADMISSION_DRIVER_PIN.sha256,sourceFiles:manifest.files.length+manifest.readOnlyExternalFiles.length});
-}
 async function loadFixedNativeValueAdmission() {
-  inspectNativeValueAdmissionReaderPins();
-  const module=await import(pathToFileURL(join(ADMISSION_PREPARED_ROOT,'read-native-value-artifacts.mjs')));
-  assert.equal(typeof module.loadNativeValueArtifacts,'function');const loaded=await module.loadNativeValueArtifacts();
-  assert.equal(loaded.driverSourceManifestSHA256,ADMISSION_DRIVER_PIN.sha256,'NATIVE_VALUE_I_READER_MANIFEST_JOIN');
-  inspectNativeValueAdmissionReaderPins();return loaded;
+  return loadRetainedI84ArtifactsV1();
 }
 const EXPECTED_I_CASES = Object.freeze([{"name": "positive-ethereum", "expected": "accept"}, {"name": "positive-base", "expected": "accept"}, {"name": "positive-arbitrum", "expected": "accept"}, {"name": "positive-bnb", "expected": "accept"}, {"name": "unknown-source-predicate", "expected": "reject"}, {"name": "nonzero-inactive-tron-version", "expected": "reject"}, {"name": "nonzero-inactive-tron-policy", "expected": "reject"}, {"name": "wrong-registry-epoch", "expected": "reject"}, {"name": "wrong-profile-version", "expected": "reject"}, {"name": "unsupported-chain-id", "expected": "reject"}, {"name": "wrong-finality-policy", "expected": "reject"}, {"name": "wrong-trace-policy", "expected": "reject"}, {"name": "wrong-obligation", "expected": "reject"}, {"name": "wrong-profile-path", "expected": "reject"}, {"name": "wrong-source-path", "expected": "reject"}, {"name": "wrong-source-position", "expected": "reject"}, {"name": "wrong-source-identity", "expected": "reject"}, {"name": "wrong-wire-key", "expected": "reject"}, {"name": "wrong-original-wire-digest", "expected": "reject"}, {"name": "wrong-native-family", "expected": "reject"}, {"name": "wrong-native-gid-padding", "expected": "reject"}, {"name": "wrong-native-effect-index", "expected": "reject"}, {"name": "wrong-source-endpoint", "expected": "reject"}, {"name": "wrong-destination-endpoint", "expected": "reject"}, {"name": "zero-native-value", "expected": "reject"}, {"name": "wrong-custody-term", "expected": "reject"}, {"name": "wrong-evidence-expiry", "expected": "reject"}, {"name": "not-finalized", "expected": "reject"}, {"name": "ancestry-bound", "expected": "reject"}, {"name": "missing-execution-evidence", "expected": "reject"}, {"name": "wrong-owner-action", "expected": "reject"}, {"name": "wrong-provider-signature", "expected": "reject"}, {"name": "wrong-quorum-signature", "expected": "reject"}, {"name": "wrong-loss-acceptance", "expected": "reject"}, {"name": "wrong-receipt-secret", "expected": "reject"}, {"name": "wrong-payout-linkage", "expected": "reject"}, {"name": "wrong-ready-seal", "expected": "reject"}, {"name": "wrong-historical-checkpoint", "expected": "reject"}, {"name": "wrong-current-revocation-sequence", "expected": "reject"}, {"name": "invalid-current-vector-padding", "expected": "reject"}, {"name": "positive-tron", "expected": "accept"}, {"name": "tron-wrong-permission-policy", "expected": "reject"}, {"name": "tron-wrong-tapos-policy", "expected": "reject"}, {"name": "tron-wrong-finality-policy", "expected": "reject"}, {"name": "tron-unsupported-lifetime", "expected": "reject"}, {"name": "tron-wrong-family", "expected": "reject"}, {"name": "tron-int63-overflow", "expected": "reject"}, {"name": "tron-identity-padding", "expected": "reject"}, {"name": "tron-nonzero-inactive-evm", "expected": "reject"}, {"name": "tron-current-gid-revoked-correct-public-state", "expected": "reject"}].map(Object.freeze));
 /** Pure validation seam over actual worker result/resource reports. No authority

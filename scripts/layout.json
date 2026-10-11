@@ -22817,6 +22817,7 @@
     "omnichain-flat-profile/flat-wallet/proof-workers/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/proving/roles/scoped-proof-runner.mjs": "packages/backend/src/proving/roles/scoped-proof-runner.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/value-codecs.mjs": "packages/engine/src/claims/value-codecs.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/retained-authorization-record-v1.mjs": "packages/backend/src/claims/authorization/retained-authorization-record-v1.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/retained-authorization-record-v1.mjs": "packages/backend/src/claims/authorization/retained-authorization-record-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/proof-workers/retained-i84-artifacts-v1.mjs": "packages/proofs/src/tooling/retained-i84-artifacts-v1.mjs"
   }
 }

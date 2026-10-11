@@ -1,0 +1,11 @@
+{
+  "schema": "LIANUM_RETAINED_I84_PUBLICATION_V1",
+  "path": "omnichain-product/evidence/native-admission-i84-public-v1/capsule.json",
+  "sha256": "6581db8648d3d6d06b74f84d3a50983009253f17e8b5c1ce230268d19ffe7de5",
+  "bytes": 5839234,
+  "readerSHA256": "5e1ea4272221d8790a93bb1ab4c0399c1a475bfc23ea87a1676cd7202549ef63",
+  "driverSHA256": "09ffe3beb3a3024e65f36aeaa4b80d32e6a2a43a31d20e3f7bb63ea54e091d3e",
+  "sourceVersion": "4a6503d4b139e20e4d672ca39eb5d5f1f75497555ba6d55a7d6c424dcbb5d92e",
+  "resourceFiles": 244,
+  "driverSourceFiles": 132
+}

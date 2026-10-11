@@ -10,10 +10,12 @@
     "types": [
       "node"
     ],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true
   },
   "files": [
     "../../packages/environment/src/paths.mjs",
+    "../../packages/proofs/src/tooling/retained-i84-artifacts-v1.mjs",
     "../../packages/backend/src/claims/authorization/retained-authorization-record-v1.mjs",
     "../../packages/backend/src/api/wallet/http/public-errors.mjs",
     "../../packages/backend/src/chains/shared/observations/observation-errors.mjs",

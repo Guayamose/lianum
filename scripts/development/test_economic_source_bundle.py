@@ -1,7 +1,7 @@
-"""Relocate adopted paged/wrapped readers with exact public resources only.
+"""Relocate adopted paged/wrapped/I84 readers with exact public resources only.
 
-This intentionally excludes the original I84 reader: its authenticated catalogue
-requires an absolute installation path. No private account/lab state is copied.
+I84 authenticates the sealed result of the original reader and all its inputs.
+No private account/lab state is copied and no historical driver is executed.
 """
 import json
 from pathlib import Path
@@ -31,7 +31,7 @@ def public_resources():
     if child.returncode:
         raise ValueError('Original retained public artifacts failed: ' + child.stderr)
     inspected = json.loads(child.stdout)
-    rows, destinations = [], set()
+    rows, destinations = [], {}
 
     def add(source, path, kind='public-artifact', mode='0644', expected=None):
         file = bundle.physical(ROOT, source)
@@ -39,8 +39,10 @@ def public_resources():
         if expected is not None and digest != expected:
             raise ValueError('Original public resource changed: ' + source)
         if path in destinations:
-            raise ValueError('Duplicate public resource: ' + path)
-        destinations.add(path)
+            if destinations[path] != digest:
+                raise ValueError('Conflicting public resource: ' + path)
+            return
+        destinations[path] = digest
         rows.append({'source': source, 'path': path, 'scope': 'resources',
                      'kind': kind, 'sha256': digest, 'mode': mode})
 
@@ -83,11 +85,21 @@ def public_resources():
         'public-parameter', expected=inspected['crs']['provenanceSHA256'])
     wrapped = 'drafts/wrapped-activation-installation-v2/source-manifest.json'
     add('.internal/runtime/' + wrapped, wrapped)
+    publication = json.loads((ROOT / 'packages/proofs/src/native-value/metadata/retained-i84-publication-v1.json').read_text())
+    capsule_name = publication['path']
+    add('.internal/runtime/' + capsule_name, capsule_name, expected=publication['sha256'])
+    capsule = json.loads((ROOT / '.internal/runtime' / capsule_name).read_text())
+    for row in capsule['files']:
+        resource = row['resource']
+        kind = ('historical-source' if resource.endswith('.source') else
+                'public-parameter' if '/crs/' in resource else
+                'toolchain' if '/node_modules/' in resource else 'public-artifact')
+        add('.internal/runtime/' + resource, resource, kind, expected=row['sha256'])
     return {'schema': bundle.RESOURCE_SCHEMA, 'files': rows}
 
 
 class EconomicSourceBundleTests(unittest.TestCase):
-    def test_adopted_paged_and_wrapped_readers_relocate_without_external_reads(self):
+    def test_adopted_paged_wrapped_and_i84_readers_relocate_without_external_reads(self):
         resources = public_resources()
         resource_bytes = sum((ROOT / row['source']).stat().st_size for row in resources['files'])
         self.assertLess(resource_bytes, 256 * 1024 * 1024)
@@ -119,8 +131,33 @@ class EconomicSourceBundleTests(unittest.TestCase):
             self.assertEqual(actual['pagedRoles'], ['reserve', 'fold', 'terminal', 'admission', 'withdraw'])
             self.assertEqual(actual['resourceMode'], 'candidate')
             self.assertFalse(actual['nativeFixedPathReaderIncluded'])
+            self.assertTrue(actual['retainedI84ReaderIncluded'])
+            self.assertEqual(actual['i84PublicWords'], 84)
+            self.assertEqual(actual['i84FixtureProfiles'], ['ethereum', 'base', 'arbitrum', 'bnb', 'tron'])
             self.assertFalse(actual['proofGenerated'])
             self.assertFalse(actual['financialExecution'])
+            # The current reader independently rejects changed original I84
+            # VK, program, verification receipt and the sealed public result.
+            publication = json.loads((ROOT / 'packages/proofs/src/native-value/metadata/retained-i84-publication-v1.json').read_text())
+            capsule_path = moved / 'resources' / publication['path']
+            capsule = json.loads(capsule_path.read_text())
+            inventory = capsule['files']
+            selected = [next(row for row in inventory if row['logical'].endswith('/key.vk')),
+                        next(row for row in inventory if row['logical'].endswith('/public/program.json')),
+                        next(row for row in inventory if '/attempts/' + capsule['data']['proofs']['ethereum']['verificationPointer']['runId'] + '/result.json' in row['logical'])]
+            for row in selected + [{'resource': publication['path']}]:
+                target = moved / 'resources' / row['resource']
+                retained = target.read_bytes()
+                altered = bytearray(retained)
+                altered[0] ^= 1
+                try:
+                    target.write_bytes(altered)
+                    rejected = subprocess.run(command, cwd='/', env={'LANG': 'C.UTF-8', 'PATH': '/usr/bin:/bin'},
+                                              capture_output=True, text=True, timeout=30)
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn('I84_PUBLIC_RESOURCE_PIN', rejected.stderr)
+                finally:
+                    target.write_bytes(retained)
             # The production reader, independently of the bundle inventory,
             # must still reject a changed original verification key.
             key = moved / 'resources' / PROOF / 'funded-graph-paged-v3/.local/poseidon-sparse-v3/prepared/reserve.vk'
@@ -135,7 +172,8 @@ class EconomicSourceBundleTests(unittest.TestCase):
                               'bundleBytes': bundle_bytes,
                               'sourceFiles': len(manifest['sourceFiles']),
                               'outsideBundleReads': False, 'originalKeyTamperRejected': True,
-                              'nativeFixedPathReaderIncluded': False}))
+                              'nativeFixedPathReaderIncluded': False,
+                              'retainedI84ReaderIncluded': True, 'i84TamperCasesRejected': 4}))
 
 
 if __name__ == '__main__':

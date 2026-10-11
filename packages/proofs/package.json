@@ -42,6 +42,7 @@
     "./execution/private-assembly-owner-process": "./src/execution/private-assembly-owner-process.mjs",
     "./execution/private-wallet-signer-process": "./src/execution/private-wallet-signer-process.mjs",
     "./tooling/retained-node-artifacts-v1": "./src/tooling/retained-node-artifacts-v1.mjs",
+    "./tooling/retained-i84-artifacts-v1": "./src/tooling/retained-i84-artifacts-v1.mjs",
     "./toolchain/current-source-generation": "./src/toolchain/current-source-generation.mjs",
     "./jobs/node-native-execution-v1": "./src/jobs/node-native-execution-v1.mjs",
     "./jobs/reservation-native-execution-v1": "./src/jobs/reservation-native-execution-v1.mjs",
