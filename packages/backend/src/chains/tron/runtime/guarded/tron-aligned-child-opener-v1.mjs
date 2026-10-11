@@ -8,7 +8,7 @@ import { readFile, readdir, lstat, readlink, realpath, writeFile, statfs } from 
 import { join } from 'node:path';
 import { ROOT } from '@lianum/proofs/catalog';
 import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
-import { PRIVATE_RESOURCE_FLOORS } from '@lianum/engine/crypto/private-resource-policy';
+import { PRIVATE_RESOURCE_FLOORS } from '@lianum/components/resources/private-resource-policy';
 import { TRON_UPSTREAM } from './tron-upstream-release-v1.mjs';
 import { createTronPrivateLogCapture } from './tron-private-log-capture-v1.mjs';
 import { captureTronCandidateDiskLogs } from './tron-private-disk-log-capture-v1.mjs';

@@ -7,7 +7,7 @@ import { gunzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { ROOT, GOLDEN } from '@lianum/proofs/catalog';
 import { verifyAPI } from '@lianum/proofs/tooling/tooling';
-import { verifyToolchain, verifyCRS } from '@lianum/proofs/toolchain/wallet-resources';
+import { verifyToolchain, verifyCRS } from '@lianum/components/resources/wallet-resources';
 import { deriveGenericVerifierImmutables, GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 import { frozenInput, cloneInput } from '@lianum/components/plain-input';
 import { W39_DEV_DIRECTORY_V5, W39_DEV_FILES_V5, W39_DEV_SOURCE_V5, W39_DEV_HISTORICAL_MISSING_V5,

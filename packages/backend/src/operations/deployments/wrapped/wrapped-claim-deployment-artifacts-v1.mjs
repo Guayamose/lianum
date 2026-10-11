@@ -15,7 +15,7 @@ import { GENERIC_COMPILER_PIN, deriveGenericVerifierImmutables } from '@lianum/e
 import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import { frozenInput, cloneInput } from '@lianum/components/plain-input';
 import { NATIVE_VALUE_WALLET_HOST_SOURCE_PINS_V4 as NATIVE_VALUE_HOST_SOURCE_PINS } from '../../releases/native-value/native-value-wallet-host-source-pins-v4.mjs';
-import { verifyToolchain, verifyCRS } from '@lianum/proofs/toolchain/wallet-resources';
+import { verifyToolchain, verifyCRS } from '@lianum/components/resources/wallet-resources';
 import { NATIVE_VALUE_SOURCE_CLOSURE } from '../../releases/native-value/native-value-wallet-release-v4.mjs';
 import { WRAPPED_CLAIM_OPERATIONAL_RELEASE_V1, WRAPPED_CLAIM_DEPLOYMENT_RELEASE_V1,
   WRAPPED_CLAIM_RELEASE_SCHEMA_V1, WRAPPED_CLAIM_REQUIRED_ARTIFACTS_V1 } from '../../releases/wrapped/wrapped-claim-release-v1.mjs';

@@ -4,7 +4,7 @@ import {readFileSync,realpathSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import * as resources from './wallet-resources.mjs';
+import * as resources from '@lianum/components/resources/wallet-resources';
 import {legacyDataRoot} from '@lianum/environment';
 import {PAEG_PAGED_ARTIFACT_DIRECTORY_V3,PAEG_PAGED_WORDS_V3,loadFundedPagedGraphArtifactsV3} from './paged-artifacts-v3.mjs';
 import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1,privateProofBindingSHA256V1} from '@lianum/engine/crypto/private-proof-transit-v1';

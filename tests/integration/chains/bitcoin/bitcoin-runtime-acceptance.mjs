@@ -12,7 +12,7 @@ import { createOwnedCombinedBitcoinRuntime, assertOwnedBitcoinRuntime, BITCOIN_R
   BITCOIN_TRANSFER_LIMITS, decodeBitcoinTransaction, validateBitcoinTransferWire }
   from '../../../../packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
-import { PRIVATE_RESOURCE_FLOORS } from '@lianum/engine/crypto/private-resource-policy';
+import { PRIVATE_RESOURCE_FLOORS } from '@lianum/components/resources/private-resource-policy';
 import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
 
 const HERE = fileURLToPath(import.meta.url), OPT_IN = '--run-owned-regtest';

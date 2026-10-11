@@ -2,7 +2,7 @@
  * Public receipts, source closure and scope are validated in their own V3 family. */
 import assert from 'node:assert/strict';
 import {assertNativePrivateEconomicNoteReceiptV3 as assertNativeEconomicNoteReceiptV1,PRIVATE_NOTE_NATIVE_LINEAGE_V1 as NOTE_NATIVE_LINEAGE_V1} from '@lianum/proofs/jobs/native-private-note-execution-v3';
-import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {NATIVE_VALUE_LIVE_V2_SPEC} from '@lianum/proofs/native-value/metadata/native-value-live-v2-profile';
 import {assertI84NativeReceiptV1} from '../../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';

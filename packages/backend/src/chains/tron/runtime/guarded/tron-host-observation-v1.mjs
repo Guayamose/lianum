@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants, openSync, closeSync, fstatSync, readFileSync, realpathSync, readdirSync, readlinkSync, lstatSync, existsSync } from 'node:fs';
 import { join, resolve, relative, basename } from 'node:path';
 import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
-import { PRIVATE_RESOURCE_POLICY } from '@lianum/engine/crypto/private-resource-policy';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 const BUDGET = 90 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PROFILES = Object.freeze([...['acceptance', 'preflight'].map(kind => Object.freeze({

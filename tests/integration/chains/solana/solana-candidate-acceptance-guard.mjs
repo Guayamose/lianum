@@ -7,7 +7,7 @@ import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertOwnedSolanaRuntime } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
 import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS, PRIVATE_PROOF_WORKER_RSS_LIMIT }
-  from '@lianum/engine/crypto/private-resource-policy';
+  from '@lianum/components/resources/private-resource-policy';
 const GOLDEN = fileURLToPath(new URL('../../../omnichain-product/', import.meta.url));
 const TOTAL_MILLISECONDS = 10 * 60 * 1000;
 const absent = error => ['ENOENT', 'ESRCH'].includes(error.code);

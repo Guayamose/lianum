@@ -1,4 +1,4 @@
-import {PRIVATE_RESOURCE_FLOORS,PRIVATE_RESOURCE_POLICY,PRIVATE_PROOF_WORKER_RSS_LIMIT} from '@lianum/engine/crypto/private-resource-policy';
+import {PRIVATE_RESOURCE_FLOORS,PRIVATE_RESOURCE_POLICY,PRIVATE_PROOF_WORKER_RSS_LIMIT} from '@lianum/components/resources/private-resource-policy';
 /** Fixed-profile PC18 private payment, owned synthetic local assets only.
  * Importing is inert. The public entrypoint accepts no endpoint, executable,
  * key, destination, amount, witness or proof. IPC and HTTP use only sanitized
@@ -603,14 +603,11 @@ function assemblyOperationalSourceFiles() {
     'proofs/toolchain/public-note-artifacts.mjs': new URL('../../../proofs/src/toolchain/public-note-artifacts.mjs', import.meta.url).href,
     'proofs/toolchain/wallet-prover.mjs': new URL('../../../proofs/src/toolchain/wallet-prover.mjs', import.meta.url).href,
     'proofs/toolchain/official-proof-libraries.mjs': new URL('../../../proofs/src/toolchain/official-proof-libraries.mjs', import.meta.url).href,
-    'proofs/toolchain/wallet-resources.mjs': new URL('../../../proofs/src/toolchain/wallet-resources.mjs', import.meta.url).href,
     'components/resources/wallet-resources.mjs': new URL('../../../components/src/resources/wallet-resources.mjs', import.meta.url).href,
     'components/resources/private-resource-policy.mjs': new URL('../../../components/src/resources/private-resource-policy.mjs', import.meta.url).href,
     'components/resources/private-verifier-crs.mjs': new URL('../../../components/src/resources/private-verifier-crs.mjs', import.meta.url).href,
     'engine/assembly/private-assembly-actors.mjs': new URL('../../../engine/src/assembly/private-assembly-actors.mjs', import.meta.url).href,
     'engine/assembly/private-assembly-encoding.mjs': new URL('../../../engine/src/assembly/private-assembly-encoding.mjs', import.meta.url).href,
-    'engine/crypto/private-resource-policy.mjs': new URL('../../../engine/src/crypto/private-resource-policy.mjs', import.meta.url).href,
-    'engine/crypto/private-verifier-crs.mjs': new URL('../../../engine/src/crypto/private-verifier-crs.mjs', import.meta.url).href,
     'engine/wallet/custody/private-wallet-custody.mjs': new URL('../../../engine/src/wallet/custody/private-wallet-custody.mjs', import.meta.url).href,
     'engine/wallet/notes/private-wallet-note-encoding.mjs': new URL('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs', import.meta.url).href,
     'engine/notes/private-note-encoding.mjs': new URL('../../../engine/src/notes/private-note-encoding.mjs', import.meta.url).href,

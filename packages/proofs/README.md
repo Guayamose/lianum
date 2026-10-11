@@ -26,8 +26,8 @@ una entrada compatible.
 
 Los recursos retenidos incluyen circuitos, claves, bibliotecas y herramientas
 con identidades fijadas. Sus verificaciones no desaparecen al mover el módulo.
-`src/toolchain/wallet-resources.mjs` reexporta las comprobaciones conservadas en
-`components/src/resources/`; la ubicación de datos se obtiene de
+Los consumidores importan los validadores de `@lianum/components/resources/`;
+la ubicación de datos se obtiene de
 `@lianum/environment`. Los inventarios fijan los cuerpos actuales de esos
 módulos, además de los registros históricos. Importar el catálogo
 o preparar un bundle no genera una prueba ni acredita una release.

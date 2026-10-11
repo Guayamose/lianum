@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { filePin, hash, verifyToolchain, verifyCRS } from '../toolchain/wallet-resources.mjs';
+import { filePin, hash, verifyToolchain, verifyCRS } from '@lianum/components/resources/wallet-resources';
 import { canonicalField } from '@lianum/engine/execution/inputs/funding-wrappers';
 
 import {legacyDataRoot} from '@lianum/environment';

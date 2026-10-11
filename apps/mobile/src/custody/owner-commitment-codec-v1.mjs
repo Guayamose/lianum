@@ -4,7 +4,7 @@
  * Public byte digests remain two 16-byte limbs; field digests stay canonical.
  * Plain data validation is not a backend realm/WeakMap authentication check. */
 import { PORTABLE_POSEIDON2_MODULUS_V1 as FIELD_MODULUS,
-  portablePoseidon2HexV1 } from './poseidon2-bn254-v1.mjs';
+  portablePoseidon2HexV1 } from '@lianum/crypto/portable-poseidon2';
 const failed = code => { throw new Error(code); };
 const assert = Object.freeze({
   ok(value, code) { if (!value) failed(code); },

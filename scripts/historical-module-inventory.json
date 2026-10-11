@@ -29,12 +29,12 @@
       "historicalSHA256": "9c971fbd40b69b4e6a56ec56c309c57b4d9ef4117fc22a8b25696befab1b8edd"
     },
     {
-      "active": "packages/engine/src/crypto/private-resource-policy.mjs",
+      "active": "packages/components/src/resources/private-resource-policy.mjs",
       "historical": "packages/protocol/src/crypto/private-resource-policy.mjs",
       "historicalSHA256": "cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c"
     },
     {
-      "active": "packages/engine/src/crypto/private-verifier-crs.mjs",
+      "active": "packages/components/src/resources/private-verifier-crs.mjs",
       "historical": "packages/protocol/src/crypto/private-verifier-crs.mjs",
       "historicalSHA256": "ace66e3bcec0dfa278b1527f8338b16bf64d655d707b61dc42668947b3a740a0"
     },
@@ -470,6 +470,7 @@
   ],
   "activePackages": [
     "packages/backend",
+    "packages/components",
     "packages/engine",
     "packages/proofs"
   ]

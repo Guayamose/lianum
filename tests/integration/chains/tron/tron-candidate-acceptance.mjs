@@ -13,7 +13,7 @@ import { createTronPrivateLogCapture } from './tron-candidate-log-capture.mjs';
 import { captureTronCandidateDiskLogs } from './tron-candidate-disk-log-capture.mjs';
 import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
 import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
-import { PRIVATE_RESOURCE_FLOORS } from '@lianum/engine/crypto/private-resource-policy';
+import { PRIVATE_RESOURCE_FLOORS } from '@lianum/components/resources/private-resource-policy';
 import { prepareOwnedTronNative, assertPreparationCurrent, bindOwnedTronSigned, PROFILE }
   from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-native-value-profile.mjs';
 import { decodeTronNativeTransferWire } from '../../../../packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs';

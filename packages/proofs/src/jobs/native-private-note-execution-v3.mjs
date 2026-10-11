@@ -13,7 +13,7 @@ import {loadProofProfile,assertExpectedInputs,wipePrivate,PROOF_PROTOCOL,encodeP
  exactObject,assertProofRole,normalizePublicInputs,normalizeProofWitness,publicInputsFromWitness,encodePrivateProof,decodePrivateProof,need,proofError} from '../execution/proof-worker.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {initializePrivateVerifierCRS} from '@lianum/components/resources/private-verifier-crs';
-import {CRS,verifyToolchain,verifyCRS} from '@lianum/proofs/toolchain/wallet-resources';
+import {CRS,verifyToolchain,verifyCRS} from '@lianum/components/resources/wallet-resources';
 import {gunzipSync} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
 import {regular,hash,resources} from '../tooling/tooling.mjs';

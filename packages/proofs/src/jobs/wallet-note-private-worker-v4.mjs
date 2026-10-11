@@ -7,7 +7,7 @@ import {preparePrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInp
 import {ORIGINAL_WALLET_PRIVATE_PROVER_V4,readOriginalWalletNoteProverRequestV4} from './wallet-note-private-prover-v4.mjs';
 import {need,proofError,exactObject,encodeProofMessage,decodeProofMessage,normalizeProofWitness,assertExpectedInputs,publicInputsFromWitness,
  loadProofProfile,encodePrivateProof,wipePrivate} from '../execution/proof-worker.mjs';
-import {hash,verifyToolchain,verifyCRS} from '@lianum/proofs/toolchain/wallet-resources';
+import {hash,verifyToolchain,verifyCRS} from '@lianum/components/resources/wallet-resources';
 async function main(){
  const mode=process.argv[2];need(process.argv.length===3&&['deposit_balance','withdraw_balance'].includes(mode)&&process.connected,'PAEG_PROOF_PRIVATE_ENTRY');process.umask(0o077);
  let opened,input,proof,pendingAck,sequence=0;const terminate=()=>{wipePrivate(input);wipePrivateProofInputsV1(opened?.inputs);process.exit(2);};process.once('disconnect',terminate);process.once('SIGTERM',terminate);

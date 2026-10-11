@@ -10,7 +10,7 @@ import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1}
   from '@lianum/proofs/execution/note-native-execution-v1';
 import {assertNativePrivateEconomicNoteReceiptV3,PRIVATE_NOTE_NATIVE_PROFILE_V1}
   from '@lianum/proofs/jobs/native-private-note-execution-v3';
-import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {LIMITS} from '@lianum/proofs/catalog';
 const PROFILE='ORIGINAL_NATIVE_DEVICE_W39_PUBLIC_METRICS_FRAME_V1',MAX_BYTES=1024*1024;
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');

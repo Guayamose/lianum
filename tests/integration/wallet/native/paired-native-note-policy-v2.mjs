@@ -2,7 +2,7 @@
  * financial observation is issued by accepting the retained report here. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { PRIVATE_RESOURCE_POLICY } from '@lianum/engine/crypto/private-resource-policy';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { normalizePrivateStateObservationV1 } from '@lianum/mobile-protocol/original-account-private-state-v1';
 export const PAIRED_NATIVE_NOTE_PROFILE_V2 = 'paired-native-note-v2';
 export const PAIRED_NATIVE_NOTE_RESULT_V2 = 'LIANUM_PAIRED_NATIVE_NOTE_RESULT_V2';

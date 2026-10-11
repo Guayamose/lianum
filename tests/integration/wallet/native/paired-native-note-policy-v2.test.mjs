@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { PRIVATE_RESOURCE_POLICY } from '@lianum/engine/crypto/private-resource-policy';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { PAIRED_NATIVE_NOTE_PROFILE_V2, PAIRED_NATIVE_NOTE_RESULT_V2,
   PAIRED_NATIVE_NOTE_CHECKS_V2, PAIRED_NATIVE_NOTE_REAL_RELEASE_V2, assertPairedNativeNoteReleaseV2, assertPairedNativeNoteResultV2 }
   from './paired-native-note-policy-v2.mjs';

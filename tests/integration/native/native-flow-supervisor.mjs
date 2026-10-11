@@ -112,7 +112,7 @@ import { constants, closeSync, createReadStream, existsSync, fstatSync, fsyncSyn
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { ROOT, GOLDEN, LOCAL as PROOF_LOCAL, LIMITS as PROOF_LIMITS } from '@lianum/proofs/catalog';
 import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS,
-  PRIVATE_PROOF_WORKER_RSS_LIMIT } from '@lianum/engine/crypto/private-resource-policy';
+  PRIVATE_PROOF_WORKER_RSS_LIMIT } from '@lianum/components/resources/private-resource-policy';
 import { nativeFlowSourcePins, accountRecoverySourcePins, assetPortfolioSourcePins, evmVaultSourcePins } from '../runners/source-pins.mjs';
 import {EVM_METAMORPHO_RECOVERY_RESULT_V1,assertMetaMorphoFReleaseV1,assertEvmMetaMorphoRecoveryResultV1} from '../chains/evm/evm-metamorpho-recovery-policy-v1.mjs';
 import {evmMetaMorphoRecoverySourcePinsV1} from '../chains/evm/evm-metamorpho-recovery-source-pins-v1.mjs';

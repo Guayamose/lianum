@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {readFileSync,statfsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {PRIVATE_RESOURCE_POLICY as limits} from '../../crypto/private-resource-policy.mjs';
+import {PRIVATE_RESOURCE_POLICY as limits} from '@lianum/components/resources/private-resource-policy';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
 const owned=new WeakMap(),results=new WeakMap(),nativeReadies=new WeakMap(),sha=v=>createHash('sha256').update(v).digest('hex');

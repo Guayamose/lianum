@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {initializePrivateVerifierCRS,PRIVATE_VERIFIER_CRS} from '../../src/crypto/private-verifier-crs.mjs';
+import {initializePrivateVerifierCRS,PRIVATE_VERIFIER_CRS} from '@lianum/components/resources/private-verifier-crs';
 
 const generator = () => ({x:Uint8Array.from([...Array(31).fill(0),1]),y:Uint8Array.from([...Array(31).fill(0),2])});
 const g2 = () => readFileSync(new URL('../experiments/private-core-proof/native-notes/.local/crs/2097152/bn254_g2.dat',import.meta.url));

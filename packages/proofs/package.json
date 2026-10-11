@@ -10,7 +10,6 @@
     "./verification": "./src/verification/pinned-verifier.mjs",
     "./host/process-files": "./src/host/process-files.mjs",
     "./host/process-rss": "./src/host/process-rss.mjs",
-    "./toolchain/wallet-resources": "./src/toolchain/wallet-resources.mjs",
     "./execution/note-native-execution-v1": "./src/execution/note-native-execution-v1.mjs",
     "./execution/proof-process": "./src/execution/proof-process.mjs",
     "./execution/proof-worker": "./src/execution/proof-worker.mjs",

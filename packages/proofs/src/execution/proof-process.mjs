@@ -47,7 +47,7 @@ const nativeNoteRunnerFile=fileURLToPath(new URL('./note-native-execution-v1.mjs
 const nativePinsFile = fileURLToPath(new URL('./native-proof-pins.mjs', import.meta.url));
 const nativeValidatorFile = fileURLToPath(new URL('../verification/native-key.mjs', import.meta.url));
 const proofResourcePolicyFile = fileURLToPath(new URL('./proof-resource-policy.mjs', import.meta.url));
-const verifierCRSFile = fileURLToPath(new URL('../../../engine/src/crypto/private-verifier-crs.mjs', import.meta.url));
+const verifierCRSFile = fileURLToPath(new URL('../../../components/src/resources/private-verifier-crs.mjs', import.meta.url));
 const telemetryDirectory = join(PROOF_PROJECT_ROOT, 'evidence/paeg-proof-attempts');
 const hostLockPath = '/tmp/lianum-paeg-proof-host.lock';
 const operationMilliseconds = 15 * 60 * 1000, killGraceMilliseconds = 5000;
@@ -119,7 +119,7 @@ function createFixedProofProcess(options,nativeNote) {
   const codePins = {
     worker: filePin(legacyWorkerFile), parent: filePin(fileURLToPath(import.meta.url)),
     ...(nativeNote?{nativeNoteRunner:filePin(nativeNoteRunnerFile),nativeNoteEntries:Object.fromEntries(Object.entries(NOTE_NATIVE_WORKERS_V1).map(([mode,path])=>[mode,filePin(path)]))}:{}),
-    resourcePolicy: filePin(fileURLToPath(new URL('../../../engine/src/crypto/private-resource-policy.mjs', import.meta.url))),
+    resourcePolicy: filePin(fileURLToPath(new URL('../../../components/src/resources/private-resource-policy.mjs', import.meta.url))),
     proofResourcePolicy: filePin(proofResourcePolicyFile),
     verifierCRS: filePin(verifierCRSFile),
     activeResources: activeResourceSourceRecords(),
@@ -144,7 +144,7 @@ function createFixedProofProcess(options,nativeNote) {
     filePin(legacyWorkerFile,codePins.worker);
     if(nativeNote){filePin(nativeNoteRunnerFile,codePins.nativeNoteRunner);filePin(workerFile,codePins.nativeNoteEntries[mode]);}
     filePin(fileURLToPath(import.meta.url), codePins.parent);
-    filePin(fileURLToPath(new URL('../../../engine/src/crypto/private-resource-policy.mjs', import.meta.url)), codePins.resourcePolicy);
+    filePin(fileURLToPath(new URL('../../../components/src/resources/private-resource-policy.mjs', import.meta.url)), codePins.resourcePolicy);
     filePin(proofResourcePolicyFile, codePins.proofResourcePolicy);
     filePin(verifierCRSFile, codePins.verifierCRS);
     need(JSON.stringify(activeResourceSourceRecords()) === JSON.stringify(codePins.activeResources),

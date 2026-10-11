@@ -1,4 +1,4 @@
-import {PRIVATE_RESOURCE_POLICY} from '../../crypto/private-resource-policy.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 /** Bounded diagnostic-only PC23 runtime telemetry. PIDs come exclusively from
  * the owned runtime metadata and are pinned to this keeper's PPid/start ticks.
  * No process discovery, signals, endpoints, memory contents or credentials.

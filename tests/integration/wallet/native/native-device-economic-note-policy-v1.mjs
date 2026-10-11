@@ -3,7 +3,7 @@
  * unchanged. These joins consume public original receipts, never authority. */
 import assert from 'node:assert/strict';
 import {assertNativeEconomicNoteReceiptV1,NOTE_NATIVE_LINEAGE_V1} from '@lianum/proofs/execution/note-native-execution-v1';
-import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {NATIVE_VALUE_LIVE_V2_SPEC} from '@lianum/proofs/native-value/metadata/native-value-live-v2-profile';
 import {assertI84NativeReceiptV1} from '../../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs';
 import {assertBtcSolGraphProofReceipts} from '../../claims/development/development-btc-sol-graph-proof-evidence.mjs';

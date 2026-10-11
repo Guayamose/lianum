@@ -5,7 +5,7 @@ import {deviceExternalFlatGraphSourcePinsV1} from './device-external-flat-erc20-
 import {readNativeFlowRegularV1} from '../../native/native-flow-owned-files-v1.mjs';
 import {basename,dirname,join} from 'node:path';
 import {ROOT,GOLDEN} from '@lianum/proofs/catalog';
-import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1} from './native-device-economic-process-scope-v1.mjs';
 export const DEVICE_EXTERNAL_FLAT_ERC20_PROFILE_V1='device-external-flat-ordered-observation-v1';
 export const DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1='LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1';

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PRIVATE_RESOURCE_POLICY } from '../../../src/crypto/private-resource-policy.mjs';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { NATIVE_2M_PROOF_RESOURCE_POLICY, selectProofResourcePolicy } from '../../../../proofs/src/execution/proof-resource-policy.mjs';
 
 test('only verified native 2M profiles get the bounded RSS budget', () => {

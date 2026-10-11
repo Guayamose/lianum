@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync, existsSync, readd
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ROOT, FLAT, GOLDEN, LOCAL } from '@lianum/proofs/catalog';
-import { PRIVATE_RESOURCE_POLICY } from '@lianum/engine/crypto/private-resource-policy';
+import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { createOwnedLocalEvmV2, createOwnedLocalEvmNativeValueV1, createOwnedNativeEconomicReceiverV2, createOwnedNativeEconomicGraphRuntimeV2,
   assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1, assertOwnedLocalEvmNativeValueRuntime } from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';

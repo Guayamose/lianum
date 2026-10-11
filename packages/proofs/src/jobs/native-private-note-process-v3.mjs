@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { selectProofResourcePolicy } from '../execution/proof-resource-policy.mjs';
-import { filePin } from '@lianum/proofs/toolchain/wallet-resources';
+import { filePin } from '@lianum/components/resources/wallet-resources';
 import {
   PROOF_PROJECT_ROOT, PROOF_PROTOCOL, PROOF_MODES, PROOF_DEFAULT_MODES, PROOF_PURPOSES, PROOF_MAX_MESSAGE_BYTES,
   proofError, need, exactObject, encodeProofMessage, decodeProofMessage,

@@ -19,7 +19,7 @@ import {PRIVATE_NOTE_NATIVE_PROFILE_V1,assertNativePrivateEconomicNoteReceiptV3}
  from '@lianum/proofs/jobs/native-private-note-execution-v3';
 import {nativeProofProcessResources,nativeResourceFailure,nativeWalletUnfundedProcessFailure,NATIVE_FLOW_LIMITS}
  from '../../../../../tests/integration/native/native-flow-supervisor.mjs';
-import {PRIVATE_RESOURCE_POLICY} from '../../../src/crypto/private-resource-policy.mjs';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {LIMITS,MEMORY} from '@lianum/proofs/catalog';
 function receipt(mode){
  const execution={profile:NOTE_NATIVE_PROFILE_V1,backend:'NativeUnixSocket',threads:12,bbVersion:'5.2.0',

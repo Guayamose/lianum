@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {legacyDataRoot} from '@lianum/environment';
-import {filePin,hash,root,CRS,TOOLCHAIN_AUDIT_SHA256} from '../../src/toolchain/wallet-resources.mjs';
+import {filePin,hash,root,CRS,TOOLCHAIN_AUDIT_SHA256} from '@lianum/components/resources/wallet-resources';
 import * as wallet from '../../src/toolchain/wallet-prover.mjs';
 import * as assembly from '../../src/toolchain/assembly-prover.mjs';
 import * as nativeKey from '../../src/verification/native-key.mjs';
@@ -50,9 +50,7 @@ test('current file pin reader preserves byte and digest rejection',()=>{
 test('both current toolings resolve one lower-level resource and CRS implementation',async()=>{
  const resources=await import('@lianum/components/resources/wallet-resources');
  const policy=await import('@lianum/components/resources/private-resource-policy');
- const previousPolicy=await import('@lianum/engine/crypto/private-resource-policy');
  const crs=await import('@lianum/components/resources/private-verifier-crs');
- const previousCRS=await import('@lianum/engine/crypto/private-verifier-crs');
  const proofTooling=await import('../../src/tooling/tooling.mjs');
  const componentTooling=await import('../../../components/src/component-tooling.mjs');
  assert.deepEqual(proofTooling.activeResourceSourceRecords(),componentTooling.activeResourceSourceRecords());
@@ -64,10 +62,7 @@ test('both current toolings resolve one lower-level resource and CRS implementat
   assert.equal((await import(tooling.verifierCRSModuleURL)).initializePrivateVerifierCRS,crs.initializePrivateVerifierCRS);
  }
  assert.equal(filePin,resources.filePin);
- assert.equal(policy.PRIVATE_RESOURCE_POLICY,previousPolicy.PRIVATE_RESOURCE_POLICY);
  assert.equal(resources.WALLET_RESOURCE_FLOORS,policy.PRIVATE_RESOURCE_FLOORS);
- assert.equal(crs.initializePrivateVerifierCRS,previousCRS.initializePrivateVerifierCRS);
- assert.equal(crs.PRIVATE_VERIFIER_CRS,previousCRS.PRIVATE_VERIFIER_CRS);
  assert.equal(TOOLCHAIN_AUDIT_SHA256,'81aecc452689cfb28709b7d6b3998a1e3c0532de82780a15b2e7a10b3f3e74d6');
  assert.deepEqual(policy.PRIVATE_RESOURCE_FLOORS,{availableRAM:2684354560,freeDisk:5368709120});
  assert.equal(policy.PRIVATE_PROOF_WORKER_RSS_LIMIT,3221225472);

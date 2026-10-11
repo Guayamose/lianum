@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PORTABLE_POSEIDON2_MODULUS_V1 as P, portablePoseidon2HashV1,
-  portablePoseidon2HexV1, portablePoseidon2PermutationV1 } from '../src/custody/poseidon2-bn254-v1.mjs';
+  portablePoseidon2HexV1, portablePoseidon2PermutationV1 } from '@lianum/crypto/portable-poseidon2';
 import { createPortableOwnerCommitmentCodecV1, portableRawDigestLimbsV1 }
   from '../src/custody/owner-commitment-codec-v1.mjs';
 import { createCommitmentCodec } from '@lianum/components/encoding/commitments';

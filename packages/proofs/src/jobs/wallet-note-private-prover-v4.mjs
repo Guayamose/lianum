@@ -12,7 +12,7 @@ import {selectProofResourcePolicy} from '../execution/proof-resource-policy.mjs'
 import {PROOF_PROJECT_ROOT,PROOF_PROTOCOL,need,exactObject,encodeProofMessage,decodeProofMessage,
  normalizePublicInputs,assertExpectedInputs,normalizeProofWitness,publicInputsFromWitness,
  decodePrivateProof,loadProofProfile,wipePrivate,proofError} from '../execution/proof-worker.mjs';
-import {filePin} from '@lianum/proofs/toolchain/wallet-resources';
+import {filePin} from '@lianum/components/resources/wallet-resources';
 import {sealPrivateProofJobV1,readOriginalPrivateProofRecipientV1,privateProofAuthorizationBindingV1,
  privateProofBindingSHA256V1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 export const ORIGINAL_WALLET_PRIVATE_PROVER_V4='ORIGINAL_PC23_TWO_PRIVATE_IPC_V4';

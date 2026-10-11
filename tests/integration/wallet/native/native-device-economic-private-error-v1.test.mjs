@@ -13,7 +13,7 @@ import {once} from 'node:events';
 import {runInNewContext} from 'node:vm';
 import {types} from 'node:util';
 import {ROOT} from '@lianum/proofs/catalog';
-import {PRIVATE_RESOURCE_POLICY} from '@lianum/engine/crypto/private-resource-policy';
+import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {privateNativeEconomicSuccessorFirstErrorV1 as diagnose,privateOwnedNetworkMobileFirstErrorV1 as networkDiagnose} from './native-device-economic-private-error-v1.mjs';
 // The public catalog is an existing source under the fixed root in both layouts.

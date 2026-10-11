@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { legacyDataRoot } from '@lianum/environment';
 import { gunzipSync } from 'node:zlib';
-import { filePin, hash, verifyToolchain, verifyCRS, CRS, TOOLCHAIN_AUDIT_SHA256 } from '@lianum/proofs/toolchain/wallet-resources';
+import { filePin, hash, verifyToolchain, verifyCRS, CRS, TOOLCHAIN_AUDIT_SHA256 } from '@lianum/components/resources/wallet-resources';
 import { validateOwnerPin, sourceManifest, sourceTreeHash, assertOwnerArtifact } from '../verification/owner-key.mjs';
 import { FIELD_MODULUS, PUBLIC_ABI } from '@lianum/engine/execution/inputs/funding-wrappers';
 import { assertWalletStatement } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';

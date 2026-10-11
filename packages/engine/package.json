@@ -35,8 +35,6 @@
     "./cohorts/private-cohort-public-native": "./src/cohorts/private-cohort-public-native.mjs",
     "./cohorts/private-cohort-runtime": "./src/cohorts/private-cohort-runtime.mjs",
     "./crypto/private-proof-transit-v1": "./src/crypto/private-proof-transit-v1.mjs",
-    "./crypto/private-resource-policy": "./src/crypto/private-resource-policy.mjs",
-    "./crypto/private-verifier-crs": "./src/crypto/private-verifier-crs.mjs",
     "./encoding/evm-vault-delivery": "./src/encoding/evm-vault-delivery.mjs",
     "./encoding/private-external-delivery": "./src/encoding/private-external-delivery.mjs",
     "./evidence/native-hub-messages": "./src/evidence/native-hub-messages.mjs",
