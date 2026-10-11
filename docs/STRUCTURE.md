@@ -6,15 +6,15 @@ por separado en [LOCAL-ENVIRONMENT.md](LOCAL-ENVIRONMENT.md).
 
 | Carpeta | Contenido | Primer archivo útil |
 | --- | --- | --- |
-| `apps/wallet/` | Aplicación web y servidor HTTP que compone las sesiones | `src/server/run.mjs`, `src/server/server.mjs`, `src/client/app.mjs` |
+| `apps/wallet/` | Interfaz web y composición de sus recursos con el servicio HTTP backend | `src/server/run.mjs`, `src/server/server.mjs`, `src/client/app.mjs` |
 | `apps/mobile/` | Cliente nativo, custodia de dispositivo y permisos móviles | `App.tsx`, `README.md` |
 | `apps/platform/` | API móvil, registro PostgreSQL y gateway económico local | `src/entry.mjs`, `README.md` |
 | `packages/mobile-protocol/` | Esquemas, bytes firmados y cliente compartido sin DOM | `src/authorization.mjs` |
 | `packages/backend/` | API, estado de cuentas, ejecución y adaptadores | `src/api/accounts/flat-account-session.mjs` |
-| `packages/custody/` | Custodia local, firmas y procesos del propietario | `src/processes/flat-owner-process.mjs` |
+| `packages/custody/` | Custodia del propietario, firmas y bindings | `src/signing/flat-owner-custody.mjs` |
 | `packages/proofs/` | Workers, circuitos actuales Noir y bibliotecas de pruebas | `src/catalog.mjs`, `circuits/` |
 | `packages/crypto/` | Implementación candidata Poseidon y sus dependencias | `src/` |
-| `packages/engine/` | Motor compartido que aún consume la aplicación actual | `src/execution/accounts/generic-account-journal.mjs` |
+| `packages/engine/` | Estado, coordinación y mecanismos compartidos de ejecución | `src/execution/accounts/generic-account-journal.mjs` |
 | `packages/protocol/` | Implementación de protocolo conservada de la generación anterior | `src/execution/` |
 | `packages/components/` | Componentes de circuito y sus utilidades | `src/`, `circuits/` |
 | `packages/environment/` | Rutas explícitas del código y de los datos conservados | `src/paths.mjs` |
@@ -23,7 +23,7 @@ por separado en [LOCAL-ENVIRONMENT.md](LOCAL-ENVIRONMENT.md).
 | `tests/integration/` | Pruebas de integración de la wallet | Archivos `.mjs` existentes |
 | `scripts/` | Comandos del proyecto, compiladores y utilidades de laboratorio | `development/dev` |
 | `infra/google-cloud/` | Cloud Run, SQL y jobs deshabilitados; validación local | `README.md`, `main.tf` |
-| `experiments/` | Circuitos y código experimental heredado; algunos siguen siendo dependencias | `engine/private-core-proof/` |
+| `experiments/` | Fuentes experimentales e históricas; entradas compatibles hacia propietarios actuales | `engine/private-core-proof/` |
 | `docs/` | Documentación y referencias del producto | Este archivo |
 | `archive/` | Entregas originales, propuestas, recibos y respaldo de la restauración | `README.md` |
 
@@ -42,7 +42,9 @@ configuración y alcance. Google Cloud conserva su preparación local.
 
 Los contratos que comparten wallet y backend se editan en
 `packages/mobile-protocol/src/wallet/contracts/`; la proyección y cliente sin
-DOM están en `wallet/client/`. Las rutas anteriores de la wallet reexportan esas
+DOM están en `wallet/client/`. El servicio HTTP común se edita en
+`packages/backend/src/api/wallet/http-service.mjs`; la app añade sus recursos
+visuales desde `src/server/server.mjs`. Las rutas anteriores de la wallet reexportan esas
 implementaciones. El motor activo es `packages/engine`; `packages/protocol`
 conserva la generación histórica inventariada. [Dependencias](MODULES.md).
 
@@ -61,7 +63,7 @@ apps/wallet/
 │   │   ├── app.mjs           Entrada de la interfaz
 │   │   ├── state/            Modelo de pantalla
 │   │   └── features/         Cuentas, cartera, DeFi, claims y retiradas
-│   └── server/               HTTP, seguridad y errores
+│   └── server/               Composición web y fachadas de compatibilidad
 ├── tests/                    Servidor, interfaz, integración y helpers
 └── docs/                     Diseño y contratos de interacción
 
@@ -69,12 +71,17 @@ packages/backend/
 ├── README.md                 Mapa de dominios
 ├── src/
 │   ├── api/                  Clientes y sesiones por función
-│   ├── accounts/             Autoridad, almacenamiento y cartera
+│   ├── accounts/             Autoridad, almacenamiento, cartera y runtimes
 │   ├── chains/               EVM, Bitcoin, Solana, Tron y shared
 │   ├── claims/               Autorización, controladores, pagos y storage
 │   ├── execution/            Preparación, ejecución y reconciliación
+│   ├── custody/              Procesos, observación y composición del propietario
+│   ├── proving/              Integración de pruebas con claims y cuentas
 │   ├── defi/                 Vaults, posiciones, entregas y retiradas
 │   ├── providers/            Proveedores de ejecución
+│   ├── coordination/         Composición de cohortes
+│   ├── payments/             Orquestación de pagos
+│   ├── storage/              Persistencia privada de apoyo
 │   └── operations/           Despliegues, operadores y releases
 ├── tests/                    Mismos dominios; fixtures separados
 └── docs/                     Contratos documentados
@@ -90,7 +97,12 @@ Las carpetas de integración y scripts se agrupan por flujo o función.
 Los paquetes tienen nombres `@lianum/*`, exports y dependencias explícitas en
 sus `package.json`. Son módulos locales del mismo producto; comparten recursos.
 [MODULES.md](MODULES.md) describe sus interfaces y las dependencias internas
-heredadas que todavía quedan. La aplicación utiliza JavaScript ESM, HTML y CSS.
+heredadas que todavía quedan. El grafo de imports declarados entre paquetes es acíclico; siguen
+pendientes ciclos entre archivos dentro de la composición backend. Las pruebas
+consumen código del producto. Los procesos activos se componen en proofs y los
+recursos compartidos en components; las cargas calculadas requieren declaración
+explícita para su empaquetado, como se explica en esa guía.
+La wallet web utiliza JavaScript ESM, HTML y CSS.
 
 Para ejecutar un grupo de pruebas, por ejemplo:
 
@@ -105,6 +117,7 @@ subcarpetas; no amplía la selección al antiguo directorio plano.
 
 ```text
 Trabajo habitual: apps/ y packages/ → ./dev start, node, test, check
+Candidato de fuentes y recursos trasladable: ./dev bundle build / verify / run
 Generación para verificadores históricos: ./dev sources prepare
 Compatibilidad manual: ./dev build --legacy → .internal/runtime/
 ```
@@ -116,9 +129,10 @@ Las rutas de recursos de uso habitual están separadas de las rutas de código.
 
 Los workers criptográficos y las campañas económicas conservan validadores de
 bytes, rutas e identidades originales. Su ejecución utiliza la copia compatible.
-En particular, `packages/crypto/src/component-tooling.mjs` y el helper de
-recursos de `experiments/engine/private-core-proof/wallet-notes/` siguen ligados
-a hashes históricos: sus consumidores completos requieren ese modo.
+Las herramientas activas de wallet/assembly y los validadores de claves viven
+en `packages/proofs/src/toolchain/` y `src/verification/`. Algunas entradas
+experimentales anteriores son fachadas; los artefactos, bibliotecas y fuentes
+originales siguen sujetos a los hashes de su generación. `packages/crypto/src/component-tooling.mjs` también conserva requisitos de recursos históricos.
 `./dev legacy node …`, `./dev legacy test …` y los comandos `./dev lab …`
 preparan la compatibilidad antes de ejecutarse. Nunca se edita la copia interna.
 
@@ -128,6 +142,14 @@ exacta de artefactos; no ejecuta operaciones económicas ni publica una release.
 `./dev sources check` detecta diferencias frente a la publicación anterior,
 también después de preparar un candidato nuevo.
 Una generación preparada no acredita por sí sola el recorrido económico.
+
+El bundle de fuentes es otro resultado explícito: reúne el cierre de imports y
+las fuentes adicionales indicadas, incorpora los recursos públicos declarados
+y los verifica antes de ejecutarlos. Su descriptor `runtime-resources.json`
+hace que las rutas se resuelvan dentro del candidato trasladado. No incorpora
+por defecto claves ni estado de una cuenta. Consulta [COMMANDS.md](COMMANDS.md)
+para `./dev bundle`; sus opciones están en `./dev bundle build --help`. Las
+comprobaciones de identidad y aceptación de cada consumidor permanecen activas.
 
 La copia interna incluye dependencias y artefactos públicos restaurados.
 Las herramientas se guardan en `.internal/dev/toolchains/`. El bootstrap de

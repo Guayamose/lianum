@@ -146,10 +146,12 @@ en las declaraciones estáticas del núcleo, sin cargar sus módulos ni crear
 custodia. `--changed` limita ese análisis a los archivos modificados y nuevos.
 No infiere imports calculados ni demuestra comportamiento económico.
 
-`scripts/development/tsconfig.checkjs.json` añade checkJs estricto a las APIs
-de rutas, errores públicos, errores de observación y acciones de recuperación
-compartidas. Es una
-adopción incremental: el resto del núcleo JavaScript no se declara tipado.
+`scripts/development/tsconfig.checkjs.json` aplica checkJs estricto a las
+implementaciones de rutas, errores, integridad de archivos, autorizaciones y
+consentimientos móviles, revisión y estado privado de cuenta, acciones de
+recuperación y ciclo de vida de procesos propios. Las entradas exactas están
+enumeradas en esa configuración. Es una adopción incremental: el resto del
+núcleo JavaScript no se declara tipado.
 La configuración no usa `@ts-ignore` ni desactiva errores para hacerla pasar.
 Además se comprueban nombres sin binding léxico en la fábrica de autoridad y
 los módulos de operaciones y diario enumerados en `static-bindings.json`. Este control
@@ -213,6 +215,16 @@ se consultan con `./dev sources status` y se documentan en
 una instantánea de fuentes; no equivale a compilar, publicar o aprobar una
 generación económica. Esa gestión se solicita independientemente de las
 pruebas rápidas.
+
+Para trasladar una entrada fuera de este checkout se utiliza `./dev bundle`:
+reúne su cierre de fuentes y los recursos declarados, verifica sus hashes y
+genera un lanzador que resuelve las rutas desde la ubicación del paquete.
+No requiere copiar el árbol acumulado de `.internal/runtime`. El formato del
+manifiesto y los ejemplos están en [la guía de environment](../packages/environment/README.md).
+El paquete es
+un candidato de ejecución: la aceptación económica de su consumidor sigue
+siendo un paso separado.
+
 El estado de implementación sigue en [STATUS.md](../STATUS.md); aprobar una
 selección host no incrementa por sí solo un porcentaje de producto.
 
