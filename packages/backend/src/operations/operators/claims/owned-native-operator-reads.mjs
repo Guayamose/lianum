@@ -6,7 +6,8 @@
 import assert from 'node:assert/strict';
 import { types } from 'node:util';
 import { assertOwnedBitcoinRuntime } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
-import { assertOwnedSolanaRuntime, SOLANA_NONCE_INGRESS_PROFILE } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
+import { SOLANA_NONCE_INGRESS_PROFILE } from "../../../chains/solana/runtime/solana-profiles.mjs";
+import { assertOwnedSolanaRuntime } from "../../../chains/solana/runtime/owned-solana-runtime.mjs";
 import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 

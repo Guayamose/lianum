@@ -6,7 +6,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { validateSolanaPreparedState, revalidateSolanaPreparedState, validateSolanaBindingObservation, base58Encode,
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { base58Encode } from '../../../../src/chains/solana/runtime/solana-base58.mjs';
+import { validateSolanaPreparedState, revalidateSolanaPreparedState, validateSolanaBindingObservation,
   assertOwnedSolanaRuntime, createOwnedSolanaCohortRuntime, SOLANA_PRIVATE_COHORT_OPTIONS,
   validateSolanaNoncePreparedState, revalidateSolanaNoncePreparedState, validateSolanaNonceBindingObservation,
   validateSolanaNonceFailureObservation, validateSolanaNonceBootstrapObservation, assertSolanaNonceFirstSendState,
@@ -20,6 +23,28 @@ const h = text => createHash('sha256').update(text).digest('hex');
 const copy = value => structuredClone(value), encoded = text => base58Encode(Buffer.from(h(text), 'hex'));
 const zero = '0'.repeat(64), system = '11111111111111111111111111111111';
 const memoBytes = readFileSync(resourcePath('engine', '.local/test-programs/spl_memo-3.0.0.so'));
+
+test('public Solana descriptors and Base58 load without access to the owned runtime', () => {
+  const codec = new URL('../../../../src/chains/solana/runtime/solana-base58.mjs', import.meta.url);
+  const profiles = new URL('../../../../src/chains/solana/runtime/solana-profiles.mjs', import.meta.url);
+  const script = `
+    const codec = await import(${JSON.stringify(codec.href)});
+    const profiles = await import(${JSON.stringify(profiles.href)});
+    const input = Buffer.from('000001020304', 'hex');
+    const output = codec.base58Decode(codec.base58Encode(input), input.length);
+    if (!output.equals(input)) throw Error('BASE58_ROUND_TRIP');
+    if (profiles.SOLANA_NONCE_INGRESS_PROFILE !== 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3')
+      throw Error('PROFILE_CHANGED');
+    console.log('SOLANA_DATA_ONLY');
+  `;
+  const output = execFileSync(process.execPath, [
+    '--permission',
+    '--allow-fs-read=' + fileURLToPath(codec),
+    '--allow-fs-read=' + fileURLToPath(profiles),
+    '--input-type=module', '--eval', script,
+  ], { cwd: '/', encoding: 'utf8', timeout: 5000 });
+  assert.equal(output.trim(), 'SOLANA_DATA_ONLY');
+});
 
 test('bootstrap waits only for a well-formed zero fee and retains all funding checks', () => {
   assert.equal(solanaNonceBootstrapFundingReady(1447680, 0, '10000000'), false);

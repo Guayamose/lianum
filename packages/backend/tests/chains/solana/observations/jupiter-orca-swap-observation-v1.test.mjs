@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPrivateKey,createPublicKey,sign} from 'node:crypto';
-import {base58Encode} from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
+import { base58Encode } from "../../../../src/chains/solana/runtime/solana-base58.mjs";
 import {loadJupiterOfficialMaterialV1} from '../../../../src/operations/deployments/defi/jupiter-official-material-v1.mjs';
 import {jupiterPublicBankGenesisV1} from '../../../../src/chains/solana/runtime/jupiter-orca-bank-state-v1.mjs';
 import {JUPITER_ORCA_V1,quoteJupiterOrcaSolUsdcV1,encodeJupiterOrcaFixtureMessageV1,decodeJupiterSplTokenAccountV1,decodeJupiterSplMintV1} from '../../../../src/chains/solana/dispatch/jupiter-orca-route-codec-v1.mjs';

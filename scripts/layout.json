@@ -22799,6 +22799,7 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/defi-adapters/vault-preparation.mjs": "packages/backend/src/defi/vaults/vault-preparation.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/solana-transfers.mjs": "packages/backend/src/chains/solana/transfers/solana-transfers.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/nonce-first-send-state.mjs": "packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs",
-    "omnichain-flat-profile/flat-wallet/integration/solana-host-send-checks.mjs": "tests/integration/chains/solana/host-send-checks.mjs"
+    "omnichain-flat-profile/flat-wallet/integration/solana-host-send-checks.mjs": "tests/integration/chains/solana/host-send-checks.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/solana-profiles.mjs": "packages/backend/src/chains/solana/runtime/solana-profiles.mjs"
   }
 }

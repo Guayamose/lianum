@@ -1,3 +1,11 @@
+import { SOLANA_CUSTODY_PROFILE, SOLANA_NONCE_INGRESS_PROFILE,
+  SOLANA_PAYOUT_FINAL_SEND_PROFILE, SOLANA_CUSTODY_SYNTHETIC_SURPLUS,
+  SOLANA_NONCE_BOOTSTRAP_GRANT, SOLANA_GRAPH_SYNTHETIC_LIQUIDITY,
+  SOLANA_GRAPH_RECIPIENT_GRANT } from './solana-profiles.mjs';
+export { SOLANA_CUSTODY_PROFILE, SOLANA_NONCE_INGRESS_PROFILE,
+  SOLANA_PAYOUT_FINAL_SEND_PROFILE, SOLANA_CUSTODY_SYNTHETIC_SURPLUS,
+  SOLANA_NONCE_BOOTSTRAP_GRANT, SOLANA_GRAPH_SYNTHETIC_LIQUIDITY,
+  SOLANA_GRAPH_RECIPIENT_GRANT } from './solana-profiles.mjs';
 import { createSolanaTransfers } from '../transfers/solana-transfers.mjs';
 import { createNonceFirstSendStateCheck } from '../transfers/nonce-first-send-state.mjs';
 import { base58Encode, base58Decode } from './solana-base58.mjs';
@@ -97,17 +105,6 @@ import {validateJupiterOrcaSwapObservationV1} from '../observations/jupiter-orca
 import {loadOwnedNativeSplProducedProgramV1} from '../../../operations/deployments/defi/native-spl-produced-program-v1.mjs';
 import {deriveNativeSplConfigurationV1,nativeSplAssetCommitmentV1} from '../dispatch/native-spl-custody-codec-v1.mjs';
 import {deriveOwnedNativeCurrencyAsset} from '../../../operations/deployments/claims/native-claim-deployment-plan.mjs';
-export const SOLANA_CUSTODY_PROFILE = 'OWNED_FLAT_SOLANA_CUSTODY_V1';
-// Candidate protocol identity only; not proof-profile activation or send authority.
-export const SOLANA_NONCE_INGRESS_PROFILE = 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3';
-// Host-hook semantics only: every fixed payout checks its retained completed
-// authorization after the durable first-send latch, without new send authority.
-export const SOLANA_PAYOUT_FINAL_SEND_PROFILE = 'OWNED_SOLANA_PAYOUT_AUTHORITY_LIFETIME_V2';
-export const SOLANA_CUSTODY_SYNTHETIC_SURPLUS = '10000000';
-export const SOLANA_NONCE_BOOTSTRAP_GRANT = '10000000';
-export const SOLANA_GRAPH_SYNTHETIC_LIQUIDITY = '10000000000';
-export const SOLANA_GRAPH_RECIPIENT_GRANT = '2000000';
-
 /** A zero genesis fee is an initialization state, never permission to sign.
  * All other malformed or underfunded preparations fail immediately. */
 export function solanaNonceBootstrapFundingReady(rentLamports, feeLamports, payerLamports) {

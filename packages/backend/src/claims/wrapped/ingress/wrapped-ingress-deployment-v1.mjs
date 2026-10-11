@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { exactRecord } from '@lianum/components/encoding/commitments';
 import { claimVerifierSetCommitment } from '@lianum/engine/claims/framing';
-import { SOLANA_NONCE_INGRESS_PROFILE } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
+import { SOLANA_NONCE_INGRESS_PROFILE } from "../../../chains/solana/runtime/solana-profiles.mjs";
 const CANDIDATE = Object.freeze({profile:SOLANA_NONCE_INGRESS_PROFILE});
 export function assertNonceIngressDeployment(system) {
   const selected = system.nativeRuntimes.map((native, i) => ({ native, config: system.configs[i] }))

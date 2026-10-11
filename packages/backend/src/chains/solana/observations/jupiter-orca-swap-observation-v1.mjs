@@ -1,7 +1,7 @@
 /** Exact public Jupiter/Orca wire, CPI and finalized accounting. No claim authority. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {base58Decode} from '../runtime/owned-solana-runtime.mjs';
+import { base58Decode } from "../runtime/solana-base58.mjs";
 import {JUPITER_ORCA_V1,quoteJupiterOrcaSolUsdcV1,validateJupiterOrcaFixtureTransactionV1,decodeJupiterSplTokenAccountV1,decodeJupiterSplMintV1} from '../dispatch/jupiter-orca-route-codec-v1.mjs';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const integer=value=>{assert.ok(Number.isSafeInteger(value)&&value>=0);return BigInt(value);};

@@ -13,7 +13,7 @@ import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-na
 import { checkpointAuthorizationDigest } from '@lianum/engine/evidence/native-hub-messages';
 import { recoverSecp256k1Sender } from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { flatNativeHealthDigest } from '../../../../src/chains/shared/health/native-health.mjs';
-import { SOLANA_NONCE_INGRESS_PROFILE } from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
+import { SOLANA_NONCE_INGRESS_PROFILE } from "../../../../src/chains/solana/runtime/solana-profiles.mjs";
 
 const sha = value => crypto.createHash('sha256').update(value).digest('hex'), copy = value => structuredClone(value);
 const prefix = value => '0x' + value, word = value => BigInt(value).toString(16).padStart(64, '0'), ZERO = word(0);

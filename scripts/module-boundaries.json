@@ -468,11 +468,7 @@
         "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
         "packages/backend/src/operations/deployments/system/deploy-system.mjs"
       ],
-      "packages/backend/src/chains/solana/observations/jupiter-orca-swap-observation-v1.mjs": [
-        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs"
-      ],
       "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs": [
-        "packages/backend/src/chains/solana/observations/jupiter-orca-swap-observation-v1.mjs",
         "packages/backend/src/chains/solana/runtime/owned-solana-spl-custody-v1.mjs",
         "packages/backend/src/claims/payouts/payout-controller-dispatch-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
@@ -555,21 +551,16 @@
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
         "packages/backend/src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs",
-        "packages/backend/src/claims/wrapped/ingress/wrapped-ingress-deployment-v1.mjs",
         "packages/backend/src/claims/wrapped/operations/wrapped-operators-v1.mjs",
         "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
         "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs",
         "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
         "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
       ],
-      "packages/backend/src/claims/wrapped/ingress/wrapped-ingress-deployment-v1.mjs": [
-        "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs"
-      ],
       "packages/backend/src/claims/wrapped/operations/wrapped-operators-v1.mjs": [
         "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
         "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
         "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
-        "packages/backend/src/claims/wrapped/ingress/wrapped-ingress-deployment-v1.mjs",
         "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
         "packages/backend/src/operations/operators/claims/owned-native-operator-reads.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs"

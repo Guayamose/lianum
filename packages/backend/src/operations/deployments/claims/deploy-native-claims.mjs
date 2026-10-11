@@ -11,7 +11,8 @@ import { lstat, realpath, readdir } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { assertOwnedBitcoinRuntime, BITCOIN_CUSTODY_PROFILE } from '../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
-import { assertOwnedSolanaRuntime, SOLANA_CUSTODY_PROFILE, SOLANA_NONCE_INGRESS_PROFILE } from '../../../chains/solana/runtime/owned-solana-runtime.mjs';
+import { SOLANA_CUSTODY_PROFILE, SOLANA_NONCE_INGRESS_PROFILE } from "../../../chains/solana/runtime/solana-profiles.mjs";
+import { assertOwnedSolanaRuntime } from "../../../chains/solana/runtime/owned-solana-runtime.mjs";
 import { createOwnedPoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
 import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.mjs';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress }

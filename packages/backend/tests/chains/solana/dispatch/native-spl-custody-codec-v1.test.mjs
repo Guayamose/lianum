@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import vm from 'node:vm';
 import {ROOT} from '@lianum/proofs/catalog';
 import {cloneInput,frozenInput} from '@lianum/components/plain-input';
-import {base58Encode,base58Decode} from '../../../../src/chains/solana/runtime/owned-solana-runtime.mjs';
+import { base58Encode, base58Decode } from "../../../../src/chains/solana/runtime/solana-base58.mjs";
 import {claimActionFrame,claimBackingFrame,CLAIM_ACTION_FIELDS,CLAIM_BACKING_FIELDS} from '@lianum/engine/claims/permits';
 import {NATIVE_SPL_CUSTODY_V1,NATIVE_SPL_CUSTODY_SOURCE_REVIEW_V1,NATIVE_SPL_CUSTODY_COMPILED_RELEASE_V1,nativeSplAssetCommitmentV1,encodeNativeSplAuthorizeV1,encodeNativeSplAuthorizeMessageV1,encodeNativeSplSwapMessageV1,decodeNativeSplInventoryV1} from '../../../../src/chains/solana/dispatch/native-spl-custody-codec-v1.mjs';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex'),b32=n=>n.toString(16).padStart(64,'0'),pk=n=>base58Encode(Buffer.from(b32(n),'hex'));

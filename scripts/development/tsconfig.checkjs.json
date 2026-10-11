@@ -114,6 +114,8 @@
     "../../packages/backend/src/claims/wrapped/operations/wrapped-audit-currentness-v1.mjs",
     "../../packages/backend/src/operations/operators/claims/original-facts-retention-v2.mjs",
     "../../packages/backend/src/defi/vaults/vault-preparation.mjs",
-    "../../packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs"
+    "../../packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs",
+    "../../packages/backend/src/chains/solana/runtime/solana-profiles.mjs",
+    "../../packages/backend/src/chains/solana/runtime/solana-base58.mjs"
   ]
 }

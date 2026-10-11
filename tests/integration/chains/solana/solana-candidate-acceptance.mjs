@@ -16,7 +16,7 @@ import { ACCEPTANCE_AMOUNTS, checkBootstrap, checkCandidateMetadata, checkCustod
   checkOriginalRecord, checkCustodyDeposit, inventoryState, publicAcceptanceReport } from './solana-candidate-acceptance-evidence.mjs';
 import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 import { validateSolanaNonceBindingTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
-import { SOLANA_PAYOUT_FINAL_SEND_PROFILE } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs';
+import { SOLANA_PAYOUT_FINAL_SEND_PROFILE } from "../../../../packages/backend/src/chains/solana/runtime/solana-profiles.mjs";
 const HERE = fileURLToPath(import.meta.url), ROOT = resolve(dirname(HERE), '..');
 const RECOVERY = resolve(ROOT, '../..'), LOCAL = join(ROOT, '.local/solana-candidate-acceptance');
 const sha = value => createHash('sha256').update(value).digest('hex');
