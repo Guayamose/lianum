@@ -5,7 +5,7 @@ import {join,resolve} from 'node:path';
 import {ROOT} from '@lianum/proofs/catalog';
 import {hash} from '@lianum/proofs/tooling/tooling';
 import {assertOwnedExternalDefiReceiverV2} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {createExternalDefiRecoveryAuthorityV1,closeWrappedRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {NATIVE_FLOW_LIMITS} from '../../native/native-flow-supervisor.mjs';
 import {externalDefiVaultExitSourcePinsV1} from './external-defi-vault-exit-source-pins-v1.mjs';

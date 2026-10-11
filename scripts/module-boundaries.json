@@ -137,7 +137,6 @@
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
         "packages/backend/src/claims/controller/controller.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/flat-owner-observer.mjs",
         "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
@@ -149,7 +148,6 @@
         "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/flat-owner-observer.mjs",
         "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
@@ -191,7 +189,7 @@
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/flat-owner-observer.mjs",
         "packages/backend/src/custody/preparation/flat-owner-manual-preparation.mjs",
         "packages/backend/src/custody/processes/flat-owner-process.mjs",
@@ -227,7 +225,6 @@
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
         "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
         "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/native-value-owner-observer-v2.mjs",
         "packages/backend/src/custody/observers/wrapped-claim-owner-observer-v1.mjs",
@@ -279,7 +276,7 @@
       "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs": [
         "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
         "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
       ],
       "packages/backend/src/accounts/portfolio/wrapped-wallet-portfolio-v1.mjs": [
         "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
@@ -289,11 +286,9 @@
       "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs": [
         "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/deployments/system/deploy-system.mjs",
-        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
       ],
       "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs": [
         "packages/backend/src/accounts/authority/flat-account-authority.mjs",
@@ -305,7 +300,6 @@
         "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/processes/flat-owner-process.mjs",
         "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
@@ -313,8 +307,7 @@
         "packages/backend/src/defi/withdrawals/private-vault-exit.mjs",
         "packages/backend/src/operations/deployments/defi/official-aave-fixture-v1.mjs",
         "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
-        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
       ],
       "packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs": [
         "packages/backend/src/accounts/authority/flat-account-authority.mjs",
@@ -333,7 +326,6 @@
       "packages/backend/src/accounts/recovery/external-defi-wallet-recovery-v1.mjs": [
         "packages/backend/src/accounts/authority/flat-account-authority.mjs",
         "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/processes/flat-owner-process.mjs",
         "packages/backend/src/operations/deployments/system/deploy-system.mjs"
@@ -356,7 +348,7 @@
       ],
       "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs": [
         "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
       ],
       "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs": [
         "packages/backend/src/accounts/authority/flat-account-authority.mjs",
@@ -364,7 +356,7 @@
         "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
         "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
         "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
       ],
       "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs": [
         "packages/backend/src/accounts/authority/flat-account-authority.mjs",
@@ -384,7 +376,6 @@
         "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
         "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
         "packages/backend/src/api/accounts/flat-account-session.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
         "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
@@ -448,7 +439,7 @@
       "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs": [
         "packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs",
         "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs",
         "packages/backend/src/execution/native/recipients/native-recipient-process.mjs",
         "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs",
@@ -500,12 +491,12 @@
       "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs": [
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/observations/private-external-incoming-observer-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
         "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
         "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
         "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
-        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
       ],
       "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs": [
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs"
@@ -529,7 +520,7 @@
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
         "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/native/recipients/native-recipient-process.mjs",
         "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
         "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
@@ -635,7 +626,6 @@
         "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs"
       ],
       "packages/backend/src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs": [
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
       ],
@@ -671,11 +661,6 @@
       "packages/backend/src/claims/wrapped/recovery/wrapped-cold-checkpoint-v1.mjs": [
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
       ],
-      "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs": [
-        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-        "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
-      ],
       "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs": [
         "packages/backend/src/accounts/authority/device-d26-observation-recovery-v1.mjs",
         "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
@@ -689,31 +674,30 @@
         "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs",
         "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
         "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
         "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
         "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
         "packages/backend/src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
         "packages/backend/src/custody/processes/flat-owner-process.mjs",
         "packages/backend/src/custody/processes/native-value-owner-process-v2.mjs",
         "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs",
         "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs",
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
         "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs",
         "packages/backend/src/operations/local/wrapped-wallet-runtime-v1.mjs",
+        "packages/backend/src/operations/operators/claims/native-operators.mjs",
         "packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
+        "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs",
         "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
         "packages/backend/src/operations/recovery/native-value-economic-recovery-v1.mjs",
         "packages/backend/src/operations/wallet/wrapped-wallet-composition-v1.mjs"
-      ],
-      "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs": [
-        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-        "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
-        "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
-        "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs"
       ],
       "packages/backend/src/claims/wrapped/recovery/wrapped-terminal-baseline-v1.mjs": [
         "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
@@ -773,7 +757,6 @@
         "packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs"
       ],
       "packages/backend/src/custody/processes/flat-owner-process.mjs": [
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/flat-owner-native-claim-observer.mjs",
         "packages/backend/src/custody/observers/flat-owner-observer.mjs"
@@ -785,7 +768,6 @@
         "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
       ],
       "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs": [
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/wrapped-claim-owner-claim-observer-v1.mjs",
         "packages/backend/src/custody/observers/wrapped-claim-owner-observer-v1.mjs",
@@ -806,7 +788,7 @@
         "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs"
       ],
       "packages/backend/src/defi/vaults/retained-external-vault-journal-v1.mjs": [
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
       ],
       "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs": [
         "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
@@ -838,7 +820,6 @@
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
         "packages/backend/src/execution/account/reconciliation/flat-terminal-observer.mjs",
@@ -877,7 +858,6 @@
         "packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs",
         "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
         "packages/backend/src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/account/execution/flat-native-execution.mjs",
         "packages/backend/src/execution/native-value/preparation/native-value-dev-admission-consumer-v5.mjs",
@@ -920,7 +900,7 @@
         "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
       ],
       "packages/backend/src/execution/native/recipients/native-recipient-process.mjs": [
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/local/wrapped-wallet-runtime-v1.mjs",
         "packages/backend/src/operations/wallet/wrapped-wallet-composition-v1.mjs"
       ],
@@ -968,17 +948,17 @@
       ],
       "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs": [
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-        "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+        "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs"
       ],
       "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs": [
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
         "packages/backend/src/operations/deployments/defi/official-aave-fixture-v1.mjs",
         "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
-        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        "packages/backend/src/operations/deployments/system/deploy-system.mjs"
       ],
       "packages/backend/src/operations/deployments/defi/official-aave-fixture-v1.mjs": [
         "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
@@ -988,9 +968,9 @@
       "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs": [
         "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs",
-        "packages/backend/src/operations/deployments/defi/official-aave-fixture-v1.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        "packages/backend/src/operations/deployments/defi/official-aave-fixture-v1.mjs"
       ],
       "packages/backend/src/operations/deployments/native-value/native-value-deployment-checks-v2.mjs": [
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs"
@@ -1008,9 +988,9 @@
       "packages/backend/src/operations/deployments/system/deploy-system.mjs": [
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
-        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs",
-        "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        "packages/backend/src/operations/deployments/claims/deploy-native-claims.mjs"
       ],
       "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-checks-v1.mjs": [
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs"
@@ -1018,7 +998,7 @@
       "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs": [
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs",
         "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-checks-v1.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
@@ -1033,7 +1013,6 @@
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs",
         "packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs",
@@ -1065,7 +1044,6 @@
         "packages/backend/src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs",
         "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-cold-checkpoint-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-terminal-baseline-v1.mjs",
         "packages/backend/src/custody/observers/wrapped-claim-owner-claim-observer-v1.mjs",
@@ -1089,7 +1067,7 @@
         "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
         "packages/backend/src/chains/shared/dispatch/native-facts-peer.mjs",
         "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/execution/account/reconciliation/flat-system-state.mjs",
         "packages/backend/src/operations/deployments/system/deploy-system.mjs",
         "packages/backend/src/operations/operators/claims/combined-native-operators.mjs",
@@ -1130,7 +1108,7 @@
         "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/operators/claims/shared-custody-allocation-v1.mjs"
       ],
       "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs": [
@@ -1148,7 +1126,7 @@
         "packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs",
         "packages/backend/src/claims/wrapped/operations/wrapped-operators-v1.mjs",
         "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
+        "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
         "packages/backend/src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs"
@@ -1156,21 +1134,8 @@
       "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs": [
         "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
-        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs"
-      ],
-      "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": [
-        "packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs",
-        "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs",
-        "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
-        "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-        "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
-        "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
-        "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
-        "packages/backend/src/operations/deployments/system/deploy-system.mjs",
-        "packages/backend/src/operations/operators/claims/native-operators.mjs"
+        "packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs"
       ],
       "packages/backend/src/operations/recovery/native-device-local-live-recovery-v1.mjs": [
         "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
@@ -1244,9 +1209,7 @@
         "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs",
         "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
         "packages/backend/src/claims/wrapped/controller/wrapped-controller-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
-        "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
         "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs",
         "packages/backend/src/execution/native/recipients/native-recipient-process.mjs",
         "packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs",
@@ -1322,6 +1285,292 @@
           "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
         ],
         "reason": "Reviewed ownership move of the existing durable SOURCE/session cycle from engine to backend; same WeakMap identity, exact session checks and causal persistence checks retained. Not a newly enabled dependency."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/authority/flat-account-authority.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/storage/flat-journal-catalogue.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/defi/vaults/retained-external-vault-journal-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/defi/vaults/retained-external-vault-journal-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/execution/native/recipients/native-recipient-process.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/execution/native/recipients/native-recipient-process.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/operators/claims/native-operators.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/operators/claims/native-operators.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/recovery/device-external-flat-original-source-v2.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Existing lifetime API now comes from its closed canonical recovery composition. The isolated lifetime backend owns its maps and no longer imports recovery, runtime or device consumers; no new dependency family or generic token issuer was admitted."
+      },
+      {
+        "from": [
+          "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+          "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+          "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+          "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+          "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+          "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/operations/deployments/system/deploy-system.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
+          "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+          "packages/backend/src/operations/operators/claims/native-operators.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/operations/operators/claims/native-operators.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs",
+          "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+          "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/deployments/defi/official-protocol-fixture-v3.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+          "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/deployments/system/deploy-system.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs",
+          "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
+        ],
+        "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
       }
     ],
     "ownershipReview": {

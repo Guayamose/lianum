@@ -31,7 +31,7 @@ import {encodeFlatTransaction} from '../../execution/encoding/transaction-codec.
 import {flatAccountCalldataHash,validateFlatAccountOwnerObservation} from './flat-account-validation.mjs';
 import * as protocol from '@lianum/mobile-protocol/device/source-note-v1';
 import {canonicalClaimRecordDataV1} from '@lianum/engine/storage/records';
-import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {assertDeviceExternalFlatRecoveryAuthorityV1,deviceExternalFlatAccountCaptureIdentityV1,retainOriginalWrappedRecoverySectionV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {consumeOriginalDeviceExternalFlatAccountReopenV1} from '../recovery/device-external-flat-ordered-observation-recovery-v1.mjs';
 const sends=new WeakMap();

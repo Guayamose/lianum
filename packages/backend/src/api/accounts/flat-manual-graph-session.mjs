@@ -308,7 +308,7 @@ async function wrappedGraphSession(input,recovery){
   claimWrappedWalletPortfolioJournalV1(runtime, portfolio); // one attempt, including uncertain/failed creation
   const {createDurableGenericAccountKeeperV1,reopenDurableGenericAccountKeeperV1}=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
   const { createFlatAccountSession } = await import('./flat-account-session.mjs');
-  const lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs'),lifetimeIdentity={profile:'WRAPPED_GRAPH_KEEPER_LIFETIME_V1',config:portfolio.config};let lifetimeHandle;
+  const lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs'),lifetimeIdentity={profile:'WRAPPED_GRAPH_KEEPER_LIFETIME_V1',config:portfolio.config};let lifetimeHandle;
   if(recovery){const original=await lifetimeRegistry.readWrappedPrivateLifetimePartV1(runtime,'wallet-graph-keeper',lifetimeIdentity);assert.deepEqual(original.privateState,{config:portfolio.config,journal,checkpoint:recovery.keeper.checkpoint,pendingCheckpoint:recovery.keeper.pendingCheckpoint,parentCheckpoint:recovery.keeper.parentCheckpoint},'WRAPPED_GRAPH_REGISTRY_CHECKPOINT_CHANGED');lifetimeHandle=original.handle;}
   else lifetimeHandle=await lifetimeRegistry.retainWrappedPrivateLifetimePartV1(runtime,'wallet-graph-keeper',lifetimeIdentity,{config:portfolio.config,journal,checkpoint:null,pendingCheckpoint:null,parentCheckpoint:null});
   const keeper = recovery?await reopenDurableGenericAccountKeeperV1({config:portfolio.config,journal,authority:portfolio.authority},recovery.keeper,lifetimeHandle):await createDurableGenericAccountKeeperV1({config:portfolio.config,journal,authority:portfolio.authority},lifetimeHandle);

@@ -32,7 +32,7 @@ import {deviceAaveConfirmedGraphSourceProfileV3,assertDeviceAaveConfirmedGraphSo
 import {readOriginalDeviceExternalFlatSourceGraphServiceProofsV1} from '../../../../packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs';
 import {readOriginalDeviceExternalFlatProofReceiptsV1} from '../../../../packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs';
 import {readOriginalDeviceExternalFlatHttpFailureV1} from '../../../../packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs';
-import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {createDeviceExternalFlatRecoveryAuthorityV1,closeDeviceExternalFlatRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {sha as canonicalSHA} from '@lianum/engine/accounts/journal';
 import {captureAndLaunchOriginalDeviceUniswapGraphObservationV1,captureAndLaunchOriginalDeviceExternalFlatObservationV1,captureAndLaunchOriginalDeviceExternalFlatGraphObservationV1,captureAndLaunchOriginalDeviceAaveStaticGraphObservationV1,captureAndLaunchOriginalDeviceMorphoBlueGraphObservationV1,captureAndLaunchOriginalDeviceMetaFourGraphObservationV4} from './device-external-flat-ordered-restart-v1.mjs';

@@ -1,3 +1,14 @@
+import {buildExternalDefiBootstrapRecoveryV1} from './external-bootstrap-recovery-backend-v1.mjs';
+import * as externalBootstrapSystem from '../../../operations/deployments/system/deploy-system.mjs';
+import * as externalBootstrapProtocols from '../../../operations/deployments/defi/official-protocol-fixture-v3.mjs';
+import * as externalBootstrapRouters from '../../../operations/deployments/defi/deploy-private-external-router-v1.mjs';
+import * as externalBootstrapOperators from '../../../operations/operators/claims/native-operators.mjs';
+import {buildWrappedSystemRecoveryV1} from './wrapped-system-recovery-backend-v1.mjs';
+import {assertWrappedWalletCompositionReleaseV1} from './wrapped-composition-release-v1.mjs';
+import {deviceWrappedRecoveryIdentityV1} from './wrapped-lifetime-record-v1.mjs';
+import {createWrappedLifetimeRootKeyV1,readWrappedLifetimePrivateFileV1} from './wrapped-lifetime-files-v1.mjs';
+import * as canonicalEvmRuntime from '../../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
+import {buildWrappedPrivateLifetimeRegistryV1} from './wrapped-lifetime-registry-backend-v1.mjs';
 import {EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,EXTERNAL_DEFI_RECEIVER_SECTION_SCHEMA_V3} from '../../../chains/evm/runtime/owned-external-defi-receiver-state-v3.mjs';
 /** Private fixed-attempt recovery authority. This is encrypted retention and
  * exclusive reopen admission, never evidence that a native component reopened.
@@ -132,7 +143,7 @@ export async function retainWrappedRuntimeRecoveryV1(authority,family,runtime){
  });
 }
 export async function retainWrappedSystemRecoveryV1(authority,input){
- assert.equal(arguments.length,2);exactRecord(input,['runtime','system','bootstrap','custodyBootstrap']);return fixedCapture(authority,'system',async token=>{const m=await import('./wrapped-system-composition-v1.mjs');return m.retainWrappedWalletSystemForReopenV1({...input,attemptAuthority:token});});
+ assert.equal(arguments.length,2);exactRecord(input,['runtime','system','bootstrap','custodyBootstrap']);return fixedCapture(authority,'system',async token=>{const m=originalWrappedSystemRecovery;return m.retainWrappedWalletSystemForReopenV1({...input,attemptAuthority:token});});
 }
 export async function retainWrappedOwnersRecoveryV1(authority,input){
  assert.equal(arguments.length,2);exactRecord(input,['owners']);return fixedCapture(authority,'owners',async token=>{const m=await import('../../../custody/processes/wrapped-claim-owner-process-v1.mjs');return m.retainWrappedClaimOwnersForReopenV1({...input,attemptAuthority:token});});
@@ -140,7 +151,7 @@ export async function retainWrappedOwnersRecoveryV1(authority,input){
 export async function retainWrappedKeeperRecoveryV1(authority,keeper){
  assert.equal(arguments.length,2);return fixedCapture(authority,'keeper',async token=>{const m=await import('../controller/wrapped-controller-journal-v1.mjs');return m.retainWrappedKeeperForReopenV1(keeper,token);});
 }
-export async function retainWrappedPrivateLifetimeRecoveryV1(authority,runtime){assert.equal(arguments.length,2);return fixedCapture(authority,'privateLifetime',async token=>{const m=await import('./wrapped-private-lifetime-registry-v1.mjs');return m.retainWrappedPrivateLifetimeRegistryForReopenV1(runtime,token);});}
+export async function retainWrappedPrivateLifetimeRecoveryV1(authority,runtime){assert.equal(arguments.length,2);return fixedCapture(authority,'privateLifetime',async token=>{const m=originalLifetimeRegistry;return m.retainWrappedPrivateLifetimeRegistryForReopenV1(runtime,token);});}
 export async function retainWrappedFixtureRecoveryV1(authority,fixture){
  assert.equal(arguments.length,2);return fixedCapture(authority,'fixture',async token=>{const m=await import('../../../operations/local/wrapped-wallet-runtime-v1.mjs');return m.retainWrappedFixtureContextForReopenV1(fixture,token);});
 }
@@ -263,7 +274,7 @@ export async function reopenWrappedRuntimeFromAuthorityV1(authority,family){
   const m=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');if(family==='receiver'&&externalIdentity(stateForRepairToken(token).identity)&&stateForRepairToken(token).identity.profile===EXTERNAL_REPAIR_PROFILE)return m.reopenOwnedReceiverPreopenRepairV1(token);return family==='receiver'?m.reopenOwnedReceiverRecoveryV1(token):m.reopenOwnedGraphNativeRecoveryV1(token);
  },runtime=>runtime.close());
 }
-export async function reopenWrappedSystemFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','nativeRuntimes','graphNativeRuntimes']);return fixedReopen(authority,'system',async token=>{const m=await import('./wrapped-system-composition-v1.mjs');return m.reopenWrappedWalletAcceptanceSystemV1({...input,attemptAuthority:token});},async value=>{const errors=[];try{value.bootstrap.close();}catch(error){errors.push(error);}try{const m=await import('../../../operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs');m.revokeWrappedClaimCustodyBootstrapV1(input.runtime,value.custodyBootstrap);}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'WRAPPED_RECOVERY_SYSTEM_CLEANUP_FAILED');});}
+export async function reopenWrappedSystemFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','nativeRuntimes','graphNativeRuntimes']);return fixedReopen(authority,'system',async token=>{const m=originalWrappedSystemRecovery;return m.reopenWrappedWalletAcceptanceSystemV1({...input,attemptAuthority:token});},async value=>{const errors=[];try{value.bootstrap.close();}catch(error){errors.push(error);}try{const m=await import('../../../operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs');m.revokeWrappedClaimCustodyBootstrapV1(input.runtime,value.custodyBootstrap);}catch(error){errors.push(error);}if(errors.length)throw new AggregateError(errors,'WRAPPED_RECOVERY_SYSTEM_CLEANUP_FAILED');});}
 export async function reopenWrappedOwnersFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','system','nativeClaimObservers']);return fixedReopen(authority,'owners',async token=>{const m=await import('../../../custody/processes/wrapped-claim-owner-process-v1.mjs');return m.reopenWrappedClaimOwnersV1({...input,attemptAuthority:token});},async owners=>{const results=await Promise.allSettled(owners.map(owner=>owner.close()));const failed=results.filter(row=>row.status==='rejected');if(failed.length)throw new AggregateError(failed.map(row=>row.reason),'WRAPPED_RECOVERY_OWNER_CLEANUP_FAILED');});}
 export async function reopenWrappedKeeperFromAuthorityV1(authority,input){assert.equal(arguments.length,2);exactRecord(input,['runtime','claims']);return fixedReopen(authority,'keeper',async token=>{const m=await import('../controller/wrapped-controller-journal-v1.mjs');return m.reopenWrappedKeeperFromAuthorityV1({...input,attemptAuthority:token});},keeper=>keeper.close());}
 export async function reopenWrappedFixtureFromAuthorityV1(authority,input){
@@ -275,7 +286,7 @@ export async function reopenWrappedWalletFromAuthorityV1(authority,input){
  exactRecord(input,['runtime','system','owners','controller','bootstrap','nativeRuntimes','deadlineMs']);
  return fixedReopen(authority,'wallet',async token=>{const m=await import('../../../operations/wallet/wrapped-wallet-composition-v1.mjs');return m.reopenWrappedWalletAcceptanceV1({...input,attemptAuthority:token});},wallet=>wallet.close());
 }
-export async function reopenWrappedPrivateLifetimeFromAuthorityV1(authority,runtime){assert.equal(arguments.length,2);return fixedReopen(authority,'privateLifetime',async token=>{const m=await import('./wrapped-private-lifetime-registry-v1.mjs');return m.reopenWrappedPrivateLifetimeRegistryFromAuthorityV1({runtime,attemptAuthority:token});},async registry=>{const m=await import('./wrapped-private-lifetime-registry-v1.mjs');return m.closeWrappedPrivateLifetimeRegistryV1(registry);});}
+export async function reopenWrappedPrivateLifetimeFromAuthorityV1(authority,runtime){assert.equal(arguments.length,2);return fixedReopen(authority,'privateLifetime',async token=>{const m=originalLifetimeRegistry;return m.reopenWrappedPrivateLifetimeRegistryFromAuthorityV1({runtime,attemptAuthority:token});},async registry=>{const m=originalLifetimeRegistry;return m.closeWrappedPrivateLifetimeRegistryV1(registry);});}
 /** A failure deliberately leaves the persisted claim OPENING. Neither this
  * method nor lease release supplies a retry, claim reset or authority renewal. */
 export async function closeWrappedRecoveryAuthorityV1(authority){assert.equal(arguments.length,1);const s=authorities.get(authority);assert.ok(s&&!s.closed&&!s.busy&&!s.operation,'WRAPPED_RECOVERY_ORIGINAL_IDLE_AUTHORITY');s.store.close();s.closed=true;await s.release();return Object.freeze({closed:true,privateStateRetained:true,lastKnownCheckpoint:checkpoint(s.record),checkpointMayBeStale:s.fault,reopenVerified:false});}
@@ -305,7 +316,7 @@ export async function retainExternalDefiReceiverRuntimeV2(authority,runtime){
  assert.equal(arguments.length,2);const s=state(authority);assert.equal(s.identity.profile,EXTERNAL_PROFILE,'EXTERNAL_RECEIVER_ORIGINAL_ISSUER');
  assert.equal(capturedRuntimeOwners.has(runtime),false,'WRAPPED_RECOVERY_RUNTIME_ALREADY_ASSIGNED');
  const m=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');m.assertOwnedExternalDefiReceiverV2(runtime);
- const registry=await import('./wrapped-private-lifetime-registry-v1.mjs'),current=state(authority),lifetime=current.record.data.sections.privateLifetime;
+ const registry=originalLifetimeRegistry,current=state(authority),lifetime=current.record.data.sections.privateLifetime;
  assert.equal(lifetime?.state,'CAPTURED','EXTERNAL_RECEIVER_PRIVATE_LIFETIME_CAPTURE_REQUIRED');
  exactRecord(lifetime.data,['schema','input','checkpoint']);assert.equal(lifetime.data.schema,'WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1');
  const {profile,...attempt}=current.identity;assert.deepEqual(lifetime.data.input,attempt,'EXTERNAL_RECEIVER_ORIGINAL_LIFETIME_ATTEMPT');
@@ -327,12 +338,12 @@ export async function reopenExternalDefiReceiverRuntimeV2(authority){
 }
 function externalAuthority(authority){assert.ok(externalIdentity(state(authority).identity),'EXTERNAL_RECOVERY_PROFILE_REQUIRED');}
 export async function retainExternalDefiSystemRecoveryV1(authority,input){
- externalAuthority(authority);exactRecord(input,['runtime','bootstrap']);const registry=await import('./wrapped-private-lifetime-registry-v1.mjs');registry.assertWrappedPrivateLifetimeAttemptV1(input.runtime,state(authority).identity);return fixedCapture(authority,'system',async token=>{
-  const m=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');return m.retainExternalDefiBootstrapForReopenV1({...input,attemptAuthority:token});});
+ externalAuthority(authority);exactRecord(input,['runtime','bootstrap']);const registry=originalLifetimeRegistry;registry.assertWrappedPrivateLifetimeAttemptV1(input.runtime,state(authority).identity);return fixedCapture(authority,'system',async token=>{
+  const m=originalExternalBootstrapRecovery;return m.retainExternalDefiBootstrapForReopenV1({...input,attemptAuthority:token});});
 }
 export async function reopenExternalDefiSystemFromAuthorityV1(authority,input){
  externalAuthority(authority);exactRecord(input,['runtime']);return fixedReopen(authority,'system',async token=>{
-  const m=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');return m.reopenExternalDefiBootstrapFromAuthorityV1({...input,attemptAuthority:token});},value=>value.close());
+  const m=originalExternalBootstrapRecovery;return m.reopenExternalDefiBootstrapFromAuthorityV1({...input,attemptAuthority:token});},value=>value.close());
 }
 export async function retainExternalDefiOwnersRecoveryV1(authority,input){
  externalAuthority(authority);exactRecord(input,['owners']);return fixedCapture(authority,'owners',async token=>{
@@ -567,7 +578,7 @@ async function inspectBootstrapPartialPredecessor(a){
   assert.equal(canonicalDataHash(part.privateState),a.registry.canonicalStateSHA256);assert.equal(canonicalDataHash(part.privateState.inventory),a.registry.canonicalInventorySHA256);
   const descriptor=prefix?clone(oldDescriptor):{schema:'EXTERNAL_DEFI_BOOTSTRAP_SECTION_V2',hashProfile:'CLAIM_RECORD_CANONICAL_JSON_SHA256_V1',identity:clone(oldDescriptor.identity),stateSHA256:a.registry.canonicalStateSHA256,inventorySHA256:a.registry.canonicalInventorySHA256,
    legacyBinding:{profile:'AUTHENTICATED_V1_TO_CANONICAL_BOOTSTRAP_V2',legacyDescriptorSHA256:a.registry.legacyDescriptorSHA256,registryCheckpoint:clone(a.registry.checkpoint),partIdentitySHA256:a.registry.partIdentitySHA256,partVersion:a.registry.partVersion}};
-  const bootstrap=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');bootstrap.assertCanonicalExternalBootstrapSectionV2({descriptor,state:part.privateState,partVersion:part.version,registryCheckpoint:lifetime.checkpoint});
+  const bootstrap=originalExternalBootstrapRecovery;bootstrap.assertCanonicalExternalBootstrapSectionV2({descriptor,state:part.privateState,partVersion:part.version,registryCheckpoint:lifetime.checkpoint});
   const priorReceiver=record.data.sections.receiver.data,cwd=priorReceiver.cwd;
   const nativeTerminalBytes=await privateRead(join(cwd,'wrapped-runtime-terminal.json'),1024*1024);assert.equal(bytesHash(nativeTerminalBytes),a.native.terminalSHA256);const receiver=JSON.parse(nativeTerminalBytes.toString());
   assert.equal(receiver.schema,'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(receiver.family,'receiver');assert.equal(receiver.cwd,cwd);assert.equal(receiver.genesis,priorReceiver.genesis);assert.equal(receiver.processGeneration,a.native.generation);assert.equal(receiver.processGeneration,priorReceiver.processGeneration+1);
@@ -1310,11 +1321,11 @@ export async function reopenExternalDefiVaultExitOwnersRecoveryV1(authority,inpu
 /** Finite ordered EXIT continuation. No producer/state/factory callbacks,
  * caller pins, replacement IDs or generic protocol bootstrap are admitted. */
 export async function retainExternalDefiVaultExitSystemRecoveryV1(authority,input){
- assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['runtime','system']);const registry=await import('./wrapped-private-lifetime-registry-v1.mjs');registry.assertWrappedPrivateLifetimeAttemptV1(input.runtime,state(authority).identity);
- return fixedCapture(authority,'system',async token=>{const module=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');return module.retainExternalDefiVaultExitSystemForReopenV1({...input,attemptAuthority:token});});
+ assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['runtime','system']);const registry=originalLifetimeRegistry;registry.assertWrappedPrivateLifetimeAttemptV1(input.runtime,state(authority).identity);
+ return fixedCapture(authority,'system',async token=>{const module=originalExternalBootstrapRecovery;return module.retainExternalDefiVaultExitSystemForReopenV1({...input,attemptAuthority:token});});
 }
 export async function reopenExternalDefiVaultExitSystemRecoveryV1(authority,input){
- assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['runtime']);return fixedReopen(authority,'system',async token=>{const module=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');return module.reopenExternalDefiVaultExitSystemFromAuthorityV1({...input,attemptAuthority:token});},value=>value.close());
+ assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['runtime']);return fixedReopen(authority,'system',async token=>{const module=originalExternalBootstrapRecovery;return module.reopenExternalDefiVaultExitSystemFromAuthorityV1({...input,attemptAuthority:token});},value=>value.close());
 }
 export async function retainExternalDefiVaultCatalogueRecoveryV1(authority,input){
  assert.equal(arguments.length,2);externalAuthority(authority);exactRecord(input,['catalogue','services']);return fixedCapture(authority,'wallet',async token=>{const module=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return module.retainExternalDefiVaultCatalogueForReopenV1(input,token);});
@@ -1325,12 +1336,7 @@ export async function reopenExternalDefiVaultCatalogueRecoveryV1(authority,input
 
 /** A separate fixed original issuer. No External5/Linux-owner token is adopted.
  * Only ordered capture and one new process's observation continuation exist. */
-function deviceExternalFlatIdentity(input){
- exactRecord(input,['directory','runId','sourceSHA256','deadlineMs']);assert.match(input.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
- assert.equal(resolve(input.directory),input.directory);assert.ok(['device-external-flat-ordered-observation-v1','device-morpho-blue-private-position-v1'].some(stem=>input.directory===join(FIXED_WALLET_ROOT,'.local',stem,'attempt-'+input.runId,'private-audit')),'DEVICE_EXTERNAL_FLAT_FIXED_RECOVERY_ATTEMPT');
- assert.ok(typeof input.sourceSHA256==='string'&&/^[0-9a-f]{64}$/.exec(input.sourceSHA256)?.[0]===input.sourceSHA256);assert.ok(Number.isSafeInteger(input.deadlineMs)&&input.deadlineMs>0);
- return{profile:DEVICE_EXTERNAL_FLAT_PROFILE,...input};
-}
+function deviceExternalFlatIdentity(input){return deviceWrappedRecoveryIdentityV1(input,FIXED_WALLET_ROOT);}
 export function createDeviceExternalFlatRecoveryAuthorityV1(input){assert.equal(arguments.length,1);return authorityFactory(input,null,true,false,false,false,false,false,false,false,true);}
 export function openDeviceExternalFlatRecoveryAuthorityV1(input,checkpoint){assert.equal(arguments.length,2);return authorityFactory(input,checkpoint,false,false,false,false,false,false,false,false,true);}
 export function assertDeviceExternalFlatRecoveryAuthorityV1(authority){assert.equal(arguments.length,1);const s=state(authority);assert.equal(s.identity.profile,DEVICE_EXTERNAL_FLAT_PROFILE,'DEVICE_EXTERNAL_FLAT_ORIGINAL_RECOVERY_AUTHORITY');return Object.freeze(clone(s.identity));}
@@ -1359,7 +1365,7 @@ export async function retainDeviceExternalFlatLifetimeRecoveryV1(authority,runti
 }
 export async function retainDeviceExternalFlatReceiverRuntimeV1(authority,runtime){
  assert.equal(arguments.length,2);const identity=assertDeviceExternalFlatRecoveryAuthorityV1(authority),s=state(authority);assert.ok(DEVICE_EXTERNAL_FLAT_SECTIONS.slice(1).every(name=>s.record.data.sections[name]?.state==='CAPTURED'),'DEVICE_EXTERNAL_FLAT_ORIGINAL_CAPTURE_ORDER');assert.equal(capturedRuntimeOwners.has(runtime),false,'WRAPPED_RECOVERY_RUNTIME_ALREADY_ASSIGNED');
- const module=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');module.assertOwnedDeviceExternalFlatReceiverV1(runtime);const registry=await import('./wrapped-private-lifetime-registry-v1.mjs'),lifetime=s.record.data.sections.privateLifetime.data;exactRecord(lifetime,['schema','input','checkpoint']);assert.equal(lifetime.schema,'WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1');const {profile,...attempt}=identity;assert.deepEqual(lifetime.input,attempt);registry.assertStoppedWrappedPrivateLifetimeAttemptV1(runtime,{identity,checkpoint:lifetime.checkpoint});capturedRuntimeOwners.set(runtime,authority);
+ const module=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');module.assertOwnedDeviceExternalFlatReceiverV1(runtime);const registry=originalLifetimeRegistry,lifetime=s.record.data.sections.privateLifetime.data;exactRecord(lifetime,['schema','input','checkpoint']);assert.equal(lifetime.schema,'WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1');const {profile,...attempt}=identity;assert.deepEqual(lifetime.input,attempt);registry.assertStoppedWrappedPrivateLifetimeAttemptV1(runtime,{identity,checkpoint:lifetime.checkpoint});capturedRuntimeOwners.set(runtime,authority);
  return fixedCapture(authority,'receiver',async token=>{let entered=false;try{const work=module.captureOwnedDeviceExternalFlatReceiverV1(runtime,token);entered=true;const record=await work;assert.equal(record.schema,EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3);assert.equal(record.family,'receiver');assert.equal(record.terminal.ownedProcessStopped,true);assert.equal(record.terminal.forced,false);await assertStoppedNativeFilesV1(record.cwd,record.files);await retainOriginalWrappedRecoverySectionV1(token,'receiver',{schema:'DEVICE_EXTERNAL_FLAT_RECEIVER_SECTION_V1',sourceSHA256:identity.sourceSHA256,record});return{retained:true,originalResourcesStopped:true};}catch(error){if(entered){try{await module.abortOwnedDeviceExternalFlatReceiverCaptureV1(runtime,token);}catch(cleanup){throw new AggregateError([error,cleanup],'DEVICE_EXTERNAL_FLAT_CAPTURE_AND_STOP_FAILED',{cause:error});}}throw error;}});
 }
 export function finishDeviceExternalFlatRecoveryCaptureV1(authority){assert.equal(arguments.length,1);assertDeviceExternalFlatRecoveryAuthorityV1(authority);return finishWrappedRecoveryCaptureV1(authority);}
@@ -1374,3 +1380,170 @@ export function closeDeviceExternalFlatRecoveryAuthorityV1(authority){assert.equ
 export function retainDeviceExternalFlatGraphRecoveryV1(authority,service){assert.equal(arguments.length,2);assertDeviceExternalFlatRecoveryAuthorityV1(authority);return fixedCapture(authority,'deviceAccount',async token=>{const module=await import('../../../operations/local/device-external-flat-source-graph-service-v1.mjs');return module.retainOriginalDeviceExternalFlatGraphServiceSectionV1(service,token);});}
 export function retainDeviceExternalFlatGraphSystemRecoveryV1(authority,service){assert.equal(arguments.length,2);assertDeviceExternalFlatRecoveryAuthorityV1(authority);assert.equal(state(authority).record.data.sections.deviceAccount?.state,'CAPTURED','DEVICE_EXTERNAL_FLAT_ACCOUNT_CAPTURE_REQUIRED');return fixedCapture(authority,'system',async token=>{const module=await import('../../../operations/local/device-external-flat-source-graph-service-v1.mjs');return module.retainOriginalDeviceExternalFlatGraphSystemV1(service,token);});}
 export function reopenDeviceExternalFlatGraphRecoveryV1(authority,input){assert.equal(arguments.length,2);assertDeviceExternalFlatRecoveryAuthorityV1(authority);exactRecord(input,['runtime','systemContext','tls','host']);return fixedReopen(authority,'deviceAccount',async token=>{const module=await import('../../../operations/local/device-external-flat-source-graph-service-v1.mjs');return module.reopenOriginalDeviceExternalFlatGraphServiceSectionV1({...input,attemptToken:token});},service=>service.close());}
+
+// Storage composition is fixed and private. An isolated registry backend cannot
+// select this opener or receive the canonical vault's local root password.
+async function openOriginalLifetimeStore({ directory, identity }, creating) {
+  if (creating) await createWrappedLifetimeRootKeyV1(directory);
+  const key = await readWrappedLifetimePrivateFileV1(join(directory, 'local-root.secret'), 32);
+  try {
+    assert.equal(key.length, 32);
+    const options = {
+      path: join(directory, 'registry.vault'),
+      password: key.toString('hex'),
+      identity,
+    };
+    return creating
+      ? await createClaimRecordStore(options, {
+          profile: 'WRAPPED_FIXED_PRIVATE_LIFETIME_REGISTRY_V1',
+          identity,
+          parts: {},
+        })
+      : await openClaimRecordStore(options);
+  } finally {
+    key.fill(0);
+  }
+}
+// The one lifetime instance admitted to this recovery authority. Deferred guards
+// call the original runtime owner; neither ports nor maps escape this closure.
+const originalLifetimeRegistry = buildWrappedPrivateLifetimeRegistryV1({
+  storage: {
+    create(input) {
+      return openOriginalLifetimeStore(input, true);
+    },
+    open(input) {
+      return openOriginalLifetimeStore(input, false);
+    },
+  },
+  runtime: {
+    assertOwnedLocalEvmV2(runtime) {
+      return canonicalEvmRuntime.assertOwnedLocalEvmV2(runtime);
+    },
+    assertOwnedDeviceExternalFlatReceiverV1(runtime) {
+      return canonicalEvmRuntime.assertOwnedDeviceExternalFlatReceiverV1(runtime);
+    },
+  },
+  recovery: {
+    retainOriginalWrappedRecoverySectionV1,
+    originalWrappedRecoverySectionIdentityV1,
+    consumeOriginalWrappedRecoverySectionV1,
+  },
+  deviceSource: {
+    originalDeviceGraphSourceSectionIdentityV2,
+    consumeOriginalDeviceGraphSourceSectionV2,
+  },
+});
+export const {
+  createWrappedPrivateLifetimeRegistryV1,
+  openWrappedPrivateLifetimeRegistryV1,
+  retainWrappedPrivateLifetimePartV1,
+  readWrappedPrivateLifetimePartV1,
+  updateWrappedPrivateLifetimePartV1,
+  assertWrappedPrivateLifetimePartSealedV1,
+  wrappedPrivateLifetimeRegistryCheckpointV1,
+  closeWrappedPrivateLifetimeRegistryV1,
+  retainWrappedPrivateLifetimeRegistryForReopenV1,
+  reopenWrappedPrivateLifetimeRegistryFromAuthorityV1,
+  retainWrappedPrivateLifetimeIndexedPartV1,
+  readWrappedPrivateLifetimeIndexedPartV1,
+  wrappedPrivateLifetimeRegistryIdentityV1,
+  assertWrappedPrivateLifetimeAttemptV1,
+  assertStoppedWrappedPrivateLifetimeAttemptV1,
+  assertWrappedPrivateLifetimePartsV1,
+  wrappedPrivateLifetimeRuntimeCheckpointV1,
+  assertWrappedPrivateLifetimeRegistryRuntimeV1,
+  reopenOriginalDeviceGraphSourceRegistryV2,
+} = originalLifetimeRegistry;
+
+// Closed subsystem composition: only original producers receive the private
+// part tokens. No caller can select loaders on this canonical instance.
+const originalWrappedSystemRecovery = buildWrappedSystemRecoveryV1({
+  released: assertWrappedWalletCompositionReleaseV1,
+  custody: () =>
+    import('../../../operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs'),
+  operators: () =>
+    import('../../../operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs'),
+  contracts: () => import('../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs'),
+  recovery: { retainOriginalWrappedRecoverySectionV1, consumeOriginalWrappedRecoverySectionV1 },
+});
+export const {
+  createWrappedWalletAcceptanceSystemV1,
+  consumeWrappedSystemRecoveryPartV1,
+  retainWrappedWalletSystemForReopenV1,
+  reopenWrappedWalletAcceptanceSystemV1,
+} = originalWrappedSystemRecovery;
+
+// Fixed external-DeFi recovery composition; its part issuers remain private.
+const originalExternalBootstrapRecovery = buildExternalDefiBootstrapRecoveryV1({
+  recordSHA256: (value) =>
+    createHash('sha256').update(canonicalClaimRecordDataV1(value)).digest('hex'),
+  runtime: {
+    assertOwnedLocalEvmV2: (...args) => canonicalEvmRuntime.assertOwnedLocalEvmV2(...args),
+  },
+  system: {
+    assertOwnedFlatSystem: (...args) => externalBootstrapSystem.assertOwnedFlatSystem(...args),
+    captureOwnedFlatSystemRecoveryV1: (...args) =>
+      externalBootstrapSystem.captureOwnedFlatSystemRecoveryV1(...args),
+    reopenOwnedFlatSystemRecoveryV1: (...args) =>
+      externalBootstrapSystem.reopenOwnedFlatSystemRecoveryV1(...args),
+  },
+  protocols: {
+    assertOfficialProtocolFixture: (...args) =>
+      externalBootstrapProtocols.assertOfficialProtocolFixture(...args),
+    captureOfficialProtocolFixtureRecoveryV1: (...args) =>
+      externalBootstrapProtocols.captureOfficialProtocolFixtureRecoveryV1(...args),
+    reopenOfficialProtocolFixtureRecoveryV1: (...args) =>
+      externalBootstrapProtocols.reopenOfficialProtocolFixtureRecoveryV1(...args),
+  },
+  routers: {
+    assertOwnedPrivateExternalRouterV1: (...args) =>
+      externalBootstrapRouters.assertOwnedPrivateExternalRouterV1(...args),
+    captureOwnedPrivateExternalRouterRecoveryV1: (...args) =>
+      externalBootstrapRouters.captureOwnedPrivateExternalRouterRecoveryV1(...args),
+    reopenOwnedPrivateExternalRouterRecoveryV1: (...args) =>
+      externalBootstrapRouters.reopenOwnedPrivateExternalRouterRecoveryV1(...args),
+  },
+  operators: {
+    assertRetainedLocalFlatOperatorGroupV1: (...args) =>
+      externalBootstrapOperators.assertRetainedLocalFlatOperatorGroupV1(...args),
+    captureRetainedLocalFlatOperatorGroupV1: (...args) =>
+      externalBootstrapOperators.captureRetainedLocalFlatOperatorGroupV1(...args),
+    reopenRetainedLocalFlatOperatorGroupV1: (...args) =>
+      externalBootstrapOperators.reopenRetainedLocalFlatOperatorGroupV1(...args),
+  },
+  lifetime: {
+    retainWrappedPrivateLifetimePartV1,
+    readWrappedPrivateLifetimePartV1,
+    updateWrappedPrivateLifetimePartV1,
+    assertWrappedPrivateLifetimePartSealedV1,
+    assertWrappedPrivateLifetimeAttemptV1,
+    wrappedPrivateLifetimeRuntimeCheckpointV1,
+  },
+  recovery: {
+    retainOriginalWrappedRecoverySectionV1,
+    consumeOriginalWrappedRecoverySectionV1,
+    originalWrappedRecoverySectionIdentityV1,
+  },
+  graph: {
+    loadDeviceSystem: () =>
+      import('../../../accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs'),
+    loadAave: () => import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs'),
+    loadObservers: () =>
+      import('../../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs'),
+    loadBluePosition: () =>
+      import('../../../operations/deployments/defi/deploy-morpho-blue-position-v1.mjs'),
+    loadBlueRouter: () =>
+      import('../../../operations/deployments/defi/deploy-private-external-router-v1.mjs'),
+  },
+});
+export const {
+  createExternalDefiBootstrapRecoveryV1,
+  retainExternalDefiBootstrapForReopenV1,
+  consumeExternalDefiBootstrapPartV1,
+  assertCanonicalExternalBootstrapSectionV2,
+  reopenExternalDefiBootstrapFromAuthorityV1,
+  retainExternalDefiVaultExitSystemForReopenV1,
+  reopenExternalDefiVaultExitSystemFromAuthorityV1,
+  reopenOriginalDeviceExternalFlatSystemRecordV1,
+  reopenOriginalDeviceExternalFlatGraphSystemRecordV1,
+} = originalExternalBootstrapRecovery;

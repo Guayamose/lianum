@@ -2,7 +2,7 @@
  * Controller close/reopen is supported. Keeper loss and native node/key restart
  * are deliberately not presented as recoverable custody. */
 import assert from 'node:assert/strict';
-import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1} from '../recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1} from '../recovery/wrapped-recovery-authority-v1.mjs';
 import { createClaimVaultSession } from '../../storage/vault-session.mjs';
 import { canonical } from '@lianum/engine/crypto/privacy';
 import { createHash } from 'node:crypto';

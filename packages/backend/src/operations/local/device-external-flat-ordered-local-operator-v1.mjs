@@ -21,7 +21,7 @@ import {createLocalFlatOperator} from '../operators/claims/native-operators.mjs'
 import {deployFlatSystem,assertOwnedFlatSystem} from '../deployments/system/deploy-system.mjs';
 import {installOriginalRetainedDeviceExternalFlatNoteServiceV1,captureOriginalDeviceExternalFlatOrderedServiceV1,reopenOriginalDeviceExternalFlatObservationServiceV1} from './device-external-flat-ordered-observation-service-v1.mjs';
 import {createOriginalRetainedDeviceExternalFlatNoteAuthorityV1} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
-import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {createDeviceExternalFlatRecoveryAuthorityV1,openDeviceExternalFlatRecoveryAuthorityV1,closeDeviceExternalFlatRecoveryAuthorityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value-dev-release-v5.mjs';
 import {loadNativeValueDevDeploymentArtifactsV5} from '../deployments/native-value/native-value-deployment-artifacts-v2.mjs';

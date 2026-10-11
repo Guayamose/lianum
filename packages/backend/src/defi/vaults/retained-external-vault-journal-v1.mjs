@@ -8,7 +8,7 @@ import {dirname,resolve,sep} from 'node:path';
 import {canonical} from '@lianum/engine/crypto/privacy';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {exactRecord} from '@lianum/components/encoding/commitments';
-import {retainWrappedPrivateLifetimeIndexedPartV1,readWrappedPrivateLifetimeIndexedPartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {retainWrappedPrivateLifetimeIndexedPartV1,readWrappedPrivateLifetimeIndexedPartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 const sha=value=>createHash('sha256').update(canonical(value)).digest('hex');
 const mark=record=>({revision:record.revision,stateSHA256:sha(record.data)});
 export async function assertOriginalExternalVaultJournalV1(runtime,path){

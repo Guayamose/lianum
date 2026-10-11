@@ -190,7 +190,7 @@ async function flatAccountAuthority(input,callbacks,durable) {
   let password = durable?.saved?durable.saved.state.password:'synthetic-' + randomBytes(32).toString('hex');
   const lifetimeIdentity={profile:durable?.vaultNotes?EXTERNAL_VAULT_NOTE_PROFILE_V1:'EXTERNAL_FLAT_ACCOUNT_LIFETIME_V1',accountIdentity,identitySHA256,poolIndex};
   let lifetimeHandle=null,lifetimeRegistry=null;
-  if(durable){lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+  if(durable){lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
     if(durable.saved){assert.deepEqual(durable.saved.identity,lifetimeIdentity,'FLAT_ACCOUNT_ORIGINAL_IDENTITY_CHANGED');
       const original=await lifetimeRegistry.readWrappedPrivateLifetimePartV1(runtime,'wallet-account-'+poolIndex,lifetimeIdentity);
       assert.deepEqual(original.privateState,durable.saved.state,'FLAT_ACCOUNT_ORIGINAL_LIFETIME_CHANGED');

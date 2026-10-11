@@ -134,7 +134,7 @@ export function captureWrappedClaimCustodyBootstrapRecoveryV1(runtime,capability
 }
 export async function reopenWrappedClaimCustodyBootstrapRecoveryV1(token) {
   assert.equal(arguments.length,1);
-  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../claims/wrapped/recovery/wrapped-system-composition-v1.mjs');
+  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
   const {runtime,nativeRuntimes,record:r}=consumeWrappedSystemRecoveryPartV1(token,'custody');
   exactRecord(r,['schema','nativeRoles','rules','inventoryDomains','journalRoot','evmGenesis','claimIngressProfile','provenance']);
   assert.equal(r.schema,'WRAPPED_CUSTODY_BOOTSTRAP_RECOVERY_V1');

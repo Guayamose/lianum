@@ -4,7 +4,7 @@ import * as aave from '../../../src/operations/deployments/defi/official-aave-fi
 import * as protocols from '../../../src/operations/deployments/defi/official-protocol-fixture-v3.mjs';
 import * as oldAave from '../../fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';
 import * as oldProtocols from '../../fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
-import * as system from '../../../src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs';
+import * as system from '../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import * as oldWallet from '../../../../../tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs';
 import * as inspector from '@lianum/components/verification/wrapped-installation';
 import * as oldInspector from '../../../../../tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';

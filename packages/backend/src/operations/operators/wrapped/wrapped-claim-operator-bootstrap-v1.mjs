@@ -3,7 +3,7 @@
  * perform independent fresh reads on each same-host/same-node synthetic chain;
  * distinct slots do NOT establish independent infrastructure or consensus. */
 import assert from 'node:assert/strict';
-import { consumeWrappedSystemRecoveryPartV1 } from '../../../claims/wrapped/recovery/wrapped-system-composition-v1.mjs';
+import { consumeWrappedSystemRecoveryPartV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp } from 'node:fs/promises';
 import { join } from 'node:path';

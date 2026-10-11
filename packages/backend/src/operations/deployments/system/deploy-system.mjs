@@ -702,7 +702,7 @@ export async function captureOwnedFlatSystemRecoveryV1(runtime,system){
 }
 export async function reopenOwnedFlatSystemRecoveryV1(token){
  assert.equal(arguments.length,1);
- const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
+ const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const {runtime,record:r}=consumeExternalDefiBootstrapPartV1(token,'system');
  exactRecord(r,['schema','genesis','head','system','hub','pools','libraries','generatedLibraries','verifiers','assets','views']);assert.equal(r.schema,'ORIGINAL_FLAT_SYSTEM_RECOVERY_V1');
  await assertLocalEvm(runtime);assert.equal(runtime.metadata.evmGenesis,r.genesis);assert.equal(runtime.metadata.chainId,'31337');assert.equal(r.system.sender,runtime.accounts[0]);

@@ -238,7 +238,7 @@ async function withWrappedWalletRecoveryPartV1(part,value,work,cleanup){
 }
 
 async function walletPrivateLifetimeV1(journal,context,retained,seed){
- const {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1}=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+ const {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1}=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const identity={profile:'WRAPPED_WALLET_PRIVATE_LIFETIME_V1',genesis:context.runtime.metadata.evmGenesis,hub:context.system.hub.address,ownerIdentitySHA256:context.scope.identitySHA256};
  let handle,state,version;
  if(retained){assert.equal(retained.profile,'WRAPPED_WALLET_SHARED_LIFETIME_PART_V1');assert.deepEqual(retained.identity,identity);const original=await readWrappedPrivateLifetimePartV1(context.runtime,'wallet',identity);assert.equal(original.version,retained.version);for(const key of ['ids','journal','withdrawalJournal'])assert.ok(privateSameV1(original.privateState[key],seed[key]),'WRAPPED_WALLET_ORIGINAL_INITIALIZATION_CHANGED');handle=original.handle;state=original.privateState;version=original.version;}
@@ -268,4 +268,4 @@ export async function reopenWrappedWalletAcceptanceV1(input){
 export function ownedWrappedWalletRecoveryResourcesV1(wallet){assert.equal(arguments.length,1);const state=originalWalletLifetimesV1.get(wallet);assert.ok(state,"WRAPPED_WALLET_ORIGINAL_LIFETIME_REQUIRED");return state.resources();}
 
 
-export {createWrappedWalletAcceptanceSystemV1,consumeWrappedSystemRecoveryPartV1,retainWrappedWalletSystemForReopenV1,reopenWrappedWalletAcceptanceSystemV1} from '../../claims/wrapped/recovery/wrapped-system-composition-v1.mjs';
+export {createWrappedWalletAcceptanceSystemV1,consumeWrappedSystemRecoveryPartV1,retainWrappedWalletSystemForReopenV1,reopenWrappedWalletAcceptanceSystemV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';

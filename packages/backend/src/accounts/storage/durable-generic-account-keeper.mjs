@@ -81,7 +81,7 @@ async function durableKeeper(input, durable) {
           await source.confirmOriginalNativeSessionKeeperSourceCheckpointV1(sourceSession, keeper);
         }
         if (durable.lifetimeHandle) {
-          const {updateWrappedPrivateLifetimePartV1} = await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+          const {updateWrappedPrivateLifetimePartV1} = await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
           await updateWrappedPrivateLifetimePartV1(durable.lifetimeHandle, {config, journal: {...journal}, checkpoint, pendingCheckpoint,
             parentCheckpoint: {revision: actual.revision, commitment: actual.commitment}});
         }

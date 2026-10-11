@@ -482,7 +482,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   }
   assert.deepEqual(await vault.read(password), record, 'FLAT_ACCOUNT_INITIAL_READBACK');
   let lifetimeHandle=null,lifetimeState=null,lifetimeRegistry=null;
-  if(wrapped){lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');const binding={profile:'WRAPPED_ACCOUNT_LIFETIME_V1',accountIdentity,identitySHA256,poolIndex};
+  if(wrapped){lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');const binding={profile:'WRAPPED_ACCOUNT_LIFETIME_V1',accountIdentity,identitySHA256,poolIndex};
     lifetimeState={directory,password,checkpointSHA256:sha(record),pendingUpdate:null};
     if(recovery){const original=await lifetimeRegistry.readWrappedPrivateLifetimePartV1(runtime,'wallet-account-'+poolIndex,binding);assert.equal(sha(original.privateState),sha(lifetimeState),'WRAPPED_ACCOUNT_REGISTRY_CHECKPOINT_CHANGED');lifetimeHandle=original.handle;}
     else lifetimeHandle=await lifetimeRegistry.retainWrappedPrivateLifetimePartV1(runtime,'wallet-account-'+poolIndex,binding,lifetimeState);

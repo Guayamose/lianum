@@ -11,7 +11,7 @@ import { randomBytes, createHash } from 'node:crypto';
 import { mkdtemp,lstat,realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { types } from 'node:util';
-import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {assertDeviceExternalFlatRecoveryAuthorityV1,deviceExternalFlatAccountCaptureIdentityV1} from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { Vault } from '@lianum/engine/crypto/vault';
 import { canonical } from '@lianum/engine/crypto/privacy';

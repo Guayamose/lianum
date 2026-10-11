@@ -106,7 +106,7 @@ async function createProviderCustodyV1(input,recovery){
    executionFrom:terms.executionFrom,executionUntil:terms.executionUntil,settleBefore:terms.settleBefore});
  const base=freeze({domain,pool:pool.address.slice(2),registry:system.registry,profiles:system.adapterProfiles,profileCommitment:input.profileCommitment,providerKey:publicKey,native,
    acceptedLossClause:NATIVE_ADMISSION_LOSS_CLAUSE,leaseId:sha256('LIANUM/original-native-value-provider/2\0'+publicKey.x+publicKey.y+domain.hubDomain)});
- const lifetime=await import('../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+ const lifetime=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const lifetimeIdentity={profile:SCHEMA,receiverGenesis:runtime.metadata.evmGenesis,hub:system.hub.address,poolIndex,leaseId:base.leaseId,directory};
  function lifetimeState(){const state=lease?leases.get(lease):null;return {schema:'WRAPPED_PROVIDER_PRIVATE_INITIALIZATION_V1',input:copy(privateInput),record:copy(record),nativeIdentity:{family:evm?'3':'4',genesis:p.genesis,chainId:evm?p.chainId:null,solver:native.solverEndpoint,recipient:native.recipientEndpoint},lease:state?{opened:state.opened,keyStarted:state.keyStarted()}:null,recoveryAdmissionGranted:false};}
  async function persistLifetime(){assert.ok(lifetimeHandle,'NATIVE_VALUE_PROVIDER_INITIALIZATION_REQUIRED');await lifetime.updateWrappedPrivateLifetimePartV1(lifetimeHandle,lifetimeState());lifetime.assertWrappedPrivateLifetimePartSealedV1(lifetimeHandle);}

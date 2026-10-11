@@ -9008,13 +9008,6 @@
       "source": "packages/backend/src/claims/wrapped/operations/wrapped-owned-state-v1.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs",
-      "bytes": 16316,
-      "sha256": "acd9804c37f9ff97d22e1474ecded671748b029f6f709b8c1a91e05011bfbd7e",
-      "mode": "0644",
-      "source": "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs",
       "bytes": 102547,
       "sha256": "c4b57a27f07eae523762678b3b4e08451288c0f8f8bf72026ba05cc87de68292",
@@ -9181,13 +9174,6 @@
       "bytes": 14419,
       "mode": "0644",
       "source": "packages/backend/tests/operations/deployments/system/deployment-plan.test.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs",
-      "bytes": 11046,
-      "sha256": "6e21f8fa3b61cb52f6d77d56e327991754855361669d8e37e69cf9688e163949",
-      "mode": "0644",
-      "source": "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/fixtures/native-value-pretrim-v3.sol",
@@ -22805,7 +22791,10 @@
     "packages/engine/src/crypto/private-verifier-crs.mjs": "packages/components/src/resources/private-verifier-crs.mjs",
     "packages/proofs/src/toolchain/wallet-resources.mjs": "packages/components/src/resources/wallet-resources.mjs",
     "apps/mobile/src/custody/poseidon2-bn254-v1.mjs": "packages/crypto/src/portable/poseidon2-bn254-v1.mjs",
-    "packages/proofs/src/jobs/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs"
+    "packages/proofs/src/jobs/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs",
+    "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+    "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-system-recovery-backend-v1.mjs",
+    "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [

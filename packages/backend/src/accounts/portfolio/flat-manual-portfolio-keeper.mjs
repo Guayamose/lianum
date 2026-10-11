@@ -77,7 +77,7 @@ async function manualPortfolioKeeper(input, retained) {
   const vault = new Vault(path), config = portfolio.config, identity = genericAccountIdentity(config), identitySHA256 = sha(identity);
   const journal = immutable({ path, password: passwordInput });
   const account = portfolio;
-  const registry = retained ? await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs') : null;
+  const registry = retained ? await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs') : null;
   const lifetimeIdentity = { profile: 'EXTERNAL_FLAT_MANUAL_KEEPER_LIFETIME_V1', identity };
   let lifetimeHandle = null, password = passwordInput; input = null;
   let record, checkpoint = null, closed = false, busy = false, fault = false, review = null, capturing = false;

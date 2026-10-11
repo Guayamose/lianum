@@ -8,7 +8,7 @@ import {hash} from '@lianum/proofs/tooling/tooling';
 import {sha} from '@lianum/engine/accounts/journal';
 import {exactRecord} from '@lianum/components/encoding/commitments';
 import {openExternalDefiRecoveryAuthorityV1,reopenExternalDefiReceiverRuntimeV2,reopenWrappedPrivateLifetimeFromAuthorityV1,reopenExternalDefiVaultExitSystemRecoveryV1,reopenExternalDefiVaultExitOwnersRecoveryV1,reopenExternalDefiVaultCatalogueRecoveryV1,wrappedRecoveryAuthorityStatusV1,closeWrappedRecoveryAuthorityV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
-import {closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {ownedPrivateVaultExitBinding,retainedOwnedPrivateVaultExitContextV1} from '@lianum/backend/defi/withdrawal';
 import {createFlatManualGraphCatalogueSession} from '@lianum/backend/accounts/manual-graph';
 import {startWalletApplication} from '../../../../apps/wallet/src/server/server.mjs';

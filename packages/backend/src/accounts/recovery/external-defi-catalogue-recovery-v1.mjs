@@ -10,7 +10,7 @@ import {createFlatPoolAdmissionPolicy} from '../authority/flat-pool-admission-po
 import {reopenRetainedFlatManualPortfolioKeeperV1} from '../portfolio/flat-manual-portfolio-keeper.mjs';
 import {assertOwnedFlatSystem} from '../../operations/deployments/system/deploy-system.mjs';
 import {assertOwnedFlatOwnerProcess} from '../../custody/processes/flat-owner-process.mjs';
-import {assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {retainOriginalWrappedRecoverySectionV1,consumeOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 const restoredMembers=new WeakMap();
 const tokens=new WeakMap(),opaque=()=>Object.freeze(Object.create(null));
@@ -23,7 +23,7 @@ export function consumeExternalDefiPrivateVaultExitReopenV1(token){assert.equal(
 export function consumeExternalDefiProtocolFixtureReopenV1(token){assert.equal(arguments.length,1);return consume(token,'protocol-fixture');}
 export function consumeExternalDefiCatalogueReopenV1(token){assert.equal(arguments.length,1);return consume(token,'catalogue');}
 export async function reopenOriginalDeviceExternalFlatAaveProtocolV1(token){
- assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');const {runtime,record}=consumeExternalDefiBootstrapPartV1(token,'protocols');const {assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');assertOwnedDeviceExternalFlatReceiverV1(runtime);assert.equal(record.schema,'ORIGINAL_OFFICIAL_AAVE_FIXTURE_V1');const {reopenOfficialAaveFixtureRecoveryV1}=await import('../../operations/deployments/defi/official-aave-fixture-v1.mjs');return issue('protocol-fixture',{runtime,record},reopenOfficialAaveFixtureRecoveryV1);
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');const {runtime,record}=consumeExternalDefiBootstrapPartV1(token,'protocols');const {assertOwnedDeviceExternalFlatReceiverV1}=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs');assertOwnedDeviceExternalFlatReceiverV1(runtime);assert.equal(record.schema,'ORIGINAL_OFFICIAL_AAVE_FIXTURE_V1');const {reopenOfficialAaveFixtureRecoveryV1}=await import('../../operations/deployments/defi/official-aave-fixture-v1.mjs');return issue('protocol-fixture',{runtime,record},reopenOfficialAaveFixtureRecoveryV1);
 }
 async function issue(kind,value,work){const token=opaque(),entry={kind,value,used:false};tokens.set(token,entry);try{const result=await work(token);assert.equal(entry.used,true,'EXTERNAL_CATALOGUE_TOKEN_UNUSED');return result;}finally{tokens.delete(token);}}
 function callbacksCheck(callbacks){exactRecord(callbacks,Object.keys(callbacks));assert.ok(Object.keys(callbacks).every(name=>name==='onProof'));if(callbacks.onProof!==undefined)assert.equal(typeof callbacks.onProof,'function');}

@@ -37,7 +37,7 @@ export async function createOwnedOriginalMorphoBluePositionV1(input) {
  * distinct position profile. No contract/address/receipt selected by a caller. */
 export async function reopenOwnedOriginalMorphoBluePositionV1(token) {
   assert.equal(arguments.length,1);
-  const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
+  const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
   const {runtime,protocols,record}=consumeExternalDefiBootstrapPartV1(token,'blue-position');
   return buildOriginalBluePosition({runtime,protocolFixture:protocols},record);
 }

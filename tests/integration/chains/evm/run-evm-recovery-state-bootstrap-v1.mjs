@@ -10,7 +10,7 @@ import {ROOT} from '@lianum/proofs/catalog';
 import {regular,hash} from '@lianum/proofs/tooling/tooling';
 import {externalDefiVaultExitSourcePinsV1} from './external-defi-vault-exit-source-pins-v1.mjs';
 import {createOwnedExternalDefiReceiverV2} from '../../../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
-import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {createWrappedPrivateLifetimeRegistryV1,closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {createExternalDefiRecoveryAuthorityV1,closeWrappedRecoveryAuthorityV1,retainWrappedPrivateLifetimeRecoveryV1,retainExternalDefiReceiverRuntimeV2,wrappedRecoveryAuthorityStatusV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {readPrivateRuntimeRecoveryV1} from '../../../../packages/backend/src/chains/shared/runtime/owned-runtime-recovery-files-v1.mjs';
 import {createOfficialProtocolFixture,assertOfficialProtocolFixture,captureOfficialProtocolFixtureRecoveryV1} from '../../../../packages/backend/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';

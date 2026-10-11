@@ -9,7 +9,7 @@ import {assertOwnedFlatOwnerProcess} from '../../custody/processes/flat-owner-pr
 import {createRetainedFlatAccountAuthorityV1,captureRetainedFlatAccountV1,reopenRetainedFlatAccountV1,retainedFlatAccountInventoryV1} from '../authority/flat-account-authority.mjs';
 import {createDurableGenericAccountKeeperV1,reopenDurableGenericAccountKeeperV1,captureDurableGenericAccountKeeperV1} from '../storage/durable-generic-account-keeper.mjs';
 import {genericAccountIdentity,sha} from '@lianum/engine/accounts/journal';
-import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {retainOriginalWrappedRecoverySectionV1,consumeOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 const wallets=new WeakMap(),tokens=new WeakMap();
 const clone=value=>structuredClone(value);

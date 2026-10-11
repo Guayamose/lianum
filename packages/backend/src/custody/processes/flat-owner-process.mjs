@@ -17,7 +17,7 @@ import {claimReceiptSecret,claimRefundSalt} from '@lianum/engine/claims/framing'
 import {buildClaimIngressInputs} from '@lianum/engine/claims/inputs';
 import {sealPrivateProofJobV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 
-import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {retainOriginalWrappedRecoverySectionV1,consumeOriginalWrappedRecoverySectionV1,originalWrappedRecoverySectionIdentityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 
 const FILE = fileURLToPath(import.meta.url), PROTOCOL = 'FLAT_OWNER_PRIVATE_IPC_V1', LIMIT = 2 * 1024 * 1024;

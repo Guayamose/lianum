@@ -170,7 +170,7 @@ async function createRecipientProcessV1(input,recovery) {
   }
   function request(operation,value,internalCapture=false){need(!parentBusy||operation==='close','PAEG_RECIPIENT_PARENT_BUSY');return rawRequest(operation,value,internalCapture);}
   let recipientRegistryAccessV1=null;
-  async function recipientRegistryV1(){recipientRegistryAccessV1=await import('../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');return recipientRegistryAccessV1;}
+  async function recipientRegistryV1(){recipientRegistryAccessV1=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');return recipientRegistryAccessV1;}
   function assertRetainedWithdrawalCheckpoint(expected){
     need(!parentBusy&&!capturing&&!failure&&!finished&&!pending&&!stopping,'PAEG_RECIPIENT_PARENT_BUSY');
     need(initialization&&recipientRegistryAccessV1&&initialization.original.pendingOperation===null&&initialization.original.latestCheckpoint,'PAEG_RECIPIENT_PARENT_ACK_REQUIRED');
@@ -234,7 +234,7 @@ async function createRecipientProcessV1(input,recovery) {
   recipientRecoveryStatesV1.set(recipient,{
     lineage,
     async attach(value){need(!initialization&&!parentBusy&&!capturing&&!failure&&!finished&&!pending&&!stopping,'PAEG_RECIPIENT_INITIALIZATION_ONCE');
-      const a=await import('../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+      const a=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
       const row=await a.readWrappedPrivateLifetimeIndexedPartV1(value.runtime,'recipient',value.identity);need(row.handle===value.handle);need(canonical({...row.privateState.bootstrap,mode:'recover'})===canonical({...privateBootstrap,mode:'recover'}),'PAEG_RECIPIENT_INITIALIZATION_CHANGED');
       a.assertWrappedPrivateLifetimePartSealedV1(value.handle);initialization={...value,original:row.privateState};
       parentBusy=true;try{need(row.privateState.pendingOperation===undefined||row.privateState.pendingOperation===null,'PAEG_RECIPIENT_PARENT_ACK_REQUIRED');const checkpoint=await checkedChildCheckpointV1();if(row.privateState.latestCheckpoint)need(canonical(checkpoint)===canonical(row.privateState.latestCheckpoint),'PAEG_RECIPIENT_PARENT_CHECKPOINT_CHANGED');else need(!recovery&&privateBootstrap.mode==='create','PAEG_RECIPIENT_PARENT_CHECKPOINT_REQUIRED');await saveParentRowV1(a,{...row.privateState,latestCheckpoint:checkpoint,pendingOperation:null,currentProcess:{pid:child.pid,lifetimeIdentity:processLifetimeIdentity}});}catch(error){fail(error);throw error;}finally{parentBusy=false;}},
@@ -244,7 +244,7 @@ async function createRecipientProcessV1(input,recovery) {
       const checkpoint=await request('recoveryCheckpoint',null,true),record=await new Vault(privateBootstrap.path).read(privateBootstrap.password),offer=await request('offer',null,true);
       need(checkpoint.revision===record.revision&&checkpoint.stateSHA256===digest('LIANUM/PAEG/original-recipient-recovery/1',record.data),'PAEG_RECIPIENT_CAPTURE_MEMORY_CHANGED');
       const reread=await new Vault(privateBootstrap.path).read(privateBootstrap.password);need(canonical(record)===canonical(reread),'PAEG_RECIPIENT_CAPTURE_VAULT_CHANGED');
-      const a=await import('../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+      const a=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
       const {row}=await originalParentRowV1();need(row.privateState.pendingOperation===null&&canonical(row.privateState.latestCheckpoint)===canonical(checkpoint),'PAEG_RECIPIENT_PARENT_ACK_REQUIRED');a.assertWrappedPrivateLifetimePartSealedV1(initialization.handle);captured=true;
       return {schema:'PAEG_RECIPIENT_ORIGINAL_RECOVERY_V1',registryIdentity:structuredClone(initialization.identity),bootstrap:{...privateBootstrap,mode:'recover'},record,offer,lineage:{...lineage},capturedProcessId:child.pid,capturedLifetimeIdentity:processLifetimeIdentity};},
     async stopCaptured(){need(capturing&&captured,'PAEG_RECIPIENT_CAPTURE_REQUIRED');const stopped=await recipient.close();need(stopped.exited&&stopped.exit.code===0&&stopped.exit.signal===null,'PAEG_RECIPIENT_CAPTURE_STOP_FAILED');return {closed:true,originalPrivateStateRetained:true};},
@@ -265,7 +265,7 @@ export async function reopenNativeRecipientRecoveryV1(token){
  need(record.schema==='PAEG_RECIPIENT_ORIGINAL_RECOVERY_V1');exact(record.lineage,['originalProcessId','originalLifetimeIdentity','generation','priorProcessId','priorLifetimeIdentity']);
  need(/^[0-9a-f]{64}$/.test(record.lineage.originalLifetimeIdentity)&&/^[0-9a-f]{64}$/.test(record.capturedLifetimeIdentity));
  need(Number.isSafeInteger(record.lineage.originalProcessId)&&record.lineage.originalProcessId>0);need(Number.isSafeInteger(record.lineage.generation)&&record.lineage.generation>=1&&record.lineage.generation<64);need(Number.isSafeInteger(record.capturedProcessId)&&record.capturedProcessId>0);
- const a=await import('../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+ const a=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const registered=await a.readWrappedPrivateLifetimeIndexedPartV1(runtime,'recipient',record.registryIdentity);
  need(canonical({...registered.privateState.bootstrap,mode:'recover'})===canonical(record.bootstrap),'PAEG_RECIPIENT_INITIALIZATION_CHANGED');
  const recipient=await createRecipientProcessV1(record.bootstrap,record);

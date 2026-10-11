@@ -38,6 +38,11 @@
     "../../packages/components/src/encoding/native-value-statements-v2.mjs",
     "../../packages/proofs/src/host/process-files.mjs",
     "../../packages/proofs/src/host/process-rss.mjs",
-    "../../packages/engine/src/accounts/account-prepare-contract.mjs"
+    "../../packages/engine/src/accounts/account-prepare-contract.mjs",
+    "../../packages/backend/src/claims/wrapped/recovery/wrapped-lifetime-files-v1.mjs",
+    "../../packages/backend/src/claims/wrapped/recovery/wrapped-lifetime-record-v1.mjs",
+    "../../packages/backend/src/claims/wrapped/recovery/wrapped-lifetime-registry-backend-v1.mjs",
+    "../../packages/backend/src/claims/wrapped/recovery/wrapped-system-recovery-backend-v1.mjs",
+    "../../packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs"
   ]
 }

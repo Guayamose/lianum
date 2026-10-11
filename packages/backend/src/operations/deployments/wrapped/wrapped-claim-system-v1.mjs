@@ -670,7 +670,7 @@ export async function assertCapturedWrappedClaimSystemUnchangedV1(runtime,system
 }
 export async function reopenWrappedClaimGraphSystemRecoveryV1(token) {
   assert.equal(arguments.length,1);inspectWrappedInstallationSourcesV2();
-  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../claims/wrapped/recovery/wrapped-system-composition-v1.mjs');
+  const {consumeWrappedSystemRecoveryPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
   const {runtime,bootstrap,custodyBootstrap,record:r}=consumeWrappedSystemRecoveryPartV1(token,'contracts');
   exactRecord(r,['schema','system','claims','hub','pools','libraries','generatedLibraries','verifiers','claimAuthority','claimGateways','claimWrappers','claimLibraries','claimVerifiers','views','claimView','evmGenesis']);
   assert.equal(r.schema,'WRAPPED_GRAPH_SYSTEM_RECOVERY_V1');await assertLocalEvm(runtime);

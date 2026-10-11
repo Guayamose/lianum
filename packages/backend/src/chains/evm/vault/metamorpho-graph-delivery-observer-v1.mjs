@@ -431,7 +431,7 @@ export async function createOwnedMetaMorphoGraphDeliveryBatchV4(input){
 /** Only the fixed original system opener can supply this one-use token. No
  * router is created, funded, adopted by address or selected by an HTTP frame. */
 export async function reopenOwnedMetaMorphoGraphDeliveryBatchV4(token){
- assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../operations/recovery/external-defi-bootstrap-recovery-v1.mjs');
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const {runtime,system,protocolFixture,routers}=consumeExternalDefiBootstrapPartV1(token,'meta-batch');assert.ok(Array.isArray(routers)&&routers.length>=2&&routers.length<=4,'METAMORPHO_GRAPH_BATCH_COUNT');
  await assertOwnedLocalEvmV2(runtime);assertOwnedFlatSystem(runtime,system);assertOfficialProtocolFixture(runtime,protocolFixture);const children=[];
  for(const router of routers){assertOwnedPrivateExternalRouterV1(router,{runtime,system,poolIndex:1});assert.equal(router.protocolKind,META);children.push(await createOwnedMetaMorphoGraphDeliveryObserverV1({runtime,system,poolIndex:1,router,protocolFixture}));}

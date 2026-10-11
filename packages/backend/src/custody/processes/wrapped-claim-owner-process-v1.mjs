@@ -34,7 +34,7 @@ const plane = method => OWNER.includes(method) ? 'owner' : PROOF.includes(method
     : method === 'selectRole' ? 'role' : ['privateSummary', 'preparationTerms', 'manualPreparations', 'graphPreparationTerms'].includes(method) ? 'ownerView' : ['summary', 'close'].includes(method) ? 'lifecycle' : null;
 const ownedProcesses = new WeakMap();
 const { createClaimRecordStore, openClaimRecordStore } = await import('@lianum/engine/storage/records');
-const {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1}=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+const {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1}=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
 const { retainOriginalWrappedRecoverySectionV1, consumeOriginalWrappedRecoverySectionV1 } = await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
 const ownedNativeClaimHandoffs = new WeakMap();
 const code = error => /^FLAT_[A-Z0-9_]+$/.test(error?.message ?? '') ? error.message : 'FLAT_OWNER_OPERATION_FAILED';

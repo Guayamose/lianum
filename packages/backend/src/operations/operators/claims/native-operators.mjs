@@ -868,7 +868,7 @@ export function ownedFlatOperatorQuorumBindings(capability, input) {
 // attempt registry. These functions never accept a caller key or store password.
 const RETAINED_OPERATOR_GROUP = 'ORIGINAL_STANDALONE_FLAT_OPERATOR_GROUP_V1';
 const retainedGroups = new WeakMap(), retainedRuntimeGroups = new WeakMap();
-async function lifetimeModule() { return import('../../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs'); }
+async function lifetimeModule() { return import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs'); }
 function operatorGroupIdentity(runtime) {
   return {profile:RETAINED_OPERATOR_GROUP,genesis:runtime.metadata.evmGenesis,chainId:runtime.metadata.chainId};
 }

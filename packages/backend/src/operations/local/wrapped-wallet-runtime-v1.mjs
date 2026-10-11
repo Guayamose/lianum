@@ -34,7 +34,7 @@ function fixedFixtureCloserV1(s){let closing;return async function close(){if(s.
   for(let i=0;i<s.owners.length;i++)await closeOne('owner'+i,s.owners[i]);
   for(const [role,value]of Object.entries(s.proofClients??{}))await closeOne(role,value);
   await closeOne('bootstrap',s.bootstrap);
-  if(s.privateLifetime){const a=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');await closeOne('privateLifetime',{close:()=>a.closeWrappedPrivateLifetimeRegistryV1(s.privateLifetime)});}
+  if(s.privateLifetime){const a=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');await closeOne('privateLifetime',{close:()=>a.closeWrappedPrivateLifetimeRegistryV1(s.privateLifetime)});}
   // An interrupted cold capture must never fall back to destructive teardown.
   if(s.recoveryCapturing||s.nativeRetentionRequired) {
    const evm=await import('../../chains/evm/runtime/owned-evm-v2-runtime.mjs'),sol=await import('../../chains/solana/runtime/owned-solana-runtime.mjs'),btc=await import('../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs');
@@ -107,7 +107,7 @@ async function createFixedFixture(directory,deploymentOnly){
  const fixture=Object.freeze({close});originals.set(fixture,s);
  try{
   inspectWrappedInstallationSourcesV2();s.runtime=await createOwnedRecoverableReceiverV1();const receiverRetention=await armOwnedEvmRecoveryRetentionV1(s.runtime);
-  const lifetime=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+  const lifetime=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
   const {wrappedWalletFixedSourcePinsV1}=await import('../releases/wrapped/wrapped-wallet-fixed-source-pins-v1.mjs'),{NATIVE_FLOW_LIMITS}=await import('@lianum/proofs/host/native-flow-limits');
   const lock=JSON.parse(readFileSync(join(dirname(dirname(directory)),'active.lock'),'utf8'));
   assert.equal(directory,join(dirname(dirname(directory)),'attempt-'+lock.runId,'private-audit'));assert.equal(lock.pid,process.ppid);
@@ -266,7 +266,7 @@ export async function reopenWrappedWalletFixedRecoveryV1(authority) {
  const retain=value=>{handles.push(value);return value;};
  try {
   runtime=retain(await a.reopenWrappedRuntimeFromAuthorityV1(authority,'receiver'));privateLifetime=await a.reopenWrappedPrivateLifetimeFromAuthorityV1(authority,runtime);
-  const lifetime=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');retain({close:()=>lifetime.closeWrappedPrivateLifetimeRegistryV1(privateLifetime)});
+  const lifetime=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');retain({close:()=>lifetime.closeWrappedPrivateLifetimeRegistryV1(privateLifetime)});
   bitcoin=retain(await a.reopenWrappedRuntimeFromAuthorityV1(authority,'bitcoin'));
   solana=retain(await a.reopenWrappedRuntimeFromAuthorityV1(authority,'solana'));graphNative=retain(await a.reopenWrappedRuntimeFromAuthorityV1(authority,'graphNative'));
   combined=await a.reopenWrappedSystemFromAuthorityV1(authority,{runtime,nativeRuntimes:[bitcoin,solana],graphNativeRuntimes:[graphNative]});retain(combined.bootstrap);
@@ -292,7 +292,7 @@ export async function reopenWrappedWalletFixedRecoveryV1(authority) {
 
 export async function createWrappedFixedRecipientWithLifetimeV1(fixture,input){
  assert.equal(arguments.length,2);const s=ownedWrappedWalletFixedFixtureV1(fixture);assert.equal(input.mode,'create');assert.equal(input.path,join(s.directory,'original-recipient.vault'));
- const a=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+ const a=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const identity={profile:'WRAPPED_ORIGINAL_RECIPIENT_INITIALIZATION_V1',receiverGenesis:s.runtime.metadata.evmGenesis,hub:s.system.hub.address,path:input.path,expectedTerms:structuredClone(input.expectedTerms),withdrawalRecipient:input.withdrawalRecipient};
  const initial={bootstrap:structuredClone(input),process:null,recoveryAdmissionGranted:false};
  const handle=await a.retainWrappedPrivateLifetimeIndexedPartV1(s.runtime,'recipient',identity,initial);a.assertWrappedPrivateLifetimePartSealedV1(handle);

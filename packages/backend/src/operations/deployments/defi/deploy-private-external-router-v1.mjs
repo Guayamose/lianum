@@ -109,7 +109,7 @@ export async function captureOwnedPrivateExternalRouterRecoveryV1(router){
  return {schema:'ORIGINAL_EXTERNAL_ROUTER_RECOVERY_V1',protocolKind:s.protocolKind,poolIndex:s.poolIndex,genesis:s.runtime.metadata.evmGenesis,head:structuredClone(head),receipt:structuredClone(s.receipt),identity:structuredClone(router.identity)};
 }
 export async function reopenOwnedPrivateExternalRouterRecoveryV1(token){
- assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const {runtime,record,system,protocols}=consumeExternalDefiBootstrapPartV1(token,'router');
  return buildOwnedPrivateExternalRouterV1({runtime,system,poolIndex:record.poolIndex,protocolFixture:protocols,protocolKind:record.protocolKind},record);
 }
@@ -128,7 +128,7 @@ export async function captureOwnedPrivateMorphoBluePositionRouterV1(router){
   genesis:s.runtime.metadata.evmGenesis,head:structuredClone(head),receipt:structuredClone(s.receipt),identity:structuredClone(router.identity)};
 }
 export async function reopenOwnedPrivateMorphoBluePositionRouterV1(token){
- assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  const {runtime,record,system,protocols,position}=consumeExternalDefiBootstrapPartV1(token,'blue-router');
  assertOwnedOriginalMorphoBluePositionV1(runtime,position);assert.equal(readOwnedOriginalMorphoBluePositionContextV1(runtime,position).protocolFixture,protocols);
  return buildOwnedPrivateExternalRouterV1({runtime,system,poolIndex:record.poolIndex,protocolFixture:protocols,protocolKind:BLUE},record,position);

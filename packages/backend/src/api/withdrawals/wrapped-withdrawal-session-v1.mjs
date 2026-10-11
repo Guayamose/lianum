@@ -42,7 +42,7 @@ await assertWrappedWithdrawalReleasedV1();
  const reader=await createWrappedWalletStateReaderV1({runtime,system,poolIndex:1});
  let record=await store.read(),tail=Promise.resolve(),pending=0,busy=false,closed=false,closing=false,fault=false,recipient=null,recipientBinding=null,activeProof=null,closePromise=null,ownerReadPending=false,capturing=false,captureStarted=false;
  if(recovery){assert.deepEqual({revision:record.revision,commitment:record.commitment},recovery.record.checkpoint,'WRAPPED_WITHDRAWAL_ORIGINAL_CHECKPOINT_CHANGED');assert.deepEqual(record.data.recipient,recovery.record.recipientBinding);recipient=recovery.recipient;recipientBinding=copy(recovery.record.recipientBinding);if(recipientBinding){assertOriginalNativeRecipientRecoveryV1(recipient,{originalProcessId:recipientBinding.pid,originalLifetimeIdentity:recipientBinding.originalLifetimeIdentity});need(!recipients.has(recipient),'WRAPPED_WITHDRAWAL_RECIPIENT_ALREADY_LEASED');recipients.add(recipient);}else assert.equal(recipient,null);}
- const lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
+ const lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  let lifetimeState={journal:{...journal},checkpoint:{revision:record.revision,commitment:record.commitment},pendingUpdate:null},lifetimeHandle;
  if(recovery){const original=await lifetimeRegistry.readWrappedPrivateLifetimePartV1(runtime,'wallet-withdrawal',binding);assert.equal(sha(original.privateState),sha(lifetimeState),'WRAPPED_WITHDRAWAL_REGISTRY_CHECKPOINT_CHANGED');lifetimeHandle=original.handle;}
  else lifetimeHandle=await lifetimeRegistry.retainWrappedPrivateLifetimePartV1(runtime,'wallet-withdrawal',binding,lifetimeState);

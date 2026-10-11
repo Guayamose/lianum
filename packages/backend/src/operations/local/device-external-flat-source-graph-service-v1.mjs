@@ -9,7 +9,7 @@ import {mkdtemp,chmod} from 'node:fs/promises';
 import {dirname,join} from 'node:path';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {canonicalClaimRecordDataV1} from '@lianum/engine/storage/records';
-import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1,closeWrappedPrivateLifetimeRegistryV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1,closeWrappedPrivateLifetimeRegistryV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {assertDeviceExternalFlatRecoveryAuthorityV1,assertDeviceExternalFlatAccountCaptureAuthorityV1,originalWrappedRecoverySectionIdentityV1,retainOriginalWrappedRecoverySectionV1,consumeOriginalWrappedRecoverySectionV1,retainDeviceExternalFlatGraphRecoveryV1,retainDeviceExternalFlatGraphSystemRecoveryV1,retainDeviceExternalFlatLifetimeRecoveryV1,retainDeviceExternalFlatReceiverRuntimeV1,finishDeviceExternalFlatRecoveryCaptureV1,reopenDeviceExternalFlatReceiverRuntimeV1,reopenDeviceExternalFlatLifetimeRecoveryV1,reopenDeviceExternalFlatSystemRecoveryV1,reopenDeviceExternalFlatGraphRecoveryV1,closeDeviceExternalFlatRecoveryAuthorityV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {captureOwnedFlatSystemRecoveryV1} from '../deployments/system/deploy-system.mjs';
 import {assertOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';

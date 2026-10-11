@@ -16,7 +16,7 @@ import { retainedFlatAccountInventoryV1,assertRetainedExternalVaultNoteAccountV1
 import { consumeExternalDefiCatalogueGenerationReopenV1 as consumeGenerationToken } from '../recovery/external-defi-catalogue-recovery-v1.mjs';
 import { projectCatalogueOwnerRequests } from '../portfolio/catalogue-owner-requests.mjs';
 
-import { retainWrappedPrivateLifetimePartV1, readWrappedPrivateLifetimePartV1, updateWrappedPrivateLifetimePartV1, assertWrappedPrivateLifetimePartSealedV1 } from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
+import { retainWrappedPrivateLifetimePartV1, readWrappedPrivateLifetimePartV1, updateWrappedPrivateLifetimePartV1, assertWrappedPrivateLifetimePartSealedV1 } from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 
 const PROFILE = 'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2';
 const NOTE_PROFILE='EXTERNAL_RETAINED_VAULT_NOTE_CATALOGUE_V1',NOTE_RECOVERY='EXTERNAL_FLAT_VAULT_NOTE_CATALOGUE_RECOVERY_V1';

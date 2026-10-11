@@ -83,7 +83,7 @@ export async function captureOfficialProtocolFixtureRecoveryV1(runtime,fixture){
  return {schema:'ORIGINAL_OFFICIAL_PROTOCOL_FIXTURE_V1',genesis:runtime.metadata.evmGenesis,head:structuredClone(head),records,pool:{address:fixture.pool.address,code:poolCode},marketId:fixture.marketId,reads};
 }
 export async function reopenOfficialProtocolFixtureRecoveryV1(token){
- assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../recovery/external-defi-bootstrap-recovery-v1.mjs');
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  return reopenOfficialProtocolRecordV1(consumeExternalDefiBootstrapPartV1(token,'protocols'));
 }
 export async function reopenOfficialProtocolVaultFixtureRecoveryV1(token){assert.equal(arguments.length,1);const {consumeExternalDefiProtocolFixtureReopenV1}=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return reopenOfficialProtocolRecordV1(consumeExternalDefiProtocolFixtureReopenV1(token),true);}
