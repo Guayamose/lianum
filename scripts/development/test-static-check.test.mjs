@@ -104,3 +104,81 @@ test('operation ports prohibit dynamic/whole-port forwarding while respecting lo
     assert.ok(inspectOperationPorts(config, root).some(message => /whole-port forwarding or dynamic access/.test(message)));
   }
 });
+
+test('operation ports count fixed const destructuring, aliases and actual uses', t => {
+  const config = { composition: 'root.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation' }] };
+  const root = fixture(t, { 'root.mjs': 'createOperation({journal:{rows:readRows}});',
+    'operation.mjs': 'export function createOperation({journal}) { const {rows:read} = journal; return read(); }' });
+  assert.deepEqual(inspectOperationPorts(config, root), []);
+  for (const source of [
+    'const {rows,...rest}=journal; return rows();',
+    'const {rows=fallback}=journal; return rows();',
+    'const {[field]:rows}=journal; return rows();',
+    'let {rows}=journal; return rows();',
+    'const {rows,unused}=journal; return rows();',
+    'const {rows}=journal; return forward(journal);',
+  ]) {
+    writeFileSync(join(root, 'operation.mjs'), `export function createOperation({journal}) { ${source} }`);
+    assert.ok(inspectOperationPorts(config, root).length > 0, source);
+  }
+  writeFileSync(join(root, 'operation.mjs'), 'export function createOperation({journal}) { const {rows}=journal; return rows(); }');
+  writeFileSync(join(root, 'root.mjs'), 'createOperation({journal:{rows:readRows,unused}});');
+  assert.ok(inspectOperationPorts(config, root).some(message => /unused or unknown field unused/.test(message)));
+});
+
+test('operation group validation accepts only canonical exactRecord and a fixed typeof assertion', t => {
+  const config = { composition: 'root.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation' }] };
+  const imports = 'import assert from "node:assert/strict"; import {exactRecord as exact} from "@lianum/components/encoding/commitments";';
+  const guards = 'exact(journal,["rows"]); for(const method of Object.values(journal)) assert.equal(typeof method,"function");';
+  const source = `${imports} export function createOperation({journal}) { ${guards} const {rows}=journal; return rows(); }`;
+  const root = fixture(t, { 'root.mjs': 'createOperation({journal:{rows:readRows}});', 'operation.mjs': source });
+  assert.deepEqual(inspectOperationPorts(config, root), []);
+  for (const invalid of [
+    source.replace('encoding/commitments', 'encoding/fake-commitments'),
+    source.replace('node:assert/strict', './fake-assert.mjs'),
+    source.replace('["rows"]', '["rows","unused"]'),
+    source.replace('["rows"]', 'fieldNames'),
+    source.replace('typeof method', 'typeof journal'),
+    source.replace('"function"', '"object"'),
+    source.replace('assert.equal(typeof method,"function");', '{ assert.equal(typeof method,"function"); forward(method); }'),
+    source.replace(guards, 'exact(journal,["rows"]); for(const method of Object.values(journal)) forward(method);'),
+    source.replace(guards, 'const Object={values:forward}; '+guards),
+    source.replace(guards, 'const exact = () => {}; '+guards),
+  ]) {
+    writeFileSync(join(root, 'operation.mjs'), invalid);
+    assert.ok(inspectOperationPorts(config, root).length > 0, invalid);
+  }
+});
+
+test('operation loader ports are bound to one literal module and fixed consumed exports', t => {
+  const config = { composition: 'root.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation',
+    loaders: { loadOriginal: { file: 'original.mjs', exports: ['prepare','restore'] } } }] };
+  const source = 'import assert from "node:assert/strict"; export function createOperation({loadOriginal}) { assert.equal(typeof loadOriginal,"function"); return async () => { const {prepare,restore}=await loadOriginal(); return [prepare(),restore()]; }; }';
+  const producer = 'createOperation({loadOriginal:()=>import("./original.mjs")});';
+  const original = 'throw Error("MUST_NOT_EXECUTE"); export function prepare() {} export function restore() {}';
+  const root = fixture(t, { 'root.mjs': producer, 'operation.mjs': source, 'original.mjs': original });
+  assert.deepEqual(inspectOperationPorts(config, root), []);
+  for (const replacement of [
+    'arbitraryCallback', '()=>forward()', '(path)=>import(path)', '()=>import(path)',
+    '()=>import("./other.mjs")', '()=>({prepare,restore})', '()=>{return import("./original.mjs");}',
+  ]) {
+    writeFileSync(join(root, 'root.mjs'), `createOperation({loadOriginal:${replacement}});`);
+    assert.ok(inspectOperationPorts(config, root).some(message => /zero-argument literal import/.test(message)), replacement);
+  }
+  writeFileSync(join(root, 'root.mjs'), producer);
+  for (const replacement of [
+    'return loadOriginal;', 'return forward(loadOriginal);',
+    'return async () => {const namespace=await loadOriginal(); return namespace;};',
+    'return async () => {const {prepare,restore}=await loadOriginal("extra"); return [prepare(),restore()];};',
+    'return async () => {const {prepare,write}=await loadOriginal(); return [prepare(),write()];};',
+  ]) {
+    writeFileSync(join(root, 'operation.mjs'), `export function createOperation({loadOriginal}) { ${replacement} }`);
+    assert.ok(inspectOperationPorts(config, root).length > 0, replacement);
+  }
+  writeFileSync(join(root, 'operation.mjs'), source);
+  writeFileSync(join(root, 'original.mjs'), 'export function prepare() {}');
+  assert.ok(inspectOperationPorts(config, root).some(message => /does not export function restore/.test(message)));
+  writeFileSync(join(root, 'original.mjs'), original);
+  const unconfigured = { composition: 'root.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation' }] };
+  assert.ok(inspectOperationPorts(unconfigured, root).some(message => /whole-port forwarding/.test(message)));
+});

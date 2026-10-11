@@ -114,9 +114,24 @@ export function createNativeValueExecutionOperations({
         deviceExecutionOriginal(reorgAdmission.bridge, row);
         return row;
       },
-      reservations,
-      chain,
-      format,
+      reservations: {
+        reservationRow: reservations.reservationRow,
+        reservationUpdate: reservations.reservationUpdate,
+      },
+      chain: {
+        runtime: chain.runtime,
+        system: chain.system,
+        pool: chain.pool,
+        nativeExecution: chain.nativeExecution,
+      },
+      format: {
+        copy: format.copy,
+        sha: format.sha,
+        calldataHash: format.calldataHash,
+        decodeTerminal: format.decodeTerminal,
+        reference: format.reference,
+        bare: format.bare,
+      },
     });
   const {
     requireLiveRecovery,
@@ -126,12 +141,31 @@ export function createNativeValueExecutionOperations({
     armLiveRecovery,
     tickLiveRecovery,
   } = createNativeValueLiveRecovery({
-    profile,
-    chain,
-    lifecycle,
-    reservations,
-    continuity,
-    format,
+    profile: { nativeNote: profile.nativeNote, wrapped: profile.wrapped },
+    chain: { reader: chain.reader, nativeExecution: chain.nativeExecution },
+    lifecycle: {
+      exclusive: lifecycle.exclusive,
+      healthy: lifecycle.healthy,
+      continueWork: lifecycle.continueWork,
+      isBusy: lifecycle.isBusy,
+      isClosed: lifecycle.isClosed,
+      isCancelled: lifecycle.isCancelled,
+      isUnavailable: lifecycle.isUnavailable,
+      isCapturing: lifecycle.isCapturing,
+    },
+    reservations: {
+      reservationRow: reservations.reservationRow,
+      reservationRows: reservations.reservationRows,
+      originalReservationConsent: reservations.originalReservationConsent,
+      reservationUpdate: reservations.reservationUpdate,
+    },
+    continuity: {
+      lease: continuity.lease,
+      recovery: continuity.recovery,
+      nativeSourceOriginal: continuity.nativeSourceOriginal,
+      originalSourceContinuationInstallation: continuity.originalSourceContinuationInstallation,
+    },
+    format: { byteSHA: format.byteSHA },
     execution: { deviceExecutionOriginal, deviceExecutionPublic, retainDeviceTerminal },
     permission: {
       validateFresh: validateDeviceRecoveryArmConsentFreshV1,

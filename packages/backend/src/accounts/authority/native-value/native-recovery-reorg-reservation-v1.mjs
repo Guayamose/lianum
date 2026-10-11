@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 /** @param {{originalRow(executor:NativeExecutor,reference:string):ReservationRow,
  * reservations:Pick<import('./native-value-execution-contract.mjs').Reservations,'reservationRow'|'reservationUpdate'>,
  * chain:Pick<import('./native-value-execution-contract.mjs').ExecutionChain,'runtime'|'system'|'pool'|'nativeExecution'>,
- * format:import('./native-value-execution-contract.mjs').ExecutionFormat}} ports */
+ * format:Pick<import('./native-value-execution-contract.mjs').ExecutionFormat,'copy'|'sha'|'calldataHash'|'decodeTerminal'|'reference'|'bare'>}} ports */
 export function createNativeRecoveryReorgReservationV1({
   originalRow,
   reservations,

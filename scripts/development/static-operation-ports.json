@@ -28,7 +28,16 @@
     },
     {
       "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs",
-      "name": "createNativeValueAccountInterface"
+      "name": "createNativeValueAccountInterface",
+      "loaders": {
+        "loadOriginalManualPreparation": {
+          "file": "packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs",
+          "exports": [
+            "createNativeValueOwnerManualPreparation",
+            "restoreNativeValueOwnerManualPreparation"
+          ]
+        }
+      }
     }
   ]
 }

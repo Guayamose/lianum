@@ -230,7 +230,21 @@ export function createNativeValueWithdrawals({
     };
   }
   const outputBalance=(bridge,input)=>readNativeDeviceOutputBalance(bridge,input,{
-    format,reservations,execution,chain,profile,lifecycle,
+    format: { reference: format.reference, bare: format.bare },
+    reservations: {
+      reservationRow: reservations.reservationRow,
+      reservationObservation: reservations.reservationObservation,
+      originalQuote: reservations.originalQuote,
+      reservationSubject: reservations.reservationSubject,
+    },
+    execution: { deviceExecutionOriginal: execution.deviceExecutionOriginal },
+    chain: {
+      nativeExecution: chain.nativeExecution,
+      runtime: chain.runtime,
+      reader: chain.reader,
+    },
+    profile: { asset: profile.asset, identity: profile.identity },
+    lifecycle: { continueWork: lifecycle.continueWork },
     preparationTerms:preparation=>genericBalanceNativeTerms(validateGenericBalanceNativePreparation(preparation)),verifyPath:verifyPrivateNotePath,hash:sha
   });
   function exitBinding(consent, bridge) {
