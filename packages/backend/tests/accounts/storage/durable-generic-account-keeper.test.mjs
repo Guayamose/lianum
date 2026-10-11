@@ -1,17 +1,18 @@
 /** Real coordinator, encrypted parent and SOURCE checkpoint transaction.
- * Synthetic authority/session fixtures do not stand in for economic acceptance. */
+ * Lower authority/SOURCE fixtures do not stand in for economic acceptance. */
 import test, {mock} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {mkdtemp, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createDurableGenericAccountKeeperV1, reopenDurableGenericAccountKeeperV1, captureDurableGenericAccountKeeperV1,
   bindOriginalNativeSourceSessionKeeperV1, readOriginalNativeSourceSessionKeeperV1} from '../../../src/accounts/storage/durable-generic-account-keeper.mjs';
 import {createGenericAccountKeeper, assertOriginalGenericAccountKeeperV1} from '@lianum/engine/accounts/keeper';
-import {genericAccountIdentity, sha} from '@lianum/engine/accounts/journal';
+import {genericAccountIdentity} from '@lianum/engine/accounts/journal';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {startGenericAccountKeeper} from '@lianum/engine/accounts/coordinator-lifecycle';
-import {moduleResource, sourcePath} from '@lianum/environment';
+import * as durableKeeperAPI from '../../../src/accounts/storage/durable-generic-account-keeper.mjs';
+import {processIdentity} from '../../../src/operations/recovery/source-journal/process-identity-v1.mjs';
 
 const h = n => n.toString(16).padStart(64, '0');
 const registry = [{assetId: h(1), kind: 'NATIVE', symbol: 'ETH', decimals: 18, chainId: '31337', genesis: h(2), pool: '3'.repeat(40), scope: h(4), policy: h(5), token: '0'.repeat(40), codeHash: h(6), assetIdentity: h(7), custody: 'ONCHAIN_NOTE_POOL', trust: 'PINNED_LOCAL_CONTRACT_AND_TRUSTED_NATIVE_ISSUER'}];
@@ -19,37 +20,16 @@ const config = {journalId: 'journal_process_01', accountId: 'account_process_01'
 const request = {requestId: 'request_process_01', assetId: h(1), kind: 'GRAPH', ownerOperationRef: h(9)};
 
 test('HOST SOURCE original session retains keeper candidates before CAS and its real child checkpoint', async t => {
-  // These lower account/source memberships are explicitly synthetic. Keeper,
-  // child IPC, segmented parent, AEAD and SOURCE session hook bodies are real.
+  // Only lower authority and SOURCE retention ports are synthetic. The session,
+  // keeper membership, coordinator child, segmented parent and AEAD are real.
   const directory=await mkdtemp(join(tmpdir(),'source-original-keeper-'));
   const journal={path:join(directory,'journal.vault'),password:'synthetic-source-journal-secret'};
   const sourcePassword='synthetic-source-capsule-secret',sourceVault=new Vault(join(directory,'section.vault'));
-  const canonicalGraph=sourcePath('packages/backend/src/api/accounts/flat-manual-graph-session.mjs');
-  const graphURL=moduleResource(import.meta.url,'packages/backend/src/api/accounts/flat-manual-graph-session.mjs','../api/flat-manual-graph-session.mjs');
-  const keeperURL=moduleResource(import.meta.url,'packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs','../account/durable-generic-account-keeper.mjs');
-  const account={config},owner={},runtime={},system={},session=Object.freeze(Object.create(null));
+  const backend=new URL('../../../src/',import.meta.url),owner={},runtime={},system={claimsEnabled:false};
+  const handle=Object.freeze(Object.create(null)),token=Object.freeze(Object.create(null));
   const identity={profile:'NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1',directory,runId:'synthetic_source_session',sourceSHA256:h(60),deadlineMs:Date.now()+60000};
-  const sessions=new WeakMap(),handle=Object.freeze(Object.create(null));let sectionRecord=null,updates=0,failAfterCandidate=false;
-  const need=(value,code)=>{if(!value)throw Object.assign(new Error(code),{code});};
-  const port=async(original,next)=>{assert.equal(original,handle);updates++;
-    const actual=await sourceVault.read(sourcePassword);assert.deepEqual(actual,sectionRecord);
-    const stored=await sourceVault.update(sourcePassword,actual.revision,()=>next);assert.deepEqual(await sourceVault.read(sourcePassword),stored);sectionRecord=stored;
-    if(failAfterCandidate&&next.candidate?.kind==='KEEPER_CAS')throw Object.assign(new Error('SYNTHETIC_SOURCE_REPLY_LOST'),{code:'SYNTHETIC_SOURCE_REPLY_LOST'});
-  };
-  const source=await readFile(canonicalGraph,'utf8');
-  const names=['originalSourceSessionState','assertOriginalNativeSessionSourceKeeperV1','sourceSessionPayload','updateSourceSession',
-    'prepareOriginalNativeSessionKeeperSourceCheckpointV1','confirmOriginalNativeSessionKeeperSourceCheckpointV1','originalSourceSessionWork','sourceOwnedCoordinatorProcesses'];
-  const body=names.map(name=>{const pattern=new RegExp('(?:export )?(?:async )?function '+name+'\\(');const match=pattern.exec(source);assert.ok(match);
-    const start=match.index,end=source.indexOf('\n}',start)+2;assert.ok(end>start);return source.slice(start,end).replace(/^export /,'');}).join('\n')
-    .replaceAll("'../../accounts/storage/durable-generic-account-keeper.mjs'",JSON.stringify(keeperURL.href));
-  const actual=Function('sessions','need','assertOwnedNativeValueAccountAuthority','assertOriginalNativeAccountSourceV1','sha','genericAccountIdentity','originalNote',
-    'updateOriginalNativeSourceSectionV1','exactRecord','nativeSourceRecoveryOwnedProcessV1',body+'\nreturn {assertOriginalNativeSessionSourceKeeperV1,prepareOriginalNativeSessionKeeperSourceCheckpointV1,confirmOriginalNativeSessionKeeperSourceCheckpointV1,originalSourceSessionWork};')
-    (sessions,need,(value,expected)=>{assert.equal(value,account);assert.equal(expected.owner,owner);},(value,binding)=>{assert.equal(value,account);assert.deepEqual(binding,identity);},
-      sha,genericAccountIdentity,()=>{throw Error('synthetic fixture has no note grants');},port,(value,fields)=>assert.deepEqual(Object.keys(value).sort(),[...fields].sort()),
-      async(token,part,pid)=>{assert.equal(token,handle);assert.equal(part,'session');const actual=await readOriginalNativeSourceSessionKeeperV1(keeper,session);assert.equal(actual.ownedProcesses[0].pid,pid);return actual.ownedProcesses[0];});
-  const mocked=mock.module(graphURL.href,{namedExports:actual});t.after(()=>mocked.restore());
-  const sourceRequest={...request,kind:'TOP_UP'};
-  let prepared=null,effects=0,keeper;
+  const sourceRequest={...request,kind:'TOP_UP'},approval=Object.freeze({fixture:'original-note'});
+  let sectionRecord=null,updates=0,failAfterCandidate=false,prepared=null,effects=0,keeper,session;
   const authority={
     async assertAuthority(value){assert.deepEqual(value,genericAccountIdentity(config));return{version:1,available:true,identity:value};},
     async prepare(value){assert.ok(sectionRecord.data.candidate);prepared=value;return{version:1,state:'PREPARED',bindingSHA256:value.bindingSHA256,assetBindingSHA256:value.assetBindingSHA256};},
@@ -58,28 +38,69 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
     async observe({request:value,outcome,challenge}){return{version:1,status:'LIVE',bindingSHA256:value.bindingSHA256,assetBindingSHA256:value.assetBindingSHA256,
       outcomeId:outcome.outcomeId,challenge,observedAt:Date.now(),blockNumber:'20',blockHash:h(81),canonicalOutcomeBlockHash:h(81),backing:{held:'10',liabilities:'10',surplus:'0',deficit:'0'}};},
   };
-  t.after(async()=>{await keeper?.close().catch(()=>{});await rm(directory,{recursive:true,force:true});});
-  keeper=await createDurableGenericAccountKeeperV1({config,journal,authority});
-  const state={runtime,system,poolIndex:0,nativeAccount:account,durableKeeper:keeper,nativeFence:null,nativeCaptured:false,graphs:new Map(),notes:new Map(),
-    nativeSource:{identity,owner,session,handle,token:handle,section:null,busy:false,fault:false}};sessions.set(session,state);
+  const account={config,authority,features:{nativeManualNoteConsent:true},ownerView(){return{};}};
+  const mocks=[],forbidden=()=>{throw Error('HOST_SOURCE_UNUSED_PORT');};
+  const install=(path,exports)=>mocks.push(mock.module(new URL(path,backend),{exports}));
+  const unused=(path,names)=>install(path,Object.fromEntries(names.map(name=>[name,forbidden])));
+  t.after(async()=>{try{await session?.close().catch(()=>{});await keeper?.close().catch(()=>{});}finally{for(const installed of mocks.reverse())installed.restore();await rm(directory,{recursive:true,force:true});}});
+  install('accounts/authority/native-value-account-authority-v2.mjs',{
+    assertOwnedNativeValueAccountAuthority(value,binding){assert.equal(value,account);assert.equal(binding.runtime,runtime);assert.equal(binding.system,system);assert.equal(binding.poolIndex,0);if(binding.owner!==undefined)assert.equal(binding.owner,owner);},
+    assertOriginalNativeAccountSourceV1(value,binding){assert.equal(value,account);assert.deepEqual(binding,identity);},
+    nativeValueAccountManualGraphDetails:forbidden,assertNativeValueAccountManualGraphExecution:forbidden,
+    nativeValueAccountManualNoteDetails(value){assert.equal(value,approval);return{account,body:sourceRequest,review:{fixture:'lower-original-note-consent'}};},
+  });
+  install('operations/recovery/native-original-source-lifecycle-v1.mjs',{
+    nativeSourceRecoverySectionIdentityV1(value,part){assert.equal(value,token);assert.equal(part,'session');return identity;},
+    async nativeSourceRecoveryOwnedProcessV1(value,part,pid){assert.equal(value,token);assert.equal(part,'session');assert.notEqual(pid,process.pid);return processIdentity(pid);},
+    async retainOriginalNativeSourceSectionV1(value,part,section){assert.equal(value,token);assert.equal(part,'session');assert.equal(sectionRecord,null);sectionRecord=await sourceVault.create(section,sourcePassword);return handle;},
+    async updateOriginalNativeSourceSectionV1(original,next){assert.equal(original,handle);updates++;
+      const actual=await sourceVault.read(sourcePassword);assert.deepEqual(actual,sectionRecord);
+      const stored=await sourceVault.update(sourcePassword,actual.revision,()=>next);assert.deepEqual(await sourceVault.read(sourcePassword),stored);sectionRecord=stored;
+      if(failAfterCandidate&&next.candidate?.kind==='KEEPER_CAS')throw Object.assign(new Error('SYNTHETIC_SOURCE_REPLY_LOST'),{code:'SYNTHETIC_SOURCE_REPLY_LOST'});
+    },
+    consumeOriginalNativeSourceSectionV1:forbidden,resumeOriginalNativeSourceSectionV1:forbidden,
+  });
+  install('operations/deployments/native-value/native-value-system-v2.mjs',{
+    nativeValueOriginalRecoverySourceV1(value,contracts){assert.equal(value,runtime);assert.equal(contracts,system);return identity.sourceSHA256;},
+  });
+  unused('accounts/authority/flat-portfolio-authority.mjs',['assertOwnedFlatPortfolio','assertOwnedFlatPortfolioAccount']);
+  unused('accounts/authority/flat-account-authority.mjs',['flatAccountManualGraphDetails','assertFlatAccountManualGraphExecution']);
+  unused('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',['assertNativeEconomicRecoveryCaptureV1','nativeEconomicRecoverySectionIdentityV1','consumeNativeEconomicRecoverySectionV1']);
+  unused('accounts/authority/wrapped-wallet-account-authority-v1.mjs',['wrappedWalletAccountManualGraphDetailsV1','assertWrappedWalletAccountManualGraphExecutionV1']);
+  unused('accounts/portfolio/wrapped-wallet-portfolio-v1.mjs',['assertOwnedWrappedWalletPortfolioV1','assertOwnedWrappedWalletPortfolioAccountV1','claimWrappedWalletPortfolioJournalV1']);
+  unused('claims/operations/portfolio-view.mjs',['readOriginalNativeClaimPortfolioViewV1']);
+  const economic=Object.freeze({async close(){return{closed:true};}});let economicInput;
+  install('accounts/state/original-wallet-economic-state-v1.mjs',{
+    async createOriginalWalletEconomicStateV1(input){economicInput=input;return economic;},
+    assertOriginalWalletEconomicStateV1(value){assert.equal(value,economic);},
+    assertOriginalWalletEconomicStateJournalV1(value,settings){assert.equal(value,economic);assert.deepEqual(settings,economicInput.journal);},
+    originalWalletEconomicStateBindingsV1(value){assert.equal(value,economic);return economicInput.nativeAccounts;},
+  });
+  install('accounts/storage/durable-generic-account-keeper.mjs',{
+    ...durableKeeperAPI,
+    async createDurableGenericAccountKeeperV1(input){assert.equal(keeper,undefined);keeper=await createDurableGenericAccountKeeperV1(input);return keeper;},
+  });
+  const actual=await import('../../../src/api/accounts/flat-manual-graph-session.mjs');
+  const joined=await actual.createOriginalNativeSourceGraphAccountSessionV1(token,{runtime,system,poolIndex:0,account,journal,owner});
+  session=joined.session;
   const snapshot=await readOriginalNativeSourceSessionKeeperV1(keeper,session);
-  const seed={schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SEED_V1',sourceSHA256:identity.sourceSHA256,poolIndex:0,accountIdentitySHA256:sha(genericAccountIdentity(config)),
-    journalRevision:snapshot.keeper.checkpoint.revision,keeper:snapshot.keeper,notes:[]};
-  const section={schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1',sourceSHA256:identity.sourceSHA256,ownedProcesses:snapshot.ownedProcesses,confirmed:seed,candidate:null};
-  sectionRecord=await sourceVault.create(section,sourcePassword);state.nativeSource.section=structuredClone(section);
-  await assert.rejects(bindOriginalNativeSourceSessionKeeperV1(keeper, {...session}), {code: 'NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED'});
-  await bindOriginalNativeSourceSessionKeeperV1(keeper,session);
+  assert.throws(()=>actual.assertOriginalNativeSessionSourceKeeperV1({...session},keeper),{code:'NATIVE_SOURCE_ORIGINAL_SESSION_REQUIRED'});
+  assert.throws(()=>actual.assertOriginalNativeSessionSourceKeeperV1(session,{...keeper}),{code:'NATIVE_SOURCE_ORIGINAL_KEEPER_CHANGED'});
   assert.equal(snapshot.ownedProcesses.length,1);assert.deepEqual(Object.keys(snapshot.ownedProcesses[0]).sort(),['pgrp','pid','session','startTicks','uid']);
   assert.equal(snapshot.ownedProcesses[0].uid,process.getuid());assert.ok(snapshot.ownedProcesses[0].pid!==process.pid);
+  assert.deepEqual(snapshot.ownedProcesses[0],await processIdentity(snapshot.ownedProcesses[0].pid));
   await assert.rejects(readOriginalNativeSourceSessionKeeperV1(keeper,{}),{code:'JOURNAL_SOURCE_ORIGINAL_SESSION_CHANGED'});
-  const result=await actual.originalSourceSessionWork(session,()=>keeper.prepare(sourceRequest));assert.equal(result.state,'PREPARED');
+  await joined.bindManualNote(approval);
+  const admitted=session.prepare(sourceRequest);assert.equal(admitted.admitted,true);
+  const ready=await session.idle();assert.equal(ready.requests[0].state,'PREPARED');assert.equal(ready.admissions.at(-1).state,'SUCCEEDED');
   assert.equal(sectionRecord.data.candidate,null);assert.ok(updates>=4);assert.equal(sectionRecord.data.confirmed.journalRevision,(await keeper.snapshot()).revision);
   const current=await readOriginalNativeSourceSessionKeeperV1(keeper,session);assert.deepEqual(sectionRecord.data.confirmed.keeper,current.keeper);
   failAfterCandidate=true;
-  await assert.rejects(actual.originalSourceSessionWork(session,()=>keeper.execute(sourceRequest.requestId)));
-  assert.equal(effects,0);assert.equal(state.nativeSource.fault,true);assert.equal(sectionRecord.data.candidate.kind,'KEEPER_CAS');
+  assert.equal(session.execute(sourceRequest.requestId).admitted,true);
+  const failed=await session.idle();assert.equal(failed.admissions.at(-1).state,'FAILED');
+  assert.equal(effects,0);assert.equal(sectionRecord.data.candidate.kind,'KEEPER_CAS');
   await assert.rejects(readOriginalNativeSourceSessionKeeperV1(keeper,session),{code:'NATIVE_SOURCE_SESSION_UNAVAILABLE'});
-  await assert.rejects(actual.originalSourceSessionWork(session,()=>keeper.execute(sourceRequest.requestId)),{code:'NATIVE_SOURCE_SESSION_UNAVAILABLE'});
+  await assert.rejects(joined.bindManualNote(approval),{code:'NATIVE_SOURCE_SESSION_UNAVAILABLE'});
   assert.equal(effects,0);assert.deepEqual(await new Vault(journal.path).read(journal.password).then(value=>value.data.requests[0].state),'PREPARED');
 });
 

@@ -9,8 +9,7 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {request} from 'node:http';
 import {Vault} from '@lianum/engine/crypto/vault';
-import {sha, genericAccountIdentity} from '@lianum/engine/accounts/journal';
-import {exactRecord} from '@lianum/components/encoding/commitments';
+import {genericAccountIdentity} from '@lianum/engine/accounts/journal';
 let createFlatAccountSession;
 import {ORIGINAL_SPL_USDC_UNITS_V1} from '../../../../mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
 import {validateOriginalWalletEconomicStateV1, projectOriginalWalletEconomicStateV1, originalEconomicRouteKeyV1}
@@ -19,14 +18,37 @@ import {validateWalletState, projectWalletState} from '../../../../mobile-protoc
 const mapped = new URL(import.meta.url).pathname.includes('/wallet-platform/modules/');
 const moduleURL = (raw, flat) => new URL(mapped ? flat : raw, import.meta.url);
 const catalogues = new WeakMap(), natives = new WeakMap(), pairs = new WeakMap(), positions = new WeakMap(), wrapped = new WeakMap();
-let economicSessionHelpers;
 const no = () => {throw Error('SYNTHETIC_LOWER_PORT_REJECTED');};
+// Unused sibling services cannot supply authority to these observation tests.
+mock.module(new URL('../../../src/claims/controller/controller.mjs',import.meta.url),{exports:{
+ assertOriginalDeviceRootClaimIntakeV2:no,readOriginalDeviceRootClaimIntakeContextV2:no,readOriginalDeviceRootClaimEconomicSnapshotV2:no,
+}});
+for(const [specifier,names] of [
+ ['@lianum/backend/withdrawals/session',['assertOwnedWrappedWithdrawalSessionV1']],
+ ['@lianum/backend/claims/session',['assertWalletClaimSession','walletClaimSessionIdentity']],
+ ['@lianum/backend/defi/withdrawal',['assertOwnedPrivateVaultExit']],
+ ['@lianum/backend/portfolio/erc20',['createHttpErc20Portfolio']],
+ ['@lianum/backend/portfolio/http',['createHttpPortfolioRegistry']],
+ ['@lianum/backend/portfolio/requests',['normalizePortfolioRequest']],
+ ['@lianum/backend/transfers/tron',['assertTronNativeTransferObserver']],
+ ['@lianum/backend/transfers/evm',['assertEvmNativeTransferObserver']],
+])mock.module(specifier,{exports:Object.fromEntries(names.map(name=>[name,no]))});
 // Only the lower claim/runtime/keeper memberships are synthetic ports. The
 // view issuer/body, real account session, Vault AES/CAS and owner HTTP are real.
-let claimViewFunctions;
-const claimOriginals=new WeakMap(), claimKeeperOriginals=new WeakMap();
-mock.module(moduleURL('../../../src/claims/operations/portfolio-view.mjs','../../native-claims/portfolio-view.mjs'),{namedExports:{
- readOriginalNativeClaimPortfolioViewV1(...args){return claimViewFunctions.readOriginalNativeClaimPortfolioViewV1(...args);},
+const claimOriginals=new WeakMap(), claimKeeperOriginals=new WeakMap(), claimObservers=new WeakMap(), claimQuorums=new WeakMap(), claimPortfolios=new WeakMap();
+mock.module(moduleURL('../../../src/accounts/authority/flat-portfolio-authority.mjs','../../global-state/flat-portfolio-authority.mjs'),{exports:{
+ assertOwnedFlatPortfolio(runtime,portfolio){const fixture=claimPortfolios.get(portfolio)??cataloguePortfolios.get(portfolio);assert.equal(fixture?.runtime,runtime);},
+ describeFlatPortfolioJournalAuthority(runtime,portfolio){const fixture=cataloguePortfolios.get(portfolio);assert.equal(fixture?.runtime,runtime);return fixture.owner;},
+}});
+mock.module(moduleURL('../../../src/operations/deployments/claims/deploy-native-claims.mjs','../../native-claims/deploy-native-claims.mjs'),{exports:{
+ assertOwnedNativeClaimSystem(runtime,claims){assert.equal(claimOriginals.get(claims)?.runtime,runtime);},
+}});
+mock.module(moduleURL('../../../src/claims/operations/owned-state.mjs','../../native-claims/owned-state.mjs'),{exports:{
+ assertOwnedClaimObserver(observer){assert.ok(claimObservers.has(observer));},
+ ownedClaimObserverBindings(observer){assert.ok(claimObservers.has(observer));return claimObservers.get(observer);},
+}});
+mock.module(moduleURL('../../../src/claims/operations/operators.mjs','../../native-claims/operators.mjs'),{exports:{
+ assertOwnedClaimOperatorQuorum(quorum,observer){assert.equal(claimQuorums.get(quorum),observer);},
 }});
 mock.module(moduleURL('../../../src/claims/operations/native-claim-asset-units-v1.mjs','../../native-claims/native-claim-asset-units-v1.mjs'),{namedExports:{
  originalNativeClaimAssetUnitsV1(runtime,claims,config){const original=claimOriginals.get(claims);assert.ok(original&&original.runtime===runtime&&claims.configs.includes(config));return original.units.get(config);},
@@ -34,6 +56,23 @@ mock.module(moduleURL('../../../src/claims/operations/native-claim-asset-units-v
 mock.module(moduleURL('../../../../engine/src/execution/accounts/generic-account-keeper.mjs','../../../../../../omnichain-product/src/paeg/generic-account-keeper.mjs'),{namedExports:{
  assertOriginalGenericAccountKeeperV1(keeper,expected){const original=claimKeeperOriginals.get(keeper);assert.ok(original&&original.authority===expected.authority);assert.deepEqual(original.config,expected.config);},
 }});
+// Complete generation/catalogue factories. Only their lower portfolio,
+// admission and child-keeper ports are inert observation fixtures.
+const cataloguePortfolios=new WeakMap(),catalogueKeepers=new WeakMap(),catalogueAdmissions=new WeakMap();
+mock.module(new URL('../../../src/accounts/authority/flat-pool-admission-policy.mjs',import.meta.url),{exports:{
+ assertOwnedFlatPoolAdmissionPolicy(policy,owner){assert.equal(catalogueAdmissions.get(policy),owner);},
+}});
+mock.module(new URL('../../../src/accounts/portfolio/flat-manual-portfolio-keeper.mjs',import.meta.url),{exports:{
+ async createFlatManualPortfolioKeeper({runtime,portfolio,journal}){const fixture=cataloguePortfolios.get(portfolio);assert.equal(fixture?.runtime,runtime);assert.deepEqual(fixture.journal,journal);return fixture.keeper;},
+ assertOwnedFlatManualPortfolioKeeper(keeper,{runtime,portfolio}){const fixture=catalogueKeepers.get(keeper);assert.equal(fixture?.runtime,runtime);assert.equal(fixture?.portfolio,portfolio);},
+ createRetainedFlatManualPortfolioKeeperV1:no,captureRetainedFlatManualPortfolioKeeperV1:no,
+}});
+mock.module(new URL('../../../src/accounts/authority/flat-account-authority.mjs',import.meta.url),{exports:{retainedFlatAccountInventoryV1:no,assertRetainedExternalVaultNoteAccountV1:no}});
+mock.module(new URL('../../../src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs',import.meta.url),{exports:{consumeExternalDefiCatalogueGenerationReopenV1:no}});
+mock.module(new URL('../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',import.meta.url),{exports:{
+ retainWrappedPrivateLifetimePartV1:no,readWrappedPrivateLifetimePartV1:no,updateWrappedPrivateLifetimePartV1:no,assertWrappedPrivateLifetimePartSealedV1:no,
+}});
+const catalogueAPI=await import('../../../src/accounts/storage/flat-journal-catalogue.mjs');
 mock.module(moduleURL('../../../src/accounts/storage/flat-journal-catalogue.mjs', '../../global-state/flat-journal-catalogue.mjs'), {namedExports: {
   assertOwnedFlatJournalCatalogue(value, expected) {if (catalogues.get(value)?.runtime !== expected.runtime) no();},
   assertOwnedFlatJournalCatalogueAccount() {no();},
@@ -45,9 +84,9 @@ mock.module(moduleURL('../../../src/accounts/authority/native-value-account-auth
 // synthetic port; no copied session/portfolio is admitted by that port.
 mock.module(moduleURL('../../../src/api/accounts/flat-manual-graph-session.mjs', '../../api/flat-manual-graph-session.mjs'), {namedExports: {
   assertFlatManualGraphCatalogueSession(session, expected) {const p = pairs.get(session); if (!p || p.runtime !== expected.runtime || p.catalogue !== expected.catalogue) no();},
-  assertNativeWalletEconomicSessionV1(...args) {return economicSessionHelpers.assertNativeWalletEconomicSessionV1(...args);},
-  assertWrappedWalletEconomicSessionV1(...args) {return economicSessionHelpers.assertWrappedWalletEconomicSessionV1(...args);},
-  readOriginalSessionWalletEconomicSnapshotV1(...args) {return economicSessionHelpers.readOriginalSessionWalletEconomicSnapshotV1(...args);},
+  assertNativeWalletEconomicSessionV1() {no();},
+  assertWrappedWalletEconomicSessionV1() {no();},
+  readOriginalSessionWalletEconomicSnapshotV1() {no();},
   flatManualGraphReviews() {return [];}, flatManualGraphActionTarget() {return null;}, flatManualGraphHandoffBindings() {return [];},
   flatManualNativeNoteReviews() {return [];}, flatManualNativeNoteActionTarget() {return null;}, flatManualWrappedGraphActionTarget() {return null;},
 }});
@@ -63,7 +102,7 @@ mock.module(moduleURL('../../../src/defi/withdrawals/generation-private-vault-ex
 // which can otherwise cache the real claim issuer in the session module.
 const {projectPrivatePositionStateV2}=await import('../../../src/defi/positions/private-position-state-v2.mjs');
 ({createFlatAccountSession}=await import('../../../src/api/accounts/flat-account-session.mjs'));
-const {createOriginalWalletEconomicStateV1, openOriginalWalletEconomicStateV1, reopenOriginalWalletEconomicStateAfterCrashV1, assertOriginalWalletEconomicStateV1,assertOriginalWalletEconomicStateJournalV1,originalWalletEconomicStateBindingsV1} = await import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs');
+const {createOriginalWalletEconomicStateV1, openOriginalWalletEconomicStateV1, assertOriginalWalletEconomicStateV1} = await import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs');
 const {startWalletApplication} = await import('../../../../../apps/wallet/src/server/server.mjs');
 const h = v => createHash('sha256').update(v).digest('hex');
 const asset = (id, domain, token = '3'.repeat(40)) => ({assetId: id, kind: 'ERC20', symbol: 'USDC', decimals: 6,
@@ -180,161 +219,44 @@ test('original economic union keeps domains, original pending/position heads, CA
 });
 
 
-// This case runs the original session membership/installation/capture bodies.
-// Only account/portfolio/proof memberships and generic keeper capture are
-// explicit inert HOST ports; no native chain or economic execution is used.
-test('HOST original native and wrapped sessions retain pending economic state and recover durable anchor candidates', async t => {
-  const directory=await mkdtemp(join(tmpdir(),'original-session-economic-host-'));await chmod(directory,0o700);t.after(()=>rm(directory,{recursive:true,force:true}));
-  const text=await readFile(moduleURL('../../../src/api/accounts/flat-manual-graph-session.mjs','../../api/flat-manual-graph-session.mjs'),'utf8');
-  const start=text.indexOf('export function assertNativeWalletEconomicSessionV1('),end=text.indexOf('/** Distinct original registry',start);assert.ok(start>0&&end>start);
-  const originalBodies=text.slice(start,end).replaceAll('export ','').replace(/const module=await import\('[^']+'\);/g,'const module=modulePort;');
-  const sessions=new WeakMap(),details=new WeakMap(),authority=Object.freeze({}),section=Object.freeze({}),sourceSHA256=h('original-state-source'),identity={sourceSHA256};let keeperCaptures=0,effects=0;
-  const need=(value,code)=>{if(!value)throw Object.assign(Error(code),{code});};
-  const nativeAssert=(value,expected)=>{const p=natives.get(value);need(p?.runtime===expected.runtime&&p.system===expected.system,'HOST_NATIVE_ORIGINAL_REQUIRED');};
-  const wrappedAssert=(runtime,value)=>need(wrapped.get(value)?.runtime===runtime,'HOST_WRAPPED_ORIGINAL_REQUIRED');
-  const detail=(_session,approval)=>{const value=details.get(approval);need(value,'HOST_ORIGINAL_APPROVAL_REQUIRED');return value;};
-  const modulePort={createOriginalWalletEconomicStateV1,openOriginalWalletEconomicStateV1,reopenOriginalWalletEconomicStateAfterCrashV1,assertOriginalWalletEconomicStateV1,assertOriginalWalletEconomicStateJournalV1,originalWalletEconomicStateBindingsV1};
-  const APIs=Function('sessions','need','exactRecord','sha','assertOwnedNativeValueAccountAuthority','assertOwnedWrappedWalletPortfolioV1','original','originalNote','modulePort',originalBodies+
-    ';return {assertNativeWalletEconomicSessionV1,assertWrappedWalletEconomicSessionV1,readOriginalSessionWalletEconomicSnapshotV1,createOriginalSessionWalletEconomicStateV1,reopenOriginalSessionWalletEconomicStateAfterCrashV1,readOriginalSessionWalletEconomicStateV1,sessionEconomicState,fenceSessionEconomicState,capturedSessionEconomicState};')
-    (sessions,need,exactRecord,sha,nativeAssert,wrappedAssert,detail,detail,modulePort);economicSessionHelpers=APIs;
-  const captureBody=(begin,finish)=>{const a=text.indexOf(begin),b=text.indexOf(finish,a);assert.ok(a>=0&&b>a);return text.slice(a,b).replaceAll('export ','')
-    .replace(/const \{\s*captureDurableGenericAccountKeeperV1\s*\}\s*=\s*await import\('[^']+'\);/g,'const {captureDurableGenericAccountKeeperV1}=keeperPort;');};
-  const keeperPort={async captureDurableGenericAccountKeeperV1(keeper){keeperCaptures++;await keeper.close();return {checkpoint:h('keeper-checkpoint'),journal:keeper.originalJournal};}};
-  const nativeCaptureCode=captureBody('export function fenceOriginalNativeSessionEconomicRecoveryV1(', 'export async function stopCapturedNativeSessionEconomicRecoveryV1(');
-  const nativeCapture=Function('sessions','need','sha','genericAccountIdentity','assertNativeEconomicRecoveryCaptureV1','nativeValueOriginalRecoverySourceV1','nativeEconomicRecoverySectionIdentityV1','assertOwnedNativeValueAccountAuthority','originalNote','fenceSessionEconomicState','capturedSessionEconomicState','keeperPort',nativeCaptureCode+
-    ';return {fenceOriginalNativeSessionEconomicRecoveryV1,captureOriginalNativeSessionEconomicRecoveryV1};')
-    (sessions,need,sha,genericAccountIdentity,value=>{need(value===authority,'HOST_ISSUER_ORIGINAL_REQUIRED');return identity;},()=>sourceSHA256,(value,kind)=>{need(value===section&&kind==='session','HOST_SECTION_ORIGINAL_REQUIRED');return identity;},nativeAssert,detail,APIs.fenceSessionEconomicState,APIs.capturedSessionEconomicState,keeperPort);
-  const wrappedFenceCode=captureBody('export function fenceWrappedWalletGraphSessionV1(', '/** Same original durable generic keeper');
-  const wrappedCaptureCode=captureBody('export async function captureWrappedWalletGraphSessionV1(', 'export async function reopenWrappedWalletGraphSessionV1(');
-  const wrappedCapture=Function('sessions','need','original','fenceSessionEconomicState','capturedSessionEconomicState','keeperPort',wrappedFenceCode+wrappedCaptureCode+
-    ';return {fenceWrappedWalletGraphSessionV1,captureWrappedWalletGraphSessionV1};')(sessions,need,detail,APIs.fenceSessionEconomicState,APIs.capturedSessionEconomicState,keeperPort);
-  async function family(kind,recovered=null,crashName=null,password='original-observation-private-password'){
-    const runtime={},system={},a=asset(h(kind+'-a'),'first'),b=asset(h(kind+'-b'),'second');let phase='PREPARED',viewChanged=false;
-    const requestId=kind+'_original_request',body={requestId,kind:kind==='native'?'TOP_UP':'GRAPH',ownerOperationRef:h(kind+'-ref'),assetId:a.assetId};
-    const journal={path:join(directory,(crashName?.replace(/-restored$/,'')??kind)+'.session.vault'),password};
-    const observed=()=>{const one=view(a,10,'10');if(phase==='CONFIRMED')one.requests=[{requestId,kind:body.kind,state:'CONFIRMED',disposition:kind==='native'?'APPLIED':'FULFILLED'}];return one;};
-    let account,portfolio;
-    if(kind==='native'){account={config:{accountId:'native_state_account',journalId:'native_state_journal',lifetime:h('native-state-lifetime'),registry:[a]},registry:[a],
-      async privateStatus(){return {operations:phase==='CONFIRMED'?[{request:body,outcome:'APPLIED'}]:[]};},async ownerView(){const out=observed();if(viewChanged)phase='UNKNOWN';return out;}};natives.set(account,{runtime,system});}
-    else{portfolio={config:{accountId:'wrapped_state_account',journalId:'wrapped_state_journal',lifetime:h('wrapped-state-lifetime'),registry:[a,b]},registry:[a,b],
-      async ownerView(){const one=observed(),two={...view(b,10,'3'),observed:one.observed};if(viewChanged)phase='UNKNOWN';return{version:1,profile:'OWNED_WRAPPED_WALLET_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:one.observed,assets:[one,two],
-        capabilities:{coordinatorRestart:true,keeperRestart:false,crossAssetAtomicConversion:false,privateDeFiComposability:false,fullWalletAcceptance:false}};}};wrapped.set(portfolio,{runtime});}
-    const keeper={originalJournal:journal,async snapshot(){return{version:1,revision:phase==='PREPARED'?1:2,storageAvailable:true,requests:[{requestId,kind:body.kind,assetId:a.assetId,state:phase,errorCode:null}]};},
-      async close(){},async prepare(){effects++;no();},async execute(){effects++;no();},async recover(){effects++;no();},async reconcile(){effects++;no();},async restartCoordinator(){no();}};
-    const session=await createFlatAccountSession({keeper,ownerHandoff:account??portfolio});t.after(()=>session.close());
-    const approval=Object.freeze({}),state={runtime,system,poolIndex:0,nativeAccount:account,wrappedPortfolio:portfolio,journal,durableKeeper:keeper,graphs:new Map(),notes:new Map(),nativeCaptured:false,nativeFence:null,nativeIdentity:null,nativeStopped:false,captured:false};
-    details.set(approval,{body,review:{profile:'EXPLICIT_INERT_ORIGINAL_APPROVAL_PORT'}});(kind==='native'?state.notes:state.graphs).set(requestId,approval);sessions.set(session,state);
-    if(recovered){phase='CONFIRMED';await APIs.sessionEconomicState(session,recovered);}
-    const economicState=recovered?APIs.readOriginalSessionWalletEconomicStateV1(session):crashName?.endsWith('-restored')
-      ?await APIs.reopenOriginalSessionWalletEconomicStateAfterCrashV1(session):await APIs.createOriginalSessionWalletEconomicStateV1(session);
-    return{state,session,economicState,runtime,system,account,portfolio,journal,body,setPhase(value){phase=value;},changeDuringView(value){viewChanged=value;}};
-  }
-  for(const kind of ['native','wrapped']){
-    const original=await family(kind),{economicState,session,body}=original;
-    await assert.rejects(APIs.createOriginalSessionWalletEconomicStateV1({...session}));
-    await assert.rejects(APIs.createOriginalSessionWalletEconomicStateV1(session));
-    assert.equal(originalWalletEconomicStateBindingsV1(economicState)[0].session,session);
-    let output=await economicState.observe();assert.equal(output.rows[0].state,'UNKNOWN');assert.equal(output.rows[0].requests[0].state,'PREPARED');assert.equal(output.rows[0].balances,null);
-    original.setPhase('UNKNOWN');output=await economicState.observe();assert.equal(output.rows[0].requests[0].state,'UNKNOWN');assert.equal(output.rows[0].balances,null);
-    original.setPhase('CONFIRMED');output=await economicState.observe();assert.equal(output.rows[0].state,'LIVE');assert.equal(output.rows[0].requests[0].disposition,kind==='native'?'APPLIED':'FULFILLED');
-    const app=await startWalletApplication({accountSession:session,economicState,actionAccessMode:'exact-only',port:0});t.after(()=>app.close());
-    assert.equal((await http(app,'0'.repeat(64))).status,403);const response=await http(app);assert.equal(response.status,200);assert.equal(validateWalletState(response.body).economicState.rows[0].requests[0].requestId,body.requestId);await app.close();
-    original.changeDuringView(true);output=await economicState.observe();assert.equal(output.rows[0].state,'UNKNOWN');assert.equal(output.rows[0].balances,null);original.changeDuringView(false);original.setPhase('CONFIRMED');await economicState.observe();
-    let record;
-    if(kind==='native'){nativeCapture.fenceOriginalNativeSessionEconomicRecoveryV1(session,authority);record=await nativeCapture.captureOriginalNativeSessionEconomicRecoveryV1(session,section);assert.equal(record.schema,'ORIGINAL_NATIVE_SESSION_WALLET_STATE_RECOVERY_V1');}
-    else{wrappedCapture.fenceWrappedWalletGraphSessionV1(session);record=await wrappedCapture.captureWrappedWalletGraphSessionV1(session);assert.equal(record.schema,'WRAPPED_ORIGINAL_GRAPH_SESSION_ECONOMIC_RECOVERY_V1');}
-    assert.throws(()=>economicState.observe(),/CLOSED/);assert.equal(record.economicState.journal.path,original.journal.path+'.economic-state.vault');
-    const privateCapture=new Vault(join(directory,kind+'.capture.vault')),key='inert-private-section-password';await privateCapture.create({session:record},key);
-    const authenticated=(await new Vault(privateCapture.path).read(key)).data.session;const restored=await family(kind,authenticated.economicState);t.after(()=>restored.economicState.close());
-    output=await restored.economicState.snapshot();assert.equal(output.rows[0].state,'STALE');assert.equal(output.rows[0].balances,null);output=await restored.economicState.observe();assert.equal(output.rows[0].state,'LIVE');
-    assert.equal(restored.economicState.checkpoint().lifetime,authenticated.economicState.checkpoint.lifetime);await restored.economicState.close();
-    const stateVault=new Vault(authenticated.economicState.journal.path);await stateVault.update(authenticated.economicState.journal.password,authenticated.economicState.checkpoint.revision,data=>({...data,checkpoints:data.checkpoints.map(c=>({...c,stateSHA256:h('unrelated')}))}));
-    await assert.rejects(family(kind,authenticated.economicState),/ORIGINAL_CHECKPOINT_REQUIRED/);
-  }
-  // Explicit HOST crash boundaries: close/dispose the failed observer WITHOUT
-  // capture; lower source/keeper restoration is synthetic, while this real
-  // session and its original journal membership are used unchanged. No abrupt
-  // runtime, owner-key or native-transaction recovery is claimed by this case.
-  for(const [kind,committed] of [['native',true],['wrapped',false]]) {
-    const name='anchor-'+kind,original=await family(kind,null,name),state=original.economicState;
-    original.setPhase('UNKNOWN');const baseline=await state.observe(),birth=state.checkpoint();
-    await assert.rejects(APIs.reopenOriginalSessionWalletEconomicStateAfterCrashV1({...original.session}));
-    // A second same-source observer cannot bypass the live writer lease.
-    await assert.rejects(reopenOriginalWalletEconomicStateAfterCrashV1({catalogues:[],nativeAccounts:kind==='native'?[{runtime:original.runtime,system:original.system,account:original.account,session:original.session}]:[],
-      wrappedPortfolios:kind==='wrapped'?[{runtime:original.runtime,portfolio:original.portfolio,session:original.session}]:[],journal:{path:original.journal.path+'.economic-state.vault'}}),/ANCHOR_WRITER_STILL_LIVE/);
-    const update=Vault.prototype.update,firstError=Error('EXPLICIT_HOST_LOST_STATE_WRITE_REPLY');let inject=true;
-    Vault.prototype.update=async function(password,revision,transform){
-      if(this.path===original.journal.path+'.economic-state.vault'&&inject){inject=false;if(committed)await update.call(this,password,revision,transform);throw firstError;}
-      return update.call(this,password,revision,transform);
-    };
-    original.setPhase('CONFIRMED');try{await assert.rejects(state.observe(),error=>error===firstError);}finally{Vault.prototype.update=update;}
-    assert.equal((await state.snapshot()).rows[0].balances,null);await state.close();
-    const anchorPath=original.journal.path+'.economic-state.vault.original-state-anchor-v1',secret=await readFile(join(anchorPath,'local-observation-root.secret'));
-    let retained;try{retained=(await new Vault(join(anchorPath,'anchor.vault')).read(secret.toString('hex'))).data;}finally{secret.fill(0);}
-    assert.equal(retained.confirmed.revision,birth.revision);assert.equal(retained.candidate.revision,birth.revision+1);
-    assert.equal(retained.lifetime,birth.lifetime);
-    await assert.rejects(family(kind,null,name+'-restored','wrong-original-source-journal-password'),/ORIGINAL_JOURNAL_REQUIRED/);
-    const restored=await family(kind,null,name+'-restored');t.after(()=>restored.economicState.close());
-    let output=await restored.economicState.snapshot();assert.equal(output.lifetime,birth.lifetime);assert.equal(output.revision,birth.revision+(committed?1:0));
-    assert.equal(output.rows[0].balances,null);assert.ok(['STALE','UNKNOWN'].includes(output.rows[0].state));
-    assert.equal(restored.economicState.checkpoint().lifetime,birth.lifetime);
-    restored.setPhase('UNKNOWN');output=await restored.economicState.observe();assert.equal(output.rows[0].state,'UNKNOWN');assert.equal(output.rows[0].balances,null);
-    await restored.economicState.close();
-    // Authenticated but unpinned third revision is never adopted as latest.
-    const rogue=new Vault(original.journal.path+'.economic-state.vault');const actual=await rogue.read('original-observation-private-password');
-    await rogue.update('original-observation-private-password',actual.revision,data=>({...data,checkpoints:data.checkpoints.map(row=>({...row,stateSHA256:h('unrelated-anchor-revision')}))}));
-    await assert.rejects(family(kind,null,name+'-restored'),/ANCHOR_CHECKPOINT_REQUIRED/);
-    assert.equal(baseline.rows[0].requests[0].state,'UNKNOWN');
-  }
-  assert.equal(keeperCaptures,2);assert.equal(effects,0);
-});
-
-
-// The append method below is the original catalogue body. Catalogue/generation
-// membership and native admission readers remain explicit inert HOST ports;
-// both its catalogue writes and the observation union use real Vault/AES/CAS.
+// Original factories retain their own generation/catalogue identities. The
+// observation facade below injects invalid catalogue DTOs only for the economic
+// reader's negative cases; it never becomes an original catalogue capability.
 test('HOST original catalogue append preserves old routes and reopens the same economic journal', async t => {
   const directory=await mkdtemp(join(tmpdir(),'original-economic-append-host-'));await chmod(directory,0o700);
   let state,session; t.after(async()=>{try{await state?.close();await session?.close();}finally{await rm(directory,{recursive:true,force:true});}});
-  const runtime={},a=asset(h('append-a'),'first'),b={...a,assetId:h('append-b'),pool:'2'.repeat(40),scope:h('append-b-scope')};
+  const a=asset(h('append-a'),'first'),b={...a,assetId:h('append-b'),pool:'2'.repeat(40),scope:h('append-b-scope')},runtime={metadata:{evmGenesis:a.genesis}};
   const common={economicIdentitySHA256:h('append-economic'),registryProfile:'LIANUM_FLAT_APPEND_ONLY_POOLS_V2',
     genesis:a.genesis,chainId:a.chainId,hub:'6'.repeat(40),hubDomain:h('append-hub'),ledgerNamespace:h('append-ledger'),
     registryCommitment:h('append-registry'),verifierSetCommitment:h('append-verifiers'),sourceProvenanceSHA256:h('append-provenance'),
     keyLineageSHA256:h('append-lineage'),sourceManifestSHA256:h('append-source'),keyManifestSHA256:h('append-keys')};
-  const makeGeneration=(asset,predecessor)=>{const config={accountId:'host_append_'+asset.assetId.slice(0,16),journalId:'host_append_journal_'+asset.assetId.slice(0,16),lifetime:h('append-lifetime-'+asset.assetId),registry:[asset]};
+  async function makeGeneration(asset,predecessor,block,amount){
+    const config={accountId:'host_append_'+asset.assetId.slice(0,16),journalId:'host_append_journal_'+asset.assetId.slice(0,16),lifetime:h('append-lifetime-'+asset.assetId),registry:[asset]};
     const routes=[{...common,assetId:asset.assetId,pool:asset.pool,domainCommitment:h('append-domain-'+asset.assetId),predecessorPool:predecessor}];
-    return {id:h('append-generation-'+asset.assetId),identity:genericAccountIdentity(config),config,routes,admissionAssets:[asset.assetId],
-      retained:true,attached:false,journalPath:join(directory,asset.assetId+'.vault'),poolAdmissions:{async verifyFreshGeneration(){return routes.map(route=>({route}));}}};};
-  const first=makeGeneration(a,'0'.repeat(40)),next=makeGeneration(b,a.pool),capability=Object.freeze({}),generationBrands=new WeakMap([[capability,next]]);
-  first.attached=true;const byId=new Map([[first.id,first]]),byAsset=new Map([[a.assetId,first.id]]),catalogueClaims=new WeakSet();
-  const descriptor=g=>({generationId:g.id,identity:g.identity,registry:g.config.registry,routes:g.routes,admissionAssets:g.admissionAssets});
+    const keeper={async snapshot(){return{version:1,revision:0,storageAvailable:true,requests:[]};},async close(){return{closed:true};},prepare:no,execute:no,reconcile:no,recover:no,restartCoordinator:no};
+    const portfolio={config,async ownerView(){const observed=view(asset,block,amount);return{version:1,profile:'OWNED_FLAT_PRIVATE_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:observed.observed,assets:[observed],
+      capabilities:{coordinatorRestart:true,keeperRestart:false,crossAssetAtomicConversion:false,privateDeFiComposability:false,fullWalletAcceptance:false}};}};
+    const owner={accounts:[]},poolAdmissions={async verifyFreshGeneration(){return routes.map(route=>({route}));},status(){return{current:[asset.assetId]};}};
+    const journal={path:join(directory,asset.assetId+'.vault'),password:'original-child-journal-password'};
+    cataloguePortfolios.set(portfolio,{runtime,owner,keeper,journal});catalogueKeepers.set(keeper,{runtime,portfolio});catalogueAdmissions.set(poolAdmissions,owner);
+    return catalogueAPI.createFlatJournalGeneration({runtime,portfolio,poolAdmissions,journal});
+  }
+  const first=await makeGeneration(a,'0'.repeat(40),10,'10'),next=await makeGeneration(b,a.pool,20,'3');
   const catalogueVault=new Vault(join(directory,'catalogue.vault')),cataloguePassword='original-append-catalogue-password';
-  let catalogueRecord=await catalogueVault.create({generations:[descriptor(first)],current:{[common.economicIdentitySHA256]:a.assetId},bindings:[],events:[]},cataloguePassword);
-  const catalogueText=await readFile(moduleURL('../../../src/accounts/storage/flat-journal-catalogue.mjs','../../global-state/flat-journal-catalogue.mjs'),'utf8');
-  const begin=catalogueText.indexOf('    async appendGeneration(capability) {'),end=catalogueText.indexOf('    async reviewOwnerPreparation(',begin);
-  assert.ok(begin>0&&end>begin);const appendBody=catalogueText.slice(begin,end);
-  const requirement=(ok,code)=>assert.ok(ok,'HOST_ORIGINAL_APPEND_'+code);
-  const appender=Function('p',`const {runtime,byId,byAsset,path,assert,descriptor,catalogueClaims,write,originalGeneration,requireTrue}=p;
-    const durable=null;let pendingGeneration=null;const newAdmissionsHealthy=async()=>{};const exclusive=work=>work();
-    return Object.freeze({${appendBody}});`)({runtime,byId,byAsset,path:catalogueVault.path,assert,descriptor,catalogueClaims,requireTrue:requirement,
-      originalGeneration(cap,expected){requirement(expected===runtime&&generationBrands.has(cap),'ORIGINAL_GENERATION_REQUIRED');return generationBrands.get(cap);},
-      async write(transform){const before=catalogueRecord;assert.deepEqual(await catalogueVault.read(cataloguePassword),before);
-        const result=await catalogueVault.update(cataloguePassword,before.revision,transform);assert.deepEqual(await catalogueVault.read(cataloguePassword),result);catalogueRecord=result;}});
+  const originalCatalogue=await catalogueAPI.createFlatJournalCatalogue({runtime,initialGeneration:first,journal:{path:catalogueVault.path,password:cataloguePassword}});
+  catalogueAPI.assertOwnedFlatJournalCatalogue(originalCatalogue,{runtime});
+  assert.throws(()=>catalogueAPI.assertOwnedFlatJournalCatalogue({...originalCatalogue},{runtime}),/ORIGINAL_CATALOGUE_REQUIRED/);
   let altered=null;
-  const keeper={async snapshot(){return {version:1,revision:catalogueRecord.revision,storageAvailable:true,requests:[]};},async close(){},async prepare(){no();},async execute(){no();},async reconcile(){no();},async recover(){no();},async restartCoordinator(){no();}};
-  const catalogue={keeper,appendGeneration:appender.appendGeneration,
-    status(){let generations=structuredClone(catalogueRecord.data.generations);if(altered==='replacement')generations[0].identity.lifetime=h('replacement');
-      else if(altered==='removal')generations=generations.slice(1);else if(altered==='reordering')generations.reverse();return {generations,bindings:[],storageFault:false,uncertainWrite:false};},
-    async ownerView(){const generations=[...byId.values()].map(g=>{const observed=view(g.config.registry[0],g===first?10:20,g===first?'10':'3');return {generationId:g.id,routes:g.routes.map(({assetId,pool,domainCommitment})=>({assetId,pool,domainCommitment})),
-        portfolio:{version:1,profile:'OWNED_FLAT_PRIVATE_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:observed.observed,assets:[observed],
-          capabilities:{coordinatorRestart:true,keeperRestart:false,crossAssetAtomicConversion:false,privateDeFiComposability:false,fullWalletAcceptance:false}},errorCode:null};});
-      const observed=generations.map(g=>g.portfolio.observed),coherent=observed.every(row=>['blockNumber','blockHash','timestamp'].every(key=>row[key]===observed[0][key]));
-      return {version:2,profile:'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2',status:coherent?'LIVE':'STALE',coherent,observed:coherent?observed[0]:null,generations,
-        capabilities:{coordinatorRestart:true,keeperRestart:false,nodeRestart:false,privateBalancesAggregated:false,implicitNoteMigration:false,fullWalletAcceptance:false}};}};
+  const keeper=originalCatalogue.keeper;
+  const catalogue={keeper,appendGeneration:originalCatalogue.appendGeneration,
+    status(){const status=structuredClone(originalCatalogue.status());if(altered==='replacement')status.generations[0].identity.lifetime=h('replacement');
+      else if(altered==='removal')status.generations=status.generations.slice(1);else if(altered==='reordering')status.generations.reverse();return status;},
+    ownerView:originalCatalogue.ownerView};
+  assert.throws(()=>catalogueAPI.assertOwnedFlatJournalCatalogue(catalogue,{runtime}),/ORIGINAL_CATALOGUE_REQUIRED/);
   catalogues.set(catalogue,{runtime});session=await createFlatAccountSession({keeper,ownerHandoff:catalogue});pairs.set(session,{runtime,catalogue});
   const input={catalogues:[{runtime,catalogue,session,positions:null}],nativeAccounts:[],wrappedPortfolios:[],journal:{path:join(directory,'economic.vault'),password:'original-append-observation-password'}};
   state=await createOriginalWalletEconomicStateV1(input);let observation=await state.observe();const oldRoute=observation.rows[0].route,oldKey=originalEconomicRouteKeyV1(oldRoute),birth=state.checkpoint();
-  await catalogue.appendGeneration(capability);assert.equal(catalogueRecord.revision,1);
+  await catalogue.appendGeneration(next);assert.equal((await catalogueVault.read(cataloguePassword)).revision,1);
   observation=await state.observe();assert.equal(observation.status,'LIVE');assert.equal(observation.rows.length,2);
   assert.equal(originalEconomicRouteKeyV1(observation.rows[0].route),oldKey);assert.deepEqual(observation.rows[0].route,oldRoute);
   assert.equal(observation.rows[0].balances.available,'10');assert.equal(observation.rows[1].balances.available,'3');
@@ -343,8 +265,8 @@ test('HOST original catalogue append preserves old routes and reopens the same e
   await assert.rejects(openOriginalWalletEconomicStateV1({...input,checkpoint:birth}),/CHECKPOINT/);
   state=await openOriginalWalletEconomicStateV1({...input,checkpoint:retained});observation=await state.snapshot();assert.equal(observation.status,'STALE');
   observation=await state.observe();assert.equal(observation.status,'LIVE');assert.deepEqual(observation.rows[0].route,oldRoute);
-  assert.equal(observation.rows[1].route.generationId,next.id);assert.equal(state.checkpoint().lifetime,birth.lifetime);
-  await assert.rejects(catalogue.appendGeneration({...capability}),/ORIGINAL_GENERATION_REQUIRED/);
+  assert.equal(observation.rows[1].route.generationId,next.generationId);assert.equal(state.checkpoint().lifetime,birth.lifetime);
+  await assert.rejects(catalogue.appendGeneration({...next}),/ORIGINAL_GENERATION_REQUIRED/);
   for(const mutation of ['replacement','removal','reordering']) {altered=mutation;observation=await state.observe();
     assert.equal(observation.status,'UNKNOWN');assert.ok(observation.rows.every(r=>r.balances===null));
     assert.deepEqual(observation.rows.map(r=>r.route),[oldRoute,retainedRoute]);
@@ -364,7 +286,7 @@ test('original native claim portfolio joins common state with BTC/SPL units, sam
  const configs=[btc,spl].map((a,i)=>{const config=Object.fromEntries(CLAIM_CONFIG_SCHEMA.map(([name,type])=>[name,type.startsWith('u')?'1':type==='address'?h(name+i).slice(0,40):type==='field32'?'0'.repeat(63)+'1':h(name+i)]));
   return{...config,evmChainId:a.chainId,evmGenesis:a.genesis,wrapper:a.token,pool:a.pool,scope:a.scope,policy:a.policy,nativeFamily:String(i+1),ledgerNamespace:config.hubDomain};});
  const domains=configs.map(claimDomainCommitment);
- const claims={configs},observer=Object.freeze({}),quorum={async health({claimDomain}){healthReads++;if(!splReady&&claimDomain===domains[1])throw Error('HOST_CUSTODY_UNKNOWN');return{head:{hash:h('block-10'),number:'10',timestamp:'1000'}};}},
+ const claims={configs},quorum={async health({claimDomain}){healthReads++;if(!splReady&&claimDomain===domains[1])throw Error('HOST_CUSTODY_UNKNOWN');return{head:{hash:h('block-10'),number:'10',timestamp:'1000'}};}},
   config={accountId:'host_private_claims',journalId:'host_private_claim_journal',lifetime:h('claim-lifetime'),registry:[btc,spl]};
  const units=new Map([[configs[0],{claimSymbol:'cBTC',nativeSymbol:'BTC',decimals:8,atomicUnit:'satoshi'}],
   [configs[1],{claimSymbol:'cUSDC',nativeSymbol:'USDC',decimals:6,atomicUnit:'micro-USDC',nativeAssetKind:'SOLANA_SPL_USDC',mint:ORIGINAL_SPL_USDC_UNITS_V1.mint}]]);
@@ -374,18 +296,15 @@ test('original native claim portfolio joins common state with BTC/SPL units, sam
   return{version:1,profile:'OWNED_FLAT_PRIVATE_PORTFOLIO_V1',status:'LIVE',coherent:true,observed:assets[0].observed,assets,
    capabilities:{coordinatorRestart:true,keeperRestart:false,crossAssetAtomicConversion:false,privateDeFiComposability:false,fullWalletAcceptance:false}};}};
  claimOriginals.set(claims,{runtime,portfolio,units});
- // Execute the actual producer and issuer in this realm; only underlying
- // ownership/consensus assertions below are explicitly synthetic boundaries.
- const text=await readFile(moduleURL('../../../src/claims/operations/portfolio-view.mjs','../../native-claims/portfolio-view.mjs'),'utf8');
- const body=text.replace(/^import .*;$/gm,'').replace(/^export /gm,'');
+ // Import the complete issuer after fixing only its lower ownership ports;
+ // its originalViews map and guard remain private to the production module.
  const actualObserver={async read(){return{head:{hash:h('block-10')}};},async assertCurrent(){}};
- // Replace only this lower reference in a second actual issuer instantiation.
- const actualBody=body;
- claimViewFunctions=Function('assert','exactRecord','privateFailureDiagnostic','assertOwnedFlatPortfolio','assertOwnedNativeClaimSystem','assertOwnedClaimObserver','ownedClaimObserverBindings','assertOwnedClaimOperatorQuorum','originalNativeClaimAssetUnitsV1','claimDomainCommitment',actualBody+
-  ';return{createNativeClaimPortfolioView,readOriginalNativeClaimPortfolioViewV1};')(assert,exactRecord,()=>({code:'CLAIM_PORTFOLIO_CUSTODY_UNAVAILABLE',causeCode:null,causeCodes:[]}),
-  (r,p)=>assert.ok(r===runtime&&p===portfolio),(r,c)=>assert.ok(r===runtime&&c===claims),o=>assert.equal(o,actualObserver),()=>({system:claims}),
-  (q,o)=>assert.ok(q===quorum&&o===actualObserver),(r,c,x)=>{assert.ok(r===runtime&&c===claims);return units.get(x);},claimDomainCommitment);
- const ownerView=claimViewFunctions.createNativeClaimPortfolioView({runtime,claims,observer:actualObserver,quorum,portfolio});
+ claimObservers.set(actualObserver,{system:claims});claimQuorums.set(quorum,actualObserver);claimPortfolios.set(portfolio,{runtime});
+ const {createNativeClaimPortfolioView,readOriginalNativeClaimPortfolioViewV1}=await import('../../../src/claims/operations/portfolio-view.mjs');
+ const ownerView=createNativeClaimPortfolioView({runtime,claims,observer:actualObserver,quorum,portfolio});
+ assert.equal(readOriginalNativeClaimPortfolioViewV1(ownerView,runtime).portfolio,portfolio);
+ assert.throws(()=>readOriginalNativeClaimPortfolioViewV1(ownerView,{}),/CLAIM_PORTFOLIO_ORIGINAL_VIEW_REQUIRED/);
+ assert.throws(()=>readOriginalNativeClaimPortfolioViewV1((...args)=>ownerView(...args),runtime),/CLAIM_PORTFOLIO_ORIGINAL_VIEW_REQUIRED/);
  const keeper={async snapshot(){return{version:1,revision:phase==='CONFIRMED'?2:1,storageAvailable:true,requests:[{requestId:'claim_original_topup',assetId:btc.assetId,kind:'TOP_UP',state:phase,errorCode:null}]};},
   async close(){},async prepare(){no();},async execute(){no();},async reconcile(){no();},async recover(){no();},async restartCoordinator(){no();}};
  claimKeeperOriginals.set(keeper,{config,authority});session=await createFlatAccountSession({keeper,ownerHandoff:{ownerView}});

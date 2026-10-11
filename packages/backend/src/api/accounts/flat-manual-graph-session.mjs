@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1,
   updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1, nativeSourceRecoveryOwnedProcessV1 }
   from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
@@ -430,7 +431,9 @@ export async function reopenWrappedWalletGraphSessionV1(token){
  const joined=await wrappedGraphSession(retained.input,retained.record);
  try{
    const reviews=retained.approvals.map(approval=>{const details=wrappedWalletAccountManualGraphDetailsV1(approval);return {body:details.body,review:details.review};});
-   need(JSON.stringify(reviews)===JSON.stringify(retained.record.reviews),'WALLET_ACCOUNT_ORIGINAL_REVIEWS_CHANGED');
+   // Vault canonicalizes JSON key order; bind every retained term using the
+   // same canonical digest as native session recovery.
+   need(sha(reviews)===sha(retained.record.reviews),'WALLET_ACCOUNT_ORIGINAL_REVIEWS_CHANGED');
    for(const approval of retained.approvals)joined.bindManualGraph(approval);if(economic)await sessionEconomicState(joined.session,retained.record.economicState);return joined;
  }catch(error){await joined.session.close();throw error;}
 }
