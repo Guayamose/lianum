@@ -63,6 +63,8 @@
     "../../packages/backend/src/chains/evm/vault/delivery-observation-completion-v1.mjs",
     "../../packages/backend/src/accounts/authority/confirmed-share-withdrawal-v1.mjs",
     "../../packages/backend/src/operations/local/fixed-meta-redemption-acquisition-v2.mjs",
-    "../../packages/backend/src/operations/operators/native-value/original-audit-round-v4.mjs"
+    "../../packages/backend/src/operations/operators/native-value/original-audit-round-v4.mjs",
+    "../../packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs",
+    "../../packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs"
   ]
 }

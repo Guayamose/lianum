@@ -9282,7 +9282,7 @@
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-original-source-observed-clock-v1.mjs",
-      "source": "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs",
+      "source": "packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs",
       "sha256": "a2274ebe44f512db26709c83b64b046467d37f44a9e026c6d8e5e98e16c5c08f",
       "bytes": 5125,
       "mode": "0644"
@@ -17249,12 +17249,6 @@
       "../../chains/evm/runtime/owned-evm-v2-runtime.mjs": "../chain-adapters/owned-evm-v2-runtime.mjs",
       "./native-original-source-capsule-v1.mjs": "./native-original-source-capsule-v1.mjs"
     },
-    "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": {
-      "../../execution/encoding/commitments.mjs": "../paeg/commitments.mjs",
-      "../../chains/shared/health/native-value-observed-clock-v1.mjs": "../chain-adapters/native-value-observed-clock-v1.mjs",
-      "../../chains/evm/runtime/owned-evm-v2-runtime.mjs": "../chain-adapters/owned-evm-v2-runtime.mjs",
-      "./native-original-source-capsule-v1.mjs": "./native-original-source-capsule-v1.mjs"
-    },
     "packages/backend/src/operations/recovery/native-original-source-parts-v1.mjs": {
       "../../execution/encoding/commitments.mjs": "../paeg/commitments.mjs",
       "./native-original-source-capsule-v1.mjs": "./native-original-source-capsule-v1.mjs",
@@ -22807,7 +22801,8 @@
     "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
     "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-system-recovery-backend-v1.mjs",
     "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
-    "packages/backend/tests/support/authority-source-host.mjs": "packages/backend/tests/support/native-source-host.mjs"
+    "packages/backend/tests/support/authority-source-host.mjs": "packages/backend/tests/support/native-source-host.mjs",
+    "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": "packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [

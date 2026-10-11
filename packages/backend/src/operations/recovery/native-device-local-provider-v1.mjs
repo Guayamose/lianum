@@ -9,7 +9,7 @@ import { exactRecord } from '@lianum/components/encoding/commitments';
 import { assertOwnedNativeValueWalletSystem } from '../deployments/native-value/native-value-system-v2.mjs';
 import { assertOwnedLocalEvmV2, assertOwnedLocalEvmNativeValueV1, assertOwnedLocalEvmNativeValueRuntime, assertOwnedNativeEconomicObservedReceiverV2, assertOwnedNativeEconomicObservedGraphRuntimeV2 } from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { assertOriginalNativeDeviceLocalObservedClockV1 } from './native-device-local-observed-clock-v1.mjs';
-import { assertOriginalNativeSourceObservedClockV1 } from './native-original-source-observed-clock-v1.mjs';
+import { assertOriginalNativeSourceObservedClockV1 } from './native-original-source-lifecycle-v1.mjs';
 import { createOwnedNativeValueProviderCustody } from '../../providers/native-value-provider-v2.mjs';
 import { profileCommitment } from '../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { createNativeRecipientProcess } from '../../execution/native/recipients/native-recipient-process.mjs';

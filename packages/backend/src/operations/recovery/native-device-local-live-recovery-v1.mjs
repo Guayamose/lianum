@@ -1,4 +1,4 @@
-import {assertOriginalNativeSourceObservedClockV1} from './native-original-source-observed-clock-v1.mjs';
+import {assertOriginalNativeSourceObservedClockV1} from './native-original-source-lifecycle-v1.mjs';
 /** Fixed live-process cutoff producer. Clock observation is data, never
  * permission. Only a fresh device-armed original S can cause original F work.
  * This producer never executes native delivery or Native10 capture/reopen. Existing explicit execution permissions remain separate. */

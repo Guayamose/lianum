@@ -213,6 +213,7 @@
         "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
         "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
         "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs",
         "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs",
@@ -220,6 +221,8 @@
         "packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs",
         "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs",
         "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs",
+        "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs",
+        "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs",
         "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
         "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
         "packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs",
@@ -228,6 +231,7 @@
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
         "packages/backend/src/custody/observers/native-value-owner-observer-v2.mjs",
         "packages/backend/src/custody/observers/wrapped-claim-owner-observer-v1.mjs",
+        "packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs",
         "packages/backend/src/custody/processes/native-value-owner-process-v2.mjs",
         "packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs",
         "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs",
@@ -1141,6 +1145,7 @@
         "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
         "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs",
+        "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
         "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs"
       ],
       "packages/backend/src/operations/recovery/native-device-local-observed-clock-v1.mjs": [
@@ -1571,6 +1576,61 @@
           "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
         ],
         "reason": "Closed system/external-DeFi recovery ownership: the same original consumer or fixed composition dependency now targets the canonical recovery owner; family mechanism and its per-instance one-use maps moved into a typed backend. No new authority family, selectable canonical issuer, or hidden import."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs",
+          "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+          "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs"
+        ],
+        "reason": "Native account domain mechanism now receives its original keeper guards/manual-preparation loader from the existing closed account composition. Same target and original API; no new dependency family, issuer or configurable canonical binding."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs",
+          "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+          "packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs"
+        ],
+        "reason": "Native account domain mechanism now receives its original keeper guards/manual-preparation loader from the existing closed account composition. Same target and original API; no new dependency family, issuer or configurable canonical binding."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs",
+          "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+          "packages/backend/src/accounts/storage/flat-manual-account-keeper.mjs"
+        ],
+        "reason": "Native account domain mechanism now receives its original keeper guards/manual-preparation loader from the existing closed account composition. Same target and original API; no new dependency family, issuer or configurable canonical binding."
+      },
+      {
+        "from": [
+          "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs",
+          "packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+          "packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs"
+        ],
+        "reason": "Native account domain mechanism now receives its original keeper guards/manual-preparation loader from the existing closed account composition. Same target and original API; no new dependency family, issuer or configurable canonical binding."
+      },
+      {
+        "from": [
+          "packages/backend/src/operations/recovery/native-device-local-live-recovery-v1.mjs",
+          "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/operations/recovery/native-device-local-live-recovery-v1.mjs",
+          "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
+        ],
+        "reason": "SOURCE clock factory and guards now belong to the existing lifecycle composition, with an isolated clock backend and unchanged canonical authority. The old circular clock owner is removed; the original live-recovery consumer calls the same guard."
       }
     ],
     "ownershipReview": {

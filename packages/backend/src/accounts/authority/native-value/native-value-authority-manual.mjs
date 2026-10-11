@@ -3,11 +3,11 @@
 import { exactRecord } from "@lianum/components/encoding/commitments";
 import assert from "node:assert/strict";
 import { validateFlatManualReauthorization, validateFlatManualRecords, validateFlatManualReview, currentFlatManualAuthorization } from "@lianum/custody/preparation/flat-owner-manual-binding";
-import { assertOwnedFlatManualAccountKeeper } from "../../storage/flat-manual-account-keeper.mjs";
-import { assertOwnedFlatManualPortfolioKeeper } from "../../portfolio/flat-manual-portfolio-keeper.mjs";
-import { assertOwnedFlatPortfolioAccount } from "../flat-portfolio-authority.mjs";
+
+
 import { sha, immutable } from "@lianum/engine/accounts/journal";
 export function createNativeValueManualLifecycle({
+  originalKeepers,
   journal,
   format,
   chain,
@@ -17,6 +17,18 @@ export function createNativeValueManualLifecycle({
   lifecycle,
   proofs
 }) {
+  exactRecord(originalKeepers, [
+    'assertOwnedFlatManualAccountKeeper',
+    'assertOwnedFlatManualPortfolioKeeper',
+    'assertOwnedFlatPortfolioAccount',
+  ]);
+  for (const method of Object.values(originalKeepers)) assert.equal(typeof method, 'function');
+  const {
+    assertOwnedFlatManualAccountKeeper,
+    assertOwnedFlatManualPortfolioKeeper,
+    assertOwnedFlatPortfolioAccount,
+  } = originalKeepers;
+
   let manualKeeper = null;
   let manualPortfolio = null;
   const manualStops = new WeakMap();

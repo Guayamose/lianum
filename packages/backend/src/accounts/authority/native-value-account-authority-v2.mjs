@@ -1,3 +1,12 @@
+import { decodeNativeValueTerminalCalldata } from '../../execution/encoding/terminal-calldata-codec.mjs';
+import {reconcileOriginalDeviceNativeRecoveryV1} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
+import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../operations/recovery/native-device-local-observed-clock-v1.mjs';
+import {refreshOriginalNativeSourceObservedClockV1} from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
+import {assertOwnedFlatPortfolioAccount} from './flat-portfolio-authority.mjs';
+import {assertOwnedFlatManualPortfolioKeeper} from '../portfolio/flat-manual-portfolio-keeper.mjs';
+import {assertOwnedFlatManualAccountKeeper} from '../storage/flat-manual-account-keeper.mjs';
+import {isOriginalNativePrivateWorkerExecutionBridgeV3} from './device-owner-execution-bridge-v1.mjs';
+import {isOriginalNativePrivateWorkerDepositBridgeV3} from './device-owner-deposit-bridge-v1.mjs';
 import {createRecoveredDeviceInstallations} from './native-value/recovered-device-installations.mjs';
 import {createLiveRecoveryLeaseFamily} from './native-value/live-recovery-leases.mjs';
 import {reconcileNativeSourceAccountCheckpointDataV1} from '../../operations/recovery/source-journal/checkpoint-reconciliation-v1.mjs';
@@ -13,7 +22,7 @@ import { createNativeValueAccountInterface } from './native-value/native-value-a
 import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectionV1, consumeOriginalNativeSourceSectionV1,
   updateOriginalNativeSourceSectionV1, resumeOriginalNativeSourceSectionV1, consumeOriginalNativeSourceAccountCheckpointV1 }
   from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
-import { assertOriginalNativeSourceObservedClockV1 } from '../../operations/recovery/native-original-source-observed-clock-v1.mjs';
+import { assertOriginalNativeSourceObservedClockV1 } from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 
 import { ownedNativeValueProviderCustodyReview as recoveryProviderReviewV1 } from '../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs';
 import { assertWrappedWalletAccountReleasedV1 } from '../../operations/releases/wrapped/wrapped-wallet-release-v1.mjs';
@@ -45,7 +54,7 @@ import { decodeStatement } from '@lianum/components/encoding/statements';
 import { assertOwnedNativeValueOwnerProcess as nativeOwner } from '../../custody/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueOwnerObserver as nativeObserver, assertOwnedNativeValueOwnerObserver as nativeObserverAssert } from '../../custody/observers/native-value-owner-observer-v2.mjs';
 import {createFlatProofRunner} from '@lianum/backend/proving/roles/scoped-proof-runner';
-import { flatAccountAsset, flatAccountGraphBinding } from './flat-account-validation.mjs';
+import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash } from './flat-account-validation.mjs';
 
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
@@ -643,6 +652,9 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     reservationObservation,
     deviceReservation
   } = createNativeValueReservations({
+    originalBridges: Object.freeze({
+      isOriginalNativePrivateReservationBridgeV2,
+    }),
     journal: Object.freeze({
       append: journals.reservations.append,
       appendQuote: journals.reservations.appendQuote,
@@ -726,6 +738,11 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     exitBinding,
     deviceExit
   } = createNativeValueWithdrawals({
+    originalBridges: Object.freeze({
+      isOriginalNativePrivateWorkerExecutionBridgeV3,
+      assertDeviceOwnerExecutionBridgeV1,
+      isOriginalNativePrivateExecutionBridgeV2,
+    }),
     journal: Object.freeze({
       append: journals.withdrawals.append,
       installProfile: journals.withdrawals.installProfile,
@@ -808,6 +825,10 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     observeDevice,
     deviceDeposit
   } = createNativeValueDeposits({
+    originalBridges: Object.freeze({
+      isOriginalNativePrivateWorkerDepositBridgeV3,
+      isOriginalNativePrivateDepositBridgeV2,
+    }),
     journal: Object.freeze({
       append: journals.deposits.append,
       installProfile: journals.deposits.installProfile,
@@ -894,6 +915,14 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     tickLiveRecovery,
     deviceExecution
   } = createNativeValueExecutionOperations({
+    originalRecovery: Object.freeze({
+      refreshOriginalNativeSourceObservedClockV1,
+      assertOriginalNativeSourceObservedClockV1,
+      refreshOriginalNativeDeviceLocalObservedClockV1,
+      assertOriginalNativeDeviceLiveArmedObservedClockV1,
+      nativeValueOriginalRecoverySourceV1,
+      reconcileOriginalDeviceNativeRecoveryV1,
+    }),
     approvals: Object.freeze({
       deviceExecutionInstallations
     }),
@@ -934,7 +963,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     format: Object.freeze({
       bare,
       byteSHA: (...args) => byteSHA(...args),
-      reference
+      reference, sha, copy, graphBinding: flatAccountGraphBinding, calldataHash: flatAccountCalldataHash, decodeTerminal: decodeNativeValueTerminalCalldata
     }),
     continuity: Object.freeze({
       lease: () => liveRecovery,
@@ -1049,6 +1078,11 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     manualLifecycle,
     hasManualKeeper
   } = createNativeValueManualLifecycle({
+    originalKeepers: Object.freeze({
+      assertOwnedFlatManualAccountKeeper,
+      assertOwnedFlatManualPortfolioKeeper,
+      assertOwnedFlatPortfolioAccount,
+    }),
     journal: Object.freeze({
       rows: journals.operations.rows
     }),
@@ -1095,6 +1129,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   const {
     capability
   } = createNativeValueAccountInterface({
+    loadOriginalManualPreparation: () => import('../../custody/preparation/native-value-owner-manual-preparation-v1.mjs'),
     lifecycle: Object.freeze({
       abort: abortAccount,
       close: closeAccount,

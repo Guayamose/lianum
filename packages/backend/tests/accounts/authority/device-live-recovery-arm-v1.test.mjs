@@ -297,9 +297,26 @@ test('HOST SOURCE reopened original note admits only next original steps and ret
   await explicitModule(new URL('../../../src/accounts/authority/flat-account-validation.mjs',import.meta.url),{flatAccountGraphBinding:()=>row.nativeBinding});
   await explicitModule('@lianum/mobile-protocol/device-execution-consent-v1',{deviceExecutionConsentMessageV1:JSON.stringify});
   await explicitModule('@lianum/mobile-protocol/device-recovery-arm-consent-v1',{validateDeviceRecoveryArmConsentFreshV1:ctx.validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV1:JSON.stringify});
-  await explicitModule(new URL('../../../src/operations/recovery/native-original-source-observed-clock-v1.mjs',import.meta.url),{refreshOriginalNativeSourceObservedClockV1:ctx.refreshOriginalNativeSourceObservedClockV1});
+  await explicitModule(new URL('../../../src/operations/recovery/native-original-source-lifecycle-v1.mjs',import.meta.url),{refreshOriginalNativeSourceObservedClockV1:ctx.refreshOriginalNativeSourceObservedClockV1});
   const {createNativeValueReservations}=await import('../../../src/accounts/authority/native-value/native-value-authority-reservations.mjs');
   const {createNativeValueExecutionOperations}=await import('../../../src/accounts/authority/native-value/native-value-authority-execution.mjs');
+  const sourceClock=await import('../../../src/operations/recovery/native-original-source-lifecycle-v1.mjs'),
+   localClock=await import('../../../src/operations/recovery/native-device-local-observed-clock-v1.mjs'),
+   system=await import('../../../src/operations/deployments/native-value/native-value-system-v2.mjs'),
+   originalExecution=await import('../../../src/execution/native-value/execution/native-value-execution-v2.mjs'),
+   originalReservation=await import('../../../src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
+  ctx.originalRecovery=Object.freeze({
+   refreshOriginalNativeSourceObservedClockV1:ctx.refreshOriginalNativeSourceObservedClockV1,
+   assertOriginalNativeSourceObservedClockV1:sourceClock.assertOriginalNativeSourceObservedClockV1,
+   refreshOriginalNativeDeviceLocalObservedClockV1:localClock.refreshOriginalNativeDeviceLocalObservedClockV1,
+   assertOriginalNativeDeviceLiveArmedObservedClockV1:localClock.assertOriginalNativeDeviceLiveArmedObservedClockV1,
+   nativeValueOriginalRecoverySourceV1:system.nativeValueOriginalRecoverySourceV1,
+   reconcileOriginalDeviceNativeRecoveryV1:originalExecution.reconcileOriginalDeviceNativeRecoveryV1,
+  });
+  ctx.originalBridges=Object.freeze({isOriginalNativePrivateReservationBridgeV2:originalReservation.isOriginalNativePrivateReservationBridgeV2});
+  ctx.graphBinding=()=>row.nativeBinding;
+  ctx.calldataHash=value=>createHash('sha256').update(Buffer.from(value.slice(2),'hex')).digest('hex');
+  ctx.decodeTerminal=decodeNativeValueTerminalCalldata;
   const run=()=>{
    ctx.recovery=mode;ctx.nativeSourceOriginal={clock,nativeRuntime};hostPorts(ctx);
    ctx.originalSourceContinuationInstallation=recoveredInstallations(ctx).originalSourceContinuationInstallation;

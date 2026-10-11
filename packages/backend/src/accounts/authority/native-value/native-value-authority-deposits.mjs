@@ -1,8 +1,9 @@
+import {exactRecord} from '@lianum/components/encoding/commitments';
 /** Deposits operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
 import * as PrivateDeposit from "@lianum/mobile-protocol/device/native-deposit-v2";
 import assert from "node:assert/strict";
-import { isOriginalNativePrivateWorkerDepositBridgeV3, isOriginalNativePrivateDepositBridgeV2 } from "../device-owner-deposit-bridge-v1.mjs";
+
 import { copy, sha } from "@lianum/engine/accounts/journal";
 import { createHash } from "node:crypto";
 import { validateFlatAccountOwnerObservation, flatAccountCalldataHash } from "../flat-account-validation.mjs";
@@ -13,6 +14,7 @@ import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "@lia
 import { nullifier } from "@lianum/engine/notes/private-note-encoding";
 import { encodeFlatTransaction } from "../../../execution/encoding/transaction-codec.mjs";
 export function createNativeValueDeposits({
+  originalBridges,
   journal,
   lifecycle,
   profile,
@@ -25,6 +27,16 @@ export function createNativeValueDeposits({
   proofs,
   operations
 }) {
+  exactRecord(originalBridges, [
+    'isOriginalNativePrivateWorkerDepositBridgeV3',
+    'isOriginalNativePrivateDepositBridgeV2',
+  ]);
+  for (const method of Object.values(originalBridges)) assert.equal(typeof method, 'function');
+  const {
+    isOriginalNativePrivateWorkerDepositBridgeV3,
+    isOriginalNativePrivateDepositBridgeV2,
+  } = originalBridges;
+
   let privateDepositBridge = null;
   const deviceRows = () => journal.rows() ?? [];
   const privateDepositEnabled = () => journal.profile() === PrivateDeposit.DEVICE_NATIVE_PRIVATE_PROOF_V2;

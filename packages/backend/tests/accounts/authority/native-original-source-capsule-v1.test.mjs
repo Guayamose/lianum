@@ -43,9 +43,9 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE fixed session co
 });
 let activeHost;
 async function capsule(root){activeHost?.restore();activeHost=await createNativeSourceHost(root);return activeHost;}
-async function prepare(root,mode){const host=await capsule(root),{api,resources}=host,authority=await api.createOriginalNativeSourceCapsuleV1();await api.createOriginalNativeSourceClockPairV1(authority);
+async function prepare(root,mode){const host=await capsule(root),{api,resources}=host,authority=await api.createOriginalNativeSourceCapsuleV1();const joinedClock=await api.createOriginalNativeSourceObservedClocksV1(authority);
  for(const section of ['bootstrap','system','provider','owner','executor'])await api.retainOriginalNativeSourceReferenceV1(authority,section,Object.freeze({financialAcceptance:false}));
- const account=await api.createOriginalNativeSourceAccountV1(authority,{});await api.createOriginalNativeSourceSessionV1(authority,{account});await api.retainOriginalNativeSourceReferenceV1(authority,'actor',Object.freeze({financialAcceptance:false}));await api.retainOriginalNativeSourceClockCheckpointV1(authority,Object.freeze({}));await api.finishOriginalNativeSourceBirthV1(authority);
+ const account=await api.createOriginalNativeSourceAccountV1(authority,{});await api.createOriginalNativeSourceSessionV1(authority,{account});await api.retainOriginalNativeSourceReferenceV1(authority,'actor',Object.freeze({financialAcceptance:false}));await api.retainOriginalNativeSourceClockCheckpointV1(authority,joinedClock.clock);await api.finishOriginalNativeSourceBirthV1(authority);
  if(mode==='native-completed'){
   const directory=join(root,'retained-checkpoint-account'),password='synthetic-checkpoint-account';await mkdir(directory,{mode:0o700});
   const accountIdentity={accountId:'retained-account',journalId:'retained-journal',lifetime:'11'.repeat(32),registrySHA256:'22'.repeat(32)};
@@ -132,7 +132,12 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE journal body kee
 if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE continuation fence rejects arm and pauses tick before any effects',async()=>{
  activeHost?.restore();
  const {createNativeValueExecutionOperations}=await import('../../../src/accounts/authority/native-value/native-value-authority-execution.mjs');
- let effects=0;const lease={},ports={assert,
+ const originalRecovery=Object.freeze(Object.fromEntries([
+  'refreshOriginalNativeSourceObservedClockV1','assertOriginalNativeSourceObservedClockV1',
+  'refreshOriginalNativeDeviceLocalObservedClockV1','assertOriginalNativeDeviceLiveArmedObservedClockV1',
+  'nativeValueOriginalRecoverySourceV1','reconcileOriginalDeviceNativeRecoveryV1'
+ ].map(name=>[name,()=>{assert.fail('SOURCE continuation fence must reject before '+name);}])));
+ let effects=0;const lease={},ports={assert,originalRecovery,format:Object.fromEntries(['sha','copy','graphBinding','calldataHash','decodeTerminal'].map(name=>[name,()=>assert.fail('no '+name+' before SOURCE fence')])),
   continuity:{recovery:{source:true,sourceObservationRequired:true},lease:()=>lease},
   lifecycle:{exclusive:async work=>work(),healthy:async()=>{},continueWork(){},isBusy:()=>false,isClosed:()=>false,isCancelled:()=>false,isUnavailable:()=>false,isCapturing:()=>false},
   reservations:{reservationRows:()=>{effects++;throw Error('effect must not run');}}};

@@ -42,7 +42,7 @@ export async function createNativeSourceHost(root){
   async create(request){
    const admitted=api.originalNativeSourceRuntimeRequestIdentityV1(request),{identity,family}=admitted;
    assert.throws(()=>api.originalNativeSourceRuntimeRequestIdentityV1({...request}),/ORIGINAL_RUNTIME_REQUEST/);
-   const runtime=Object.freeze({processStatus:()=>({stopped:true}),async close(){return{closed:true};},financialAcceptance:false});
+   const runtime=Object.freeze({processStatus:()=>({stopped:true}),async block(){return {number:'1',hash:'cd'.repeat(32),timestamp:'1'};},async assertCanonical(head){assert.deepEqual(head,await this.block());},lifecycle:[{event:'stopped-owned-process',forced:false}],async close(){return{closed:true,stopped:true};},financialAcceptance:false});
    const state={family,identity,generation:0};brands.set(runtime,state);
    if(admitted.opening){
     const seed=api.readOriginalNativeSourceRuntimeSeedV1(request);assert.equal(seed.confirmed.financialAcceptance,false);
@@ -72,7 +72,7 @@ export async function createNativeSourceHost(root){
  install(new URL('../releases/native-value/native-value-dev-release-v5.mjs',recoveryURL),{NATIVE_VALUE_DEV_RELEASE_V5:{hostSourceClosureSHA256:'ef'.repeat(32)}});
  install(new URL('../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',recoveryURL),{});
  install(new URL('device-external-flat-original-source-v2.mjs',recoveryURL),{});
- install(new URL('../../chains/evm/runtime/owned-evm-runtime-backend-v1.mjs',recoveryURL),{buildOwnedEvmRuntimeBackendV1(contracts){assert.ok(contracts.journal);return Object.freeze({sourceRuntime:nativeBackend});}});
+ install(new URL('../../chains/evm/runtime/owned-evm-runtime-backend-v1.mjs',recoveryURL),{buildOwnedEvmRuntimeBackendV1(contracts){assert.ok(contracts.journal);return Object.freeze({sourceRuntime:nativeBackend,assertOwnedNativeEconomicObservedReceiverV2:runtime=>nativeBackend.assert(runtime),assertOwnedNativeEconomicObservedGraphRuntimeV2:runtime=>nativeBackend.assert(runtime),async refreshNativeValueReceiverClock(runtime){nativeBackend.assert(runtime);},async refreshOwnedNativeEconomicObservedGraphClockV2(runtime){nativeBackend.assert(runtime);}});}});
  install(new URL('native-original-source-parts-v1.mjs',recoveryURL),parts);
  install(new URL('../../accounts/authority/native-value-account-authority-v2.mjs',recoveryURL),{
   createOriginalNativeSourceNoteAccountAuthorityV1:token=>retain(token,'account',Object.freeze({financialAcceptance:false})),
@@ -88,7 +88,6 @@ export async function createNativeSourceHost(root){
   assert.throws(()=>api.consumeOriginalNativeSourceActorCheckpointV1(request),/ORIGINAL_CHECKPOINT_REQUEST/);checkpointChecks.actor++;return result;
  }});
  install(new URL('../../api/accounts/flat-manual-graph-session.mjs',recoveryURL),{async createOriginalNativeSourceGraphAccountSessionV1(token){const session=Object.freeze({financialAcceptance:false});await retain(token,'session',session);return{session};}});
- install(new URL('native-original-source-observed-clock-v1.mjs',recoveryURL),{readOriginalNativeSourceClockReferencesV1:()=>({runtime:resources.receiver,nativeRuntime:resources.graphNative}),snapshotOriginalNativeSourceObservedClockV1:()=> '1'});
  try{api=await import(new URL('native-original-source-lifecycle-v1.mjs?host='+randomUUID(),recoveryURL));}
  catch(error){for(const item of mocks.reverse())item.restore();throw error;}
  async function stored(authority){const identity=identities.get(authority)??api.assertOriginalNativeSourceCapsuleV1(authority);identities.set(authority,identity);const secret=await readFile(join(identity.directory,'source.secret'));

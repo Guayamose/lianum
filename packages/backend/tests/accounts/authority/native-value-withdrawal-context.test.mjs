@@ -1,31 +1,20 @@
 /** HOST wiring regression: actual withdrawal factory and Merkle paths, with
  * the bridge's capability guard explicitly represented by an inert port. */
-import test, { mock } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
 import { DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2 } from '@lianum/mobile-protocol/device/native-withdrawal-v2';
 
-const bridgeURL = new URL('../../../src/accounts/authority/device-owner-execution-bridge-v1.mjs', import.meta.url);
-const originalBridgeModule = await import(bridgeURL);
 const capability = Object.freeze({ HOST_ORIGINAL_ACCOUNT: true }), bridge = Object.freeze({ HOST_ORIGINAL_BRIDGE: true });
 const h = n => n.toString(16).padStart(64, '0');
 const descriptor = Object.freeze({ origin: 'https://host.invalid', pairingId: h(1), devicePublicKey: '04' + '12'.repeat(64) });
 let validations = 0;
-mock.module(bridgeURL, { exports: { ...originalBridgeModule,
-  isOriginalNativePrivateWorkerExecutionBridgeV3(value) {
-    assert.equal(value, bridge, 'HOST_ORIGINAL_BRIDGE');
-    return false;
-  },
-  assertDeviceOwnerExecutionBridgeV1(value, account) {
-    assert.equal(value, bridge); assert.equal(account, capability, 'HOST_ORIGINAL_ACCOUNT_CAPABILITY');
-    validations++; return descriptor;
-  },
-} });
-// The helper may already have loaded through the bridge's account import.
-// A fresh helper has no account registry; authority remains the explicit HOST port.
-const helperURL = new URL('../../../src/accounts/authority/native-value/native-value-authority-withdrawals.mjs', import.meta.url);
-helperURL.search = '?host-original-capability';
-const { createNativeValueWithdrawals } = await import(helperURL);
+const originalBridges=Object.freeze({
+  isOriginalNativePrivateWorkerExecutionBridgeV3(value) {assert.equal(value,bridge,'HOST_ORIGINAL_BRIDGE');return false;},
+  assertDeviceOwnerExecutionBridgeV1(value,account) {assert.equal(value,bridge);assert.equal(account,capability,'HOST_ORIGINAL_ACCOUNT_CAPABILITY');validations++;return descriptor;},
+  isOriginalNativePrivateExecutionBridgeV2(){return false;},
+});
+const {createNativeValueWithdrawals}=await import('../../../src/accounts/authority/native-value/native-value-authority-withdrawals.mjs');
 
 test('both original deposit-exit paths validate the owning capability, never a missing or copied account', async () => {
   const commitment = h(2), nullifier = h(3), rootId = h(4), jobId = h(5);
@@ -35,6 +24,7 @@ test('both original deposit-exit paths validate the owning capability, never a m
   const tree = new PrivateNoteTree([Buffer.from(commitment, 'hex')]);
   const view = { ledger: { commitments: ['0x' + commitment], nullifiers: [], tree }, head: { timestamp: '1000', number: '1', hash: h(10) } };
   const ports = {
+    originalBridges,
     journal: { profile: () => DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2, rows: () => [] },
     reservations: { reservationRows: () => [], reservationBinding() {} },
     lifecycle: { exclusive: operation => operation(), async healthy() {}, continueWork() {} },

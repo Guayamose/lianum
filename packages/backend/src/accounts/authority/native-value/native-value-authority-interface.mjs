@@ -8,6 +8,7 @@ import { flatAccountGraphBinding, validateFlatManualGraphAdmissionTime } from ".
 import { validateWrappedClaimOperationalRegistration } from "../../../claims/ingress/operational-registration-v2.mjs";
 import { validateOwnerGraphReview } from "@lianum/mobile-protocol/wallet/owner-graph-review-v1";
 export function createNativeValueAccountInterface({
+  loadOriginalManualPreparation,
   lifecycle,
   journal,
   profile,
@@ -19,6 +20,8 @@ export function createNativeValueAccountInterface({
   selection,
   approvals
 }) {
+  assert.equal(typeof loadOriginalManualPreparation, 'function');
+
   const authority = Object.freeze({
     assertAuthority: async expected => {
       lifecycle.continueWork();
@@ -163,7 +166,7 @@ export function createNativeValueAccountInterface({
         assert.equal(arguments.length, 0, 'NATIVE_VALUE_MANUAL_NOTE_ARGUMENTS');
         const {
           createNativeValueOwnerManualPreparation
-        } = await import("../../../custody/preparation/native-value-owner-manual-preparation-v1.mjs");
+        } = await loadOriginalManualPreparation();
         return createNativeValueOwnerManualPreparation({
           runtime: chain.runtime,
           system: chain.system,
@@ -176,7 +179,7 @@ export function createNativeValueAccountInterface({
         assert.equal(arguments.length, 0, 'NATIVE_VALUE_MANUAL_NOTE_ARGUMENTS');
         const {
           restoreNativeValueOwnerManualPreparation
-        } = await import("../../../custody/preparation/native-value-owner-manual-preparation-v1.mjs");
+        } = await loadOriginalManualPreparation();
         return restoreNativeValueOwnerManualPreparation({
           runtime: chain.runtime,
           system: chain.system,

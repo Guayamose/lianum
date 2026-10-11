@@ -1,3 +1,4 @@
+import {copy,sha} from '@lianum/engine/accounts/journal';
 /** Crypto/storage mechanisms and one real local two-process identity check.
  * No funding, proof or full economic restart acceptance is established. */
 import {test,mock} from 'node:test';
@@ -208,7 +209,7 @@ test('HOST original F reorg invalidates both AEAD journals before one exact reta
     await healthyAccount();
    }}).reservations;
    const reservations={reservationRow:id=>{assert.equal(id,ref);return journal.rows().find(row=>row.jobId===id);},reservationUpdate:journal.patch};
-   const mechanism=createNativeRecoveryReorgReservationV1({reservations,format:{bare,reference:value=>assert.match(value,/^[0-9a-f]{64}$/)},
+   const mechanism=createNativeRecoveryReorgReservationV1({reservations,format:{bare,reference:value=>assert.match(value,/^[0-9a-f]{64}$/),copy,sha,calldataHash:dataHash,decodeTerminal:decodeNativeValueTerminalCalldata},
     chain:{nativeExecution:executor,runtime,pool,system:{sender:expected.from}},
     originalRow(e,id){assert.equal(e,executor);assert.equal(id,ref);return reservations.reservationRow(id);}
    });

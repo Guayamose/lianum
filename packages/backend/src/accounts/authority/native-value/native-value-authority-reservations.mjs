@@ -1,3 +1,4 @@
+import {exactRecord} from '@lianum/components/encoding/commitments';
 /** Reservations operations. Dependencies are explicit and scoped by role.
  * Journal access is restricted to this domain; account ownership stays in the root. */
 import * as PrivateU from "@lianum/mobile-protocol/device/native-reservation-v2";
@@ -8,7 +9,7 @@ import { copy, sha } from "@lianum/engine/accounts/journal";
 import { validateFlatAccountOwnerObservation, flatAccountGraphBinding, flatAccountCalldataHash } from "../flat-account-validation.mjs";
 import { decodeStatement, encodeStatement } from "@lianum/components/encoding/statements";
 import { randomBytes } from "node:crypto";
-import { isOriginalNativePrivateReservationBridgeV2 } from "../device-owner-reservation-bridge-v1.mjs";
+
 import { readOriginalNativeDeviceAuthorizationDerivationV2, createRoleProofClient } from "@lianum/backend/proving/roles/role-client";
 import { compileFundedGraph, attachFundedSignatures, ownerAuthorizationMessage } from "@lianum/engine/execution/graph/funded-graph";
 import { withFlatHash } from "@lianum/proofs/tooling/scoped-proof-tools";
@@ -17,6 +18,7 @@ import { reservationWitness } from "../../../execution/account/preparation/fundi
 import { reserveProjection } from "@lianum/engine/execution/local/local-ledger";
 import { encodeFlatTransaction } from "../../../execution/encoding/transaction-codec.mjs";
 export function createNativeValueReservations({
+  originalBridges,
   journal,
   lifecycle,
   profile,
@@ -30,6 +32,14 @@ export function createNativeValueReservations({
   approvals,
   operations
 }) {
+  exactRecord(originalBridges, [
+    'isOriginalNativePrivateReservationBridgeV2',
+  ]);
+  for (const method of Object.values(originalBridges)) assert.equal(typeof method, 'function');
+  const {
+    isOriginalNativePrivateReservationBridgeV2,
+  } = originalBridges;
+
   let privateReservationBridge = null;
   const privateReservationEnabled = () => journal.profile() === PrivateU.DEVICE_NATIVE_PRIVATE_U_PROOF_V2;
   async function installPrivateReservation(bridge) {

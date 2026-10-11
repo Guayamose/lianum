@@ -3,7 +3,7 @@ import {readNativeDeviceOutputBalance} from './native-device-output-balance.mjs'
  * Journal access is restricted to this domain; account ownership stays in the root. */
 import * as PrivateExit from "@lianum/mobile-protocol/device/native-withdrawal-v2";
 import assert from "node:assert/strict";
-import { isOriginalNativePrivateWorkerExecutionBridgeV3, assertDeviceOwnerExecutionBridgeV1, isOriginalNativePrivateExecutionBridgeV2 } from "../device-owner-execution-bridge-v1.mjs";
+
 import { copy, sha } from "@lianum/engine/accounts/journal";
 import { verifyPrivateNotePath } from "@lianum/engine/notes/private-note-tree";
 import { exactRecord } from "@lianum/components/encoding/commitments";
@@ -18,6 +18,7 @@ import { createNativeEconomicNoteProofProcessV1, createProofProcess } from "@lia
 import { privateFailureDiagnostic } from "../../../execution/account/reconciliation/failure-diagnostics.mjs";
 import { encodeFlatTransaction } from "../../../execution/encoding/transaction-codec.mjs";
 export function createNativeValueWithdrawals({
+  originalBridges,
   journal,
   reservations,
   lifecycle,
@@ -31,6 +32,18 @@ export function createNativeValueWithdrawals({
   continuity,
   operations
 }) {
+  exactRecord(originalBridges, [
+    'isOriginalNativePrivateWorkerExecutionBridgeV3',
+    'assertDeviceOwnerExecutionBridgeV1',
+    'isOriginalNativePrivateExecutionBridgeV2',
+  ]);
+  for (const method of Object.values(originalBridges)) assert.equal(typeof method, 'function');
+  const {
+    isOriginalNativePrivateWorkerExecutionBridgeV3,
+    assertDeviceOwnerExecutionBridgeV1,
+    isOriginalNativePrivateExecutionBridgeV2,
+  } = originalBridges;
+
   let privateExitBridge = null;
   const privateExitEnabled = () => journal.profile() === PrivateExit.DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2;
   async function installPrivateExit(bridge) {

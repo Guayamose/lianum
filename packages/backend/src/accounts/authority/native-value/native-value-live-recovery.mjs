@@ -7,13 +7,17 @@ import assert from 'node:assert/strict';
 /** @typedef {{state:string,armSHA256:string,nativeBindingSHA256:string,reservationTransactionHash:string,settleBefore:string,lossClause:string,errorCode?:string|null}} Arm */
 /** @typedef {{jobId:string,nativeBinding:{settleBefore:string},nativeOutcome:string|null,nativeRecoveryLatched:boolean,liveRecoveryArm:Arm|null}} Row */
 /** @typedef {{nativeBindingSHA256:string,executionSnapshotSHA256:string,reservation:{observation:{transactionHash:string}},lossClause:string}} ExecutionView */
-/** @typedef {{outcome:string}} Terminal */
-/** @param {{profile:{nativeNote:boolean,wrapped:boolean},
- * chain:{reader:{read():Promise<{head:{timestamp:string}}>,assertCurrent(view:{head:{timestamp:string}}):Promise<unknown>},nativeExecution:{recover(id:string):Promise<Terminal>,reconcile(id:string):Promise<Terminal>}},
+/** @typedef {{outcome:string|null}} Terminal */
+/** @template {Row} StoredRow
+ * @template {{head:{timestamp:string}}} View
+ * @template {Terminal} Result
+ * @template {Lease} BoundLease
+ * @param {{profile:{nativeNote:boolean,wrapped:boolean},
+ * chain:{reader:{read():Promise<View>,assertCurrent(view:View):Promise<unknown>},nativeExecution:{recover(id:string):Promise<Result>,reconcile(id:string):Promise<Result>}},
  * lifecycle:{exclusive<T>(work:()=>Promise<T>):Promise<T>,healthy():Promise<unknown>,continueWork():void,isBusy():boolean,isClosed():boolean,isCancelled():boolean,isUnavailable():boolean,isCapturing():boolean},
- * reservations:{reservationRow(id:string):Row,reservationRows():Row[],originalReservationConsent(row:Row,consent:ArmConsent['execution']['reservation']):void,reservationUpdate(id:string,fields:Partial<Row>&{nativeStage?:string,nativeErrorCode?:string}):Promise<unknown>},
- * continuity:{lease():Lease|null,recovery:{liveArmed?:boolean,source?:boolean,sourceObservationRequired?:boolean}|null,nativeSourceOriginal:unknown,originalSourceContinuationInstallation(bridge:object):unknown},
- * format:{byteSHA(value:Uint8Array):string},execution:{deviceExecutionOriginal(bridge:object,row:Row):unknown,deviceExecutionPublic(bridge:object,row:Row):Promise<ExecutionView>,retainDeviceTerminal(row:Row,result:Terminal):Promise<unknown>},
+ * reservations:{reservationRow(id:string):StoredRow,reservationRows():StoredRow[],originalReservationConsent(row:StoredRow,consent:ArmConsent['execution']['reservation']):void,reservationUpdate(id:string,fields:Partial<Pick<Row,'liveRecoveryArm'|'nativeRecoveryLatched'>>&{nativeStage?:'RECOVERING'|'UNKNOWN',nativeErrorCode?:string}):Promise<unknown>},
+ * continuity:{lease():BoundLease|null,recovery:{liveArmed?:boolean,source?:boolean,sourceObservationRequired?:boolean}|null,nativeSourceOriginal:unknown,originalSourceContinuationInstallation(bridge:object):unknown},
+ * format:{byteSHA(value:Uint8Array):string},execution:{deviceExecutionOriginal(bridge:object,row:StoredRow):unknown,deviceExecutionPublic(bridge:object,row:StoredRow):Promise<ExecutionView>,retainDeviceTerminal(row:StoredRow,result:Result):Promise<unknown>},
  * permission:{validateFresh(consent:ArmConsent):unknown,message(consent:ArmConsent):Uint8Array},refreshClock(clock:object):Promise<unknown>,failureDiagnostic(error:unknown,fallback:string):{code:string}}} ports */
 export function createNativeValueLiveRecovery(ports) {
   const {profile,chain,lifecycle,reservations,continuity,format,execution,permission,refreshClock,failureDiagnostic}=ports;
@@ -32,7 +36,7 @@ export function createNativeValueLiveRecovery(ports) {
     requireLiveRecovery(lease.bridge);
     lifecycle.continueWork();
   }
-  /** @param {Row} row */
+  /** @param {StoredRow} row */
   function armPublic(row) {
     const arm = row.liveRecoveryArm;
     return {
@@ -43,7 +47,7 @@ export function createNativeValueLiveRecovery(ports) {
       terminalOutcome: row.nativeOutcome ?? null
     };
   }
-  /** @param {Row} row @param {ArmConsent} consent @param {ExecutionView} current */
+  /** @param {StoredRow} row @param {ArmConsent} consent @param {ExecutionView} current */
   function sameArm(row, consent, current) {
     const e = consent.execution;
     reservations.originalReservationConsent(row, e.reservation);
@@ -127,7 +131,7 @@ export function createNativeValueLiveRecovery(ports) {
       };
     });
   }
-  /** @param {Lease} lease */
+  /** @param {BoundLease} lease */
   async function tickLiveRecovery(lease) {
     assert.equal(lease, continuity.lease(), 'DEVICE_LIVE_RECOVERY_ORIGINAL_LEASE');
     if (lease.closed) return {
@@ -196,7 +200,8 @@ export function createNativeValueLiveRecovery(ports) {
             const result = await chain.nativeExecution.recover(row.jobId);
             await execution.retainDeviceTerminal(reservations.reservationRow(row.jobId), result);
             await updateArm({
-              state: result.outcome,
+              // Retention rejects a null/unresolved terminal before this update.
+              state: /** @type {string} */ (result.outcome),
               errorCode: null
             });
           } catch (error) {
@@ -218,7 +223,8 @@ export function createNativeValueLiveRecovery(ports) {
             const result = await chain.nativeExecution.reconcile(row.jobId);
             await execution.retainDeviceTerminal(reservations.reservationRow(row.jobId), result);
             await updateArm({
-              state: result.outcome,
+              // Retention rejects a null/unresolved terminal before this update.
+              state: /** @type {string} */ (result.outcome),
               errorCode: null
             });
           } catch (error) {

@@ -1,3 +1,4 @@
+import {buildOriginalNativeSourceClockBackendV1} from './native-original-source-clock-backend-v1.mjs';
 import {privateDirectory,syncDirectory,readPrivate,exclusive,replace} from './source-journal/private-files-v1.mjs';
 import {processIdentity,validateProcess,absent} from './source-journal/process-identity-v1.mjs';
 import {clearNativeSourceAccountCheckpointLockV1} from './source-journal/account-lock-v1.mjs';
@@ -152,7 +153,7 @@ export async function confirmOriginalNativeSourceMutationV1(token){assert.equal(
 export async function confirmOriginalNativeSourceBirthV1(runtime){assert.equal(arguments.length,1);const token=await beginOriginalNativeSourceMutationV1(runtime);return confirmOriginalNativeSourceMutationV1(token);}
 export function readOriginalNativeSourceClockCheckpointV1(authority){assert.equal(arguments.length,1);return original(authority).record.data.clockSecond;}
 export async function retainOriginalNativeSourceClockCheckpointV1(authority,clock){
- assert.equal(arguments.length,2);const s=original(authority),module=await import('./native-original-source-observed-clock-v1.mjs'),pair=module.readOriginalNativeSourceClockReferencesV1(clock);
+ assert.equal(arguments.length,2);const s=original(authority),module=await Promise.resolve(originalSourceClockBackend),pair=module.readOriginalNativeSourceClockReferencesV1(clock);
  for(const resource of [pair.runtime,pair.nativeRuntime])assert.equal(runtimes.get(resource)?.s,s,'NATIVE_SOURCE_CLOCK_ORIGINAL_REALM');
  const second=module.snapshotOriginalNativeSourceObservedClockV1(clock);assert.ok(/^[1-9][0-9]{0,19}$/.exec(second)?.[0]===second,'NATIVE_SOURCE_ORIGINAL_CLOCK_CHECKPOINT');
  await update(s,d=>{assert.ok(BigInt(second)>=BigInt(d.clockSecond),'NATIVE_SOURCE_CLOCK_ROLLBACK');d.clockSecond=second;return d;});
@@ -385,3 +386,24 @@ const sourceRuntimeAPI = Object.freeze({
   bindOwnedNativeDurableSourceClockPairV1,
   readOriginalNativeDurableSourceStateV1,
 });
+
+// The journal and clock share one closed composition; callers cannot select its ports.
+const originalSourceClockBackend = buildOriginalNativeSourceClockBackendV1(Object.freeze({
+  assertOriginalNativeSourceCapsuleV1,
+  assertOwnedNativeDurableSourceReceiverV1,
+  assertOwnedNativeDurableSourceGraphRuntimeV1,
+  readOwnedNativeDurableSourceClockPairV1,
+  refreshNativeValueReceiverClock,
+  refreshOwnedNativeEconomicObservedGraphClockV2,
+  createOriginalNativeSourceClockPairV1,
+  readOriginalNativeSourceClockCheckpointV1,
+  retainOriginalNativeSourceClockCheckpointV1
+}));
+export const {
+  assertOriginalNativeSourceObservedClockV1,
+  readOriginalNativeSourceClockReferencesV1,
+  snapshotOriginalNativeSourceObservedClockV1,
+  refreshOriginalNativeSourceObservedClockV1,
+  createOriginalNativeSourceObservedClocksV1,
+  reopenOriginalNativeSourceObservedClocksV1
+} = originalSourceClockBackend;
