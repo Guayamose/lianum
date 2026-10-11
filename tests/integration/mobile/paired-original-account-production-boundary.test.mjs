@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { createPairedOriginalAccountActorV2 } from '../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
+import { createPairedOriginalAccountActorV2 } from '../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { createFlatAccountSession } from '@lianum/backend/accounts/session';
 const jwk = generateKeyPairSync('ec', { namedCurve: 'secp256k1' }).publicKey.export({ format: 'jwk' });
 const devicePublicKey = '04' + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');

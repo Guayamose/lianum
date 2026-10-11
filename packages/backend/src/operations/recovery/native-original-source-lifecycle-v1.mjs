@@ -1,3 +1,5 @@
+import {buildNativeManualSessionV1} from '../../api/accounts/native-manual-session-backend-v1.mjs';
+import {originalActorFrameDataV1, reconcileNativeSourceActorCheckpointDataV1} from './source-journal/checkpoint-reconciliation-v1.mjs';
 import {buildOriginalNativeSourceClockBackendV1} from './native-original-source-clock-backend-v1.mjs';
 import {privateDirectory,syncDirectory,readPrivate,exclusive,replace} from './source-journal/private-files-v1.mjs';
 import {processIdentity,validateProcess,absent} from './source-journal/process-identity-v1.mjs';
@@ -20,6 +22,8 @@ import {NATIVE_VALUE_DEV_RELEASE_V5} from '../releases/native-value/native-value
 import {assertOwnedEvmRecoveryStateDumpV1} from '../../chains/evm/runtime/owned-evm-recovery-state-bound-v1.mjs';
 
 import {buildOwnedEvmRuntimeBackendV1} from '../../chains/evm/runtime/owned-evm-runtime-backend-v1.mjs';
+
+import {buildPairedOriginalAccountActorV2} from '../../api/mobile/paired-original-account-actor-backend-v2.mjs';
 
 export const ORIGINAL_NATIVE_SOURCE_PROFILE_V1='NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1';
 const SCHEMA='ORIGINAL_NATIVE_SOURCE_CAPSULE_V1';
@@ -63,7 +67,7 @@ export function consumeOriginalNativeSourceActorCheckpointV1(request){assert.equ
  r.used=true;assert.ok(Date.now()<r.s.identity.deadlineMs,'NATIVE_SOURCE_ORIGINAL_DEADLINE');return Object.freeze({identity:Object.freeze(copy(r.s.identity)),section:dataCopy(r.s.record.data.sections.actor)});}
 async function reconcileCheckpoints(s){const before=copy(s.record.data),native={};
  for(const name of FAMILIES){const row=before.native[name];if(row.pending!==null){await readNativeState(s,name,row.candidate.confirmed);native[name]={pending:null,confirmed:copy(row.candidate.confirmed),candidate:null};}}
- let actor=null;if(before.sections.actor.candidate!==null){const request=opaque();checkpointRequests.set(request,{s,section:'actor',revision:s.record.revision,used:false});const module=await import('../../api/mobile/paired-original-account-actor-v2.mjs');actor=await module.reconcileOriginalNativeActorSourceCheckpointV1(request);validateSection(actor,s.identity,'actor');assert.equal(actor.candidate,null);}
+ let actor=null;if(before.sections.actor.candidate!==null){const request=opaque();checkpointRequests.set(request,{s,section:'actor',revision:s.record.revision,used:false});await Promise.resolve();actor=await reconcileOriginalNativeActorSourceCheckpointV1(request);validateSection(actor,s.identity,'actor');assert.equal(actor.candidate,null);}
  let account=null;if(before.sections.account.candidate!==null||actor){const request=opaque();checkpointRequests.set(request,{s,section:'account',revision:s.record.revision,used:false});const module=await import('../../accounts/authority/native-value-account-authority-v2.mjs');account=await module.reconcileOriginalNativeAccountSourceCheckpointV1(request);validateSection(account,s.identity,'account');assert.equal(account.candidate,null);await clearOriginalAccountCheckpointLock(s,account);}
  if(Object.keys(native).length||account||actor)await update(s,data=>{assert.deepEqual(data,before,'NATIVE_SOURCE_ORIGINAL_CHECKPOINT_CHANGED');for(const name of Object.keys(native))data.native[name]=native[name];if(account)data.sections.account=dataCopy(account);if(actor)data.sections.actor=dataCopy(actor);return data;});}
 function original(authority,allowUnknown=false){const s=authorities.get(authority);assert.ok(s&&!s.closed&&!s.fault,'NATIVE_SOURCE_ORIGINAL_CAPSULE');assert.ok(allowUnknown||s.record.data.phase!=='UNKNOWN','NATIVE_SOURCE_PENDING_UNKNOWN');assert.ok(Date.now()<s.identity.deadlineMs,'NATIVE_SOURCE_ORIGINAL_DEADLINE');return s;}
@@ -125,7 +129,7 @@ export async function retainOriginalNativeSourceReferenceV1(authority,section,re
  const producer=await import('./native-original-source-parts-v1.mjs');const retained=await producer.retainFixedOriginalNativeSourcePartV1(token,section,resource);s.references.set(section,retained);return retained;
 }
 export async function createOriginalNativeSourceAccountV1(authority,input){assert.equal(arguments.length,2);const s=original(authority);assert.equal(s.record.data.phase,'SEEDING');assert.equal(s.record.data.sections.account,null);const module=await import('../../accounts/authority/native-value-account-authority-v2.mjs'),account=await module.createOriginalNativeSourceNoteAccountAuthorityV1(writer(s,'account'),input);s.references.set('account',account);return account;}
-export async function createOriginalNativeSourceSessionV1(authority,input){assert.equal(arguments.length,2);const s=original(authority);assert.equal(s.record.data.phase,'SEEDING');assert.equal(s.record.data.sections.session,null);assert.equal(input.account,s.references.get('account'),'NATIVE_SOURCE_ORIGINAL_SESSION_ACCOUNT');const module=await import('../../api/accounts/flat-manual-graph-session.mjs'),joined=await module.createOriginalNativeSourceGraphAccountSessionV1(writer(s,'session'),input);s.references.set('session',joined.session);return joined;}
+export async function createOriginalNativeSourceSessionV1(authority,input){assert.equal(arguments.length,2);const s=original(authority);assert.equal(s.record.data.phase,'SEEDING');assert.equal(s.record.data.sections.session,null);assert.equal(input.account,s.references.get('account'),'NATIVE_SOURCE_ORIGINAL_SESSION_ACCOUNT');await Promise.resolve();const joined=await createOriginalNativeSourceGraphAccountSessionV1(writer(s,'session'),input);s.references.set('session',joined.session);return joined;}
 export async function reopenOriginalNativeSourceReferenceV1(authority,section,contexts){assert.equal(arguments.length,3);const s=original(authority);assert.ok(s.opening&&s.record.data.phase==='OPENING');assert.equal(SECTIONS[s.opened.size],section,'NATIVE_SOURCE_ORIGINAL_OPEN_ORDER');const token=opaque();reads.set(token,{token,s,section,generation:s.record.data.generation,used:false,processes:new Map()});
  try{const producer=await import('./native-original-source-parts-v1.mjs');const retained=await producer.reopenFixedOriginalNativeSourcePartV1(token,section,contexts);s.references.set(section,retained);return retained;}catch(e){s.fault=true;throw e;}
 }
@@ -407,3 +411,129 @@ export const {
   createOriginalNativeSourceObservedClocksV1,
   reopenOriginalNativeSourceObservedClocksV1
 } = originalSourceClockBackend;
+
+// The fixed lower actor contracts load only during asynchronous birth/reopen.
+// Child owner modules retain their inspection-before-import boundary. Neither
+// the one instance nor its initialization promise can be selected by callers.
+let originalPairedActor = null;
+let originalPairedActorPending = null;
+async function prepareOriginalPairedActor() {
+  if (!originalPairedActorPending) originalPairedActorPending = (async () => {
+    const [originalFlatAccountSession, originalNativeAccount] = await Promise.all([
+      import('../../api/accounts/flat-account-session.mjs'),
+      import('../../accounts/authority/native-value-account-authority-v2.mjs'),
+    ]);
+// Fixed original actor composition. The instance and all selected contracts stay private.
+return buildPairedOriginalAccountActorV2(Object.freeze({
+  session: Object.freeze({
+    assertFlatAccountSession: (...args) => originalFlatAccountSession.assertFlatAccountSession(...args),
+    flatManualNativeNoteActionTarget: (...args) => flatManualNativeNoteActionTarget(...args),
+  }),
+  account: Object.freeze({
+    nativeValueAccountManualNoteDetails: (...args) => originalNativeAccount.nativeValueAccountManualNoteDetails(...args),
+    assertOwnedNativeValueAccountAuthority: (...args) => originalNativeAccount.assertOwnedNativeValueAccountAuthority(...args),
+    nativeValueOriginalRecoverySourceV1FromAccount: (...args) => originalNativeAccount.nativeValueOriginalRecoverySourceV1FromAccount(...args),
+  }),
+  economic: Object.freeze({
+    assertNativeEconomicRecoveryCaptureV1: (...args) => wrappedRecovery.assertNativeEconomicRecoveryCaptureV1(...args),
+    nativeEconomicRecoverySectionIdentityV1: (...args) => wrappedRecovery.nativeEconomicRecoverySectionIdentityV1(...args),
+    consumeNativeEconomicRecoverySectionV1: (...args) => wrappedRecovery.consumeNativeEconomicRecoverySectionV1(...args),
+  }),
+  source: Object.freeze({
+    nativeSourceRecoveryOriginalReferenceV1: (...args) => nativeSourceRecoveryOriginalReferenceV1(...args),
+    nativeSourceRecoverySectionIdentityV1: (...args) => nativeSourceRecoverySectionIdentityV1(...args),
+    retainOriginalNativeSourceSectionV1: (...args) => retainOriginalNativeSourceSectionV1(...args),
+    consumeOriginalNativeSourceSectionV1: (...args) => consumeOriginalNativeSourceSectionV1(...args),
+    resumeOriginalNativeSourceSectionV1: (...args) => resumeOriginalNativeSourceSectionV1(...args),
+    updateOriginalNativeSourceSectionV1: (...args) => updateOriginalNativeSourceSectionV1(...args),
+  }),
+}));
+  })().then(instance => (originalPairedActor = instance));
+  return originalPairedActorPending;
+}
+function originalActorFamily() {
+  if (!originalPairedActor) throw Object.assign(new Error('MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'), {code: 'MOBILE_ORIGINAL_ACTOR_ORIGINAL_REQUIRED'});
+  return originalPairedActor;
+}
+export async function createPairedOriginalAccountActorV2(...args) { const actor = await prepareOriginalPairedActor(); return actor.createPairedOriginalAccountActorV2(...args); }
+export function assertPairedOriginalAccountActorV2(...args) { return originalActorFamily().assertPairedOriginalAccountActorV2(...args); }
+export function pairedOriginalAccountActorDescriptorV2(...args) { return originalActorFamily().pairedOriginalAccountActorDescriptorV2(...args); }
+export function assertPairedOriginalAccountActorAccountV2(...args) { return originalActorFamily().assertPairedOriginalAccountActorAccountV2(...args); }
+export function pairedOriginalAccountPublicFrameV2(value) { assert.equal(arguments.length, 1, 'MOBILE_ORIGINAL_ACTOR_ARGUMENTS'); return originalActorFrameDataV1(value); }
+export function fenceOriginalNativeActorEconomicRecoveryV1(...args) { return originalActorFamily().fenceOriginalNativeActorEconomicRecoveryV1(...args); }
+export function captureOriginalNativeActorEconomicRecoveryV1(...args) { return originalActorFamily().captureOriginalNativeActorEconomicRecoveryV1(...args); }
+export function stopCapturedNativeActorEconomicRecoveryV1(...args) { return originalActorFamily().stopCapturedNativeActorEconomicRecoveryV1(...args); }
+export function abortNativeActorEconomicRecoveryV1(...args) { return originalActorFamily().abortNativeActorEconomicRecoveryV1(...args); }
+export async function reopenOriginalNativeActorEconomicRecoveryV1(...args) { const actor = await prepareOriginalPairedActor(); return actor.reopenOriginalNativeActorEconomicRecoveryV1(...args); }
+export function assertNativeActorEconomicMembershipV1(...args) { return originalActorFamily().assertNativeActorEconomicMembershipV1(...args); }
+export function nativePairedActorEconomicSourceV1(...args) { return originalActorFamily().nativePairedActorEconomicSourceV1(...args); }
+export function assertNativeActorSessionAccountMembershipV1(...args) { return originalActorFamily().assertNativeActorSessionAccountMembershipV1(...args); }
+export function reconcileOriginalNativeActorSourceCheckpointV1(request) { assert.equal(arguments.length, 1, 'NATIVE_SOURCE_ACTOR_ARGUMENTS'); return reconcileNativeSourceActorCheckpointDataV1(consumeOriginalNativeSourceActorCheckpointV1(request)); }
+export function retainOriginalNativeActorSourceV1(...args) { return originalActorFamily().retainOriginalNativeActorSourceV1(...args); }
+export async function reopenOriginalNativeActorSourceV1(...args) { const actor = await prepareOriginalPairedActor(); return actor.reopenOriginalNativeActorSourceV1(...args); }
+
+// SOURCE owns the one admitted native-session instance. All resources load from
+// fixed modules during asynchronous birth/reopen; guards never initialize it.
+let originalNativeSessions = null;
+let originalNativeSessionsPending = null;
+async function prepareOriginalNativeSessions() {
+ if(!originalNativeSessionsPending) originalNativeSessionsPending=(async()=>{
+  const [account,system]=await Promise.all([
+   import('../../accounts/authority/native-value-account-authority-v2.mjs'),
+   import('../deployments/native-value/native-value-system-v2.mjs'),
+  ]);
+  return buildNativeManualSessionV1(Object.freeze({
+   account: Object.freeze({
+    assertOriginalNativeAccountSourceV1:(...args)=>account.assertOriginalNativeAccountSourceV1(...args),
+    assertOwnedNativeValueAccountAuthority:(...args)=>account.assertOwnedNativeValueAccountAuthority(...args),
+    nativeValueAccountManualGraphDetails:(...args)=>account.nativeValueAccountManualGraphDetails(...args),
+    assertNativeValueAccountManualGraphExecution:(...args)=>account.assertNativeValueAccountManualGraphExecution(...args),
+    nativeValueAccountManualNoteDetails:(...args)=>account.nativeValueAccountManualNoteDetails(...args),
+   }),
+   economic: Object.freeze({
+    assertNativeEconomicRecoveryCaptureV1:(...args)=>wrappedRecovery.assertNativeEconomicRecoveryCaptureV1(...args),
+    nativeEconomicRecoverySectionIdentityV1:(...args)=>wrappedRecovery.nativeEconomicRecoverySectionIdentityV1(...args),
+    consumeNativeEconomicRecoverySectionV1:(...args)=>wrappedRecovery.consumeNativeEconomicRecoverySectionV1(...args),
+    nativeValueOriginalRecoverySourceV1:(...args)=>system.nativeValueOriginalRecoverySourceV1(...args),
+   }),
+   source: Object.freeze({
+    nativeSourceRecoverySectionIdentityV1:(...args)=>nativeSourceRecoverySectionIdentityV1(...args),
+    retainOriginalNativeSourceSectionV1:(...args)=>retainOriginalNativeSourceSectionV1(...args),
+    consumeOriginalNativeSourceSectionV1:(...args)=>consumeOriginalNativeSourceSectionV1(...args),
+    updateOriginalNativeSourceSectionV1:(...args)=>updateOriginalNativeSourceSectionV1(...args),
+    resumeOriginalNativeSourceSectionV1:(...args)=>resumeOriginalNativeSourceSectionV1(...args),
+    nativeSourceRecoveryOwnedProcessV1:(...args)=>nativeSourceRecoveryOwnedProcessV1(...args),
+   }),
+   resources: Object.freeze({
+    loadDurableKeeper:()=>import('../../accounts/storage/durable-generic-account-keeper.mjs'),
+    loadAccountSession:()=>import('../../api/accounts/flat-account-session.mjs'),
+    loadEconomicState:()=>import('../../accounts/state/original-wallet-economic-state-v1.mjs'),
+   }),
+  }));
+ })().then(instance=>(originalNativeSessions=instance));
+ return originalNativeSessionsPending;
+}
+function originalNativeSessionFamily(){if(!originalNativeSessions)throw Object.assign(new Error('NATIVE_SESSION_ORIGINAL_REQUIRED'),{code:'NATIVE_SESSION_ORIGINAL_REQUIRED'});return originalNativeSessions;}
+export function flatManualNativeNoteReviews(...args){return originalNativeSessionFamily().flatManualNativeNoteReviews(...args);}
+export function flatManualNativeNoteActionTarget(...args){return originalNativeSessionFamily().flatManualNativeNoteActionTarget(...args);}
+export async function createNativeValueManualGraphAccountSession(...args){const family=await prepareOriginalNativeSessions();return family.createNativeValueManualGraphAccountSession(...args);}
+export function assertNativeWalletEconomicSessionV1(...args){return originalNativeSessionFamily().assertNativeWalletEconomicSessionV1(...args);}
+export function fenceOriginalNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().fenceOriginalNativeSessionEconomicRecoveryV1(...args);}
+export function captureOriginalNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().captureOriginalNativeSessionEconomicRecoveryV1(...args);}
+export function stopCapturedNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().stopCapturedNativeSessionEconomicRecoveryV1(...args);}
+export function abortNativeSessionEconomicRecoveryV1(...args){return originalNativeSessionFamily().abortNativeSessionEconomicRecoveryV1(...args);}
+export async function reopenOriginalNativeSessionEconomicRecoveryV1(...args){const family=await prepareOriginalNativeSessions();return family.reopenOriginalNativeSessionEconomicRecoveryV1(...args);}
+export function assertNativeSessionEconomicMembershipV1(...args){return originalNativeSessionFamily().assertNativeSessionEconomicMembershipV1(...args);}
+export function assertOriginalNativeSessionSourceKeeperV1(...args){return originalNativeSessionFamily().assertOriginalNativeSessionSourceKeeperV1(...args);}
+export function prepareOriginalNativeSessionKeeperSourceCheckpointV1(...args){return originalNativeSessionFamily().prepareOriginalNativeSessionKeeperSourceCheckpointV1(...args);}
+export function confirmOriginalNativeSessionKeeperSourceCheckpointV1(...args){return originalNativeSessionFamily().confirmOriginalNativeSessionKeeperSourceCheckpointV1(...args);}
+export async function createOriginalNativeSourceGraphAccountSessionV1(...args){const family=await prepareOriginalNativeSessions();return family.createOriginalNativeSourceGraphAccountSessionV1(...args);}
+export async function reopenOriginalNativeSessionSourceV1(...args){const family=await prepareOriginalNativeSessions();return family.reopenOriginalNativeSessionSourceV1(...args);}
+export function nativeManualGraphReviews(...args){return originalNativeSessionFamily().nativeManualGraphReviews(...args);}
+export function nativeManualGraphHandoffBindings(...args){return originalNativeSessionFamily().nativeManualGraphHandoffBindings(...args);}
+export function nativeManualGraphActionTarget(...args){return originalNativeSessionFamily().nativeManualGraphActionTarget(...args);}
+export function readOriginalNativeSessionWalletEconomicSnapshotV1(...args){return originalNativeSessionFamily().readOriginalNativeSessionWalletEconomicSnapshotV1(...args);}
+export function createOriginalNativeSessionWalletEconomicStateV1(...args){return originalNativeSessionFamily().createOriginalNativeSessionWalletEconomicStateV1(...args);}
+export function reopenOriginalNativeSessionWalletEconomicStateAfterCrashV1(...args){return originalNativeSessionFamily().reopenOriginalNativeSessionWalletEconomicStateAfterCrashV1(...args);}
+export function readOriginalNativeSessionWalletEconomicStateV1(...args){return originalNativeSessionFamily().readOriginalNativeSessionWalletEconomicStateV1(...args);}
+export function isOriginalNativeManualSessionV1(session){return originalNativeSessions?.isOriginalNativeManualSessionV1(session)??false;}

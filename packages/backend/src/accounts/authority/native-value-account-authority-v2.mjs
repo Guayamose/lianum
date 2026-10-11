@@ -5,7 +5,7 @@ import { encodeFlatTransaction } from '../../execution/encoding/transaction-code
 import {buildDeviceDepositBridgeBackendV1} from './device-deposit-bridge-backend-v1.mjs';
 import {buildDeviceReservationBridgeBackendV1} from './device-reservation-bridge-backend-v1.mjs';
 import {buildDeviceExecutionBridgeBackendV1} from './device-execution-bridge-backend-v1.mjs';
-import * as originalDeviceActor from '../../api/mobile/paired-original-account-actor-v2.mjs';
+import * as originalDeviceActor from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import {assertOwnedNativeValueProviderCustody as originalDeviceProviderGuard} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { decodeNativeValueTerminalCalldata } from '../../execution/encoding/terminal-calldata-codec.mjs';
 import {reconcileOriginalDeviceNativeRecoveryV1} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
@@ -285,7 +285,7 @@ export function runDeviceOwnerRecoveryArmAuthorizationV1(account,bridge,cap){ass
 const nativeDeviceRecoveredInstallations=new WeakMap();
 export async function retainOriginalNativeDeviceRecoveredInstallationV1(account,actor,providerCustody){
  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
- const module=await import('../../api/mobile/paired-original-account-actor-v2.mjs');
+ const module=await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');
  module.assertPairedOriginalAccountActorAccountV2(actor,account);
  const descriptor=module.pairedOriginalAccountActorDescriptorV2(actor),value=await owned.get(account).nativeDeviceRecoveredInstallation(descriptor,providerCustody);
  assertOwnedNativeValueAccountAuthority(account);module.assertPairedOriginalAccountActorAccountV2(actor,account);
@@ -302,7 +302,7 @@ export function consumeOriginalNativeDeviceRecoveredInstallationV1(cap,account,a
 const nativeDeviceSourceInstallations=new WeakMap();
 export async function retainOriginalNativeDeviceSourceInstallationV1(account,actor,providerCustody) {
   assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);const state=owned.get(account);state.sourceIdentity();
-  const module=await import('../../api/mobile/paired-original-account-actor-v2.mjs');module.assertPairedOriginalAccountActorAccountV2(actor,account);
+  const module=await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');module.assertPairedOriginalAccountActorAccountV2(actor,account);
   const descriptor=module.pairedOriginalAccountActorDescriptorV2(actor),value=await state.nativeDeviceSourceInstallation(descriptor,providerCustody);
   assertOwnedNativeValueAccountAuthority(account);module.assertPairedOriginalAccountActorAccountV2(actor,account);assert.deepEqual(module.pairedOriginalAccountActorDescriptorV2(actor),descriptor);
   const cap=Object.freeze(Object.create(null));nativeDeviceSourceInstallations.set(cap,{account,actor,value});return cap;
@@ -315,7 +315,7 @@ export function readOriginalNativeLiveArmedClockCheckpointV1(account,runtime){as
 const nativeDeviceLiveArmedInstallations=new WeakMap();
 export async function retainOriginalNativeDeviceLiveArmedInstallationV1(account,actor,providerCustody){
  assert.equal(arguments.length,3);assertOwnedNativeValueAccountAuthority(account);
- const module=await import('../../api/mobile/paired-original-account-actor-v2.mjs');module.assertPairedOriginalAccountActorAccountV2(actor,account);
+ const module=await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');module.assertPairedOriginalAccountActorAccountV2(actor,account);
  const descriptor=module.pairedOriginalAccountActorDescriptorV2(actor),value=await owned.get(account).nativeDeviceLiveArmedInstallation(descriptor,providerCustody);
  assertOwnedNativeValueAccountAuthority(account);module.assertPairedOriginalAccountActorAccountV2(actor,account);assert.deepEqual(module.pairedOriginalAccountActorDescriptorV2(actor),descriptor);
  const cap=Object.freeze(Object.create(null));nativeDeviceLiveArmedInstallations.set(cap,{account,actor,value});return cap;
@@ -1566,7 +1566,7 @@ export async function captureOriginalDeviceD26ObservationV1(input) {
   assert.equal(arguments.length,1);exactRecord(input,['actor','account','runtime','system','jobId']);
   const {actor,account,runtime,system,jobId}=input;reference(jobId);
   assertOwnedNativeValueAccountAuthority(account,{runtime,system});
-  const m=await import('../../api/mobile/paired-original-account-actor-v2.mjs');
+  const m=await import('../../operations/recovery/native-original-source-lifecycle-v1.mjs');
   m.assertPairedOriginalAccountActorAccountV2(actor,account);
   const descriptor=copy(m.pairedOriginalAccountActorDescriptorV2(actor));
   const data=await owned.get(account).captureDeviceD26Observation(jobId);actor.close();

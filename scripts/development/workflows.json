@@ -36,7 +36,8 @@
         "packages/backend/tests/operations/payouts/native-value-current-inflight-v4.test.mjs",
         "packages/backend/tests/operations/operators/wrapped/wrapped-graph-operator-v4-guards.test.mjs",
         "packages/backend/tests/accounts/state/original-wallet-economic-state-v1.test.mjs",
-        "packages/backend/tests/accounts/state/original-session-economic-lifecycle-v1.test.mjs"
+        "packages/backend/tests/accounts/state/original-session-economic-lifecycle-v1.test.mjs",
+        "packages/backend/tests/accounts/authority/paired-actor-backend-isolation.test.mjs"
       ]
     },
     "custody": {

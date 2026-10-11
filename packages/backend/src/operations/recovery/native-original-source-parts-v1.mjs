@@ -11,7 +11,7 @@ import {retainOriginalNativeSourceOwnerV1,reopenOriginalNativeSourceOwnerV1} fro
 import {retainOriginalNativeExecutorSourceV1,reopenOriginalNativeExecutorSourceV1} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import {reopenOriginalNativeAccountSourceV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {reopenOriginalNativeSessionSourceV1} from '../../api/accounts/flat-manual-graph-session.mjs';
-import {retainOriginalNativeActorSourceV1,reopenOriginalNativeActorSourceV1} from '../../api/mobile/paired-original-account-actor-v2.mjs';
+import {retainOriginalNativeActorSourceV1,reopenOriginalNativeActorSourceV1} from './native-original-source-lifecycle-v1.mjs';
 export async function retainFixedOriginalNativeSourcePartV1(token,section,resource){assert.equal(arguments.length,3);
  switch(section){case 'bootstrap':await retainOriginalNativeSourceBootstrapV1(token,resource);break;case 'system':await retainOriginalNativeSystemSourceV1(token,resource);break;case 'provider':await retainOriginalNativeSourceProviderV1(token,resource);break;case 'owner':await retainOriginalNativeSourceOwnerV1(token,resource);break;case 'executor':await retainOriginalNativeExecutorSourceV1(token,resource);break;case 'actor':return retainOriginalNativeActorSourceV1(token,resource);default:assert.fail('NATIVE_SOURCE_FIXED_PART_PRODUCER');}return resource;
 }

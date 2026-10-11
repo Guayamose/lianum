@@ -12,7 +12,7 @@ import {assertOwnedNativeValueProviderCustody,fenceOriginalNativeProviderEconomi
 import {assertNativeValueOperatorBootstrapForSystem,assertNativeValueBootstrapNativeRuntime,fenceOriginalNativeBootstrapEconomicRecoveryV1} from '../operators/native-value/native-value-local-operator-bootstrap-v4.mjs';
 import {nativeValueOriginalRecoverySourceV1,fenceOriginalNativeSystemEconomicRecoveryV1} from '../deployments/native-value/native-value-system-v2.mjs';
 import {assertNativeSessionEconomicMembershipV1,fenceOriginalNativeSessionEconomicRecoveryV1} from '../../api/accounts/flat-manual-graph-session.mjs';
-import {assertNativeActorEconomicMembershipV1,fenceOriginalNativeActorEconomicRecoveryV1} from '../../api/mobile/paired-original-account-actor-v2.mjs';
+import {assertNativeActorEconomicMembershipV1,fenceOriginalNativeActorEconomicRecoveryV1} from './native-original-source-lifecycle-v1.mjs';
 import {assertNativeDeviceTransportEconomicMembershipV1,fenceOriginalNativeDeviceTransportRecoveryV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
 import {assertOwnedNativeEconomicRuntimeRecoverableV1,fenceOwnedNativeEconomicRuntimeV1,fenceOwnedNativeLiveArmedRuntimeV1 as liveRuntimeFence} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertOriginalNativeDeviceLiveRecoveryProducerV1} from './native-device-local-live-recovery-v1.mjs';

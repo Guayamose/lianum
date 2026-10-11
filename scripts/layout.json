@@ -2774,6 +2774,10 @@
     {
       "source": "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs",
       "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-original-source-lifecycle-v1.mjs"
+    },
+    {
+      "source": "packages/backend/src/api/mobile/paired-original-account-actor-backend-v2.mjs",
+      "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/paired-original-account-actor-backend-v2.mjs"
     }
   ],
   "files": [
@@ -17235,7 +17239,6 @@
       "../../custody/processes/native-value-owner-process-v2.mjs": "../../../mobile-core/native-value-owner-process-v2.mjs",
       "../../execution/native-value/execution/native-value-execution-v2.mjs": "../paeg/native-value-execution-v2.mjs",
       "../../api/accounts/flat-manual-graph-session.mjs": "../api/flat-manual-graph-session.mjs",
-      "../../api/mobile/paired-original-account-actor-v2.mjs": "../mobile/paired-original-account-actor-v2.mjs",
       "../../accounts/authority/device-owner-deposit-bridge-v1.mjs": "../global-state/device-owner-deposit-bridge-v1.mjs",
       "../../accounts/authority/device-owner-reservation-bridge-v1.mjs": "../global-state/device-owner-reservation-bridge-v1.mjs",
       "../../accounts/authority/device-owner-execution-bridge-v1.mjs": "../global-state/device-owner-execution-bridge-v1.mjs",
@@ -17259,8 +17262,7 @@
       "../../custody/processes/native-value-owner-process-v2.mjs": "../../../mobile-core/native-value-owner-process-v2.mjs",
       "../../execution/native-value/execution/native-value-execution-v2.mjs": "../paeg/native-value-execution-v2.mjs",
       "../../accounts/authority/native-value-account-authority-v2.mjs": "../global-state/native-value-account-authority-v2.mjs",
-      "../../api/accounts/flat-manual-graph-session.mjs": "../api/flat-manual-graph-session.mjs",
-      "../../api/mobile/paired-original-account-actor-v2.mjs": "../mobile/paired-original-account-actor-v2.mjs"
+      "../../api/accounts/flat-manual-graph-session.mjs": "../api/flat-manual-graph-session.mjs"
     },
     "packages/backend/src/operations/recovery/native-original-source-process-v1.mjs": {
       "../../../../engine/src/chains/shared/runtime-harness.mjs": "../../../../../omnichain-product/src/chains/runtime-harness.mjs"
@@ -22805,7 +22807,8 @@
     "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": "packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs",
     "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-deposit-bridge-backend-v1.mjs",
     "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-reservation-bridge-backend-v1.mjs",
-    "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-execution-bridge-backend-v1.mjs"
+    "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-execution-bridge-backend-v1.mjs",
+    "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs": "packages/backend/src/api/mobile/paired-original-account-actor-backend-v2.mjs"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [
@@ -22817,6 +22820,7 @@
   "retiredRuntimeSources": {
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/paired-original-account-actor-v2.mjs": "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
   }
 }

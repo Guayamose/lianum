@@ -17,7 +17,7 @@ import {captureNativeValueLiveArmedRecoveryV1} from './native-value-economic-rec
 import {normalizeOriginalNativeDeviceLocalConfigurationV1} from './native-device-local-restart-v1.mjs';
 import {reopenOriginalNativeDeviceLiveArmedObservedClocksV1} from './native-device-local-observed-clock-v1.mjs';
 import {createOriginalNativeDeviceLiveRecoveryProducerV1} from './native-device-local-live-recovery-v1.mjs';
-import {assertPairedOriginalAccountActorAccountV2} from '../../api/mobile/paired-original-account-actor-v2.mjs';
+import {assertPairedOriginalAccountActorAccountV2} from './native-original-source-lifecycle-v1.mjs';
 import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';

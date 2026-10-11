@@ -36,7 +36,7 @@ import {NATIVE_DEVICE_ECONOMIC_PROFILE_V1,NATIVE_DEVICE_ECONOMIC_RESULT_V1,asser
 import {assertDeviceOwnerNativeInclusionV1} from './device-owner-execution-native-checks-v1.mjs';
 import { createNativeValueAccountAuthority, createNativeEconomicNoteAccountAuthorityV1, nativeValueAccountManualNoteDetails } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1, readOriginalSessionWalletEconomicStateV1 } from '@lianum/backend/accounts/manual-graph';
-import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
+import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { createPairedOriginalAccountHttpServerV2 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, validateOriginalAccountFreshV2,
   privateStateAccessMessageV1, privateStateReviewMessageV1 } from '@lianum/mobile-protocol/original-account-v2';

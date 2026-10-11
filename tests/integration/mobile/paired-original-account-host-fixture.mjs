@@ -107,7 +107,7 @@ export function hostEconomicRecovery() {
 }
 const { createNativeValueAccountAuthority } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const { createNativeValueManualGraphAccountSession } = await import('@lianum/backend/accounts/manual-graph');
-export const createActorModule = () => import('../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs');
+export const createActorModule = () => import('../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs');
 export function device() {
   const keys = generateKeyPairSync('ec', { namedCurve: 'secp256k1' }), jwk = keys.publicKey.export({ format: 'jwk' });
   const publicKey = '04' + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');

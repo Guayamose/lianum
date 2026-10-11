@@ -10,7 +10,7 @@ import { createPrivateKey, X509Certificate } from 'node:crypto';
 import { isIP } from 'node:net';
 import { types } from 'node:util';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2, nativePairedActorEconomicSourceV1, assertNativeActorSessionAccountMembershipV1 }
-  from './paired-original-account-actor-v2.mjs';
+  from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { assertNativeEconomicRecoveryCaptureV1 } from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBindingsV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';

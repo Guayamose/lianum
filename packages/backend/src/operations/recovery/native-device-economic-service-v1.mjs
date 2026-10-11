@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {exactRecord} from '@lianum/components/encoding/commitments';
 import {assertOwnedNativeValueAccountAuthority,retainOriginalNativeDeviceRecoveredInstallationV1,
  isOriginalNativePrivateDepositAccountV2,isOriginalNativePrivateExitAccountV2,isOriginalNativePrivateReservationAccountV2,isOriginalNativePrivateWorkerAccountV3,consumeOriginalNativeDeviceRecoveredInstallationV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
-import {assertPairedOriginalAccountActorAccountV2} from '../../api/mobile/paired-original-account-actor-v2.mjs';
+import {assertPairedOriginalAccountActorAccountV2} from './native-original-source-lifecycle-v1.mjs';
 import {createDeviceOwnerDepositBridgeV1,createOriginalNativePrivateDepositBridgeV2,createOriginalNativePrivateWorkerDepositBridgeV3} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createDeviceOwnerReservationBridgeV1,createOriginalNativePrivateReservationBridgeV2} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createDeviceOwnerExecutionBridgeV1,createOriginalNativePrivateExecutionBridgeV2,createOriginalNativePrivateWorkerExecutionBridgeV3} from '../../accounts/authority/native-value-account-authority-v2.mjs';

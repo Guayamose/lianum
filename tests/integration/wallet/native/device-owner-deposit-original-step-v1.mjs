@@ -15,7 +15,7 @@ import { writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.m
 import { normalizeOriginalNativePrivateDepositFailureV2 } from '@lianum/proofs/jobs/native-device-private-deposit-client-v2';
 import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1, awaitDeviceOwnerDepositOriginalObservationV1 } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
-  from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
+  from '../../../../packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { createPairedDeviceDepositTlsServerV1, handoffPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import { originalAccountAccessMessageV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { deviceDepositConsentEitherMessageV2 as deviceDepositConsentMessageV1, normalizeDeviceDepositWitnessV1, deviceDepositWitnessBytesV1 }

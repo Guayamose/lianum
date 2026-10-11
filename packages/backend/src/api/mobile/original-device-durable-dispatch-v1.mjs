@@ -7,7 +7,7 @@ import { types } from 'node:util';
 import { createHmac, createPublicKey, verify } from 'node:crypto';
 import { cloneInput } from '@lianum/components/plain-input';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
-  from './paired-original-account-actor-v2.mjs';
+  from '../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import { deviceOwnerDepositBridgeActorV1, isOriginalNativePrivateDepositBridgeV2, assertDeviceOwnerDepositDurableRequestV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { deviceOwnerReservationBridgeActorV1, assertDeviceOwnerReservationDurableRequestV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { deviceOwnerExecutionBridgeActorV1, isOriginalNativePrivateExecutionBridgeV2, assertDeviceOwnerExecutionTransportBindingsV1, assertDeviceOwnerExecutionDurableRequestV1 }
