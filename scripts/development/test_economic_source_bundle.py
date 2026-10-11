@@ -95,6 +95,25 @@ def public_resources():
                 'public-parameter' if '/crs/' in resource else
                 'toolchain' if '/node_modules/' in resource else 'public-artifact')
         add('.internal/runtime/' + resource, resource, kind, expected=row['sha256'])
+    # Official SDK dependencies and the C compiler are public executable tools,
+    # not historical backend/driver implementations or a private laboratory.
+    abi = 'omnichain-flat-profile/flat-wallet/wallet-platform/artifacts/private-external-v1/'
+    abi_manifest = abi + 'protocol-fixture-artifact-pins.json'
+    add('.internal/runtime/' + abi_manifest, abi_manifest,
+        expected='9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8')
+    pins = json.loads((ROOT / '.internal/runtime' / abi_manifest).read_text())
+    for row in pins['files']:
+        if row['path'].startswith('abi-tools/'):
+            add('.internal/runtime/' + abi + row['path'], abi + row['path'],
+                'toolchain', expected=row['sha256'])
+    solc = ENGINE + '/tools/solidity-js/'
+    for name in ['package.json', 'node_modules/solc/package.json']:
+        add('.internal/runtime/' + solc + name, solc + name, 'toolchain')
+    add('.internal/runtime/' + solc + 'package-lock.json', solc + 'package-lock.json',
+        'toolchain', expected='01676bb5abe650970edb26246286dec92d8ce05d38c797723e129f4814b369c4')
+    add('.internal/runtime/' + solc + 'node_modules/solc/soljson.js',
+        solc + 'node_modules/solc/soljson.js', 'toolchain',
+        expected='221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c')
     return {'schema': bundle.RESOURCE_SCHEMA, 'files': rows}
 
 
@@ -102,7 +121,7 @@ class EconomicSourceBundleTests(unittest.TestCase):
     def test_adopted_paged_wrapped_and_i84_readers_relocate_without_external_reads(self):
         resources = public_resources()
         resource_bytes = sum((ROOT / row['source']).stat().st_size for row in resources['files'])
-        self.assertLess(resource_bytes, 256 * 1024 * 1024)
+        self.assertLess(resource_bytes, 288 * 1024 * 1024)
         with tempfile.TemporaryDirectory(prefix='lianum-economic-bundle-') as temporary:
             original = Path(temporary) / 'candidate'
             result = bundle.build(ROOT, original, ENTRY, resources, ROOT, 'tools/node',
@@ -118,7 +137,10 @@ class EconomicSourceBundleTests(unittest.TestCase):
             bundle_bytes += (moved / 'source-bundle.json').stat().st_size
             self.assertFalse((moved / '.internal').exists())
             self.assertFalse(any(path.startswith('.internal/') for path in manifest['sourceFiles']))
-            self.assertFalse(list((moved / 'resources').rglob('*.mjs')))
+            # Retained drivers remain .source evidence. Only the original,
+            # manifest-authenticated SDK may carry executable vendor modules.
+            for path in (moved / 'resources').rglob('*.mjs'):
+                self.assertIn('/abi-tools/node_modules/', path.as_posix())
             # Node's permission boundary denies reads outside the moved bundle,
             # including the checkout, home, /workspace and retained laboratory.
             command = [str(moved / 'resources/tools/node'), '--permission',
@@ -133,6 +155,10 @@ class EconomicSourceBundleTests(unittest.TestCase):
             self.assertFalse(actual['nativeFixedPathReaderIncluded'])
             self.assertTrue(actual['retainedI84ReaderIncluded'])
             self.assertEqual(actual['i84PublicWords'], 84)
+            self.assertTrue(actual['originalSolidityCompilerLoaded'])
+            self.assertEqual(actual['solcVersion'], '0.8.37+commit.f401782d.Emscripten.clang')
+            self.assertTrue(actual['originalAbiToolsLoaded'])
+            self.assertFalse(actual['solidityCompiled'])
             self.assertEqual(actual['i84FixtureProfiles'], ['ethereum', 'base', 'arbitrum', 'bnb', 'tron'])
             self.assertFalse(actual['proofGenerated'])
             self.assertFalse(actual['financialExecution'])
@@ -158,6 +184,27 @@ class EconomicSourceBundleTests(unittest.TestCase):
                     self.assertIn('I84_PUBLIC_RESOURCE_PIN', rejected.stderr)
                 finally:
                     target.write_bytes(retained)
+            abi = 'omnichain-flat-profile/flat-wallet/wallet-platform/artifacts/private-external-v1/'
+            solc = ENGINE + '/tools/solidity-js/'
+            tool_changes = [
+                (abi + 'protocol-fixture-artifact-pins.json', 'FIXED_PROTOCOL_ARTIFACT_MANIFEST'),
+                (abi + 'abi-tools/node_modules/ethers/lib.commonjs/index.js', 'PROTOCOL_FIXTURE_ARTIFACT_PIN'),
+                (solc + 'package-lock.json', 'GENERIC_SOLC_LOCK_HASH'),
+                (solc + 'node_modules/solc/soljson.js', 'GENERIC_SOLJSON_HASH'),
+            ]
+            for name, reason in tool_changes:
+                target = moved / 'resources' / name
+                retained = target.read_bytes()
+                altered = bytearray(retained)
+                altered[0] ^= 1
+                try:
+                    target.write_bytes(altered)
+                    rejected = subprocess.run(command, cwd='/', env={'LANG': 'C.UTF-8', 'PATH': '/usr/bin:/bin'},
+                                              capture_output=True, text=True, timeout=30)
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn(reason, rejected.stderr)
+                finally:
+                    target.write_bytes(retained)
             # The production reader, independently of the bundle inventory,
             # must still reject a changed original verification key.
             key = moved / 'resources' / PROOF / 'funded-graph-paged-v3/.local/poseidon-sparse-v3/prepared/reserve.vk'
@@ -173,7 +220,9 @@ class EconomicSourceBundleTests(unittest.TestCase):
                               'sourceFiles': len(manifest['sourceFiles']),
                               'outsideBundleReads': False, 'originalKeyTamperRejected': True,
                               'nativeFixedPathReaderIncluded': False,
-                              'retainedI84ReaderIncluded': True, 'i84TamperCasesRejected': 4}))
+                              'retainedI84ReaderIncluded': True, 'i84TamperCasesRejected': 4,
+                              'originalCompilerLoaded': True, 'originalAbiToolsLoaded': True,
+                              'toolTamperCasesRejected': 4}))
 
 
 if __name__ == '__main__':

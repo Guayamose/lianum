@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
 import {resourceMode} from '@lianum/environment';
+import {loadOriginalSolidityCompilerV1,GENERIC_COMPILER_PIN} from '@lianum/engine/execution/local/solidity-compiler-v1';
+import {loadOriginalProtocolAbiToolsV1} from '@lianum/backend/defi/resources/official-protocol-v1';
 import {assertAdoptedSourceGeneration} from '@lianum/components/verification/current-sources';
 import {inspectWrappedInstallationSourcesV2} from '@lianum/components/verification/wrapped-installation';
 import {loadFundedPagedGraphArtifactsV3} from '@lianum/proofs/toolchain/paged-artifacts-v3';
@@ -22,12 +24,20 @@ export function readPortableEconomicSources() {
   assert.equal(i84.context.spec.publicWords,84);
   assert.deepEqual(Object.keys(i84.proofs),['ethereum','base','arbitrum','bnb','tron']);
   assert.ok(Buffer.isBuffer(i84.prepared.key)&&Buffer.isBuffer(i84.compiled.programBytes));
+  const compiler=loadOriginalSolidityCompilerV1();
+  assert.equal(compiler.version,GENERIC_COMPILER_PIN.version);
+  const sdk=loadOriginalProtocolAbiToolsV1();
+  const abi=new sdk.Interface(['function transfer(address,uint256)']);
+  const encoded=abi.encodeFunctionData('transfer',['0x'+'11'.repeat(20),7n]);
+  assert.equal(encoded,'0xa9059cbb'+'11'.repeat(20).padStart(64,'0')+'7'.padStart(64,'0'));
   assert.deepEqual(assertAdoptedSourceGeneration(),before,'PORTABLE_READBACK_GENERATION_CHANGED');
   return Object.freeze({generation:before.generation,currentSources:before.sources,
     pagedRoles:Object.keys(paged.roles),wrappedOriginalSourceRows:wrapped.originalSourceCount,
     resourceMode,compiled:false,proofGenerated:false,financialExecution:false,
     nativeFixedPathReaderIncluded:false,retainedI84ReaderIncluded:true,
-    i84PublicWords:84,i84FixtureProfiles:Object.keys(i84.proofs)});
+    i84PublicWords:84,i84FixtureProfiles:Object.keys(i84.proofs),
+    originalSolidityCompilerLoaded:true,solcVersion:compiler.version,
+    originalAbiToolsLoaded:true,ethersVersion:sdk.version,solidityCompiled:false});
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

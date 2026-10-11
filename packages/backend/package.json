@@ -28,7 +28,8 @@
     "./api/wallet/http/public-errors": "./src/api/wallet/http/public-errors.mjs",
     "./operations/recovery/native-original-source-lifecycle-v1": "./src/operations/recovery/native-original-source-lifecycle-v1.mjs",
     "./proving/roles/role-client": "./src/proving/roles/role-client.mjs",
-    "./proving/roles/scoped-proof-runner": "./src/proving/roles/scoped-proof-runner.mjs"
+    "./proving/roles/scoped-proof-runner": "./src/proving/roles/scoped-proof-runner.mjs",
+    "./defi/resources/official-protocol-v1": "./src/operations/deployments/defi/official-protocol-resources-v1.mjs"
   },
   "lianum": {
     "status": "active"
