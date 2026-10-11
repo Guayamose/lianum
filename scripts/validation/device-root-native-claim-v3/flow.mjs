@@ -1,102 +1,1006 @@
 /** Fixed BTC RootNote financial worker. Only the original supervisor launches
  * this entry; no caller factory/runtime/account/proof backend is accepted. */
-import assert from 'node:assert/strict';
-import {readFileSync,readdirSync,existsSync,mkdirSync,writeFileSync,lstatSync,realpathSync} from 'node:fs';
-import {createHash} from 'node:crypto';
-import {join,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
-import {ROOT,LOCAL,GOLDEN} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/catalog.mjs';
-import {createOriginalDeviceRootBtcClaimExitLocalOperatorV3,createOriginalDeviceRootSolClaimExitLocalOperatorV3,createOriginalDeviceRootSplClaimExitLocalOperatorV3,createOriginalDeviceRootSplSourceClaimExitLocalOperatorV4,readOriginalDeviceRootSplSourceProductContextV3} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/native-claim-http.mjs';
-import {decodeClaimIngressInputs,decodeClaimDischargeInputs} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/framing.mjs';
-import {assertRoleProofReceiptRecords,assertWithdrawalProofTelemetry} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/integration/claims/development/development-native-claim-proof-evidence.mjs';
-import {assertBtcSolGraphProofReceipts} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/integration/claims/development/development-btc-sol-graph-proof-evidence.mjs';
-import {decodeStatement} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/statements.mjs';
-import {claimDomainCommitment} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/framing.mjs';
-import {preflightNativeSplClaimIngressV1Artifacts} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/deploy-native-claims.mjs';
-import {privateNativeEconomicSuccessorFirstErrorV1} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/integration/native-device-economic-private-error-v1.mjs';
-import {openOriginalDeviceRootClaimMobileHostV3} from './mobile-host.mjs';
-import {PROFILE,RESULT,assertResult,SOL_PROFILE,SOL_RESULT,SPL_PROFILE,SPL_RESULT,assertSolResult,assertSplResult,SPL_SOURCE_PROFILE,SPL_SOURCE_RESULT,SPL_SOURCE_RELATIONS,assertSplSourceResult} from './policy.mjs';
-import {sourcePins,sourcePinsSol,sourcePinsSpl,sourcePinsSplSource} from './source-pins.mjs';
-const PROJECT=fileURLToPath(new URL('../../../',import.meta.url)),WORKER=fileURLToPath(import.meta.url);
-const hash=b=>createHash('sha256').update(b).digest('hex'),UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const names=p=>new Set(existsSync(p)?readdirSync(p):[]);
-function regular(path,cap=8*1024*1024){const b=lstatSync(path);assert.ok(b.isFile()&&!b.isSymbolicLink()&&b.uid===process.getuid()&&b.size<=cap&&realpathSync(path)===path,'DEVICE_ROOT_ORIGINAL_FILE_REQUIRED');const raw=readFileSync(path),a=lstatSync(path);for(const k of ['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'])assert.equal(a[k],b[k]);return raw;}
-function safeCode(e){const m=Object.getOwnPropertyDescriptor(e??{},'message')?.value;return typeof m==='string'&&/\b((?:DEVICE_ROOT|ROOT_CLAIM|CLAIM|MOBILE|ROLE_CLIENT|BITCOIN|FLAT|PW|PAEG)_[A-Z0-9_]{2,120})\b/.exec(m)?.[1]||'DEVICE_ROOT_BTC_ORIGINAL_FLOW_FAILED';}
+import assert from "node:assert/strict";
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  lstatSync,
+  realpathSync,
+} from "node:fs";
+import { createHash } from "node:crypto";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { ROOT, LOCAL, GOLDEN } from "@lianum/proofs/catalog";
+import {
+  createOriginalDeviceRootBtcClaimExitLocalOperatorV3,
+  createOriginalDeviceRootSolClaimExitLocalOperatorV3,
+  createOriginalDeviceRootSplClaimExitLocalOperatorV3,
+  createOriginalDeviceRootSplSourceClaimExitLocalOperatorV4,
+  readOriginalDeviceRootSplSourceProductContextV3,
+} from "@lianum/backend/claims/http";
+import {
+  decodeClaimIngressInputs,
+  decodeClaimDischargeInputs,
+  claimDomainCommitment,
+} from "@lianum/engine/claims/framing";
+import {
+  assertRoleProofReceiptRecords,
+  assertWithdrawalProofTelemetry,
+} from "../../../tests/integration/claims/development/development-native-claim-proof-evidence.mjs";
+import { assertBtcSolGraphProofReceipts } from "../../../tests/integration/claims/development/development-btc-sol-graph-proof-evidence.mjs";
+import { decodeStatement } from "@lianum/components/encoding/statements";
+import { preflightNativeSplClaimIngressV1Artifacts } from "@lianum/backend/claims/deployment";
+import { privateNativeEconomicSuccessorFirstErrorV1 } from "../../../tests/integration/wallet/native/native-device-economic-private-error-v1.mjs";
+import { openOriginalDeviceRootClaimMobileHostV3 } from "./mobile-host.mjs";
+import {
+  PROFILE,
+  RESULT,
+  assertResult,
+  SOL_PROFILE,
+  SOL_RESULT,
+  SPL_PROFILE,
+  SPL_RESULT,
+  assertSolResult,
+  assertSplResult,
+  SPL_SOURCE_PROFILE,
+  SPL_SOURCE_RESULT,
+  SPL_SOURCE_RELATIONS,
+  assertSplSourceResult,
+} from "./policy.mjs";
+import {
+  sourcePins,
+  sourcePinsSol,
+  sourcePinsSpl,
+  sourcePinsSplSource,
+} from "./source-pins.mjs";
+const PROJECT = fileURLToPath(new URL("../../../", import.meta.url)),
+  WORKER = fileURLToPath(import.meta.url);
+const hash = (b) => createHash("sha256").update(b).digest("hex"),
+  UUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const names = (p) => new Set(existsSync(p) ? readdirSync(p) : []);
+function regular(path, cap = 8 * 1024 * 1024) {
+  const b = lstatSync(path);
+  assert.ok(
+    b.isFile() &&
+      !b.isSymbolicLink() &&
+      b.uid === process.getuid() &&
+      b.size <= cap &&
+      realpathSync(path) === path,
+    "DEVICE_ROOT_ORIGINAL_FILE_REQUIRED",
+  );
+  const raw = readFileSync(path),
+    a = lstatSync(path);
+  for (const k of [
+    "dev",
+    "ino",
+    "mode",
+    "uid",
+    "gid",
+    "nlink",
+    "size",
+    "mtimeMs",
+    "ctimeMs",
+  ])
+    assert.equal(a[k], b[k]);
+  return raw;
+}
+function safeCode(e) {
+  const m = Object.getOwnPropertyDescriptor(e ?? {}, "message")?.value;
+  return (
+    (typeof m === "string" &&
+      /\b((?:DEVICE_ROOT|ROOT_CLAIM|CLAIM|MOBILE|ROLE_CLIENT|BITCOIN|FLAT|PW|PAEG)_[A-Z0-9_]{2,120})\b/.exec(
+        m,
+      )?.[1]) ||
+    "DEVICE_ROOT_BTC_ORIGINAL_FLOW_FAILED"
+  );
+}
 /** Finite original entry/constructor selection, before mobile/backend birth.
  * An unknown or extra argument fails before a source, key or fund is created. */
-function selectFixedDeviceRootClaimFinancialProfileV3(argv){
- if(argv.length===2)return Object.freeze({entry:'run-btc.mjs',args:[],profile:PROFILE,format:RESULT,nativeFamily:'1',nativeAssetKind:null,decimals:8,established:'originalDeviceRootBtcNoteExitEstablished',create:createOriginalDeviceRootBtcClaimExitLocalOperatorV3,pins:sourcePins,check:assertResult});
- if(argv.length===3&&argv[2]==='--sol')return Object.freeze({entry:'run-sol.mjs',args:['--sol'],profile:SOL_PROFILE,format:SOL_RESULT,nativeFamily:'2',nativeAssetKind:null,decimals:9,established:'originalDeviceRootSolNoteExitEstablished',create:createOriginalDeviceRootSolClaimExitLocalOperatorV3,pins:sourcePinsSol,check:assertSolResult});
- if(argv.length===3&&argv[2]==='--spl')return Object.freeze({entry:'run-spl.mjs',args:['--spl'],profile:SPL_PROFILE,format:SPL_RESULT,nativeFamily:'2',nativeAssetKind:'SOLANA_SPL_USDC',decimals:6,established:'originalDeviceRootSplNoteExitEstablished',create:createOriginalDeviceRootSplClaimExitLocalOperatorV3,pins:sourcePinsSpl,check:assertSplResult});
- if(argv.length===3&&argv[2]==='--spl-source')return Object.freeze({entry:'run-spl-source.mjs',args:['--spl-source'],profile:SPL_SOURCE_PROFILE,format:SPL_SOURCE_RESULT,nativeFamily:'2',nativeAssetKind:'SOLANA_SPL_USDC',decimals:6,established:'originalDeviceRootSplSourceNoteExitEstablished',source:true,create:createOriginalDeviceRootSplSourceClaimExitLocalOperatorV4,pins:sourcePinsSplSource,check:assertSplSourceResult});
- assert.fail('DEVICE_ROOT_FIXED_FINANCIAL_ENTRY_REQUIRED');
+export function selectFixedDeviceRootClaimFinancialProfileV3(argv) {
+  assert.equal(arguments.length, 1);
+  assert.ok(Array.isArray(argv), "DEVICE_ROOT_FIXED_FINANCIAL_ENTRY_REQUIRED");
+  if (argv.length === 2)
+    return Object.freeze({
+      entry: "run-btc.mjs",
+      args: [],
+      profile: PROFILE,
+      format: RESULT,
+      nativeFamily: "1",
+      nativeAssetKind: null,
+      decimals: 8,
+      established: "originalDeviceRootBtcNoteExitEstablished",
+      create: createOriginalDeviceRootBtcClaimExitLocalOperatorV3,
+      pins: sourcePins,
+      check: assertResult,
+    });
+  if (argv.length === 3 && argv[2] === "--sol")
+    return Object.freeze({
+      entry: "run-sol.mjs",
+      args: ["--sol"],
+      profile: SOL_PROFILE,
+      format: SOL_RESULT,
+      nativeFamily: "2",
+      nativeAssetKind: null,
+      decimals: 9,
+      established: "originalDeviceRootSolNoteExitEstablished",
+      create: createOriginalDeviceRootSolClaimExitLocalOperatorV3,
+      pins: sourcePinsSol,
+      check: assertSolResult,
+    });
+  if (argv.length === 3 && argv[2] === "--spl")
+    return Object.freeze({
+      entry: "run-spl.mjs",
+      args: ["--spl"],
+      profile: SPL_PROFILE,
+      format: SPL_RESULT,
+      nativeFamily: "2",
+      nativeAssetKind: "SOLANA_SPL_USDC",
+      decimals: 6,
+      established: "originalDeviceRootSplNoteExitEstablished",
+      create: createOriginalDeviceRootSplClaimExitLocalOperatorV3,
+      pins: sourcePinsSpl,
+      check: assertSplResult,
+    });
+  if (argv.length === 3 && argv[2] === "--spl-source")
+    return Object.freeze({
+      entry: "run-spl-source.mjs",
+      args: ["--spl-source"],
+      profile: SPL_SOURCE_PROFILE,
+      format: SPL_SOURCE_RESULT,
+      nativeFamily: "2",
+      nativeAssetKind: "SOLANA_SPL_USDC",
+      decimals: 6,
+      established: "originalDeviceRootSplSourceNoteExitEstablished",
+      source: true,
+      create: createOriginalDeviceRootSplSourceClaimExitLocalOperatorV4,
+      pins: sourcePinsSplSource,
+      check: assertSplSourceResult,
+    });
+  assert.fail("DEVICE_ROOT_FIXED_FINANCIAL_ENTRY_REQUIRED");
 }
-export async function runOriginalDeviceRootBtcFinancialV3(){
- assert.equal(arguments.length,0);const selected=selectFixedDeviceRootClaimFinancialProfileV3(process.argv),ENTRY=join(PROJECT,'scripts/validation/device-root-native-claim-v3',selected.entry),RUN='.local/'+selected.profile,pins=selected.pins;assert.deepEqual(process.argv,[process.execPath,WORKER,...selected.args]);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(WORKER),WORKER);assert.equal(realpathSync(process.cwd()),ROOT);assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.PATH,'/usr/bin:/bin');assert.equal(process.env.LANG,'C.UTF-8');
- const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);assert.deepEqual(parent,[process.execPath,ENTRY]);const lock=JSON.parse(regular(join(ROOT,RUN,'active.lock')));assert.equal(lock.pid,process.ppid);assert.match(lock.runId,UUID);assert.equal(lock.attempt,RUN+'/attempt-'+lock.runId);
- const directory=join(ROOT,lock.attempt),privateDirectory=join(directory,'private-audit'),proofDirectory=join(directory,'public-proofs');mkdirSync(privateDirectory,{mode:0o700});mkdirSync(proofDirectory,{mode:0o700});
- const attemptRoot=join(LOCAL,'attempts'),telemetryRoot=join(GOLDEN,'evidence/paeg-proof-attempts'),oldAttempts=names(attemptRoot),oldTelemetry=names(telemetryRoot),collected=new Set();
- const v={format:selected.format,profile:selected.profile,runId:lock.runId,phase:'starting',success:false,interrupted:false,localOnly:true,fakeFundsOnly:true,publicNetwork:false,physicalPhoneEstablished:false,reactRendererEstablished:false,nativeSelfCustody:false,independentOperators:false,fullWalletAcceptance:false,nativeProcessRestartEstablished:false,wholeBackendCrashRecoveryEstablished:false,crossNetworkGraphAcceptance:false,originalDeviceRootBtcNoteExitEstablished:false,originalDeviceRootObservationRestartEstablished:false,originalDeviceRootCommonStateEstablished:false,noteCustody:'DEVICE_ROOT_NOTE',nativeCustody:'BACKEND_LOCAL_QUORUM',amountAtomic:'100000',sourcePins:pins(),supervisor:{supervisorPID:process.ppid,workerPID:process.pid},stages:[],proofs:[],cleanup:{errors:[],closedProduct:false,closedMobileVault:false,closedMobileHost:false}};
- if(selected.nativeFamily==='2'){v.originalDeviceRootSolNoteExitEstablished=false;v.originalDeviceRootSplNoteExitEstablished=false;}
- if(selected.source){v.originalDeviceRootSplSourceNoteExitEstablished=false;v.originalBtcToSolSourceGraphEstablished=false;v.sourceProofs=[];}
- const save=()=>writeFileSync(join(directory,'result.json'),JSON.stringify(v,null,2)+'\n',{mode:0o600});
- const stage=name=>{v.phase=name;v.stages.push({name,at:new Date().toISOString()});save();process.stdout.write(JSON.stringify({stage:name})+'\n');};
- let host,product,vault,client,sourceOriginal,sourceBaseline,cleanupWork;const acquisitions=new Set();const live=()=>assert.equal(v.interrupted,false,'DEVICE_ROOT_BTC_INTERRUPTED');
- async function acquire(factory,retain){live();const work=Promise.resolve().then(factory).then(value=>{retain(value);return value;});acquisitions.add(work);try{const value=await work;live();return value;}finally{acquisitions.delete(work);}}
- function collectRole(relation,proofSHA256,jobId,ticketId){
-  const matches=[];for(const id of names(attemptRoot)){if(oldAttempts.has(id)||collected.has(id)||!UUID.test(id))continue;const base=join(attemptRoot,id),p=join(base,'proof-manifest.json');if(!existsSync(p))continue;const mb=regular(p),manifest=JSON.parse(mb);if(manifest.relation!==relation||proofSHA256&&manifest.proofSHA256!==proofSHA256||jobId&&manifest.jobId!==jobId)continue;matches.push({base,mb,manifest,id});}assert.equal(matches.length,1,'DEVICE_ROOT_BTC_ONE_ORIGINAL_ROLE_RECEIPT');
-  const {base,mb,manifest,id}=matches[0],rb=regular(join(base,'result.json')),resources=regular(join(base,'resources.json')),bytes=regular(join(base,'proof.bin')),inputs=regular(join(base,'public-inputs.json')),publicInputs=JSON.parse(inputs);
-  assert.equal(hash(bytes),manifest.proofSHA256);assert.equal(hash(inputs),manifest.publicInputsSHA256);if(relation==='native_claim_ingress'){const s=decodeClaimIngressInputs(publicInputs);assert.equal(s.outputQ,v.note.commitment);assert.equal(s.claimDomain,product.descriptor.claim.claimDomain);assert.equal(s.amountQ,v.amountAtomic);}if(relation==='native_claim_discharge'){const s=decodeClaimDischargeInputs(publicInputs);assert.equal(s.ticketId,ticketId);assert.equal(s.claimDomain,product.descriptor.claim.claimDomain);}
-  const evidence=assertRoleProofReceiptRecords({relation,runId:id,jobId:manifest.jobId,manifest,result:JSON.parse(rb),resources:JSON.parse(resources),proofSHA256:hash(bytes),publicInputsSHA256:hash(inputs),manifestSHA256:hash(mb),resultSHA256:hash(rb),resourcesSHA256:hash(resources)});
-  const n=String(v.proofs.length+1).padStart(2,'0')+'-'+relation;writeFileSync(join(proofDirectory,n+'.bin'),bytes,{flag:'wx',mode:0o600});writeFileSync(join(proofDirectory,n+'.public-inputs.json'),inputs,{flag:'wx',mode:0o600});collected.add(id);v.proofs.push({relation,proofSHA256:hash(bytes),publicInputsSHA256:hash(inputs),evidence});save();
- }
- function collectW39(row){const matches=[];for(const name of names(telemetryRoot)){if(oldTelemetry.has(name)||!name.endsWith('.json'))continue;const bytes=regular(join(telemetryRoot,name)),metrics=JSON.parse(bytes);if(metrics.mode==='withdraw_balance'&&metrics.worker?.proofSHA256===row.proofSHA256)matches.push({bytes,metrics});}assert.equal(matches.length,1,'DEVICE_ROOT_BTC_ONE_ORIGINAL_W39_RECEIPT');const {bytes,metrics}=matches[0],evidence=assertWithdrawalProofTelemetry({returnedMetrics:metrics,storedMetrics:JSON.parse(bytes),proofSHA256:row.proofSHA256,publicInputsSHA256:row.publicInputsSHA256,telemetrySHA256:hash(bytes)});v.proofs.push({relation:'withdraw_balance',proofSHA256:row.proofSHA256,publicInputsSHA256:row.publicInputsSHA256,evidence});save();}
- const proofCount=()=>{let n=0;for(const id of names(attemptRoot)){if(oldAttempts.has(id)||!UUID.test(id))continue;const p=join(attemptRoot,id,'proof-manifest.json');if(existsSync(p)&&(selected.source?[...SPL_SOURCE_RELATIONS,'native_claim_discharge']:['deposit_intent','native_claim_ingress','native_claim_discharge']).includes(JSON.parse(regular(p)).relation))n++;}for(const id of names(telemetryRoot)){if(oldTelemetry.has(id)||!id.endsWith('.json'))continue;const p=JSON.parse(regular(join(telemetryRoot,id)));if(p.mode==='withdraw_balance'&&p.acceptedResult===true)n++;}return n;};
- function collectSourceProofs(){
-  assert.ok(selected.source&&sourceOriginal);const rows=[],sourceConfig=sourceOriginal.claims.configs[0],domain=sourceOriginal.claims.flatSystem.pools[0].domain,claimDomain=claimDomainCommitment(sourceConfig),graphDomain=sourceOriginal.claims.flatSystem.pools[0].domainCommitment.slice(2);
-  assert.notEqual(claimDomain,product.descriptor.claim.claimDomain,'DEVICE_ROOT_SPL_SOURCE_TARGET_DOMAIN_DISTINCT');
-  for(const id of names(attemptRoot)){if(oldAttempts.has(id)||collected.has(id)||!UUID.test(id))continue;const base=join(attemptRoot,id),path=join(base,'proof-manifest.json');if(!existsSync(path))continue;const mb=regular(path),manifest=JSON.parse(mb);assert.ok(SPL_SOURCE_RELATIONS.includes(manifest.relation),'DEVICE_ROOT_SPL_SOURCE_UNEXPECTED_PROOF');const rb=regular(join(base,'result.json')),res=regular(join(base,'resources.json')),proof=regular(join(base,'proof.bin')),inputs=regular(join(base,'public-inputs.json')),statement=decodeStatement(manifest.relation,JSON.parse(inputs));
-   const evidence=(['deposit_intent','native_claim_ingress'].includes(manifest.relation)?assertRoleProofReceiptRecords:assertBtcSolGraphProofReceipts)({relation:manifest.relation,runId:id,jobId:manifest.jobId,manifest,result:JSON.parse(rb),resources:JSON.parse(res),proofSHA256:hash(proof),publicInputsSHA256:hash(inputs),manifestSHA256:hash(mb),resultSHA256:hash(rb),resourcesSHA256:hash(res)});
-   if(manifest.relation==='deposit_intent'){assert.equal(statement.scope,domain.scope);assert.equal(statement.policy,domain.policy);assert.equal(statement.amount,'100000');}else if(manifest.relation==='native_claim_ingress'){assert.equal(statement.claimDomain,claimDomain);assert.equal(statement.amountQ,'100000');assert.equal(manifest.keySHA256,sourceOriginal.claims.verifiers.CI51.lineage.keySHA256);}else assert.equal(statement.domainCommitment,graphDomain);
-   rows.push({id,relation:manifest.relation,proof,inputs,statement,proofSHA256:hash(proof),publicInputsSHA256:hash(inputs),manifestSHA256:hash(mb),resultSHA256:hash(rb),resourcesSHA256:hash(res),evidence,...(['deposit_intent','native_claim_ingress'].includes(manifest.relation)?{claimDomain}:{graphDomainCommitment:graphDomain})});
+export async function runOriginalDeviceRootBtcFinancialV3() {
+  assert.equal(arguments.length, 0);
+  const selected = selectFixedDeviceRootClaimFinancialProfileV3(process.argv),
+    ENTRY = join(
+      PROJECT,
+      "scripts/validation/device-root-native-claim-v3",
+      selected.entry,
+    ),
+    RUN = ".local/" + selected.profile,
+    pins = selected.pins;
+  assert.deepEqual(process.argv, [process.execPath, WORKER, ...selected.args]);
+  assert.deepEqual(process.execArgv, []);
+  assert.equal(realpathSync(WORKER), WORKER);
+  assert.equal(realpathSync(process.cwd()), ROOT);
+  assert.deepEqual(Object.keys(process.env).sort(), ["LANG", "PATH"]);
+  assert.equal(process.env.PATH, "/usr/bin:/bin");
+  assert.equal(process.env.LANG, "C.UTF-8");
+  const parent = readFileSync("/proc/" + process.ppid + "/cmdline", "utf8")
+    .split("\0")
+    .filter(Boolean);
+  assert.deepEqual(parent, [process.execPath, ENTRY]);
+  const lock = JSON.parse(regular(join(ROOT, RUN, "active.lock")));
+  assert.equal(lock.pid, process.ppid);
+  assert.match(lock.runId, UUID);
+  assert.equal(lock.attempt, RUN + "/attempt-" + lock.runId);
+  const directory = join(ROOT, lock.attempt),
+    privateDirectory = join(directory, "private-audit"),
+    proofDirectory = join(directory, "public-proofs");
+  mkdirSync(privateDirectory, { mode: 0o700 });
+  mkdirSync(proofDirectory, { mode: 0o700 });
+  const attemptRoot = join(LOCAL, "attempts"),
+    telemetryRoot = join(GOLDEN, "evidence/paeg-proof-attempts"),
+    oldAttempts = names(attemptRoot),
+    oldTelemetry = names(telemetryRoot),
+    collected = new Set();
+  const v = {
+    format: selected.format,
+    profile: selected.profile,
+    runId: lock.runId,
+    phase: "starting",
+    success: false,
+    interrupted: false,
+    localOnly: true,
+    fakeFundsOnly: true,
+    publicNetwork: false,
+    physicalPhoneEstablished: false,
+    reactRendererEstablished: false,
+    nativeSelfCustody: false,
+    independentOperators: false,
+    fullWalletAcceptance: false,
+    nativeProcessRestartEstablished: false,
+    wholeBackendCrashRecoveryEstablished: false,
+    crossNetworkGraphAcceptance: false,
+    originalDeviceRootBtcNoteExitEstablished: false,
+    originalDeviceRootObservationRestartEstablished: false,
+    originalDeviceRootCommonStateEstablished: false,
+    noteCustody: "DEVICE_ROOT_NOTE",
+    nativeCustody: "BACKEND_LOCAL_QUORUM",
+    amountAtomic: "100000",
+    sourcePins: pins(),
+    supervisor: { supervisorPID: process.ppid, workerPID: process.pid },
+    stages: [],
+    proofs: [],
+    cleanup: {
+      errors: [],
+      closedProduct: false,
+      closedMobileVault: false,
+      closedMobileHost: false,
+    },
+  };
+  if (selected.nativeFamily === "2") {
+    v.originalDeviceRootSolNoteExitEstablished = false;
+    v.originalDeviceRootSplNoteExitEstablished = false;
   }
-  const counts=rows.reduce((o,r)=>(o[r.relation]=(o[r.relation]??0)+1,o),{});assert.deepEqual(counts,{deposit_intent:1,native_claim_ingress:1,authorization:1,reservation:1,dependency:1,ready:1,admission:1,node:4,settlement:1});assert.equal(rows.length,12);assert.equal(rows.find(r=>r.relation==='native_claim_ingress').statement.outputQ,rows.find(r=>r.relation==='deposit_intent').statement.output);
-  rows.sort((a,b)=>SPL_SOURCE_RELATIONS.indexOf(a.relation)-SPL_SOURCE_RELATIONS.indexOf(b.relation)||a.id.localeCompare(b.id));
-  for(const row of rows){const {id,proof,inputs,statement,...record}=row,n='source-'+String(v.sourceProofs.length+1).padStart(2,'0')+'-'+row.relation;writeFileSync(join(proofDirectory,n+'.bin'),proof,{flag:'wx',mode:0o600});writeFileSync(join(proofDirectory,n+'.public-inputs.json'),inputs,{flag:'wx',mode:0o600});collected.add(id);v.sourceProofs.push(record);}
-  save();return{claimDomain,graphDomainCommitment:graphDomain};
- }
- function sourceEffects(){assert.ok(sourceOriginal);const r=sourceOriginal;return{evmCount:r.runtime.transactions.length,btc:r.claims.nativeRuntimes[0].transfers.map(t=>({nativeId:t.txid,transactionSHA256:t.transactionSHA256,broadcastAttempts:t.broadcastAttempts,phase:t.phase})),sol:r.graphSolana.transfers.map(t=>({nativeId:t.nativeId,transactionSHA256:t.transactionSHA256,broadcastAttempts:t.broadcastAttempts,phase:t.phase})),spl:r.claims.nativeRuntimes[1].transfers.map(t=>({nativeId:t.nativeId,transactionSHA256:t.transactionSHA256,broadcastAttempts:t.broadcastAttempts,phase:t.phase}))};}
- async function read(){live();const p=await client.challenge('READ'),s=await host.sign(p),r=await client.read(p,s);live();await vault.applyDeviceRootClaimObservationV2(r);return r;}
- async function access(){const p=await client.challenge('ACCESS');return[p,await host.sign(p)];}
- async function exitPermission(action){const[p,s]=await access();return client.exitChallenge(p,s,action);}
- async function cleanup(){return cleanupWork??=(async()=>{await Promise.allSettled([...acquisitions]);let first;for(const [key,work]of [['closedMobileVault',async()=>{if(vault)await vault.close();}],['closedProduct',async()=>{if(product){const r=await product.close();assert.equal(r.originalResourcesStopped,true);}}],['closedMobileHost',async()=>{if(host){const r=await host.close();assert.equal(r.originalWorkDrained,true);}}]])try{await work();v.cleanup[key]=true;}catch(e){first??=e;v.cleanup.errors.push({stage:key,code:safeCode(e)});}if(first)throw first;return v.cleanup;})();}
- const stop=()=>{v.interrupted=true;client?.close();void cleanup().catch(()=>{}).finally(()=>{v.phase='failed';v.errorCode='DEVICE_ROOT_BTC_INTERRUPTED';save();process.exitCode=1;});};process.once('SIGTERM',stop);process.once('SIGINT',stop);
- try{
-  if(selected.source){stage('original-spl-source-artifact-preflight-before-create');await preflightNativeSplClaimIngressV1Artifacts();live();}
-  stage('device-protected-identity-and-root-before-funding');await acquire(()=>openOriginalDeviceRootClaimMobileHostV3(privateDirectory),value=>{host=value;});const root=await acquire(()=>host.original.createLocalRootNoteVaultV1(),()=>{});await acquire(()=>host.original.openLocalRootNoteVaultV1(root.rootId),value=>{vault=value;});
-  stage(selected.nativeFamily==='1'?'original-btc-v3-receiver-product-before-create-and-fund':selected.nativeAssetKind===null?'original-sol-v3-receiver-product-before-create-and-fund':'original-spl-v3-receiver-product-before-create-and-fund');await acquire(()=>selected.create(host.configuration()),value=>{product=value;});client=host.bind(product.descriptor);assert.equal(product.automaticFunding,false);assert.equal(product.nativeSelfCustody,false);assert.equal(product.descriptor.claim.nativeFamily,selected.nativeFamily);if(selected.nativeFamily==='2'){const c=product.descriptor.claim;assert.equal(c.decimals,selected.decimals);assert.equal(c.nativeAssetKind,selected.nativeAssetKind);if(selected.nativeAssetKind===null)assert.equal(c.mint,null);else assert.match(c.mint,/^[A-Za-z0-9]{32,64}$/);v.nativeClaimBinding=Object.fromEntries(['nativeFamily','nativeGenesis','nativeAsset','claimDomain','nativeAssetKind','mint','decimals'].map(k=>[k,c[k]]));}
-  if(selected.source){
-   stage('original-backend-cbtc-source-before-target-d27-or-fund');sourceOriginal=readOriginalDeviceRootSplSourceProductContextV3(product);assert.equal(sourceOriginal.claims.nativeSplCustodyProfile,true);assert.equal((await product.originalSourceStatus()).phase,'BORN');assert.equal(sourceOriginal.graphSolana.transfers.length,0);assert.equal(sourceOriginal.claims.nativeRuntimes[0].transfers.length,0);
-   const delivered=await product.deliverOriginalBtcSourceOnce();live();assert.equal(delivered.phase,'TARGET_QUOTED');assert.equal(delivered.privateCreditEstablished,false);assert.equal(delivered.claimCustody,'DEVICE_ROOT_NOTE');assert.equal(delivered.sourceCustody,'BACKEND_LOCAL_QUORUM');const domains=collectSourceProofs();assert.equal(proofCount(),12);assert.match(delivered.quote.amount,/^[1-9][0-9]*$/);v.amountAtomic=delivered.quote.amount;
-   let duplicate=false;try{await product.deliverOriginalBtcSourceOnce();}catch(e){duplicate=safeCode(e)==='CLAIM_DEVICE_SPL_SOURCE_ALREADY_ADMITTED';}assert.equal(duplicate,true);const beforeSourceObserve=sourceEffects(),countBeforeSourceObserve=proofCount();const sourceStatus=await product.observeOriginalSource();live();assert.equal(sourceStatus.phase,'TARGET_QUOTED');assert.deepEqual(sourceEffects(),beforeSourceObserve);assert.equal(proofCount(),countBeforeSourceObserve);
-   const btc=sourceOriginal.claims.nativeRuntimes[0].transfers;assert.equal(btc.length,1);assert.equal(btc[0].broadcastAttempts,1);assert.equal(btc[0].phase,'OBSERVED_CONFIRMED');const sol=sourceOriginal.graphSolana.transfers;assert.equal(sol.length,1);assert.equal(sol[0].broadcastAttempts,1);assert.equal(sol[0].phase,'OBSERVED_FINALIZED');assert.equal(sol[0].nativeWire,sol[0].observation.nativeWire);
-   v.originalSource={profile:delivered.profile,phase:delivered.phase,sourceCustody:delivered.sourceCustody,targetClaimCustody:delivered.claimCustody,...domains,targetClaimDomain:product.descriptor.claim.claimDomain,targetAmountAtomic:v.amountAtomic,btcNativeIdSHA256:hash(btc[0].txid),solNativeIdSHA256:hash(sol[0].nativeId),solWireSHA256:sol[0].transactionSHA256,quoteSHA256:hash(JSON.stringify(delivered.quote)),nativeBroadcastAttempts:1,graphBroadcastAttempts:1,nativeFinalityObserved:true,duplicateAdmissionRejected:duplicate,observationNoNewEffect:true,sameOriginalAfterRestart:false};v.originalBtcToSolSourceGraphEstablished=true;sourceBaseline=sourceEffects();save();
+  if (selected.source) {
+    v.originalDeviceRootSplSourceNoteExitEstablished = false;
+    v.originalBtcToSolSourceGraphEstablished = false;
+    v.sourceProofs = [];
   }
-  const d=product.descriptor;await vault.prepareUnissuedBalanceNote({scope:d.scope,policy:d.policy,pool:d.pool,recipient:d.recipient,amount:v.amountAtomic});const review=await vault.reviewPreparedDeposit(product.originalWindow),signed=await vault.signPreparedDeposit(review),request=await vault.createDeviceRootClaimRequestV2(signed,d);v.note={commitment:request.statement.output};
-  stage('original-device-d27-ciphertext-before-native-funding');let[a,s]=await access();const p27=await client.reviewD27(a,s,{rootId:request.rootId,noteRevision:request.noteRevision,statement:request.statement,witnessSHA256:request.witnessSHA256}),signature27=await host.sign(p27),packet27=await vault.sealDeviceRootClaimRequestV2(request,p27,signature27),r27=await client.submit(p27,signature27,packet27);assert.equal(r27.result.stage,'PREPARED');collectRole('deposit_intent',r27.result.proofSHA256,p27.jobId);
-  stage('same-device-native-funding-once');const fund=await client.effectChallenge('FUND_NATIVE_CLAIM'),fundSig=await host.sign(fund);await vault.latchDeviceRootClaimEffectV2(fund);await client.submit(fund,fundSig);live();
-  stage('same-device-private-ci51-original-native-finality');const witnessHash=await vault.deviceRootClaimIngressWitnessHashV2();[a,s]=await access();const ci=await client.reviewCI51(a,s,witnessHash),ciSig=await host.sign(ci.consent),ciPacket=await vault.sealDeviceRootClaimIngressV2(ci,ciSig),ciResult=await client.submit(ci.consent,ciSig,ciPacket);assert.equal(ciResult.result.stage,'CI51_PROVED');collectRole('native_claim_ingress',ciResult.result.proofSHA256,ci.consent.jobId);
-  stage('same-original-claim-mint-and-fresh-mobile-common-read');const issue=await client.effectChallenge('ISSUE_CLAIM'),issueSig=await host.sign(issue);await vault.latchDeviceRootClaimEffectV2(issue);await client.submit(issue,issueSig);const issued=await read();assert.equal(issued.note.state,'LIVE');assert.equal(issued.note.commitment,v.note.commitment);assert.equal(issued.note.available,v.amountAtomic);v.note.nullifier=issued.note.nullifier;v.note.before=issued.note;v.economicBefore=issued.economicState;
-  stage('same-rootnote-private-w39');[a,s]=await access();const quote=await client.quoteW39(a,s),exitRequest=await vault.prepareDeviceRootClaimExitV3(quote);[a,s]=await access();const w39=await client.reviewW39(a,s,quote,exitRequest.witnessSHA256),w39Sig=await host.sign(w39),w39Packet=await vault.sealDeviceRootClaimExitV3(exitRequest,w39,w39Sig),w39Result=await client.exitSubmit(w39,w39Sig,w39Packet);assert.equal(w39Result.result.stage,'PROVED');collectW39(w39Result.result);
-  stage('w39-admission-before-send-lost-original-response');const withdraw=await exitPermission('WITHDRAW_W39'),withdrawSig=await host.sign(withdraw);await vault.latchDeviceRootClaimExitV3(withdraw);let withdrawalUnknown=false;try{await client.exitSubmit(withdraw,withdrawSig);}catch(e){withdrawalUnknown=true;}assert.equal(withdrawalUnknown,true,'DEVICE_ROOT_BTC_EXPECTED_W39_RESPONSE_LOSS');const ow=await exitPermission('OBSERVE_W39'),owResult=await client.exitSubmit(ow,await host.sign(ow));assert.equal(owResult.result.stage,'CONFIRMED');v.withdrawal=owResult.result;
-  stage('same-original-request-redemption');const redeem=await exitPermission('REDEEM_NATIVE'),redeemSig=await host.sign(redeem);await vault.latchDeviceRootClaimExitV3(redeem);await client.exitSubmit(redeem,redeemSig);const requested=await read();assert.equal(requested.redemption.requestId,redeem.requestId);assert.ok(requested.redemption.ticketId);
-  stage('same-native-payout-admitted-once-original-co42-lost-response');const payout=await exitPermission('PAYOUT_NATIVE'),payoutSig=await host.sign(payout);await vault.latchDeviceRootClaimExitV3(payout);let payoutUnknown=false;try{await client.exitSubmit(payout,payoutSig);}catch(e){payoutUnknown=true;}assert.equal(payoutUnknown,true,'DEVICE_ROOT_BTC_EXPECTED_PAYOUT_RESPONSE_LOSS');const paid=await read();assert.equal(paid.redemption.status,'DISCHARGED');assert.equal(paid.redemption.requestId,payout.requestId);assert.equal(paid.redemption.ticketId,payout.ticketId);v.redemptionBeforeRestart=paid.redemption;collectRole('native_claim_discharge',null,null,payout.ticketId);const totalBeforeRestart=proofCount(),beforeRestart=totalBeforeRestart-(selected.source?v.sourceProofs.length:0);assert.equal(beforeRestart,4);if(selected.source){assert.equal(totalBeforeRestart,16);sourceBaseline=sourceEffects();}
-  stage('same-original-runtime-keeper-restart-observation-only');const restartTransportBaseline=host.evidence().transport.length;client.close();const restart=await product.restartOriginalObservation();live();assert.deepEqual(restart.descriptor,d);client=await host.resetClientAfterOriginalRestart(restart.descriptor);v.restart={observationOnly:restart.observationOnly,sameOriginalRuntime:restart.sameOriginalRuntime,keeperChildRestarted:restart.keeperChildRestarted,sameDescriptor:true};
-  const observedNative=await exitPermission('OBSERVE_NATIVE');await client.exitSubmit(observedNative,await host.sign(observedNative));const restored=await read();assert.equal(restored.note.state,'SPENT');assert.equal(restored.note.commitment,v.note.commitment);assert.equal(restored.note.nullifier,v.note.nullifier);assert.equal(restored.note.available,null);assert.equal(restored.withdrawal.transactionHash,v.withdrawal.transactionHash);assert.deepEqual(restored.redemption,paid.redemption);v.note.after=restored.note;v.redemption=restored.redemption;
-  const before=v.economicBefore.rows[0],after=restored.economicState.rows[0];assert.equal(after.component,'NATIVE_CLAIM');assert.equal(after.state,'LIVE');assert.deepEqual(after.route,before.route);assert.deepEqual(after.asset,before.asset);assert.equal(restored.economicState.lifetime,v.economicBefore.lifetime);assert.equal(after.balances.available,'0');assert.ok(after.requests.length>=6&&after.requests.every(r=>r.state==='CONFIRMED'));v.economic={sameBirthIdentity:true,sameAsset:true,availableAfter:after.balances.available,requestsConfirmed:true};
-  const mobile=host.evidence(),posts=action=>mobile.transport.filter(r=>r.path==='exit-operations'&&r.action===action).length;v.mobile=mobile;v.loss={actions:mobile.lostOriginalActions,sdkBothReportedUnknown:withdrawalUnknown&&payoutUnknown,withdrawPosts:posts('WITHDRAW_W39'),payoutPosts:posts('PAYOUT_NATIVE'),proofCountBeforeRestart:beforeRestart,proofCountAfterRestart:proofCount()-(selected.source?v.sourceProofs.length:0),...(selected.source?{totalProofCountBeforeRestart:totalBeforeRestart,totalProofCountAfterRestart:proofCount(),sourceFinancialEffectsAfterRestart:0}:{}),effectsAfterRestart:mobile.transport.slice(restartTransportBaseline).filter(r=>['PROVE_D27','PROVE_CI51','FUND_NATIVE_CLAIM','ISSUE_CLAIM','PROVE_W39','WITHDRAW_W39','REDEEM_NATIVE','PAYOUT_NATIVE'].includes(r.action)&&['operations','exit-operations'].includes(r.path)).length};assert.equal(v.loss.withdrawPosts,1);assert.equal(v.loss.payoutPosts,1);assert.equal(v.loss.proofCountAfterRestart,4);assert.equal(v.loss.effectsAfterRestart,0);if(selected.source){assert.deepEqual(sourceEffects(),sourceBaseline,'DEVICE_ROOT_SPL_SOURCE_RESTART_RESENT');assert.equal(proofCount(),16);v.originalSource.sameOriginalAfterRestart=true;}v[selected.established]=true;v.originalDeviceRootObservationRestartEstablished=true;v.originalDeviceRootCommonStateEstablished=true;
-  stage('close-original-resources');client.close();await cleanup();v.sourceUnchanged=JSON.stringify(pins())===JSON.stringify(v.sourcePins);v.phase='completed';v.success=true;selected.check(v);save();
- }catch(e){try{writeFileSync(join(privateDirectory,'first-error-private.json'),JSON.stringify(privateNativeEconomicSuccessorFirstErrorV1(e))+'\n',{flag:'wx',mode:0o600});}catch{}v.errorCode=safeCode(e);v.success=false;client?.close();try{await cleanup();}catch{}try{v.sourceUnchanged=JSON.stringify(pins())===JSON.stringify(v.sourcePins);}catch{v.sourceUnchanged=false;}v.phase='failed';save();process.exitCode=1;}
- finally{process.off('SIGTERM',stop);process.off('SIGINT',stop);}
+  const save = () =>
+    writeFileSync(
+      join(directory, "result.json"),
+      JSON.stringify(v, null, 2) + "\n",
+      { mode: 0o600 },
+    );
+  const stage = (name) => {
+    v.phase = name;
+    v.stages.push({ name, at: new Date().toISOString() });
+    save();
+    process.stdout.write(JSON.stringify({ stage: name }) + "\n");
+  };
+  let host, product, vault, client, sourceOriginal, sourceBaseline, cleanupWork;
+  const acquisitions = new Set();
+  const live = () =>
+    assert.equal(v.interrupted, false, "DEVICE_ROOT_BTC_INTERRUPTED");
+  async function acquire(factory, retain) {
+    live();
+    const work = Promise.resolve()
+      .then(factory)
+      .then((value) => {
+        retain(value);
+        return value;
+      });
+    acquisitions.add(work);
+    try {
+      const value = await work;
+      live();
+      return value;
+    } finally {
+      acquisitions.delete(work);
+    }
+  }
+  function collectRole(relation, proofSHA256, jobId, ticketId) {
+    const matches = [];
+    for (const id of names(attemptRoot)) {
+      if (oldAttempts.has(id) || collected.has(id) || !UUID.test(id)) continue;
+      const base = join(attemptRoot, id),
+        p = join(base, "proof-manifest.json");
+      if (!existsSync(p)) continue;
+      const mb = regular(p),
+        manifest = JSON.parse(mb);
+      if (
+        manifest.relation !== relation ||
+        (proofSHA256 && manifest.proofSHA256 !== proofSHA256) ||
+        (jobId && manifest.jobId !== jobId)
+      )
+        continue;
+      matches.push({ base, mb, manifest, id });
+    }
+    assert.equal(
+      matches.length,
+      1,
+      "DEVICE_ROOT_BTC_ONE_ORIGINAL_ROLE_RECEIPT",
+    );
+    const { base, mb, manifest, id } = matches[0],
+      rb = regular(join(base, "result.json")),
+      resources = regular(join(base, "resources.json")),
+      bytes = regular(join(base, "proof.bin")),
+      inputs = regular(join(base, "public-inputs.json")),
+      publicInputs = JSON.parse(inputs);
+    assert.equal(hash(bytes), manifest.proofSHA256);
+    assert.equal(hash(inputs), manifest.publicInputsSHA256);
+    if (relation === "native_claim_ingress") {
+      const s = decodeClaimIngressInputs(publicInputs);
+      assert.equal(s.outputQ, v.note.commitment);
+      assert.equal(s.claimDomain, product.descriptor.claim.claimDomain);
+      assert.equal(s.amountQ, v.amountAtomic);
+    }
+    if (relation === "native_claim_discharge") {
+      const s = decodeClaimDischargeInputs(publicInputs);
+      assert.equal(s.ticketId, ticketId);
+      assert.equal(s.claimDomain, product.descriptor.claim.claimDomain);
+    }
+    const evidence = assertRoleProofReceiptRecords({
+      relation,
+      runId: id,
+      jobId: manifest.jobId,
+      manifest,
+      result: JSON.parse(rb),
+      resources: JSON.parse(resources),
+      proofSHA256: hash(bytes),
+      publicInputsSHA256: hash(inputs),
+      manifestSHA256: hash(mb),
+      resultSHA256: hash(rb),
+      resourcesSHA256: hash(resources),
+    });
+    const n = String(v.proofs.length + 1).padStart(2, "0") + "-" + relation;
+    writeFileSync(join(proofDirectory, n + ".bin"), bytes, {
+      flag: "wx",
+      mode: 0o600,
+    });
+    writeFileSync(join(proofDirectory, n + ".public-inputs.json"), inputs, {
+      flag: "wx",
+      mode: 0o600,
+    });
+    collected.add(id);
+    v.proofs.push({
+      relation,
+      proofSHA256: hash(bytes),
+      publicInputsSHA256: hash(inputs),
+      evidence,
+    });
+    save();
+  }
+  function collectW39(row) {
+    const matches = [];
+    for (const name of names(telemetryRoot)) {
+      if (oldTelemetry.has(name) || !name.endsWith(".json")) continue;
+      const bytes = regular(join(telemetryRoot, name)),
+        metrics = JSON.parse(bytes);
+      if (
+        metrics.mode === "withdraw_balance" &&
+        metrics.worker?.proofSHA256 === row.proofSHA256
+      )
+        matches.push({ bytes, metrics });
+    }
+    assert.equal(matches.length, 1, "DEVICE_ROOT_BTC_ONE_ORIGINAL_W39_RECEIPT");
+    const { bytes, metrics } = matches[0],
+      evidence = assertWithdrawalProofTelemetry({
+        returnedMetrics: metrics,
+        storedMetrics: JSON.parse(bytes),
+        proofSHA256: row.proofSHA256,
+        publicInputsSHA256: row.publicInputsSHA256,
+        telemetrySHA256: hash(bytes),
+      });
+    v.proofs.push({
+      relation: "withdraw_balance",
+      proofSHA256: row.proofSHA256,
+      publicInputsSHA256: row.publicInputsSHA256,
+      evidence,
+    });
+    save();
+  }
+  const proofCount = () => {
+    let n = 0;
+    for (const id of names(attemptRoot)) {
+      if (oldAttempts.has(id) || !UUID.test(id)) continue;
+      const p = join(attemptRoot, id, "proof-manifest.json");
+      if (
+        existsSync(p) &&
+        (selected.source
+          ? [...SPL_SOURCE_RELATIONS, "native_claim_discharge"]
+          : ["deposit_intent", "native_claim_ingress", "native_claim_discharge"]
+        ).includes(JSON.parse(regular(p)).relation)
+      )
+        n++;
+    }
+    for (const id of names(telemetryRoot)) {
+      if (oldTelemetry.has(id) || !id.endsWith(".json")) continue;
+      const p = JSON.parse(regular(join(telemetryRoot, id)));
+      if (p.mode === "withdraw_balance" && p.acceptedResult === true) n++;
+    }
+    return n;
+  };
+  function collectSourceProofs() {
+    assert.ok(selected.source && sourceOriginal);
+    const rows = [],
+      sourceConfig = sourceOriginal.claims.configs[0],
+      domain = sourceOriginal.claims.flatSystem.pools[0].domain,
+      claimDomain = claimDomainCommitment(sourceConfig),
+      graphDomain =
+        sourceOriginal.claims.flatSystem.pools[0].domainCommitment.slice(2);
+    assert.notEqual(
+      claimDomain,
+      product.descriptor.claim.claimDomain,
+      "DEVICE_ROOT_SPL_SOURCE_TARGET_DOMAIN_DISTINCT",
+    );
+    for (const id of names(attemptRoot)) {
+      if (oldAttempts.has(id) || collected.has(id) || !UUID.test(id)) continue;
+      const base = join(attemptRoot, id),
+        path = join(base, "proof-manifest.json");
+      if (!existsSync(path)) continue;
+      const mb = regular(path),
+        manifest = JSON.parse(mb);
+      assert.ok(
+        SPL_SOURCE_RELATIONS.includes(manifest.relation),
+        "DEVICE_ROOT_SPL_SOURCE_UNEXPECTED_PROOF",
+      );
+      const rb = regular(join(base, "result.json")),
+        res = regular(join(base, "resources.json")),
+        proof = regular(join(base, "proof.bin")),
+        inputs = regular(join(base, "public-inputs.json")),
+        statement = decodeStatement(manifest.relation, JSON.parse(inputs));
+      const evidence = (
+        ["deposit_intent", "native_claim_ingress"].includes(manifest.relation)
+          ? assertRoleProofReceiptRecords
+          : assertBtcSolGraphProofReceipts
+      )({
+        relation: manifest.relation,
+        runId: id,
+        jobId: manifest.jobId,
+        manifest,
+        result: JSON.parse(rb),
+        resources: JSON.parse(res),
+        proofSHA256: hash(proof),
+        publicInputsSHA256: hash(inputs),
+        manifestSHA256: hash(mb),
+        resultSHA256: hash(rb),
+        resourcesSHA256: hash(res),
+      });
+      if (manifest.relation === "deposit_intent") {
+        assert.equal(statement.scope, domain.scope);
+        assert.equal(statement.policy, domain.policy);
+        assert.equal(statement.amount, "100000");
+      } else if (manifest.relation === "native_claim_ingress") {
+        assert.equal(statement.claimDomain, claimDomain);
+        assert.equal(statement.amountQ, "100000");
+        assert.equal(
+          manifest.keySHA256,
+          sourceOriginal.claims.verifiers.CI51.lineage.keySHA256,
+        );
+      } else assert.equal(statement.domainCommitment, graphDomain);
+      rows.push({
+        id,
+        relation: manifest.relation,
+        proof,
+        inputs,
+        statement,
+        proofSHA256: hash(proof),
+        publicInputsSHA256: hash(inputs),
+        manifestSHA256: hash(mb),
+        resultSHA256: hash(rb),
+        resourcesSHA256: hash(res),
+        evidence,
+        ...(["deposit_intent", "native_claim_ingress"].includes(
+          manifest.relation,
+        )
+          ? { claimDomain }
+          : { graphDomainCommitment: graphDomain }),
+      });
+    }
+    const counts = rows.reduce(
+      (o, r) => ((o[r.relation] = (o[r.relation] ?? 0) + 1), o),
+      {},
+    );
+    assert.deepEqual(counts, {
+      deposit_intent: 1,
+      native_claim_ingress: 1,
+      authorization: 1,
+      reservation: 1,
+      dependency: 1,
+      ready: 1,
+      admission: 1,
+      node: 4,
+      settlement: 1,
+    });
+    assert.equal(rows.length, 12);
+    assert.equal(
+      rows.find((r) => r.relation === "native_claim_ingress").statement.outputQ,
+      rows.find((r) => r.relation === "deposit_intent").statement.output,
+    );
+    rows.sort(
+      (a, b) =>
+        SPL_SOURCE_RELATIONS.indexOf(a.relation) -
+          SPL_SOURCE_RELATIONS.indexOf(b.relation) || a.id.localeCompare(b.id),
+    );
+    for (const row of rows) {
+      const { id, proof, inputs, statement, ...record } = row,
+        n =
+          "source-" +
+          String(v.sourceProofs.length + 1).padStart(2, "0") +
+          "-" +
+          row.relation;
+      writeFileSync(join(proofDirectory, n + ".bin"), proof, {
+        flag: "wx",
+        mode: 0o600,
+      });
+      writeFileSync(join(proofDirectory, n + ".public-inputs.json"), inputs, {
+        flag: "wx",
+        mode: 0o600,
+      });
+      collected.add(id);
+      v.sourceProofs.push(record);
+    }
+    save();
+    return { claimDomain, graphDomainCommitment: graphDomain };
+  }
+  function sourceEffects() {
+    assert.ok(sourceOriginal);
+    const r = sourceOriginal;
+    return {
+      evmCount: r.runtime.transactions.length,
+      btc: r.claims.nativeRuntimes[0].transfers.map((t) => ({
+        nativeId: t.txid,
+        transactionSHA256: t.transactionSHA256,
+        broadcastAttempts: t.broadcastAttempts,
+        phase: t.phase,
+      })),
+      sol: r.graphSolana.transfers.map((t) => ({
+        nativeId: t.nativeId,
+        transactionSHA256: t.transactionSHA256,
+        broadcastAttempts: t.broadcastAttempts,
+        phase: t.phase,
+      })),
+      spl: r.claims.nativeRuntimes[1].transfers.map((t) => ({
+        nativeId: t.nativeId,
+        transactionSHA256: t.transactionSHA256,
+        broadcastAttempts: t.broadcastAttempts,
+        phase: t.phase,
+      })),
+    };
+  }
+  async function read() {
+    live();
+    const p = await client.challenge("READ"),
+      s = await host.sign(p),
+      r = await client.read(p, s);
+    live();
+    await vault.applyDeviceRootClaimObservationV2(r);
+    return r;
+  }
+  async function access() {
+    const p = await client.challenge("ACCESS");
+    return [p, await host.sign(p)];
+  }
+  async function exitPermission(action) {
+    const [p, s] = await access();
+    return client.exitChallenge(p, s, action);
+  }
+  async function cleanup() {
+    return (cleanupWork ??= (async () => {
+      await Promise.allSettled([...acquisitions]);
+      let first;
+      for (const [key, work] of [
+        [
+          "closedMobileVault",
+          async () => {
+            if (vault) await vault.close();
+          },
+        ],
+        [
+          "closedProduct",
+          async () => {
+            if (product) {
+              const r = await product.close();
+              assert.equal(r.originalResourcesStopped, true);
+            }
+          },
+        ],
+        [
+          "closedMobileHost",
+          async () => {
+            if (host) {
+              const r = await host.close();
+              assert.equal(r.originalWorkDrained, true);
+            }
+          },
+        ],
+      ])
+        try {
+          await work();
+          v.cleanup[key] = true;
+        } catch (e) {
+          first ??= e;
+          v.cleanup.errors.push({ stage: key, code: safeCode(e) });
+        }
+      if (first) throw first;
+      return v.cleanup;
+    })());
+  }
+  const stop = () => {
+    v.interrupted = true;
+    client?.close();
+    void cleanup()
+      .catch(() => {})
+      .finally(() => {
+        v.phase = "failed";
+        v.errorCode = "DEVICE_ROOT_BTC_INTERRUPTED";
+        save();
+        process.exitCode = 1;
+      });
+  };
+  process.once("SIGTERM", stop);
+  process.once("SIGINT", stop);
+  try {
+    if (selected.source) {
+      stage("original-spl-source-artifact-preflight-before-create");
+      await preflightNativeSplClaimIngressV1Artifacts();
+      live();
+    }
+    stage("device-protected-identity-and-root-before-funding");
+    await acquire(
+      () => openOriginalDeviceRootClaimMobileHostV3(privateDirectory),
+      (value) => {
+        host = value;
+      },
+    );
+    const root = await acquire(
+      () => host.original.createLocalRootNoteVaultV1(),
+      () => {},
+    );
+    await acquire(
+      () => host.original.openLocalRootNoteVaultV1(root.rootId),
+      (value) => {
+        vault = value;
+      },
+    );
+    stage(
+      selected.nativeFamily === "1"
+        ? "original-btc-v3-receiver-product-before-create-and-fund"
+        : selected.nativeAssetKind === null
+          ? "original-sol-v3-receiver-product-before-create-and-fund"
+          : "original-spl-v3-receiver-product-before-create-and-fund",
+    );
+    await acquire(
+      () => selected.create(host.configuration()),
+      (value) => {
+        product = value;
+      },
+    );
+    client = host.bind(product.descriptor);
+    assert.equal(product.automaticFunding, false);
+    assert.equal(product.nativeSelfCustody, false);
+    assert.equal(product.descriptor.claim.nativeFamily, selected.nativeFamily);
+    if (selected.nativeFamily === "2") {
+      const c = product.descriptor.claim;
+      assert.equal(c.decimals, selected.decimals);
+      assert.equal(c.nativeAssetKind, selected.nativeAssetKind);
+      if (selected.nativeAssetKind === null) assert.equal(c.mint, null);
+      else assert.match(c.mint, /^[A-Za-z0-9]{32,64}$/);
+      v.nativeClaimBinding = Object.fromEntries(
+        [
+          "nativeFamily",
+          "nativeGenesis",
+          "nativeAsset",
+          "claimDomain",
+          "nativeAssetKind",
+          "mint",
+          "decimals",
+        ].map((k) => [k, c[k]]),
+      );
+    }
+    if (selected.source) {
+      stage("original-backend-cbtc-source-before-target-d27-or-fund");
+      sourceOriginal = readOriginalDeviceRootSplSourceProductContextV3(product);
+      assert.equal(sourceOriginal.claims.nativeSplCustodyProfile, true);
+      assert.equal((await product.originalSourceStatus()).phase, "BORN");
+      assert.equal(sourceOriginal.graphSolana.transfers.length, 0);
+      assert.equal(sourceOriginal.claims.nativeRuntimes[0].transfers.length, 0);
+      const delivered = await product.deliverOriginalBtcSourceOnce();
+      live();
+      assert.equal(delivered.phase, "TARGET_QUOTED");
+      assert.equal(delivered.privateCreditEstablished, false);
+      assert.equal(delivered.claimCustody, "DEVICE_ROOT_NOTE");
+      assert.equal(delivered.sourceCustody, "BACKEND_LOCAL_QUORUM");
+      const domains = collectSourceProofs();
+      assert.equal(proofCount(), 12);
+      assert.match(delivered.quote.amount, /^[1-9][0-9]*$/);
+      v.amountAtomic = delivered.quote.amount;
+      let duplicate = false;
+      try {
+        await product.deliverOriginalBtcSourceOnce();
+      } catch (e) {
+        duplicate = safeCode(e) === "CLAIM_DEVICE_SPL_SOURCE_ALREADY_ADMITTED";
+      }
+      assert.equal(duplicate, true);
+      const beforeSourceObserve = sourceEffects(),
+        countBeforeSourceObserve = proofCount();
+      const sourceStatus = await product.observeOriginalSource();
+      live();
+      assert.equal(sourceStatus.phase, "TARGET_QUOTED");
+      assert.deepEqual(sourceEffects(), beforeSourceObserve);
+      assert.equal(proofCount(), countBeforeSourceObserve);
+      const btc = sourceOriginal.claims.nativeRuntimes[0].transfers;
+      assert.equal(btc.length, 1);
+      assert.equal(btc[0].broadcastAttempts, 1);
+      assert.equal(btc[0].phase, "OBSERVED_CONFIRMED");
+      const sol = sourceOriginal.graphSolana.transfers;
+      assert.equal(sol.length, 1);
+      assert.equal(sol[0].broadcastAttempts, 1);
+      assert.equal(sol[0].phase, "OBSERVED_FINALIZED");
+      assert.equal(sol[0].nativeWire, sol[0].observation.nativeWire);
+      v.originalSource = {
+        profile: delivered.profile,
+        phase: delivered.phase,
+        sourceCustody: delivered.sourceCustody,
+        targetClaimCustody: delivered.claimCustody,
+        ...domains,
+        targetClaimDomain: product.descriptor.claim.claimDomain,
+        targetAmountAtomic: v.amountAtomic,
+        btcNativeIdSHA256: hash(btc[0].txid),
+        solNativeIdSHA256: hash(sol[0].nativeId),
+        solWireSHA256: sol[0].transactionSHA256,
+        quoteSHA256: hash(JSON.stringify(delivered.quote)),
+        nativeBroadcastAttempts: 1,
+        graphBroadcastAttempts: 1,
+        nativeFinalityObserved: true,
+        duplicateAdmissionRejected: duplicate,
+        observationNoNewEffect: true,
+        sameOriginalAfterRestart: false,
+      };
+      v.originalBtcToSolSourceGraphEstablished = true;
+      sourceBaseline = sourceEffects();
+      save();
+    }
+    const d = product.descriptor;
+    await vault.prepareUnissuedBalanceNote({
+      scope: d.scope,
+      policy: d.policy,
+      pool: d.pool,
+      recipient: d.recipient,
+      amount: v.amountAtomic,
+    });
+    const review = await vault.reviewPreparedDeposit(product.originalWindow),
+      signed = await vault.signPreparedDeposit(review),
+      request = await vault.createDeviceRootClaimRequestV2(signed, d);
+    v.note = { commitment: request.statement.output };
+    stage("original-device-d27-ciphertext-before-native-funding");
+    let [a, s] = await access();
+    const p27 = await client.reviewD27(a, s, {
+        rootId: request.rootId,
+        noteRevision: request.noteRevision,
+        statement: request.statement,
+        witnessSHA256: request.witnessSHA256,
+      }),
+      signature27 = await host.sign(p27),
+      packet27 = await vault.sealDeviceRootClaimRequestV2(
+        request,
+        p27,
+        signature27,
+      ),
+      r27 = await client.submit(p27, signature27, packet27);
+    assert.equal(r27.result.stage, "PREPARED");
+    collectRole("deposit_intent", r27.result.proofSHA256, p27.jobId);
+    stage("same-device-native-funding-once");
+    const fund = await client.effectChallenge("FUND_NATIVE_CLAIM"),
+      fundSig = await host.sign(fund);
+    await vault.latchDeviceRootClaimEffectV2(fund);
+    await client.submit(fund, fundSig);
+    live();
+    stage("same-device-private-ci51-original-native-finality");
+    const witnessHash = await vault.deviceRootClaimIngressWitnessHashV2();
+    [a, s] = await access();
+    const ci = await client.reviewCI51(a, s, witnessHash),
+      ciSig = await host.sign(ci.consent),
+      ciPacket = await vault.sealDeviceRootClaimIngressV2(ci, ciSig),
+      ciResult = await client.submit(ci.consent, ciSig, ciPacket);
+    assert.equal(ciResult.result.stage, "CI51_PROVED");
+    collectRole(
+      "native_claim_ingress",
+      ciResult.result.proofSHA256,
+      ci.consent.jobId,
+    );
+    stage("same-original-claim-mint-and-fresh-mobile-common-read");
+    const issue = await client.effectChallenge("ISSUE_CLAIM"),
+      issueSig = await host.sign(issue);
+    await vault.latchDeviceRootClaimEffectV2(issue);
+    await client.submit(issue, issueSig);
+    const issued = await read();
+    assert.equal(issued.note.state, "LIVE");
+    assert.equal(issued.note.commitment, v.note.commitment);
+    assert.equal(issued.note.available, v.amountAtomic);
+    v.note.nullifier = issued.note.nullifier;
+    v.note.before = issued.note;
+    v.economicBefore = issued.economicState;
+    stage("same-rootnote-private-w39");
+    [a, s] = await access();
+    const quote = await client.quoteW39(a, s),
+      exitRequest = await vault.prepareDeviceRootClaimExitV3(quote);
+    [a, s] = await access();
+    const w39 = await client.reviewW39(a, s, quote, exitRequest.witnessSHA256),
+      w39Sig = await host.sign(w39),
+      w39Packet = await vault.sealDeviceRootClaimExitV3(
+        exitRequest,
+        w39,
+        w39Sig,
+      ),
+      w39Result = await client.exitSubmit(w39, w39Sig, w39Packet);
+    assert.equal(w39Result.result.stage, "PROVED");
+    collectW39(w39Result.result);
+    stage("w39-admission-before-send-lost-original-response");
+    const withdraw = await exitPermission("WITHDRAW_W39"),
+      withdrawSig = await host.sign(withdraw);
+    await vault.latchDeviceRootClaimExitV3(withdraw);
+    let withdrawalUnknown = false;
+    try {
+      await client.exitSubmit(withdraw, withdrawSig);
+    } catch (e) {
+      withdrawalUnknown = true;
+    }
+    assert.equal(
+      withdrawalUnknown,
+      true,
+      "DEVICE_ROOT_BTC_EXPECTED_W39_RESPONSE_LOSS",
+    );
+    const ow = await exitPermission("OBSERVE_W39"),
+      owResult = await client.exitSubmit(ow, await host.sign(ow));
+    assert.equal(owResult.result.stage, "CONFIRMED");
+    v.withdrawal = owResult.result;
+    stage("same-original-request-redemption");
+    const redeem = await exitPermission("REDEEM_NATIVE"),
+      redeemSig = await host.sign(redeem);
+    await vault.latchDeviceRootClaimExitV3(redeem);
+    await client.exitSubmit(redeem, redeemSig);
+    const requested = await read();
+    assert.equal(requested.redemption.requestId, redeem.requestId);
+    assert.ok(requested.redemption.ticketId);
+    stage("same-native-payout-admitted-once-original-co42-lost-response");
+    const payout = await exitPermission("PAYOUT_NATIVE"),
+      payoutSig = await host.sign(payout);
+    await vault.latchDeviceRootClaimExitV3(payout);
+    let payoutUnknown = false;
+    try {
+      await client.exitSubmit(payout, payoutSig);
+    } catch (e) {
+      payoutUnknown = true;
+    }
+    assert.equal(
+      payoutUnknown,
+      true,
+      "DEVICE_ROOT_BTC_EXPECTED_PAYOUT_RESPONSE_LOSS",
+    );
+    const paid = await read();
+    assert.equal(paid.redemption.status, "DISCHARGED");
+    assert.equal(paid.redemption.requestId, payout.requestId);
+    assert.equal(paid.redemption.ticketId, payout.ticketId);
+    v.redemptionBeforeRestart = paid.redemption;
+    collectRole("native_claim_discharge", null, null, payout.ticketId);
+    const totalBeforeRestart = proofCount(),
+      beforeRestart =
+        totalBeforeRestart - (selected.source ? v.sourceProofs.length : 0);
+    assert.equal(beforeRestart, 4);
+    if (selected.source) {
+      assert.equal(totalBeforeRestart, 16);
+      sourceBaseline = sourceEffects();
+    }
+    stage("same-original-runtime-keeper-restart-observation-only");
+    const restartTransportBaseline = host.evidence().transport.length;
+    client.close();
+    const restart = await product.restartOriginalObservation();
+    live();
+    assert.deepEqual(restart.descriptor, d);
+    client = await host.resetClientAfterOriginalRestart(restart.descriptor);
+    v.restart = {
+      observationOnly: restart.observationOnly,
+      sameOriginalRuntime: restart.sameOriginalRuntime,
+      keeperChildRestarted: restart.keeperChildRestarted,
+      sameDescriptor: true,
+    };
+    const observedNative = await exitPermission("OBSERVE_NATIVE");
+    await client.exitSubmit(observedNative, await host.sign(observedNative));
+    const restored = await read();
+    assert.equal(restored.note.state, "SPENT");
+    assert.equal(restored.note.commitment, v.note.commitment);
+    assert.equal(restored.note.nullifier, v.note.nullifier);
+    assert.equal(restored.note.available, null);
+    assert.equal(
+      restored.withdrawal.transactionHash,
+      v.withdrawal.transactionHash,
+    );
+    assert.deepEqual(restored.redemption, paid.redemption);
+    v.note.after = restored.note;
+    v.redemption = restored.redemption;
+    const before = v.economicBefore.rows[0],
+      after = restored.economicState.rows[0];
+    assert.equal(after.component, "NATIVE_CLAIM");
+    assert.equal(after.state, "LIVE");
+    assert.deepEqual(after.route, before.route);
+    assert.deepEqual(after.asset, before.asset);
+    assert.equal(restored.economicState.lifetime, v.economicBefore.lifetime);
+    assert.equal(after.balances.available, "0");
+    assert.ok(
+      after.requests.length >= 6 &&
+        after.requests.every((r) => r.state === "CONFIRMED"),
+    );
+    v.economic = {
+      sameBirthIdentity: true,
+      sameAsset: true,
+      availableAfter: after.balances.available,
+      requestsConfirmed: true,
+    };
+    const mobile = host.evidence(),
+      posts = (action) =>
+        mobile.transport.filter(
+          (r) => r.path === "exit-operations" && r.action === action,
+        ).length;
+    v.mobile = mobile;
+    v.loss = {
+      actions: mobile.lostOriginalActions,
+      sdkBothReportedUnknown: withdrawalUnknown && payoutUnknown,
+      withdrawPosts: posts("WITHDRAW_W39"),
+      payoutPosts: posts("PAYOUT_NATIVE"),
+      proofCountBeforeRestart: beforeRestart,
+      proofCountAfterRestart:
+        proofCount() - (selected.source ? v.sourceProofs.length : 0),
+      ...(selected.source
+        ? {
+            totalProofCountBeforeRestart: totalBeforeRestart,
+            totalProofCountAfterRestart: proofCount(),
+            sourceFinancialEffectsAfterRestart: 0,
+          }
+        : {}),
+      effectsAfterRestart: mobile.transport
+        .slice(restartTransportBaseline)
+        .filter(
+          (r) =>
+            [
+              "PROVE_D27",
+              "PROVE_CI51",
+              "FUND_NATIVE_CLAIM",
+              "ISSUE_CLAIM",
+              "PROVE_W39",
+              "WITHDRAW_W39",
+              "REDEEM_NATIVE",
+              "PAYOUT_NATIVE",
+            ].includes(r.action) &&
+            ["operations", "exit-operations"].includes(r.path),
+        ).length,
+    };
+    assert.equal(v.loss.withdrawPosts, 1);
+    assert.equal(v.loss.payoutPosts, 1);
+    assert.equal(v.loss.proofCountAfterRestart, 4);
+    assert.equal(v.loss.effectsAfterRestart, 0);
+    if (selected.source) {
+      assert.deepEqual(
+        sourceEffects(),
+        sourceBaseline,
+        "DEVICE_ROOT_SPL_SOURCE_RESTART_RESENT",
+      );
+      assert.equal(proofCount(), 16);
+      v.originalSource.sameOriginalAfterRestart = true;
+    }
+    v[selected.established] = true;
+    v.originalDeviceRootObservationRestartEstablished = true;
+    v.originalDeviceRootCommonStateEstablished = true;
+    stage("close-original-resources");
+    client.close();
+    await cleanup();
+    v.sourceUnchanged = JSON.stringify(pins()) === JSON.stringify(v.sourcePins);
+    v.phase = "completed";
+    v.success = true;
+    selected.check(v);
+    save();
+  } catch (e) {
+    try {
+      writeFileSync(
+        join(privateDirectory, "first-error-private.json"),
+        JSON.stringify(privateNativeEconomicSuccessorFirstErrorV1(e)) + "\n",
+        { flag: "wx", mode: 0o600 },
+      );
+    } catch {}
+    v.errorCode = safeCode(e);
+    v.success = false;
+    client?.close();
+    try {
+      await cleanup();
+    } catch {}
+    try {
+      v.sourceUnchanged =
+        JSON.stringify(pins()) === JSON.stringify(v.sourcePins);
+    } catch {
+      v.sourceUnchanged = false;
+    }
+    v.phase = "failed";
+    save();
+    process.exitCode = 1;
+  } finally {
+    process.off("SIGTERM", stop);
+    process.off("SIGINT", stop);
+  }
 }
-await runOriginalDeviceRootBtcFinancialV3();
+if (import.meta.main) await runOriginalDeviceRootBtcFinancialV3();

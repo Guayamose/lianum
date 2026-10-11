@@ -1,2 +1,2 @@
-import {runDeviceRootSolOriginalNoteSupervisorV3} from '../../../.internal/runtime/omnichain-flat-profile/flat-wallet/integration/native-flow-supervisor.mjs';
+import {runDeviceRootSolOriginalNoteSupervisorV3} from '../../../tests/integration/native/native-flow-supervisor.mjs';
 await runDeviceRootSolOriginalNoteSupervisorV3();
