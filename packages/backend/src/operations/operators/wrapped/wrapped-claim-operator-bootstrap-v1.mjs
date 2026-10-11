@@ -3,6 +3,7 @@
  * perform independent fresh reads on each same-host/same-node synthetic chain;
  * distinct slots do NOT establish independent infrastructure or consensus. */
 import assert from 'node:assert/strict';
+import {createGraphNativeQueuesV4} from './graph-native-queues-v4.mjs';
 import { consumeWrappedSystemRecoveryPartV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { randomBytes } from 'node:crypto';
 import { mkdir, mkdtemp } from 'node:fs/promises';
@@ -52,48 +53,7 @@ async function drained(work) {const results=await Promise.allSettled(work.map(fn
 // Private original physical GRAPH queues. Only this fixed bootstrap can select
 // a registered runtime or enqueue its original source construction+observation.
 // No public callback, arbitrary source, transport, cache or retry enters them.
-const graphNativeQueuesV4 = new WeakMap(), graphQuiescenceV4 = new WeakMap();
-let graphQueueSequenceV4 = 0;
-function graphQueueV4(entry) {
-  let queue = graphNativeQueuesV4.get(entry.nativeRuntime);
-  if (!queue) { queue = { identity: graphQueueSequenceV4++, generation: 0n, pending: 0, active: 0, holder: null, tail: Promise.resolve() };
-    graphNativeQueuesV4.set(entry.nativeRuntime, queue); }
-  return queue;
-}
-function graphReadV4(entry, read) {
-  const queue=graphQueueV4(entry);assert.ok(queue.pending<16,'WRAPPED_GRAPH_NATIVE_QUEUE_FULL');queue.pending++;
-  const result=queue.tail.then(async()=>{
-    assert.equal(queue.holder,null,'WRAPPED_GRAPH_NATIVE_QUIESCENCE_HELD');queue.active++;queue.generation++;
-    try{return await read();}finally{queue.active--;}
-  }).finally(()=>{queue.pending--;});
-  queue.tail=result.then(()=>{},()=>{});return result;
-}
-function assertGraphQuiescenceV4(owner, token) {
-  const state=graphQuiescenceV4.get(token);assert.ok(state&&state.owner===owner,'WRAPPED_GRAPH_PRIVATE_QUIESCENCE_REQUIRED');
-  owner.live();
-  for(const {queue,generation} of state.queues){assert.equal(queue.active,0,'WRAPPED_GRAPH_NATIVE_NOT_IDLE');
-    assert.equal(queue.generation,generation,'WRAPPED_GRAPH_NATIVE_QUEUE_GENERATION_CHANGED');
-    assert.equal(queue.holder,state.released?null:token,'WRAPPED_GRAPH_NATIVE_QUIESCENCE_CHANGED');}
-}
-function releaseGraphQuiescenceV4(owner,token){
-  const state=graphQuiescenceV4.get(token);assert.ok(state&&state.owner===owner,'WRAPPED_GRAPH_PRIVATE_QUIESCENCE_REQUIRED');
-  if(state.released)return;state.released=true;
-  for(const {queue,release} of state.queues){assert.equal(queue.holder,token,'WRAPPED_GRAPH_NATIVE_QUIESCENCE_CHANGED');queue.holder=null;release();}
-}
-async function quiesceGraphNativeV4(owner){
-  owner.live();const token=Object.freeze(Object.create(null)),state={owner,queues:[],released:false};graphQuiescenceV4.set(token,state);
-  const queues=[...new Set(owner.entries.map(graphQueueV4))].sort((a,b)=>a.identity-b.identity);
-  try{for(const queue of queues){assert.ok(queue.pending<16,'WRAPPED_GRAPH_NATIVE_QUEUE_FULL');queue.pending++;
-    let release;const held=new Promise(resolve=>{release=resolve;});
-    const acquired=queue.tail.then(()=>{assert.equal(queue.active,0,'WRAPPED_GRAPH_NATIVE_NOT_IDLE');assert.equal(queue.holder,null,'WRAPPED_GRAPH_NATIVE_QUIESCENCE_CONFLICT');
-      queue.holder=token;queue.generation++;state.queues.push({queue,generation:queue.generation,release});});
-    queue.tail=acquired.then(()=>held).finally(()=>{queue.pending--;}).then(()=>{},()=>{});await acquired;
-  }assertGraphQuiescenceV4(owner,token);return token;
-  }catch(cause){releaseGraphQuiescenceV4(owner,token);throw cause;}
-}
-function graphNativeStateV4(owner){
-  owner.live();return freeze(owner.entries.map(entry=>({profileCommitment:profileCommitment(entry.profile),state:entry.readNativeStateV4()})));
-}
+const {graphReadV4,graphNativeStateV4,quiesceGraphNativeV4,assertGraphQuiescenceV4,releaseGraphQuiescenceV4} = createGraphNativeQueuesV4({profileCommitment});
 async function runtimeEntry(nativeRuntime,sourceLimits=limits) {
   let descriptors,preliminary,assertLive,createSource,readNativeStateV4;
   if(isOwnedLocalEvmNativeValueRuntime(nativeRuntime)) {
