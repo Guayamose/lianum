@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
+import * as native from '@lianum/engine/cohorts/private-cohort-public-native';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { evmRuntimeCodeHash, evmFunctionSelector, EVM_CODE_HASH_RETAINED_BYTES } from '../../../../src/chains/evm/contracts/evm-code-hash.mjs';
 
@@ -29,13 +28,12 @@ test('ABI selectors share bounded pure-byte hashes without retaining artifact re
 });
 
 
-test('same selector bytes remove hashing work only and share the original cache bound', () => {
-  const source = readFileSync(new URL('./evm-code-hash.mjs', import.meta.url), 'utf8');
-  const body = source.slice(source.indexOf('const MAX_RUNTIME_BYTES')).replaceAll('export ', '');
+test('same selector bytes remove hashing work only and share the original cache bound', async t => {
   let hashes = 0;
-  const api = vm.runInThisContext('(function({assert, Buffer, publicKeccak256}) {' + body
-    + '; return { evmFunctionSelector, evmRuntimeCodeHash, EVM_CODE_HASH_RETAINED_BYTES }; })')({ assert, Buffer,
-      publicKeccak256(bytes) { hashes++; return publicKeccak256(bytes); } });
+  t.mock.module('@lianum/engine/cohorts/private-cohort-public-native', {namedExports: {
+    ...native, publicKeccak256(bytes) { hashes++; return publicKeccak256(bytes); }
+  }});
+  const api = await import('../../../../src/chains/evm/contracts/evm-code-hash.mjs?complete-cache-regression');
   assert.equal(api.evmFunctionSelector('totalSupply()'), '18160ddd');
   assert.equal(api.evmFunctionSelector('totalSupply()'), '18160ddd');
   assert.equal(api.evmRuntimeCodeHash('0x' + Buffer.from('totalSupply()').toString('hex')).slice(2, 10), '18160ddd');
