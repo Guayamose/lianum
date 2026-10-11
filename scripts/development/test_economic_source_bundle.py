@@ -97,6 +97,10 @@ class EconomicSourceBundleTests(unittest.TestCase):
                                   adopted_generation=True)
             moved = Path(temporary) / 'relocated'
             original.rename(moved)
+            # The original resource helper traverses wallet-notes/../ before
+            # reading its audit. This public family needs an empty directory,
+            # even though this read-only subset includes no note proof files.
+            (moved / 'resources' / PROOF / 'wallet-notes').mkdir()
             manifest = bundle.verify(moved)
             bundle_bytes = sum(row['bytes'] for row in manifest['files'].values())
             bundle_bytes += (moved / 'source-bundle.json').stat().st_size
