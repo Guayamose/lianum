@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Source/key/compiler preparation only; no proof or financial authority. */
 import assert from 'node:assert/strict';
 import {join,relative} from 'node:path';
@@ -8,7 +9,7 @@ export const SPL_CLAIM_V1_COMPILATION_RESULT='LIANUM_SPL_CLAIM_V1_COMPILATION_ON
 export const SPL_CLAIM_V1_COMPILATION_PROFILE='NEW_ORIGINAL_CI51_V1_CO42_COMPILATION_ONLY';
 export const SPL_CLAIM_V1_COMPILATION_DEADLINE=1860000;
 export function classifyNativeSplClaimV1Preparation(argv){
- const s=argv[1];if(s!==join(ROOT,'proof-workers/run-bounded.mjs')&&s!==join(ROOT,'proof-workers/worker.mjs'))return null;
+ const s=argv[1];if(s!==fileURLToPath(new URL('../../../../packages/proofs/src/jobs/run-bounded.mjs',import.meta.url))&&s!==fileURLToPath(new URL('../../../../packages/proofs/src/jobs/worker.mjs',import.meta.url)))return null;
  const worker=s.endsWith('/worker.mjs');assert.equal(argv.length,worker?5:4,'SPL_CLAIM_V1_FIXED_PUBLIC_PREPARATION_ARGV');assert.equal(argv[2],'native_claim_ingress');assert.ok(['compile','stats','prepare-key'].includes(argv[3]));
  if(worker)assert.match(argv[4],/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
  return{role:worker?'flat-proof-worker':'spl-claim-v1-public-preparation',proofWorker:worker};

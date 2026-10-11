@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Focal host/codec tests only. Every positive lower datum here is explicitly
  * synthetic. No node, owner, prover, compiler, RPC, signature or funding starts. */
 import test from 'node:test';
@@ -59,11 +60,11 @@ test('both fixed worker and supervisor entry gates stop before any resource side
   }
 });
 test('fixed native proof labels count I84 backend and role RSS under unchanged shared bounds',()=>{
-  const worker=classifyNativeWalletRealExecutable(join(ROOT,'proof-workers/native-value-live-v2-worker.mjs'));
-  const role=classifyNativeWalletRealExecutable(join(ROOT,'proof-workers/native-value-live-v2-role-process.mjs'));
+  const worker=classifyNativeWalletRealExecutable(fileURLToPath(new URL('../../../../packages/backend/src/proving/native-value/runtime/native-value-live-v2-worker.mjs',import.meta.url)));
+  const role=classifyNativeWalletRealExecutable(fileURLToPath(new URL('../../../../packages/backend/src/proving/native-value/runtime/native-value-live-v2-role-process.mjs',import.meta.url)));
   assert.deepEqual(worker,{role:'native-value-live-v2-proof-worker',proofWorker:true});
   assert.equal(classifyNativeWalletRealExecutable('/tmp/native-value-live-v2-worker.mjs'),null);
-  assert.equal(classifyNativeWalletRealExecutable(join(ROOT,'proof-workers/native-value-live-v2-run-bounded.mjs')),null);
+  assert.equal(classifyNativeWalletRealExecutable(fileURLToPath(new URL('../../../../packages/backend/src/proving/native-value/tooling/native-value-live-v2-run-bounded.mjs',import.meta.url))),null);
   const p=nativeProofProcessResources([{...worker,state:'R',rssBytes:100},{...role,state:'R',rssBytes:200}]);
   assert.deepEqual(p,{maximumProofWorkerRSSBytes:200,liveProofWorkers:1});
   assert.equal(nativeWalletUnfundedProcessFailure([{...worker,state:'Z'}]),'NATIVE_WALLET_UNFUNDED_PROOF_FORBIDDEN');
@@ -108,12 +109,12 @@ test('original native delivery reconciliation observes expired retained wire wit
   // Actual reconcile/exclusive production bodies and real Vault AEAD/CAS.
   // Native provider/receipt ports below are explicitly inert observations;
   // no runtime brand, proof, signer, native delivery or credit is minted.
-  const source = readFileSync(join(ROOT, 'wallet-platform/modules/paeg/native-value-graph-admission-v2.mjs'), 'utf8');
+  const source = readFileSync(fileURLToPath(new URL('../../../../packages/backend/src/execution/native-value/preparation/native-value-graph-admission-v2.mjs',import.meta.url)), 'utf8');
   const first = source.indexOf('    reconcile(){'), last = source.indexOf('    stop(){', first);
   const a = source.indexOf('  async function exclusive(work){'), b = source.indexOf('  async function observeOriginal(){', a);
   assert.ok(first >= 0 && last > first && a >= 0 && b > a);
   const method = source.slice(first,last), exclusive = source.slice(a,b);
-  const executorSource = readFileSync(join(ROOT, 'wallet-platform/modules/paeg/native-value-execution-v2.mjs'), 'utf8');
+  const executorSource = readFileSync(fileURLToPath(new URL('../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs',import.meta.url)), 'utf8');
   const ea = executorSource.indexOf('          const result=await original.adapter.reconcile();');
   const eb = executorSource.indexOf('          const receipt=',ea);
   assert.ok(ea >= 0 && eb > ea);

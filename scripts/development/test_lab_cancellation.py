@@ -123,6 +123,10 @@ module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 module.DEV = directory / 'dev'; module.FLAT = directory
 module.DIRECTORY = directory / 'attempts'; module.DIRECTORY.mkdir()
 module.NODE = Path(sys.executable); module.ENTRY = directory / 'child.py'
+if source.name == 'evm_lab.py':
+    module.ROOT = directory
+    module.SOURCE_ENTRIES = {'integration/run-manual-wallet-acceptance.mjs': 'child.py'}
+    module.ENTRY = Path('integration/run-manual-wallet-acceptance.mjs')
 if source.name in ('btc_sol_lab.py', 'empty_audit_lab.py'): module.PREPARE = module.ENTRY
 module.build = lambda **kwargs: None
 module.sys.argv = ['owned-parent-death-probe']

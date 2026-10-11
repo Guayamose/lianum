@@ -1,3 +1,4 @@
+import {applicationFlowEntrypoints} from '../runners/application-flow-entrypoints.mjs';
 /** Local application acceptance for real-backed token and vault-share notes.
  * The vault action is explicitly public fixture setup. Private conversion and
  * PAEG DeFi composability are not inferred from subsequent private deposits. */
@@ -37,7 +38,7 @@ async function main() {
   assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
-  assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])), join(ROOT, 'integration/run-asset-portfolio.mjs'));
+  assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])), applicationFlowEntrypoints.assetPortfolio.entry);
   const lock = JSON.parse(readFileSync(join(ROOT, '.local/asset-portfolio/active.lock')));
   assert.equal(lock.pid, process.ppid);
   assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);

@@ -1,3 +1,7 @@
+import {fileURLToPath} from 'node:url';
+import {applicationFlowEntrypoints} from '../runners/application-flow-entrypoints.mjs';
+import {manualWalletEntrypoints} from '../wallet/manual/manual-wallet-entrypoints.mjs';
+import {currentManualWalletSourcePins,currentManualWalletBrowserSourcePins,currentManualWalletBrowserRecoverySourcePins} from '../wallet/manual/current-manual-wallet-source-pins.mjs';
 import {DEVICE_META_UNDERLYING_GRAPH_RESULT_V2,DEVICE_META_FOUR_UNDERLYING_GRAPH_RESULT_V2,assertDeviceMetaUnderlyingGraphReleaseV2,assertDeviceMetaUnderlyingGraphResultV2,assertDeviceMetaFourUnderlyingGraphResultV2,classifyDeviceMetaUnderlyingGraphProcessV2} from '../wallet/native/device-external-flat-erc20-policy-v1.mjs';
 import {deviceMetaUnderlyingGraphSourcePinsV2,deviceMetaFourUnderlyingGraphSourcePinsV2} from '../wallet/native/device-external-flat-erc20-source-pins-v1.mjs';
 import {pathToFileURL} from 'node:url';
@@ -117,10 +121,7 @@ import { nativeFlowSourcePins, accountRecoverySourcePins, assetPortfolioSourcePi
 import {EVM_METAMORPHO_RECOVERY_RESULT_V1,assertMetaMorphoFReleaseV1,assertEvmMetaMorphoRecoveryResultV1} from '../chains/evm/evm-metamorpho-recovery-policy-v1.mjs';
 import {evmMetaMorphoRecoverySourcePinsV1} from '../chains/evm/evm-metamorpho-recovery-source-pins-v1.mjs';
 import { EVM_UNISWAP_RECOVERY_RESULT, assertEvmUniswapRecoveryResult } from '../chains/evm/evm-vault-terminal-checks.mjs';
-import { manualWalletSourcePins } from '../wallet/manual/manual-wallet-source-pins.mjs';
-import { manualWalletBrowserSourcePins } from '../wallet/manual/manual-wallet-browser-source-pins.mjs';
 import { MANUAL_WALLET_BROWSER_FORMAT, assertManualWalletBrowserResult } from '../wallet/manual/manual-wallet-browser-policy.mjs';
-import { manualWalletBrowserRecoverySourcePins } from '../wallet/manual/manual-wallet-browser-recovery-source-pins.mjs';
 import { MANUAL_WALLET_BROWSER_RECOVERY_FORMAT, assertManualWalletBrowserRecoveryResult } from '../wallet/manual/manual-wallet-browser-recovery-policy.mjs';
 import { nativeClaimSourcePins } from '../claims/lifecycle/native-claim-source-pins.mjs';
 import { UNFUNDED_HEALTH_REAL_RUN_DISABLED, UNFUNDED_HEALTH_RESULT, assertUnfundedHealthResult, unfundedHealthProcessFailure }
@@ -139,106 +140,94 @@ const FLOW_PROFILES = Object.freeze({
   deviceRootSolOriginalNoteV3:Object.freeze({entry:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/run-sol.mjs'),worker:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/flow.mjs'),workerArguments:Object.freeze(['--sol']),local:join(ROOT,'.local/device-root-sol-original-note-exit-v3'),resultFormat:'LIANUM_DEVICE_ROOT_SOL_ORIGINAL_NOTE_EXIT_RESULT_V3',resourcesFormat:'LIANUM_DEVICE_ROOT_SOL_ORIGINAL_NOTE_EXIT_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_ROOT_SOL_ORIGINAL_NOTE_EXIT_LOCK_V3',attemptFormat:'LIANUM_DEVICE_ROOT_SOL_ORIGINAL_NOTE_EXIT_ATTEMPT_V3',classification:'ORIGINAL_DEVICE_ROOT_NOTE_SOL_D27_CI51_W39_CO42_SAME_RUNTIME_OBSERVATION_RESTART_NOT_PHONE_OR_NATIVE_SELF_CUSTODY',sourcePins:()=>deviceRootBtcPinsV3.sourcePinsSol(),cleanupKeys:Object.freeze(['closedProduct','closedMobileVault','closedMobileHost'])}),
   deviceRootSplOriginalNoteV3:Object.freeze({entry:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/run-spl.mjs'),worker:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/flow.mjs'),workerArguments:Object.freeze(['--spl']),local:join(ROOT,'.local/device-root-spl-original-note-exit-v3'),resultFormat:'LIANUM_DEVICE_ROOT_SPL_ORIGINAL_NOTE_EXIT_RESULT_V3',resourcesFormat:'LIANUM_DEVICE_ROOT_SPL_ORIGINAL_NOTE_EXIT_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_ROOT_SPL_ORIGINAL_NOTE_EXIT_LOCK_V3',attemptFormat:'LIANUM_DEVICE_ROOT_SPL_ORIGINAL_NOTE_EXIT_ATTEMPT_V3',classification:'ORIGINAL_DEVICE_ROOT_NOTE_SPL_USDC_D27_CI51_W39_CO42_SAME_RUNTIME_OBSERVATION_RESTART_NOT_PUBLIC_JUPITER_OR_PHONE',sourcePins:()=>deviceRootBtcPinsV3.sourcePinsSpl(),cleanupKeys:Object.freeze(['closedProduct','closedMobileVault','closedMobileHost'])}),
   deviceRootSplSourceOriginalNoteV4:Object.freeze({entry:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/run-spl-source.mjs'),worker:resolve(ROOT,'../../../..','scripts/validation/device-root-native-claim-v3/flow.mjs'),workerArguments:Object.freeze(['--spl-source']),local:join(ROOT,'.local/device-root-spl-source-original-note-exit-v4'),resultFormat:'LIANUM_DEVICE_ROOT_SPL_SOURCE_ORIGINAL_NOTE_EXIT_RESULT_V4',resourcesFormat:'LIANUM_DEVICE_ROOT_SPL_SOURCE_ORIGINAL_NOTE_EXIT_RESOURCES_V4',lockFormat:'LIANUM_DEVICE_ROOT_SPL_SOURCE_ORIGINAL_NOTE_EXIT_LOCK_V4',attemptFormat:'LIANUM_DEVICE_ROOT_SPL_SOURCE_ORIGINAL_NOTE_EXIT_ATTEMPT_V4',classification:'ORIGINAL_CBTC_TO_SOL_SOURCE_GRAPH_THEN_DEVICE_ROOT_SPL_USDC_D27_CI51_W39_CO42_SAME_RUNTIME_OBSERVATION_ONLY_LOCAL',sourcePins:()=>deviceRootBtcPinsV3.sourcePinsSplSource(),cleanupKeys:Object.freeze(['closedProduct','closedMobileVault','closedMobileHost'])}),
-  nativeSourceAbruptV1:Object.freeze({entry:join(ROOT,'integration/run-native-original-source-abrupt-v1.mjs'),worker:join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs'),local:join(ROOT,'.local/native-original-source-abrupt-v1'),resultFormat:NATIVE_SOURCE_ABRUPT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_HARD_BACKEND_EXIT_SAME_SOURCE_NEW_PID_U_S_FIRST_ARM_BEFORE_EIGHT_HOURS_NOT_F_OR_PHONE',sourcePins:nativeSourceAbruptSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution','closedBackend'])}),
-  deviceOwnerFReorgV1:Object.freeze({entry:join(ROOT,'integration/run-device-owner-original-f-reorg-v1.mjs'),worker:join(ROOT,'integration/device-owner-original-f-reorg-flow-v1.mjs'),local:join(ROOT,'.local/device-owner-original-f-reorg-v1'),resultFormat:DEVICE_F_REORG_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_F_EXACT_PARENT_REORG_SAME_RETAINED_WIRE_RECONFIRMATION_LOCAL_NOT_PHONE_OR_DEEP_REORG',sourcePins:deviceOwnerFReorgSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
-  nativeDeviceLiveArmedShortV1:Object.freeze({entry:join(ROOT,'integration/run-native-value-live-armed-short-restart-v1.mjs'),worker:join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'),local:join(ROOT,'.local/native-value-live-armed-recovery-v1'),resultFormat:NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_U_S_FRESH_ARM_PLANNED_NEW_PROCESS_BEFORE_EIGHT_HOUR_CUTOFF_NOT_F_OR_PHONE',sourcePins:nativeDeviceLiveArmedShortSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
-  deviceMetaUnderlyingGraphV2:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-source-graph-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--metamorpho-underlying']),local:join(ROOT,'.local/device-metamorpho-underlying-private-position-v2'),resultFormat:DEVICE_META_UNDERLYING_GRAPH_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_META_UNDERLYING_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_META_UNDERLYING_LOCK_V2',attemptFormat:'LIANUM_DEVICE_META_UNDERLYING_ATTEMPT_V2',classification:'ORIGINAL_DEVICE_METAMORPHO_UNDERLYING_SEPARATE_POP_LOST_REPLY_SAME_JOB_ORDERED_OBSERVATION_NOT_PRIVATE_CREDIT_OR_ABRUPT',sourcePins:deviceMetaUnderlyingGraphSourcePinsV2,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
-  deviceMetaFourUnderlyingGraphV2:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-meta-four-deliveries-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--metamorpho-underlying']),local:join(ROOT,'.local/device-metamorpho-four-underlying-private-position-v2'),resultFormat:DEVICE_META_FOUR_UNDERLYING_GRAPH_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_META_FOUR_UNDERLYING_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_META_FOUR_UNDERLYING_LOCK_V2',attemptFormat:'LIANUM_DEVICE_META_FOUR_UNDERLYING_ATTEMPT_V2',classification:'ORIGINAL_DEVICE_METAMORPHO_UNDERLYING_SEPARATE_POP_LOST_REPLY_SAME_JOB_ORDERED_OBSERVATION_NOT_PRIVATE_CREDIT_OR_ABRUPT',sourcePins:deviceMetaFourUnderlyingGraphSourcePinsV2,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
-  deviceMetaFourGraphV1:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-meta-four-deliveries-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-external-flat-meta-four-deliveries-v1'),resultFormat:DEVICE_META_FOUR_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_META_FOUR_GRAPH_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_META_FOUR_GRAPH_LOCK_V1',attemptFormat:'LIANUM_DEVICE_META_FOUR_GRAPH_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_META_FOUR_PRIVATE_TARGETS_U_S_DAG_NATIVE_DELIVERIES_W39_AND_ORDERED_REOPEN_LOCAL_NOT_ABRUPT_OR_PHONE',sourcePins:deviceMetaFourGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
-  deviceMetaConfirmedSourceV2:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-source-graph-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--source-recovery']),local:join(ROOT,'.local',deviceConfirmedSourceProfileV2(false)),resultFormat:DEVICE_CONFIRMED_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_D26_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_GRAPH_T_OR_BROADCAST_CHECKPOINT',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
-  deviceMetaConfirmedGraphSourceV2:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-source-graph-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--source-recovery','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV2(false)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
-  deviceAaveConfirmedGraphSourceV3:Object.freeze({entry:join(ROOT,'integration/run-device-aave-static-private-position-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--source-recovery-v3','--after-graph']),local:join(ROOT,'.local',deviceAaveConfirmedGraphSourceProfileV3()),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V3,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V3',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V3',classification:'ORIGINAL_CONFIRMED_AAVE_GRAPH_SHARE_CHANGE_W39_UNDERLYING_TWO_HARD_BACKEND_EXITS_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceAaveStaticGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
-  deviceMetaConfirmedGraphSourceV3:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-source-graph-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--source-recovery-v3','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV3(false)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V3,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V3',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V3',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
-  deviceUniswapConfirmedGraphSourceV2:Object.freeze({entry:join(ROOT,'integration/run-device-uniswap-v3-private-note-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--source-recovery','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV2(true)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
-  deviceUniswapConfirmedGraphSourceV3:Object.freeze({entry:join(ROOT,'integration/run-device-uniswap-v3-private-note-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--source-recovery-v3','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV3(true)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V3,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V3',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V3',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
-  deviceUniswapConfirmedSourceV2:Object.freeze({entry:join(ROOT,'integration/run-device-uniswap-v3-private-note-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),workerArguments:Object.freeze(['--source-recovery']),local:join(ROOT,'.local',deviceConfirmedSourceProfileV2(true)),resultFormat:DEVICE_CONFIRMED_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_D26_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_GRAPH_T_OR_BROADCAST_CHECKPOINT',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
-  deviceExternalFlatGraphV1:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-source-graph-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-external-flat-source-graph-v1'),resultFormat:DEVICE_EXTERNAL_FLAT_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_LOCK_V1',attemptFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_SOURCE_D26_TARGET_D27_U_S_GRAPH_TARGET_W39_LOCAL_NOT_PHONE_OR_RECOVERY',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
-  deviceUniswapGraphV1:Object.freeze({entry:join(ROOT,'integration/run-device-uniswap-v3-private-note-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-uniswap-v3-private-note-v1'),resultFormat:DEVICE_UNISWAP_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_UNISWAP_PRIVATE_NOTE_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_UNISWAP_PRIVATE_NOTE_LOCK_V1',attemptFormat:'LIANUM_DEVICE_UNISWAP_PRIVATE_NOTE_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_UNISWAP_PRIVATE_EXACT_OUTPUT_W39_CUSTODY_AND_ORDERED_REOPEN_LOCAL_NOT_ABRUPT_OR_PHONE',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
-  deviceAaveStaticGraphV1:Object.freeze({entry:join(ROOT,'integration/run-device-aave-static-private-position-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-aave-static-private-position-v1'),resultFormat:DEVICE_AAVE_STATIC_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_AAVE_STATIC_PRIVATE_POSITION_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_AAVE_STATIC_PRIVATE_POSITION_LOCK_V1',attemptFormat:'LIANUM_DEVICE_AAVE_STATIC_PRIVATE_POSITION_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_AAVE_STATIC_PRIVATE_SUPPLY_W39_UNDERLYING_REDEMPTION_AND_ORDERED_REOPEN_LOCAL_NOT_ABRUPT_OR_PHONE',sourcePins:deviceAaveStaticGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
-  deviceMorphoBlueGraphV1:Object.freeze({entry:join(ROOT,'integration/run-device-morpho-blue-private-position-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-morpho-blue-private-position-v1'),resultFormat:DEVICE_MORPHO_BLUE_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_LOCK_V1',attemptFormat:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_BLUE_PRIVATE_SUPPLY_SHARED_EXIT_REDEMPTION_LOCAL_NOT_PHONE_OR_PUBLIC_NETWORK',sourcePins:deviceMorphoBlueGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
-  deviceExternalFlatErc20V1:Object.freeze({entry:join(ROOT,'integration/run-device-external-flat-erc20-v1.mjs'),worker:join(ROOT,'integration/device-external-flat-erc20-flow-v1.mjs'),local:join(ROOT,'.local/device-external-flat-ordered-observation-v1'),resultFormat:DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_LOCK_V1',attemptFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_EXTERNAL_FLAT_D26_W39_ORDERED_NEW_PID_OBSERVATION_NOT_PHONE_OR_ABRUPT_CRASH',sourcePins:deviceExternalFlatErc20SourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed','originalBackendCaptured','closedSuccessor'])}),
-  evmAaveExitRecoveryV1:Object.freeze({entry:join(ROOT,'integration/run-evm-aave-exit-recovery-v1.mjs'),worker:join(ROOT,'integration/evm-vault-flow.mjs'),local:join(ROOT,'.local/external-defi-owner-cycle-v1'),resultFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',resourcesFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_RESOURCES_V1',lockFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_LOCK_V1',attemptFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_ATTEMPT_V1',classification:'PLANNED_ORIGINAL_OFFICIAL_VAULT_EXIT_BACKEND_RECOVERY_NOT_ABRUPT_LOSS_OR_GRAPH_REOPEN',sourcePins:externalDefiVaultExitSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedSuccessor'])}),
+  nativeSourceAbruptV1:Object.freeze({entry:applicationFlowEntrypoints.nativeSourceAbruptV1.entry,worker:applicationFlowEntrypoints.nativeSourceAbruptV1.worker,local:join(ROOT,'.local/native-original-source-abrupt-v1'),resultFormat:NATIVE_SOURCE_ABRUPT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_ORIGINAL_SOURCE_ABRUPT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_HARD_BACKEND_EXIT_SAME_SOURCE_NEW_PID_U_S_FIRST_ARM_BEFORE_EIGHT_HOURS_NOT_F_OR_PHONE',sourcePins:nativeSourceAbruptSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution','closedBackend'])}),
+  deviceOwnerFReorgV1:Object.freeze({entry:applicationFlowEntrypoints.deviceOwnerFReorgV1.entry,worker:applicationFlowEntrypoints.deviceOwnerFReorgV1.worker,local:join(ROOT,'.local/device-owner-original-f-reorg-v1'),resultFormat:DEVICE_F_REORG_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_ORIGINAL_F_REORG_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_F_EXACT_PARENT_REORG_SAME_RETAINED_WIRE_RECONFIRMATION_LOCAL_NOT_PHONE_OR_DEEP_REORG',sourcePins:deviceOwnerFReorgSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
+  nativeDeviceLiveArmedShortV1:Object.freeze({entry:applicationFlowEntrypoints.nativeDeviceLiveArmedShortV1.entry,worker:applicationFlowEntrypoints.nativeDeviceLiveArmedShortV1.worker,local:join(ROOT,'.local/native-value-live-armed-recovery-v1'),resultFormat:NATIVE_DEVICE_LIVE_ARMED_SHORT_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_LIVE_ARMED_SHORT_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_D26_U_S_FRESH_ARM_PLANNED_NEW_PROCESS_BEFORE_EIGHT_HOUR_CUTOFF_NOT_F_OR_PHONE',sourcePins:nativeDeviceLiveArmedShortSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution'])}),
+  deviceMetaUnderlyingGraphV2:Object.freeze({entry:applicationFlowEntrypoints.deviceMetaUnderlyingGraphV2.entry,worker:applicationFlowEntrypoints.deviceMetaUnderlyingGraphV2.worker,workerArguments:Object.freeze(['--metamorpho-underlying']),local:join(ROOT,'.local/device-metamorpho-underlying-private-position-v2'),resultFormat:DEVICE_META_UNDERLYING_GRAPH_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_META_UNDERLYING_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_META_UNDERLYING_LOCK_V2',attemptFormat:'LIANUM_DEVICE_META_UNDERLYING_ATTEMPT_V2',classification:'ORIGINAL_DEVICE_METAMORPHO_UNDERLYING_SEPARATE_POP_LOST_REPLY_SAME_JOB_ORDERED_OBSERVATION_NOT_PRIVATE_CREDIT_OR_ABRUPT',sourcePins:deviceMetaUnderlyingGraphSourcePinsV2,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
+  deviceMetaFourUnderlyingGraphV2:Object.freeze({entry:applicationFlowEntrypoints.deviceMetaFourUnderlyingGraphV2.entry,worker:applicationFlowEntrypoints.deviceMetaFourUnderlyingGraphV2.worker,workerArguments:Object.freeze(['--metamorpho-underlying']),local:join(ROOT,'.local/device-metamorpho-four-underlying-private-position-v2'),resultFormat:DEVICE_META_FOUR_UNDERLYING_GRAPH_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_META_FOUR_UNDERLYING_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_META_FOUR_UNDERLYING_LOCK_V2',attemptFormat:'LIANUM_DEVICE_META_FOUR_UNDERLYING_ATTEMPT_V2',classification:'ORIGINAL_DEVICE_METAMORPHO_UNDERLYING_SEPARATE_POP_LOST_REPLY_SAME_JOB_ORDERED_OBSERVATION_NOT_PRIVATE_CREDIT_OR_ABRUPT',sourcePins:deviceMetaFourUnderlyingGraphSourcePinsV2,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
+  deviceMetaFourGraphV1:Object.freeze({entry:applicationFlowEntrypoints.deviceMetaFourGraphV1.entry,worker:applicationFlowEntrypoints.deviceMetaFourGraphV1.worker,local:join(ROOT,'.local/device-external-flat-meta-four-deliveries-v1'),resultFormat:DEVICE_META_FOUR_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_META_FOUR_GRAPH_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_META_FOUR_GRAPH_LOCK_V1',attemptFormat:'LIANUM_DEVICE_META_FOUR_GRAPH_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_META_FOUR_PRIVATE_TARGETS_U_S_DAG_NATIVE_DELIVERIES_W39_AND_ORDERED_REOPEN_LOCAL_NOT_ABRUPT_OR_PHONE',sourcePins:deviceMetaFourGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
+  deviceMetaConfirmedSourceV2:Object.freeze({entry:applicationFlowEntrypoints.deviceMetaConfirmedSourceV2.entry,worker:applicationFlowEntrypoints.deviceMetaConfirmedSourceV2.worker,workerArguments:Object.freeze(['--source-recovery']),local:join(ROOT,'.local',deviceConfirmedSourceProfileV2(false)),resultFormat:DEVICE_CONFIRMED_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_D26_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_GRAPH_T_OR_BROADCAST_CHECKPOINT',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
+  deviceMetaConfirmedGraphSourceV2:Object.freeze({entry:applicationFlowEntrypoints.deviceMetaConfirmedGraphSourceV2.entry,worker:applicationFlowEntrypoints.deviceMetaConfirmedGraphSourceV2.worker,workerArguments:Object.freeze(['--source-recovery','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV2(false)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
+  deviceAaveConfirmedGraphSourceV3:Object.freeze({entry:applicationFlowEntrypoints.deviceAaveConfirmedGraphSourceV3.entry,worker:applicationFlowEntrypoints.deviceAaveConfirmedGraphSourceV3.worker,workerArguments:Object.freeze(['--source-recovery-v3','--after-graph']),local:join(ROOT,'.local',deviceAaveConfirmedGraphSourceProfileV3()),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V3,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V3',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V3',classification:'ORIGINAL_CONFIRMED_AAVE_GRAPH_SHARE_CHANGE_W39_UNDERLYING_TWO_HARD_BACKEND_EXITS_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceAaveStaticGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
+  deviceMetaConfirmedGraphSourceV3:Object.freeze({entry:applicationFlowEntrypoints.deviceMetaConfirmedGraphSourceV3.entry,worker:applicationFlowEntrypoints.deviceMetaConfirmedGraphSourceV3.worker,workerArguments:Object.freeze(['--source-recovery-v3','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV3(false)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V3,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V3',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V3',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
+  deviceUniswapConfirmedGraphSourceV2:Object.freeze({entry:applicationFlowEntrypoints.deviceUniswapConfirmedGraphSourceV2.entry,worker:applicationFlowEntrypoints.deviceUniswapConfirmedGraphSourceV2.worker,workerArguments:Object.freeze(['--source-recovery','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV2(true)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
+  deviceUniswapConfirmedGraphSourceV3:Object.freeze({entry:applicationFlowEntrypoints.deviceUniswapConfirmedGraphSourceV3.entry,worker:applicationFlowEntrypoints.deviceUniswapConfirmedGraphSourceV3.worker,workerArguments:Object.freeze(['--source-recovery-v3','--after-graph']),local:join(ROOT,'.local',deviceConfirmedGraphSourceProfileV3(true)),resultFormat:DEVICE_CONFIRMED_GRAPH_SOURCE_RESULT_V3,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_RESOURCES_V3',lockFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_LOCK_V3',attemptFormat:'LIANUM_DEVICE_CONFIRMED_GRAPH_SOURCE_ATTEMPT_V3',classification:'ORIGINAL_CONFIRMED_GRAPH_T_SHARE_CHANGE_W39_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_BROADCAST_CHECKPOINT',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
+  deviceUniswapConfirmedSourceV2:Object.freeze({entry:applicationFlowEntrypoints.deviceUniswapConfirmedSourceV2.entry,worker:applicationFlowEntrypoints.deviceUniswapConfirmedSourceV2.worker,workerArguments:Object.freeze(['--source-recovery']),local:join(ROOT,'.local',deviceConfirmedSourceProfileV2(true)),resultFormat:DEVICE_CONFIRMED_SOURCE_RESULT_V2,resourcesFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_RESOURCES_V2',lockFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_LOCK_V2',attemptFormat:'LIANUM_DEVICE_CONFIRMED_SOURCE_ATTEMPT_V2',classification:'ORIGINAL_CONFIRMED_D26_SOURCE_HARD_BACKEND_EXIT_READ_ONLY_NOT_GRAPH_T_OR_BROADCAST_CHECKPOINT',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedBackend','closedMobileHost'])}),
+  deviceExternalFlatGraphV1:Object.freeze({entry:applicationFlowEntrypoints.deviceExternalFlatGraphV1.entry,worker:applicationFlowEntrypoints.deviceExternalFlatGraphV1.worker,local:join(ROOT,'.local/device-external-flat-source-graph-v1'),resultFormat:DEVICE_EXTERNAL_FLAT_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_LOCK_V1',attemptFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_SOURCE_D26_TARGET_D27_U_S_GRAPH_TARGET_W39_LOCAL_NOT_PHONE_OR_RECOVERY',sourcePins:deviceExternalFlatGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
+  deviceUniswapGraphV1:Object.freeze({entry:applicationFlowEntrypoints.deviceUniswapGraphV1.entry,worker:applicationFlowEntrypoints.deviceUniswapGraphV1.worker,local:join(ROOT,'.local/device-uniswap-v3-private-note-v1'),resultFormat:DEVICE_UNISWAP_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_UNISWAP_PRIVATE_NOTE_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_UNISWAP_PRIVATE_NOTE_LOCK_V1',attemptFormat:'LIANUM_DEVICE_UNISWAP_PRIVATE_NOTE_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_UNISWAP_PRIVATE_EXACT_OUTPUT_W39_CUSTODY_AND_ORDERED_REOPEN_LOCAL_NOT_ABRUPT_OR_PHONE',sourcePins:deviceUniswapGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
+  deviceAaveStaticGraphV1:Object.freeze({entry:applicationFlowEntrypoints.deviceAaveStaticGraphV1.entry,worker:applicationFlowEntrypoints.deviceAaveStaticGraphV1.worker,local:join(ROOT,'.local/device-aave-static-private-position-v1'),resultFormat:DEVICE_AAVE_STATIC_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_AAVE_STATIC_PRIVATE_POSITION_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_AAVE_STATIC_PRIVATE_POSITION_LOCK_V1',attemptFormat:'LIANUM_DEVICE_AAVE_STATIC_PRIVATE_POSITION_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_AAVE_STATIC_PRIVATE_SUPPLY_W39_UNDERLYING_REDEMPTION_AND_ORDERED_REOPEN_LOCAL_NOT_ABRUPT_OR_PHONE',sourcePins:deviceAaveStaticGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
+  deviceMorphoBlueGraphV1:Object.freeze({entry:applicationFlowEntrypoints.deviceMorphoBlueGraphV1.entry,worker:applicationFlowEntrypoints.deviceMorphoBlueGraphV1.worker,local:join(ROOT,'.local/device-morpho-blue-private-position-v1'),resultFormat:DEVICE_MORPHO_BLUE_GRAPH_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_LOCK_V1',attemptFormat:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_BLUE_PRIVATE_SUPPLY_SHARED_EXIT_REDEMPTION_LOCAL_NOT_PHONE_OR_PUBLIC_NETWORK',sourcePins:deviceMorphoBlueGraphSourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed'])}),
+  deviceExternalFlatErc20V1:Object.freeze({entry:applicationFlowEntrypoints.deviceExternalFlatErc20V1.entry,worker:applicationFlowEntrypoints.deviceExternalFlatErc20V1.worker,local:join(ROOT,'.local/device-external-flat-ordered-observation-v1'),resultFormat:DEVICE_EXTERNAL_FLAT_ERC20_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_RESOURCES_V1',lockFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_LOCK_V1',attemptFormat:'LIANUM_DEVICE_EXTERNAL_FLAT_ERC20_ATTEMPT_V1',classification:'ORIGINAL_DEVICE_EXTERNAL_FLAT_D26_W39_ORDERED_NEW_PID_OBSERVATION_NOT_PHONE_OR_ABRUPT_CRASH',sourcePins:deviceExternalFlatErc20SourcePinsV1,cleanupKeys:Object.freeze(['closedDeviceService','closedMobileVault','closedMobileHost','closedEvm','setupOperatorsClosed','originalBackendCaptured','closedSuccessor'])}),
+  evmAaveExitRecoveryV1:Object.freeze({entry:applicationFlowEntrypoints.externalDefiAaveExitRecoveryV1.entry,worker:applicationFlowEntrypoints.externalDefiAaveExitRecoveryV1.worker,local:join(ROOT,'.local/external-defi-owner-cycle-v1'),resultFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',resourcesFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_RESOURCES_V1',lockFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_LOCK_V1',attemptFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_ATTEMPT_V1',classification:'PLANNED_ORIGINAL_OFFICIAL_VAULT_EXIT_BACKEND_RECOVERY_NOT_ABRUPT_LOSS_OR_GRAPH_REOPEN',sourcePins:externalDefiVaultExitSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedSuccessor'])}),
 
-  evmMetaMorphoExitRecoveryV1:Object.freeze({entry:join(ROOT,'integration/run-evm-metamorpho-exit-recovery-v1.mjs'),worker:join(ROOT,'integration/evm-vault-flow.mjs'),local:join(ROOT,'.local/external-defi-owner-cycle-v1'),resultFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',resourcesFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_RESOURCES_V1',lockFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_LOCK_V1',attemptFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_ATTEMPT_V1',classification:'PLANNED_ORIGINAL_OFFICIAL_VAULT_EXIT_BACKEND_RECOVERY_NOT_ABRUPT_LOSS_OR_GRAPH_REOPEN',sourcePins:externalDefiVaultExitSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedSuccessor'])}),
+  evmMetaMorphoExitRecoveryV1:Object.freeze({entry:applicationFlowEntrypoints.externalDefiMetaMorphoExitRecoveryV1.entry,worker:applicationFlowEntrypoints.externalDefiMetaMorphoExitRecoveryV1.worker,local:join(ROOT,'.local/external-defi-owner-cycle-v1'),resultFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',resourcesFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_RESOURCES_V1',lockFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_LOCK_V1',attemptFormat:'ORIGINAL_OFFICIAL_VAULT_EXIT_RECOVERY_ATTEMPT_V1',classification:'PLANNED_ORIGINAL_OFFICIAL_VAULT_EXIT_BACKEND_RECOVERY_NOT_ABRUPT_LOSS_OR_GRAPH_REOPEN',sourcePins:externalDefiVaultExitSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedSuccessor'])}),
 
-  nativeSplClaimV1CompilationOnly:Object.freeze({entry:join(ROOT,'integration/run-native-spl-claim-v1-compilation.mjs'),worker:join(ROOT,'integration/native-spl-claim-v1-compilation-worker.mjs'),local:join(ROOT,'.local/native-spl-claim-v1-compilation-only-v1'),resultFormat:SPL_CLAIM_V1_COMPILATION_RESULT,resourcesFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_ATTEMPT_V1',classification:'ORIGINAL_CI51_V1_PUBLIC_PREPARATION_AND_TWO_VERIFIERS_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimV1CompilationSourcePins,cleanupKeys:Object.freeze(['preparationChildrenClosed','compilerReset'])}),
-  nativeSplClaimValidationCompilationOnlyV1:Object.freeze({entry:join(ROOT,'integration/run-native-spl-claim-validation-compilation-v1.mjs'),worker:join(ROOT,'integration/native-spl-claim-validation-compilation-worker-v1.mjs'),local:join(ROOT,'.local/native-spl-claim-validation-compilation-only-v1'),resultFormat:SPL_VALIDATION_COMPILATION_RESULT_V1,resourcesFormat:'LIANUM_SPL_VALIDATION_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_VALIDATION_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_VALIDATION_COMPILATION_ATTEMPT_V1',classification:'NEW_SPL_USDC_CLAIM_VALIDATION_SOLIDITY_ONLY_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimValidationCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset'])}),
-  nativeSplClaimTokenCompilationOnlyV1:Object.freeze({entry:join(ROOT,'integration/run-native-spl-claim-token-compilation-v1.mjs'),worker:join(ROOT,'integration/native-spl-claim-token-compilation-worker-v1.mjs'),local:join(ROOT,'.local/native-spl-claim-token-compilation-only-v1'),resultFormat:SPL_TOKEN_COMPILATION_RESULT_V1,resourcesFormat:'LIANUM_SPL_TOKEN_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_TOKEN_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_TOKEN_COMPILATION_ATTEMPT_V1',classification:'NEW_SPL_USDC_CLAIM_TOKEN_SOLIDITY_ONLY_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimTokenCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset'])}),
-  nativeSplCompilationOnlyV1:Object.freeze({
-    entry:join(ROOT,'integration/run-native-spl-compilation-v1.mjs'),worker:join(ROOT,'integration/native-spl-compilation-worker-v1.mjs'),
+  nativeSplClaimV1CompilationOnly:Object.freeze({entry:applicationFlowEntrypoints.nativeSplClaimV1CompilationOnly.entry,worker:applicationFlowEntrypoints.nativeSplClaimV1CompilationOnly.worker,local:join(ROOT,'.local/native-spl-claim-v1-compilation-only-v1'),resultFormat:SPL_CLAIM_V1_COMPILATION_RESULT,resourcesFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_CLAIM_V1_COMPILATION_ATTEMPT_V1',classification:'ORIGINAL_CI51_V1_PUBLIC_PREPARATION_AND_TWO_VERIFIERS_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimV1CompilationSourcePins,cleanupKeys:Object.freeze(['preparationChildrenClosed','compilerReset'])}),
+  nativeSplClaimValidationCompilationOnlyV1:Object.freeze({entry:applicationFlowEntrypoints.nativeSplClaimValidationCompilationOnlyV1.entry,worker:applicationFlowEntrypoints.nativeSplClaimValidationCompilationOnlyV1.worker,local:join(ROOT,'.local/native-spl-claim-validation-compilation-only-v1'),resultFormat:SPL_VALIDATION_COMPILATION_RESULT_V1,resourcesFormat:'LIANUM_SPL_VALIDATION_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_VALIDATION_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_VALIDATION_COMPILATION_ATTEMPT_V1',classification:'NEW_SPL_USDC_CLAIM_VALIDATION_SOLIDITY_ONLY_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimValidationCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset'])}),
+  nativeSplClaimTokenCompilationOnlyV1:Object.freeze({entry:applicationFlowEntrypoints.nativeSplClaimTokenCompilationOnlyV1.entry,worker:applicationFlowEntrypoints.nativeSplClaimTokenCompilationOnlyV1.worker,local:join(ROOT,'.local/native-spl-claim-token-compilation-only-v1'),resultFormat:SPL_TOKEN_COMPILATION_RESULT_V1,resourcesFormat:'LIANUM_SPL_TOKEN_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_SPL_TOKEN_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_SPL_TOKEN_COMPILATION_ATTEMPT_V1',classification:'NEW_SPL_USDC_CLAIM_TOKEN_SOLIDITY_ONLY_NOT_PRIVATE_CREDIT',sourcePins:nativeSplClaimTokenCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset'])}),
+  nativeSplCompilationOnlyV1:Object.freeze({entry:applicationFlowEntrypoints.nativeSplCompilationOnlyV1.entry,worker:applicationFlowEntrypoints.nativeSplCompilationOnlyV1.worker,
     local:join(ROOT,'.local/native-spl-compilation-only-v1'),resultFormat:SPL_COMPILATION_RESULT_V1,
     resourcesFormat:'LIANUM_NATIVE_SPL_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_SPL_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_NATIVE_SPL_COMPILATION_ATTEMPT_V1',
     classification:'NEW_NATIVE_SPL_SBF_COMPILATION_ONLY_NOT_PRIVATE_CREDIT',sourcePins:nativeSplCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerClosed','generatedDeployKeyRemoved']),
   }),
-  jupiterOrcaPublicSwapV1:Object.freeze({
-    entry:join(ROOT,'integration/run-jupiter-orca-public-swap-v1.mjs'),worker:join(ROOT,'integration/jupiter-orca-public-swap-worker-v1.mjs'),
+  jupiterOrcaPublicSwapV1:Object.freeze({entry:applicationFlowEntrypoints.jupiterOrcaPublicSwapV1.entry,worker:applicationFlowEntrypoints.jupiterOrcaPublicSwapV1.worker,
     local:join(ROOT,'.local/jupiter-orca-public-swap-v1'),resultFormat:JUPITER_SWAP_RESULT_V1,
     resourcesFormat:'LIANUM_JUPITER_ORCA_PUBLIC_SWAP_RESOURCES_V1',lockFormat:'LIANUM_JUPITER_ORCA_PUBLIC_SWAP_LOCK_V1',attemptFormat:'LIANUM_JUPITER_ORCA_PUBLIC_SWAP_ATTEMPT_V1',
     classification:'ONE_ORIGINAL_PUBLIC_JUPITER_ORCA_SWAP_NOT_PRIVATE_CREDIT',sourcePins:jupiterOrcaPublicSwapSourcePinsV1,cleanupKeys:Object.freeze(['closedSolana']),
   }),
-  evmAaveCompilationOnlyV1:Object.freeze({
-    entry:join(ROOT,'integration/run-evm-aave-compilation-v1.mjs'),worker:join(ROOT,'integration/aave-compilation-worker-v1.mjs'),
+  evmAaveCompilationOnlyV1:Object.freeze({entry:applicationFlowEntrypoints.evmAaveCompilationOnlyV1.entry,worker:applicationFlowEntrypoints.evmAaveCompilationOnlyV1.worker,
     local:join(ROOT,'.local/evm-aave-compilation-only-v1'),resultFormat:AAVE_COMPILATION_RESULT_V1,
     resourcesFormat:'LIANUM_AAVE_COMPILATION_RESOURCES_V1',lockFormat:'LIANUM_AAVE_COMPILATION_LOCK_V1',attemptFormat:'LIANUM_AAVE_COMPILATION_ATTEMPT_V1',
     classification:'NEW_OFFICIAL_AAVE_COMPILATION_ONLY_NOT_FINANCIAL_ACCEPTANCE',sourcePins:aaveCompilationSourcePinsV1,cleanupKeys:Object.freeze(['compilerReset']),
   }),
-  nativePrivateWorkerDurableEconomicNoteV3:Object.freeze({
-    entry:join(ROOT,'integration/run-native-value-private-worker-durable-note-recovery-v3.mjs'),worker:join(ROOT,'integration/native-value-private-worker-durable-note-flow-v3.mjs'),local:join(ROOT,'.local/native-value-private-worker-durable-note-recovery-v3'),
+  nativePrivateWorkerDurableEconomicNoteV3:Object.freeze({entry:applicationFlowEntrypoints.nativePrivateWorkerDurableEconomicNoteV3.entry,worker:applicationFlowEntrypoints.nativePrivateWorkerDurableEconomicNoteV3.worker,local:join(ROOT,'.local/native-value-private-worker-durable-note-recovery-v3'),
     resultFormat:NATIVE_PRIVATE_WORKER_DURABLE_NOTE_RESULT_V3,resourcesFormat:'LIANUM_NATIVE_PRIVATE_WORKER_DURABLE_NOTE_RESOURCES_V3',lockFormat:'LIANUM_NATIVE_PRIVATE_WORKER_DURABLE_NOTE_LOCK_V3',attemptFormat:'LIANUM_NATIVE_PRIVATE_WORKER_DURABLE_NOTE_ATTEMPT_V3',
     classification:'ORIGINAL_PRIVATE_D26_U_W39_NATIVE_WORKER_SQL_NATIVE12_TEN_SECTION_PLANNED_REOPEN_NOT_ABRUPT_CHAIN_ANONYMITY_OR_PHONE',sourcePins:nativeDevicePrivateWorkerDurableNoteSourcePinsV3,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  nativePrivateAuthorizedDurableEconomicNoteV2:Object.freeze({
-    entry:join(ROOT,'integration/run-native-value-private-authorized-durable-note-recovery-v2.mjs'),worker:join(ROOT,'integration/native-value-private-authorized-durable-note-flow-v2.mjs'),local:join(ROOT,'.local/native-value-private-authorized-durable-note-recovery-v2'),
+  nativePrivateAuthorizedDurableEconomicNoteV2:Object.freeze({entry:applicationFlowEntrypoints.nativePrivateAuthorizedDurableEconomicNoteV2.entry,worker:applicationFlowEntrypoints.nativePrivateAuthorizedDurableEconomicNoteV2.worker,local:join(ROOT,'.local/native-value-private-authorized-durable-note-recovery-v2'),
     resultFormat:NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_RESULT_V2,resourcesFormat:'LIANUM_NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_RESOURCES_V2',lockFormat:'LIANUM_NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_LOCK_V2',attemptFormat:'LIANUM_NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_ATTEMPT_V2',
     classification:'ORIGINAL_PRIVATE_D26_U_W39_SQL_NATIVE12_TEN_SECTION_PLANNED_REOPEN_NOT_ABRUPT_CHAIN_ANONYMITY_OR_PHONE',sourcePins:nativeDevicePrivateAuthorizedDurableNoteSourcePinsV2,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  nativePrivateDurableEconomicNoteV2:Object.freeze({
-    entry:join(ROOT,'integration/run-native-value-private-durable-note-recovery-v2.mjs'),worker:join(ROOT,'integration/native-value-private-durable-note-flow-v2.mjs'),local:join(ROOT,'.local/native-value-private-durable-note-recovery-v2'),
+  nativePrivateDurableEconomicNoteV2:Object.freeze({entry:applicationFlowEntrypoints.nativePrivateDurableEconomicNoteV2.entry,worker:applicationFlowEntrypoints.nativePrivateDurableEconomicNoteV2.worker,local:join(ROOT,'.local/native-value-private-durable-note-recovery-v2'),
     resultFormat:NATIVE_PRIVATE_DURABLE_NOTE_RESULT_V2,resourcesFormat:'LIANUM_NATIVE_PRIVATE_DURABLE_NOTE_RESOURCES_V2',lockFormat:'LIANUM_NATIVE_PRIVATE_DURABLE_NOTE_LOCK_V2',attemptFormat:'LIANUM_NATIVE_PRIVATE_DURABLE_NOTE_ATTEMPT_V2',
     classification:'ORIGINAL_PRIVATE_D26_W39_SQL_NATIVE12_TEN_SECTION_PLANNED_REOPEN_NOT_ABRUPT_CHAIN_ANONYMITY_OR_PHONE',sourcePins:nativeDevicePrivateDurableNoteSourcePinsV2,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  nativeDeviceDurableEconomicNoteV1:Object.freeze({
-    entry:join(ROOT,'integration/run-native-value-durable-economic-note-recovery-v1.mjs'),worker:join(ROOT,'integration/paired-native-note-flow-v2.mjs'),local:join(ROOT,'.local/native-value-durable-economic-note-recovery-v1'),
+  nativeDeviceDurableEconomicNoteV1:Object.freeze({entry:applicationFlowEntrypoints.nativeDeviceDurableEconomicNoteV1.entry,worker:applicationFlowEntrypoints.nativeDeviceDurableEconomicNoteV1.worker,local:join(ROOT,'.local/native-value-durable-economic-note-recovery-v1'),
     resultFormat:NATIVE_DEVICE_DURABLE_NOTE_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_DURABLE_ECONOMIC_NOTE_RESOURCES_V1',lockFormat:'LIANUM_NATIVE_DEVICE_DURABLE_ECONOMIC_NOTE_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_DURABLE_ECONOMIC_NOTE_ATTEMPT_V1',
     classification:'ORIGINAL_SQL_ADMISSION_BEFORE_D26_NATIVE12_F_TEN_SECTION_ORDERED_REOPEN_NOT_ABRUPT',sourcePins:nativeDeviceDurableEconomicNoteSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  nativeDeviceEconomicNoteRecoveryV1:Object.freeze({
-    entry:join(ROOT,'integration/run-native-value-economic-note-recovery-v1.mjs'),worker:join(ROOT,'integration/native-value-economic-note-recovery-flow-v1.mjs'),
+  nativeDeviceEconomicNoteRecoveryV1:Object.freeze({entry:applicationFlowEntrypoints.nativeDeviceEconomicNoteRecoveryV1.entry,worker:applicationFlowEntrypoints.nativeDeviceEconomicNoteRecoveryV1.worker,
     local:join(ROOT,'.local/native-value-economic-note-recovery-v1'),resultFormat:NATIVE_DEVICE_ECONOMIC_NOTE_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_RESOURCES_V1',
     lockFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_NOTE_RECOVERY_ATTEMPT_V1',
     classification:'NATIVE12_NOTES_ORIGINAL_PLANNED_NATIVE_ECONOMIC_RESTART_AFTER_F_SAME_DEVICE_W39_NOT_ABRUPT_CRASH_OR_PHONE',sourcePins:nativeDeviceEconomicNoteSourcePinsV1,
     cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  nativeDeviceEconomicRecoveryV1:Object.freeze({
-    entry:join(ROOT,'integration/run-native-value-economic-recovery-v1.mjs'),worker:join(ROOT,'integration/native-value-economic-recovery-flow-v1.mjs'),
+  nativeDeviceEconomicRecoveryV1:Object.freeze({entry:applicationFlowEntrypoints.nativeDeviceEconomicRecoveryV1.entry,worker:applicationFlowEntrypoints.nativeDeviceEconomicRecoveryV1.worker,
     local:join(ROOT,'.local/native-value-economic-recovery-v1'),resultFormat:NATIVE_DEVICE_ECONOMIC_RESULT_V1,resourcesFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_RESOURCES_V1',
     lockFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_LOCK_V1',attemptFormat:'LIANUM_NATIVE_DEVICE_ECONOMIC_RECOVERY_ATTEMPT_V1',
     classification:'ORIGINAL_PLANNED_NATIVE_ECONOMIC_RESTART_AFTER_F_SAME_DEVICE_W39_NOT_ABRUPT_CRASH_OR_PHONE',sourcePins:nativeDeviceEconomicSourcePinsV1,
     cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  deviceOwnerRecoveryV1:Object.freeze({
-    entry:join(ROOT,'integration/run-device-owner-recovery-v1.mjs'),worker:join(ROOT,'integration/device-owner-recovery-flow-v1.mjs'),
+  deviceOwnerRecoveryV1:Object.freeze({entry:applicationFlowEntrypoints.deviceOwnerRecoveryV1.entry,worker:applicationFlowEntrypoints.deviceOwnerRecoveryV1.worker,
     local:join(ROOT,'.local/device-owner-recovery-v1'),resultFormat:DEVICE_RECOVERY_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_RECOVERY_RESOURCES_V1',
     lockFormat:'LIANUM_DEVICE_OWNER_RECOVERY_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_RECOVERY_ATTEMPT_V1',
     classification:'ORIGINAL_DEVICE_D26_U_S_NATIVE_I84_F_CHANGE_RECOVERY_W39_LOCAL_TLS_NODE_NOT_PHONE',sourcePins:deviceOwnerRecoverySourcePinsV1,
     cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  deviceOwnerExecutionV1:Object.freeze({
-    entry:join(ROOT,'integration/run-device-owner-execution-v1.mjs'),worker:join(ROOT,'integration/device-owner-execution-flow-v1.mjs'),
+  deviceOwnerExecutionV1:Object.freeze({entry:applicationFlowEntrypoints.deviceOwnerExecutionV1.entry,worker:applicationFlowEntrypoints.deviceOwnerExecutionV1.worker,
     local:join(ROOT,'.local/device-owner-execution-v1'),resultFormat:DEVICE_EXECUTION_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_EXECUTION_RESOURCES_V1',
     lockFormat:'LIANUM_DEVICE_OWNER_EXECUTION_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_EXECUTION_ATTEMPT_V1',
     classification:'ORIGINAL_DEVICE_D26_U_S_NATIVE_T_CHANGE_W39_LOCAL_TLS_NODE_NOT_PHONE',sourcePins:deviceOwnerExecutionSourcePinsV1,
     cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm','closedNativeExecution']),
   }),
-  deviceOwnerReservationV1: Object.freeze({
-    entry:join(ROOT,'integration/run-device-owner-reservation-v1.mjs'), worker:join(ROOT,'integration/device-owner-reservation-flow-v1.mjs'),
+  deviceOwnerReservationV1: Object.freeze({entry:applicationFlowEntrypoints.deviceOwnerReservationV1.entry,worker:applicationFlowEntrypoints.deviceOwnerReservationV1.worker,
     local:join(ROOT,'.local/device-owner-reservation-v1'),resultFormat:DEVICE_RESERVATION_RESULT_V1,resourcesFormat:'LIANUM_DEVICE_OWNER_RESERVATION_RESOURCES_V1',
     lockFormat:'LIANUM_DEVICE_OWNER_RESERVATION_LOCK_V1',attemptFormat:'LIANUM_DEVICE_OWNER_RESERVATION_ATTEMPT_V1',
     classification:'ORIGINAL_DEVICE_D26_U_S_LOCAL_TLS_NODE_NOT_GRAPH_EXIT_OR_PHONE',sourcePins:deviceOwnerReservationSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedNativeEvm']),
   }),
   deviceOwnerDepositV1: Object.freeze({
-    entry: join(ROOT, 'integration/run-device-owner-deposit-v1.mjs'),
-    worker: join(ROOT, 'integration/device-owner-deposit-flow-v1.mjs'),
+    entry: applicationFlowEntrypoints.deviceOwnerDepositV1.entry,
+    worker: applicationFlowEntrypoints.deviceOwnerDepositV1.worker,
     local: join(ROOT, '.local/device-owner-deposit-v1'),
     resultFormat: DEVICE_DEPOSIT_RESULT_V1, resourcesFormat: 'LIANUM_DEVICE_OWNER_DEPOSIT_RESOURCES_V1',
     lockFormat: 'LIANUM_DEVICE_OWNER_DEPOSIT_LOCK_V1', attemptFormat: 'LIANUM_DEVICE_OWNER_DEPOSIT_ATTEMPT_V1',
@@ -246,8 +235,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: deviceOwnerDepositSourcePinsV1, cleanupKeys: Object.freeze(['closedEvm', 'closedNativeEvm']),
   }),
   pairedNativeNoteV2: Object.freeze({
-    entry: join(ROOT, 'integration/run-paired-native-note-v2.mjs'),
-    worker: join(ROOT, 'integration/paired-native-note-flow-v2.mjs'),
+    entry: applicationFlowEntrypoints.pairedNativeNoteV2.entry,
+    worker: applicationFlowEntrypoints.pairedNativeNoteV2.worker,
     local: join(ROOT, '.local/paired-native-note-v2'),
     resultFormat: PAIRED_NATIVE_NOTE_RESULT_V2,
     resourcesFormat: 'LIANUM_PAIRED_NATIVE_NOTE_RESOURCES_V2',
@@ -256,8 +245,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: pairedNativeNoteSourcePinsV2, cleanupKeys: Object.freeze(['closedEvm', 'closedNativeEvm']),
   }),
   nativeClaimEmptyAuditMetrics: Object.freeze({
-    entry: join(ROOT, 'integration/claims/metrics/run-native-claim-empty-audit-v1.mjs'),
-    worker: join(ROOT, 'integration/claims/metrics/native-claim-empty-audit-v1.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaimEmptyAuditMetrics.entry,
+    worker: applicationFlowEntrypoints.nativeClaimEmptyAuditMetrics.worker,
     local: join(ROOT, '.local/native-claim-empty-audit-metrics-v1'),
     resultFormat: EMPTY_AUDIT_RESULT, resourcesFormat: 'LIANUM_EMPTY_ORIGINAL_AUDIT_METRICS_RESOURCES_V1',
     lockFormat: 'LIANUM_EMPTY_ORIGINAL_AUDIT_METRICS_LOCK_V1', attemptFormat: 'LIANUM_EMPTY_ORIGINAL_AUDIT_METRICS_ATTEMPT_V1',
@@ -265,8 +254,7 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: nativeClaimEmptyAuditSourcePins, cleanupKeys: Object.freeze(['closedEvm', 'closedBitcoin', 'closedSolana']),
   }),
   developmentOsakaSmoke: Object.freeze({
-    entry: join(ROOT, 'integration/evm/osaka/run-development-osaka-smoke.mjs'),
-    worker: join(ROOT, 'integration/evm/osaka/development-osaka-smoke.mjs'),
+    entry:applicationFlowEntrypoints.osakaSmoke.entry,worker:applicationFlowEntrypoints.osakaSmoke.worker,
     local: join(ROOT, '.local/development-osaka-smoke-v1'),
     resultFormat: OSAKA_SMOKE_RESULT, resourcesFormat: 'LIANUM_DEVELOPMENT_OSAKA_SMOKE_RESOURCES_V1',
     lockFormat: 'LIANUM_DEVELOPMENT_OSAKA_SMOKE_LOCK_V1', attemptFormat: 'LIANUM_DEVELOPMENT_OSAKA_SMOKE_ATTEMPT_V1',
@@ -274,8 +262,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: osakaSmokeSourcePins, cleanupKeys: Object.freeze(['closedEvm']),
   }),
   wrappedDeploymentOnly: Object.freeze({
-    entry: join(ROOT, 'integration/run-wrapped-deployment-only-v1.mjs'),
-    worker: join(ROOT, 'integration/wrapped-deployment-only-v1.mjs'),
+    entry: applicationFlowEntrypoints.wrappedDeploymentOnly.entry,
+    worker: applicationFlowEntrypoints.wrappedDeploymentOnly.worker,
     local: join(ROOT, '.local/wrapped-deployment-only-v1'),
     resultFormat: WRAPPED_DEPLOYMENT_ONLY_RESULT_V1,
     resourcesFormat: 'WRAPPED_DEPLOYMENT_ONLY_RESOURCES_V1', lockFormat: 'WRAPPED_DEPLOYMENT_ONLY_LOCK_V1', attemptFormat: 'WRAPPED_DEPLOYMENT_ONLY_ATTEMPT_V1',
@@ -283,8 +271,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: wrappedWalletFixedSourcePinsV1, cleanupKeys: Object.freeze(['closedEvm', 'closedGraphEvm', 'closedBitcoin', 'closedSolana']),
   }),
   nativeClaimBeginPayoutAuditV1: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-claim-begin-payout-audit-v1.mjs'),
-    worker: join(ROOT, 'integration/native-claim-flow.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaimBeginPayoutAuditV1.entry,
+    worker: applicationFlowEntrypoints.nativeClaimBeginPayoutAuditV1.worker,
     local: join(ROOT, '.local/native-claim-begin-payout-audit-v1'),
     resultFormat: BEGIN_PAYOUT_AUDIT_RESULT_V1,
     resourcesFormat: 'LIANUM_SOL_BEGIN_PAYOUT_AUDIT_RESOURCES_V1',
@@ -294,8 +282,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: nativeClaimSourcePins, cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   wrappedWalletFixedAcceptance: Object.freeze({
-    entry: join(ROOT, 'integration/run-wrapped-wallet-fixed-acceptance-v1.mjs'),
-    worker: join(ROOT, 'integration/wrapped-wallet-fixed-acceptance-v1.mjs'),
+    entry: applicationFlowEntrypoints.wrappedWalletFixedAcceptance.entry,
+    worker: applicationFlowEntrypoints.wrappedWalletFixedAcceptance.worker,
     local: join(ROOT, '.local/wrapped-wallet-fixed-acceptance-v1'),
     resultFormat: WRAPPED_WALLET_FIXED_RESULT_V1,
     resourcesFormat: 'WRAPPED_WALLET_FIXED_RESOURCES_V1', lockFormat: 'WRAPPED_WALLET_FIXED_LOCK_V1', attemptFormat: 'WRAPPED_WALLET_FIXED_ATTEMPT_V1',
@@ -303,8 +291,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: wrappedWalletFixedSourcePinsV1, cleanupKeys: Object.freeze(['closedEvm', 'closedGraphEvm', 'closedBitcoin', 'closedSolana']),
   }),
   wrappedWalletFixedPreflight: Object.freeze({
-    entry: join(ROOT, 'integration/run-wrapped-wallet-fixed-preflight-v1.mjs'),
-    worker: join(ROOT, 'integration/wrapped-wallet-fixed-preflight-v1.mjs'),
+    entry: applicationFlowEntrypoints.wrappedWalletFixedPreflight.entry,
+    worker: applicationFlowEntrypoints.wrappedWalletFixedPreflight.worker,
     local: join(ROOT, '.local/wrapped-wallet-fixed-preflight-v1'),
     resultFormat: WRAPPED_WALLET_FIXED_PREFLIGHT_RESULT_V1,
     resourcesFormat: 'WRAPPED_WALLET_FIXED_PREFLIGHT_RESOURCES_V1', lockFormat: 'WRAPPED_WALLET_FIXED_PREFLIGHT_LOCK_V1', attemptFormat: 'WRAPPED_WALLET_FIXED_PREFLIGHT_ATTEMPT_V1',
@@ -312,16 +300,15 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: wrappedWalletFixedSourcePinsV1, cleanupKeys: Object.freeze(['closedEvm', 'closedGraphEvm', 'closedBitcoin', 'closedSolana']),
   }),
 
-  nativeWalletTronDevV5:Object.freeze({entry:join(ROOT,'integration/run-native-wallet-tron-dev-v5.mjs'),
-   worker:join(ROOT,'integration/native-wallet-tron-dev-v5.mjs'),local:join(ROOT,'.local/native-wallet-tron-dev-v5'),
+  nativeWalletTronDevV5:Object.freeze({entry:applicationFlowEntrypoints.nativeWalletTronDevV5.entry,worker:applicationFlowEntrypoints.nativeWalletTronDevV5.worker,local:join(ROOT,'.local/native-wallet-tron-dev-v5'),
    resultFormat:NATIVE_WALLET_TRON_DEV_RESULT_V5,resourcesFormat:'NATIVE_WALLET_TRON_DEV_RESOURCES_V5',
    lockFormat:'NATIVE_WALLET_TRON_DEV_LOCK_V5',attemptFormat:'NATIVE_WALLET_TRON_DEV_ATTEMPT_V5',
    classification:'BOUNDED_LOCAL_ORIGINAL_TRON_PRIVATE_WALLET_GRAPH_V5',sourcePins:nativeWalletTronDevSourcePinsV5,
    cleanupKeys:Object.freeze(['closedEvm','closedNativeTron']),
   }),
   nativeWalletRealAcceptance: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-wallet-real-acceptance-v1.mjs'),
-    worker: join(ROOT, 'integration/native-wallet-real-acceptance-v1.mjs'),
+    entry: applicationFlowEntrypoints.nativeWalletRealAcceptance.entry,
+    worker: applicationFlowEntrypoints.nativeWalletRealAcceptance.worker,
     local: join(ROOT, '.local/native-wallet-real-acceptance-v1'),
     resultFormat: NATIVE_WALLET_RESULT_V1,
     resourcesFormat: 'NATIVE_WALLET_REAL_ACCEPTANCE_RESOURCES_V1',
@@ -332,8 +319,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedNativeEvm']),
   }),
   nativeWalletRealPreflight: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-wallet-real-preflight-v1.mjs'),
-    worker: join(ROOT, 'integration/native-wallet-real-preflight-v1.mjs'),
+    entry: applicationFlowEntrypoints.nativeWalletRealPreflight.entry,
+    worker: applicationFlowEntrypoints.nativeWalletRealPreflight.worker,
     local: join(ROOT, '.local/native-wallet-real-preflight-v1'),
     resultFormat: NATIVE_WALLET_PREFLIGHT_RESULT_V1,
     resourcesFormat: 'NATIVE_WALLET_REAL_PREFLIGHT_RESOURCES_V1',
@@ -344,8 +331,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedNativeEvm']),
   }),
   poolGenerationPhase1: Object.freeze({
-    entry: join(ROOT, 'integration/run-pool-generation-phase1.mjs'),
-    worker: join(ROOT, 'integration/pool-generation-phase1.mjs'),
+    entry: applicationFlowEntrypoints.poolGenerationPhase1.entry,
+    worker: applicationFlowEntrypoints.poolGenerationPhase1.worker,
     local: join(ROOT, '.local/pool-generation-phase1'),
     resultFormat: PHASE1_FORMAT,
     resourcesFormat: 'FLAT_POOL_GENERATION_PHASE1_RESOURCES_V1',
@@ -355,8 +342,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: poolGenerationSourcePins, cleanupKeys: Object.freeze(['closedEvm']),
   }),
   poolGenerationPhase2: Object.freeze({
-    entry: join(ROOT, 'integration/run-pool-generation-phase2.mjs'),
-    worker: join(ROOT, 'integration/pool-generation-phase2.mjs'),
+    entry: applicationFlowEntrypoints.poolGenerationPhase2.entry,
+    worker: applicationFlowEntrypoints.poolGenerationPhase2.worker,
     local: join(ROOT, '.local/pool-generation-phase2'),
     resultFormat: PHASE2_FORMAT,
     resourcesFormat: 'FLAT_POOL_GENERATION_PHASE2_RESOURCES_V1',
@@ -366,8 +353,8 @@ const FLOW_PROFILES = Object.freeze({
     sourcePins: poolGenerationSourcePins, cleanupKeys: Object.freeze(['closedEvm']),
   }),
   nativeClaimLoadedV3: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-claim-loaded-v3-flow.mjs'),
-    worker: join(ROOT, 'integration/native-claim-flow.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaimLoadedV3.entry,
+    worker: applicationFlowEntrypoints.nativeClaimLoadedV3.worker,
     local: join(ROOT, '.local/native-claim-loaded-v3-flow'),
     resultFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_NATIVE_CLAIM_LOADED_V3_RESOURCES_V1',
@@ -378,8 +365,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   nativeClaimGraphV3: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-claim-graph-v3-flow.mjs'),
-    worker: join(ROOT, 'integration/native-claim-flow.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaimGraphV3.entry,
+    worker: applicationFlowEntrypoints.nativeClaimGraphV3.worker,
     local: join(ROOT, '.local/native-claim-graph-v3-flow'),
     resultFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_NATIVE_CLAIM_GRAPH_V3_RESOURCES_V1',
@@ -390,8 +377,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   nativeIngressV3ProductionPreflight: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-ingress-v3-production-preflight.mjs'),
-    worker: join(ROOT, 'integration/native-ingress-v3-production-preflight-worker.mjs'),
+    entry: applicationFlowEntrypoints.nativeIngressV3ProductionPreflight.entry,
+    worker: applicationFlowEntrypoints.nativeIngressV3ProductionPreflight.worker,
     local: join(ROOT, '.local/native-ingress-v3-production-preflight'),
     resultFormat: PRODUCTION_PREFLIGHT_RESULT,
     resourcesFormat: 'LIANUM_NATIVE_INGRESS_V3_PRODUCTION_PREFLIGHT_RESOURCES_V1',
@@ -402,8 +389,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   nativeIngressV3Preflight: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-ingress-v3-preflight.mjs'),
-    worker: join(ROOT, 'integration/native-ingress-v3-preflight-worker.mjs'),
+    entry: applicationFlowEntrypoints.nativeIngressV3Preflight.entry,
+    worker: applicationFlowEntrypoints.nativeIngressV3Preflight.worker,
     local: join(ROOT, '.local/native-ingress-v3-preflight'),
     resultFormat: PREFLIGHT_RESULT,
     resourcesFormat: 'LIANUM_NATIVE_INGRESS_V3_PREFLIGHT_RESOURCES_V1',
@@ -414,8 +401,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   nativeClaimUnfundedHealth: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-claim-unfunded-health.mjs'),
-    worker: join(ROOT, 'integration/native-claim-unfunded-health-worker.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaimUnfundedHealth.entry,
+    worker: applicationFlowEntrypoints.nativeClaimUnfundedHealth.worker,
     local: join(ROOT, '.local/native-claim-unfunded-health'),
     resultFormat: UNFUNDED_HEALTH_RESULT,
     resourcesFormat: 'FLAT_WALLET_UNFUNDED_CLAIM_HEALTH_RESOURCES_V1',
@@ -426,8 +413,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   nativeClaims: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-claim-flow.mjs'),
-    worker: join(ROOT, 'integration/native-claim-flow.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaims.entry,
+    worker: applicationFlowEntrypoints.nativeClaims.worker,
     local: join(ROOT, '.local/native-claim-flow'),
     resultFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESOURCES_V1',
@@ -438,8 +425,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   nativeClaimGraph: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-claim-graph-flow.mjs'),
-    worker: join(ROOT, 'integration/native-claim-flow.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaimGraph.entry,
+    worker: applicationFlowEntrypoints.nativeClaimGraph.worker,
     local: join(ROOT, '.local/native-claim-graph-flow'),
     resultFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESOURCES_V1',
@@ -450,8 +437,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   nativeClaimLoadedFacts: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-claim-loaded-facts-probe.mjs'),
-    worker: join(ROOT, 'integration/native-claim-flow.mjs'),
+    entry: applicationFlowEntrypoints.nativeClaimLoadedFacts.entry,
+    worker: applicationFlowEntrypoints.nativeClaimLoadedFacts.worker,
     local: join(ROOT, '.local/native-claim-loaded-facts-probe'),
     resultFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_NATIVE_CLAIM_FLOW_RESOURCES_V1',
@@ -462,57 +449,57 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   manualWallet: Object.freeze({
-    entry: join(ROOT, 'integration/run-manual-wallet-acceptance.mjs'),
-    worker: join(ROOT, 'integration/manual-wallet-acceptance.mjs'),
+    entry: manualWalletEntrypoints.manualWallet.entry,
+    worker: manualWalletEntrypoints.manualWallet.worker,
     local: join(ROOT, '.local/manual-wallet-acceptance'),
     resultFormat: 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESULT_V1',
     resourcesFormat: 'FLAT_MANUAL_WALLET_ACCEPTANCE_RESOURCES_V1',
     lockFormat: 'FLAT_MANUAL_WALLET_ACCEPTANCE_LOCK_V1',
     attemptFormat: 'FLAT_MANUAL_WALLET_ACCEPTANCE_ATTEMPT_V1',
     classification: 'BOUNDED_LOCAL_FAKE_FUNDS_MANUAL_EXACT_CATALOGUE_WALLET',
-    sourcePins: manualWalletSourcePins,
+    sourcePins: currentManualWalletSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   manualWalletBrowser: Object.freeze({
-    entry: join(ROOT, 'integration/run-manual-wallet-browser-acceptance.mjs'),
-    worker: join(ROOT, 'integration/manual-wallet-browser-acceptance.mjs'),
+    entry: manualWalletEntrypoints.manualWalletBrowser.entry,
+    worker: manualWalletEntrypoints.manualWalletBrowser.worker,
     local: join(ROOT, '.local/manual-wallet-browser-acceptance'),
     resultFormat: MANUAL_WALLET_BROWSER_FORMAT,
     resourcesFormat: 'FLAT_MANUAL_WALLET_BROWSER_RESOURCES_V1',
     lockFormat: 'FLAT_MANUAL_WALLET_BROWSER_LOCK_V1',
     attemptFormat: 'FLAT_MANUAL_WALLET_BROWSER_ATTEMPT_V1',
     classification: 'BOUNDED_LOCAL_FAKE_FUNDS_SCRIPTED_DOM_EXACT_CATALOGUE_WALLET',
-    sourcePins: manualWalletBrowserSourcePins,
+    sourcePins: currentManualWalletBrowserSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   manualWalletBrowserRecovery: Object.freeze({
-    entry: join(ROOT, 'integration/run-manual-wallet-browser-timeout-recovery.mjs'),
-    worker: join(ROOT, 'integration/manual-wallet-browser-timeout-recovery.mjs'),
+    entry: manualWalletEntrypoints.manualWalletBrowserRecovery.entry,
+    worker: manualWalletEntrypoints.manualWalletBrowserRecovery.worker,
     local: join(ROOT, '.local/manual-wallet-browser-timeout-recovery'),
     resultFormat: MANUAL_WALLET_BROWSER_RECOVERY_FORMAT,
     resourcesFormat: 'FLAT_MANUAL_WALLET_BROWSER_TIMEOUT_RECOVERY_RESOURCES_V1',
     lockFormat: 'FLAT_MANUAL_WALLET_BROWSER_TIMEOUT_RECOVERY_LOCK_V1',
     attemptFormat: 'FLAT_MANUAL_WALLET_BROWSER_TIMEOUT_RECOVERY_ATTEMPT_V1',
     classification: 'BOUNDED_LOCAL_FAKE_FUNDS_SCRIPTED_DOM_EXACT_ORIGINAL_TIMEOUT_F',
-    sourcePins: manualWalletBrowserRecoverySourcePins,
+    sourcePins: currentManualWalletBrowserRecoverySourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   manualWalletRecovery: Object.freeze({
-    entry: join(ROOT, 'integration/run-manual-wallet-timeout-recovery.mjs'),
-    worker: join(ROOT, 'integration/manual-wallet-timeout-recovery.mjs'),
+    entry: manualWalletEntrypoints.manualWalletRecovery.entry,
+    worker: manualWalletEntrypoints.manualWalletRecovery.worker,
     local: join(ROOT, '.local/manual-wallet-timeout-recovery'),
     resultFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_RESULT_V1',
     resourcesFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_RESOURCES_V1',
     lockFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_LOCK_V1',
     attemptFormat: 'FLAT_MANUAL_WALLET_TIMEOUT_RECOVERY_ATTEMPT_V1',
     classification: 'BOUNDED_LOCAL_FAKE_FUNDS_MANUAL_EXACT_ORIGINAL_TIMEOUT_F',
-    sourcePins: manualWalletSourcePins,
+    sourcePins: currentManualWalletSourcePins,
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
-  developmentBtcSplJupiterV1:Object.freeze({entry:join(ROOT,'integration/claims/development/run-development-btc-spl-jupiter-flow-v1.mjs'),worker:join(ROOT,'integration/claims/development/development-btc-spl-jupiter-flow-v1.mjs'),local:join(ROOT,'.local/development-btc-spl-jupiter-v1'),resultFormat:DEVELOPMENT_BTC_SPL_GRAPH_RESULT,resourcesFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_RESOURCES_V1',lockFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_LOCK_V1',attemptFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_ATTEMPT_V1',classification:'BOUNDED_LOCAL_PRIVATE_CBTC_SOURCE_SOL_JUPITER_USDC_CUSTODY_V1',sourcePins:developmentBtcSplJupiterSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedBitcoin','closedSolana'])}),
+  developmentBtcSplJupiterV1:Object.freeze({entry:applicationFlowEntrypoints.developmentBtcSplJupiterV1.entry,worker:applicationFlowEntrypoints.developmentBtcSplJupiterV1.worker,local:join(ROOT,'.local/development-btc-spl-jupiter-v1'),resultFormat:DEVELOPMENT_BTC_SPL_GRAPH_RESULT,resourcesFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_RESOURCES_V1',lockFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_LOCK_V1',attemptFormat:'LIANUM_DEVELOPMENT_BTC_SPL_JUPITER_ATTEMPT_V1',classification:'BOUNDED_LOCAL_PRIVATE_CBTC_SOURCE_SOL_JUPITER_USDC_CUSTODY_V1',sourcePins:developmentBtcSplJupiterSourcePinsV1,cleanupKeys:Object.freeze(['closedEvm','closedBitcoin','closedSolana'])}),
   developmentBtcSolGraph: Object.freeze({
-    entry: join(ROOT, 'integration/claims/development/run-development-btc-sol-graph-flow.mjs'),
-    worker: join(ROOT, 'integration/claims/development/development-btc-sol-graph-flow.mjs'),
+    entry: applicationFlowEntrypoints.developmentBtcSolGraph.entry,
+    worker: applicationFlowEntrypoints.developmentBtcSolGraph.worker,
     local: join(ROOT, '.local/development-btc-sol-graph-v1'),
     resultFormat: DEVELOPMENT_BTC_SOL_GRAPH_RESULT, resourcesFormat: 'LIANUM_DEVELOPMENT_BTC_SOL_GRAPH_RESOURCES_V1',
     lockFormat: 'LIANUM_DEVELOPMENT_BTC_SOL_GRAPH_LOCK_V1', attemptFormat: 'LIANUM_DEVELOPMENT_BTC_SOL_GRAPH_ATTEMPT_V1',
@@ -520,8 +507,8 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedBitcoin', 'closedSolana']),
   }),
   developmentNativeClaims: Object.freeze({
-    entry: join(ROOT, 'integration/claims/development/run-development-native-claim-flow.mjs'),
-    worker: join(ROOT, 'integration/claims/development/development-native-claim-flow.mjs'),
+    entry: applicationFlowEntrypoints.developmentNativeClaims.entry,
+    worker: applicationFlowEntrypoints.developmentNativeClaims.worker,
     local: join(ROOT, '.local/development-native-claim-roundtrip-v1'),
     resultFormat: DEVELOPMENT_NATIVE_CLAIM_RESULT, resourcesFormat: 'LIANUM_DEVELOPMENT_NATIVE_CLAIM_RESOURCES_V1',
     lockFormat: 'LIANUM_DEVELOPMENT_NATIVE_CLAIM_LOCK_V1', attemptFormat: 'LIANUM_DEVELOPMENT_NATIVE_CLAIM_ATTEMPT_V1',
@@ -529,8 +516,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedBitcoin', 'closedSolana']),
   }),
   developmentDefiEntry: Object.freeze({
-    entry: join(ROOT, 'integration/defi/entry/run-development-defi-entry-flow.mjs'),
-    worker: join(ROOT, 'integration/defi/entry/development-defi-entry-flow.mjs'),
+    entry:applicationFlowEntrypoints.developmentDefiEntry.entry,worker:applicationFlowEntrypoints.developmentDefiEntry.worker,
     local: join(ROOT, '.local/development-defi-entry-roundtrip-v1'),
     resultFormat: DEVELOPMENT_DEFI_ENTRY_RESULT, resourcesFormat: 'LIANUM_DEVELOPMENT_DEFI_ENTRY_RESOURCES_V1',
     lockFormat: 'LIANUM_DEVELOPMENT_DEFI_ENTRY_LOCK_V1', attemptFormat: 'LIANUM_DEVELOPMENT_DEFI_ENTRY_ATTEMPT_V1',
@@ -538,8 +524,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   privateMetaMorpho: Object.freeze({
-    entry: join(ROOT, 'integration/defi/run-private-metamorpho-flow.mjs'),
-    worker: join(ROOT, 'integration/defi/private-metamorpho-flow.mjs'),
+    entry:applicationFlowEntrypoints.privateMetaMorpho.entry,worker:applicationFlowEntrypoints.privateMetaMorpho.worker,
     local: join(ROOT, '.local/private-metamorpho-flow'),
     resultFormat: PRIVATE_METAMORPHO_FLOW_RESULT, resourcesFormat: 'LIANUM_PRIVATE_METAMORPHO_RESOURCES_V1',
     lockFormat: 'LIANUM_PRIVATE_METAMORPHO_LOCK_V1', attemptFormat: 'LIANUM_PRIVATE_METAMORPHO_ATTEMPT_V1',
@@ -547,8 +532,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   evmVault: Object.freeze({
-    entry: join(ROOT, 'integration/run-evm-vault-flow.mjs'),
-    worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
+    entry:applicationFlowEntrypoints.evmVault.entry,worker:applicationFlowEntrypoints.evmVault.worker,
     local: join(ROOT, '.local/evm-vault-flow'),
     resultFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',
@@ -559,8 +543,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   evmUniswap: Object.freeze({
-    entry: join(ROOT, 'integration/run-evm-uniswap-flow.mjs'),
-    worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
+    entry:applicationFlowEntrypoints.evmUniswap.entry,worker:applicationFlowEntrypoints.evmUniswap.worker,
     local: join(ROOT, '.local/evm-uniswap-flow'),
     resultFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',
@@ -571,8 +554,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   evmAave: Object.freeze({
-    entry: join(ROOT, 'integration/run-evm-aave-flow.mjs'),
-    worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
+    entry:applicationFlowEntrypoints.evmAave.entry,worker:applicationFlowEntrypoints.evmAave.worker,
     local: join(ROOT, '.local/evm-aave-flow-v1'),
     resultFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',
@@ -583,15 +565,14 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   evmMetaMorphoRecoveryV1:Object.freeze({
-    entry:join(ROOT,'integration/run-evm-metamorpho-recovery-flow-v1.mjs'),worker:join(ROOT,'integration/evm-vault-flow.mjs'),
+    entry:applicationFlowEntrypoints.evmMetaMorphoRecoveryV1.entry,worker:applicationFlowEntrypoints.evmMetaMorphoRecoveryV1.worker,
     local:join(ROOT,'.local/evm-metamorpho-recovery-v1'),resultFormat:EVM_METAMORPHO_RECOVERY_RESULT_V1,
     resourcesFormat:'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',lockFormat:'FLAT_WALLET_EVM_VAULT_FLOW_LOCK_V1',
     attemptFormat:'FLAT_WALLET_EVM_VAULT_FLOW_ATTEMPT_V1',classification:'BOUNDED_LOCAL_FAKE_FUNDS_METAMORPHO_ORIGINAL_F_V1',
     sourcePins:evmMetaMorphoRecoverySourcePinsV1,cleanupKeys:Object.freeze(['closedEvm']),
   }),
   evmUniswapRecovery: Object.freeze({
-    entry: join(ROOT, 'integration/run-evm-uniswap-recovery-flow.mjs'),
-    worker: join(ROOT, 'integration/evm-vault-flow.mjs'),
+    entry:applicationFlowEntrypoints.evmUniswapRecovery.entry,worker:applicationFlowEntrypoints.evmUniswapRecovery.worker,
     local: join(ROOT, '.local/evm-uniswap-recovery-flow'),
     resultFormat: EVM_UNISWAP_RECOVERY_RESULT,
     resourcesFormat: 'FLAT_WALLET_EVM_VAULT_FLOW_RESOURCES_V1',
@@ -602,8 +583,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm']),
   }),
   nativeFlow: Object.freeze({
-    entry: join(ROOT, 'integration/run-native-flow.mjs'),
-    worker: join(ROOT, 'integration/native-flow.mjs'),
+    entry:applicationFlowEntrypoints.nativeFlow.entry,worker:applicationFlowEntrypoints.nativeFlow.worker,
     local: join(ROOT, '.local/native-flow'),
     resultFormat: 'FLAT_WALLET_NATIVE_FLOW_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_NATIVE_FLOW_RESOURCES_V1',
@@ -614,8 +594,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   accountRecovery: Object.freeze({
-    entry: join(ROOT, 'integration/run-account-recovery.mjs'),
-    worker: join(ROOT, 'integration/account-recovery.mjs'),
+    entry:applicationFlowEntrypoints.accountRecovery.entry,worker:applicationFlowEntrypoints.accountRecovery.worker,
     local: join(ROOT, '.local/account-recovery'),
     resultFormat: 'FLAT_WALLET_ACCOUNT_RECOVERY_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_ACCOUNT_RECOVERY_RESOURCES_V1',
@@ -626,8 +605,7 @@ const FLOW_PROFILES = Object.freeze({
     cleanupKeys: Object.freeze(['closedEvm', 'closedSolana', 'closedBitcoin']),
   }),
   assetPortfolio: Object.freeze({
-    entry: join(ROOT, 'integration/run-asset-portfolio.mjs'),
-    worker: join(ROOT, 'integration/asset-portfolio.mjs'),
+    entry:applicationFlowEntrypoints.assetPortfolio.entry,worker:applicationFlowEntrypoints.assetPortfolio.worker,
     local: join(ROOT, '.local/asset-portfolio'),
     resultFormat: 'FLAT_WALLET_ASSET_PORTFOLIO_RESULT_V1',
     resourcesFormat: 'FLAT_WALLET_ASSET_PORTFOLIO_RESOURCES_V1',
@@ -709,22 +687,22 @@ const sameIdentity = (a, b) => a && b && a.pid === b.pid && a.startTimeTicks ===
 /** Fixed executable labels only. The existing shared proof lock remains the
  * owner; the native I84 backend is included in its same one-heavy-worker/RSS bound. */
 export function classifyNativeWalletRealExecutable(script) {
-  if(script===join(ROOT,'proof-workers/native-value-dev-live-v5-role-process.mjs'))
+  if(script===fileURLToPath(new URL('../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-role-process.mjs',import.meta.url)))
     return {role:'native-value-dev-live-v5-proof-role',proofWorker:false};
-  if(script===join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs'))
+  if(script===fileURLToPath(new URL('../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs',import.meta.url)))
     return {role:'native-value-dev-live-v5-proof-worker',proofWorker:true};
-  if (script === join(ROOT, 'proof-workers/native-value-live-v2-role-process.mjs'))
+  if (script === fileURLToPath(new URL('../../../packages/backend/src/proving/native-value/runtime/native-value-live-v2-role-process.mjs',import.meta.url)))
     return { role: 'native-value-live-v2-proof-role', proofWorker: false };
-  if (script === join(ROOT, 'proof-workers/native-value-live-v2-worker.mjs'))
+  if (script === fileURLToPath(new URL('../../../packages/backend/src/proving/native-value/runtime/native-value-live-v2-worker.mjs',import.meta.url)))
     return { role: 'native-value-live-v2-proof-worker', proofWorker: true };
-  if (script === join(ROOT, 'mobile-core/native-value-owner-process-v2.mjs'))
+  if (script === fileURLToPath(new URL('../../../packages/backend/src/custody/processes/native-value-owner-process-v2.mjs',import.meta.url)))
     return { role: 'native-value-owner-role', proofWorker: false };
   return null;
 }
 export function classifyNativeIngressV3Executable(script) {
-  if (script === join(ROOT, 'proof-workers/native-ingress-v3-role-process.mjs'))
+  if (script === fileURLToPath(new URL('../../../packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-role-process.mjs',import.meta.url)))
     return { role: 'native-ingress-v3-proof-role', proofWorker: false };
-  if (script === join(ROOT, 'proof-workers/native-ingress-v3-worker.mjs'))
+  if (script === fileURLToPath(new URL('../../../packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-worker.mjs',import.meta.url)))
     return { role: 'native-ingress-v3-proof-worker', proofWorker: true };
   return null;
 }
@@ -1318,7 +1296,7 @@ async function runFixedFlowSupervisor(profile) {
     if(profile===FLOW_PROFILES.nativeSplClaimV1CompilationOnly){const p=classifyNativeSplClaimV1Preparation(argv);if(p)return p;}
     if(confirmedSource){const p=procStat(pid),parent=p&&procStat(p.ppid);const scoped=classifyDeviceConfirmedSourceProcessV2(argv,readlinkSync(`/proc/${pid}/exe`),parent?{pid:parent.pid,argv:readFileSync(`/proc/${parent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     const script = argv[1];
-    if([FLOW_PROFILES.deviceRootBtcOriginalNoteV3,FLOW_PROFILES.deviceRootSolOriginalNoteV3,FLOW_PROFILES.deviceRootSplOriginalNoteV3,FLOW_PROFILES.deviceRootSplSourceOriginalNoteV4].includes(profile)&&script===join(ROOT,'proof-workers/wallet-note-private-worker-v4.mjs')&&argv.length===3&&argv[2]==='withdraw_balance'&&readlinkSync(`/proc/${pid}/exe`)===process.execPath&&procStat(pid)?.ppid===child.pid)return{role:'device-root-original-private-w39-worker',proofWorker:true};
+    if([FLOW_PROFILES.deviceRootBtcOriginalNoteV3,FLOW_PROFILES.deviceRootSolOriginalNoteV3,FLOW_PROFILES.deviceRootSplOriginalNoteV3,FLOW_PROFILES.deviceRootSplSourceOriginalNoteV4].includes(profile)&&script===fileURLToPath(new URL('../../../packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs',import.meta.url))&&argv.length===3&&argv[2]==='withdraw_balance'&&readlinkSync(`/proc/${pid}/exe`)===process.execPath&&procStat(pid)?.ppid===child.pid)return{role:'device-root-original-private-w39-worker',proofWorker:true};
     const nativeStat=procStat(pid),nativeParent=nativeStat?procStat(nativeStat.ppid):null;
     if(profile===FLOW_PROFILES.deviceMetaUnderlyingGraphV2||profile===FLOW_PROFILES.deviceMetaFourUnderlyingGraphV2){const scoped=classifyDeviceMetaUnderlyingGraphProcessV2(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
     if(profile===FLOW_PROFILES.deviceMetaFourGraphV1){const scoped=classifyDeviceMetaFourGraphProcessV1(argv,readlinkSync(`/proc/${pid}/exe`),nativeParent?{pid:nativeParent.pid,argv:readFileSync(`/proc/${nativeParent.pid}/cmdline`,'utf8').split('\0').filter(Boolean)}:null);if(scoped)return scoped;}
@@ -1358,16 +1336,15 @@ async function runFixedFlowSupervisor(profile) {
     if (nativeWallet) return nativeWallet;
     const v3 = classifyNativeIngressV3Executable(script);
     if (v3) return v3;
-    if (script === join(ROOT, 'proof-workers/wrapped-claim-worker-v1.mjs')) return { role: 'wrapped-claim-proof-worker', proofWorker: true };
-    if (script === join(ROOT, 'proof-workers/wrapped-claim-role-process-v1.mjs')) return { role: 'wrapped-claim-proof-role', proofWorker: false };
-    if (script === join(ROOT, 'mobile-core/wrapped-claim-owner-process-v1.mjs')) return { role: 'wrapped-owner-role', proofWorker: false };
-    if (script === join(ROOT, 'proof-workers/worker.mjs')) return { role: 'flat-proof-worker', proofWorker: true };
-    if (script === join(GOLDEN, 'src/paeg/proof-worker.mjs')) return { role: 'golden-note-proof-worker', proofWorker: true };
-    if (script === join(ROOT, 'proof-workers/role-process.mjs')) return { role: 'flat-proof-role', proofWorker: false };
-    if (script === join(ROOT, 'mobile-core/flat-owner-process.mjs')) return { role: 'flat-owner-role', proofWorker: false };
-    if (script === join(GOLDEN, 'src/paeg/native-recipient-process.mjs')
-      || script === join(ROOT, 'integration/native-recipient-child.mjs')) return { role: 'recipient-role', proofWorker: false };
-    if (script === join(GOLDEN, 'src/paeg/generic-balance-owner-child.mjs')) return { role: 'golden-owner-role', proofWorker: false };
+    if (script === fileURLToPath(new URL('../../../packages/backend/src/proving/wrapped-claims/runtime/wrapped-claim-worker-v1.mjs',import.meta.url))) return { role: 'wrapped-claim-proof-worker', proofWorker: true };
+    if (script === fileURLToPath(new URL('../../../packages/backend/src/proving/wrapped-claims/runtime/wrapped-claim-role-process-v1.mjs',import.meta.url))) return { role: 'wrapped-claim-proof-role', proofWorker: false };
+    if (script === fileURLToPath(new URL('../../../packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs',import.meta.url))) return { role: 'wrapped-owner-role', proofWorker: false };
+    if (script === fileURLToPath(new URL('../../../packages/proofs/src/jobs/worker.mjs',import.meta.url))) return { role: 'flat-proof-worker', proofWorker: true };
+    if (script === fileURLToPath(new URL('../../../packages/proofs/src/execution/proof-worker.mjs',import.meta.url))) return { role: 'golden-note-proof-worker', proofWorker: true };
+    if (script === fileURLToPath(new URL('../../../packages/proofs/src/jobs/role-process.mjs',import.meta.url))) return { role: 'flat-proof-role', proofWorker: false };
+    if (script === fileURLToPath(new URL('../../../packages/backend/src/custody/processes/flat-owner-process.mjs',import.meta.url))) return { role: 'flat-owner-role', proofWorker: false };
+    if (script === fileURLToPath(new URL('../../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs',import.meta.url))) return { role: 'recipient-role', proofWorker: false };
+    if (script === fileURLToPath(new URL('../../../packages/engine/src/execution/balances/generic-balance-owner-child.mjs',import.meta.url))) return { role: 'golden-owner-role', proofWorker: false };
     const executable = basename(readlinkSync(`/proc/${pid}/exe`));
     const runtime = { anvil: 'evm-runtime', bitcoind: 'bitcoin-runtime',
       'bitcoin-cli': 'bitcoin-local-cli', 'solana-test-validator': 'solana-runtime',

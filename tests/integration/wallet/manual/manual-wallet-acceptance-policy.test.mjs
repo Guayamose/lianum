@@ -1,3 +1,4 @@
+import {manualWalletEntrypoints,manualWalletInvocation} from './manual-wallet-entrypoints.mjs';
 /** Host-only synthetic result policy and source/gate checks. No acceptance run. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -79,29 +80,31 @@ test('source has exactly one generation, no private GRAPH API, no parallel gener
  assert.match(worker,/appAccount\('recover'/);assert.match(worker,/appDriver\.reviewAccount\('execute'/);
  assert.match(worker,/coordinatorProcessRestart: false/);
 });
-test('fixed source pins include new worker and preserve original closure roots',()=>{
- const pins=source('./manual-wallet-source-pins.mjs'), supervisor=source('./native-flow-supervisor.mjs');
- assert.match(pins,/const base = evmVaultSourcePins\(\)/);
- assert.match(pins,/'integration\/run-manual-wallet-acceptance.mjs', 'integration\/manual-wallet-acceptance.mjs'/);
- assert.doesNotMatch(source('./source-pins.mjs'), /manualWalletSourcePins|manual-wallet-acceptance/);
- assert.match(supervisor,/sourcePins: manualWalletSourcePins/);assert.match(supervisor,/assertManualWalletResult\(result\)/);
+test('fixed manual invocation accepts only the canonical entry and worker pair',()=>{
+ for(const row of Object.values(manualWalletEntrypoints)){
+  assert.ok(existsSync(row.entry));assert.ok(existsSync(row.worker));
+  assert.equal(manualWalletInvocation(row.worker,row.entry),row);
+  assert.throws(()=>manualWalletInvocation(row.worker,row.entry+'.changed'),/FIXED_PARENT/);
+  assert.throws(()=>manualWalletInvocation(row.worker+'.changed',row.entry),/FIXED_WORKER/);
+ }
+ assert.ok(Object.isFrozen(manualWalletEntrypoints));
 });
 test('reviewed fixed local release accepts no caller launch options',async()=>{
  assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED,false);
  await assert.rejects(runManualWalletSupervisor({profile:'replacement'}),/MANUAL_WALLET_NO_SUPERVISOR_OPTIONS/);
- const supervisor=source('./native-flow-supervisor.mjs');
+ const supervisor=source('../../native/native-flow-supervisor.mjs');
  assert.match(supervisor,/writeExclusive\(sourcePath, json\(sourcePins\)\)/);
  assert.match(supervisor,/NATIVE_SOURCE_CLOSURE_CHANGED/);
 });
 
 test('fixed actual composition uses production SDK and explicit host steps with no private GRAPH send or token callback',()=>{
- const driver=source('./manual-wallet-app-driver.mjs'), sdk=source('../wallet-platform/modules/api/wallet-application-client.mjs');
+ const driver=source('./manual-wallet-app-driver.mjs'), sdk=source('../../../../packages/backend/src/api/wallet/wallet-application-client.mjs');
  assert.match(driver,/app\.createManualActionHandoff\(\)/);assert.match(driver,/host\.authorizeReview\(request\)/);
  assert.match(driver,/sdk\.acceptManualActionGrant\(grant\)/);assert.match(driver,/sdk\.getManualActionReview\(\)/);
  assert.match(driver,/sdk\.confirm\(\)/);assert.match(driver,/TOKENLESS_HANDOFF_COMMITMENT_VERIFIED/);
  assert.match(source('./manual-wallet-acceptance.mjs'),/appDriver\.unspentGraphGrantForListenerReplacement\(graphId\)/);
  assert.match(sdk,/manualActionHandoff: credentials\.manualActionHandoff/);
  assert.doesNotMatch(driver,/createGenericAccountKeeper|startFlatAccountHttp|flatManualGraphActionTarget|reviewReauthorization|confirmReauthorization/);
- for(const name of ['./manual-wallet-acceptance.mjs','./manual-wallet-app-driver.mjs','../wallet-platform/modules/api/wallet-application-client.mjs'])
+ for(const name of ['./manual-wallet-acceptance.mjs','./manual-wallet-app-driver.mjs','../../../../packages/backend/src/api/wallet/wallet-application-client.mjs'])
   assert.doesNotMatch(source(name),/mock\.module|registerHooks|--experimental-loader/);
 });

@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 import {sha as canonicalJournalSHA} from '@lianum/engine/accounts/journal';
 import {retainedExternalVaultWalletContextV1} from '../../../../packages/backend/src/accounts/recovery/external-defi-retained-vault-wallet-v1.mjs';
 import {ownedPrivateVaultExitBinding,retainedOwnedPrivateVaultExitContextV1} from '@lianum/backend/defi/withdrawal';
@@ -30,9 +31,9 @@ export async function captureAndLaunchNativeDeviceNoteEconomicSuccessorV1(contex
 }
 async function captureOriginalSuccessor(context,nativeNote){
  assert.equal(context.deviceEconomicRecovery,true);context.active();
- const WORKER=join(ROOT,context.devicePrivateWorker?'integration/run-native-value-private-worker-durable-note-successor-v3.mjs':context.devicePrivateAuthorized?'integration/run-native-value-private-authorized-durable-note-successor-v2.mjs':context.devicePrivateNative?'integration/run-native-value-private-durable-note-successor-v2.mjs':context.deviceDurableSQL?'integration/run-native-value-durable-economic-note-successor-v1.mjs':nativeNote?'integration/native-device-economic-note-successor-worker-v1.mjs':'integration/native-device-economic-successor-worker-v1.mjs');
+ const WORKER=(context.devicePrivateWorker?fileURLToPath(new URL('./run-native-value-private-worker-durable-note-successor-v3.mjs',import.meta.url)):context.devicePrivateAuthorized?fileURLToPath(new URL('./run-native-value-private-authorized-durable-note-successor-v2.mjs',import.meta.url)):context.devicePrivateNative?fileURLToPath(new URL('./run-native-value-private-durable-note-successor-v2.mjs',import.meta.url)):context.deviceDurableSQL?fileURLToPath(new URL('./run-native-value-durable-economic-note-successor-v1.mjs',import.meta.url)):nativeNote?fileURLToPath(new URL('./native-device-economic-note-successor-worker-v1.mjs',import.meta.url)):fileURLToPath(new URL('./native-device-economic-successor-worker-v1.mjs',import.meta.url)));
  const {runtime,nativeRuntime,bootstrap,system,owner,account,nativeExecution,joined,actor,originalTransport,originalPrepared,economicLifetime}=context;
- assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),join(ROOT,context.devicePrivateWorker?'integration/native-value-private-worker-durable-note-flow-v3.mjs':context.devicePrivateAuthorized?'integration/native-value-private-authorized-durable-note-flow-v2.mjs':context.devicePrivateNative?'integration/native-value-private-durable-note-flow-v2.mjs':context.deviceDurableSQL?'integration/paired-native-note-flow-v2.mjs':nativeNote?'integration/native-value-economic-note-recovery-flow-v1.mjs':'integration/native-value-economic-recovery-flow-v1.mjs'));
+ assert.equal(economicLifetime.captured,false);assert.equal(realpathSync(process.argv[1]),(context.devicePrivateWorker?fileURLToPath(new URL('./native-value-private-worker-durable-note-flow-v3.mjs',import.meta.url)):context.devicePrivateAuthorized?fileURLToPath(new URL('./native-value-private-authorized-durable-note-flow-v2.mjs',import.meta.url)):context.devicePrivateNative?fileURLToPath(new URL('./native-value-private-durable-note-flow-v2.mjs',import.meta.url)):context.deviceDurableSQL?fileURLToPath(new URL('./paired-native-note-flow-v2.mjs',import.meta.url)):nativeNote?fileURLToPath(new URL('./native-value-economic-note-recovery-flow-v1.mjs',import.meta.url)):fileURLToPath(new URL('./native-value-economic-recovery-flow-v1.mjs',import.meta.url))));
  const sourceSHA256=nativeValueOriginalRecoverySourceV1(runtime,system),identity={directory:context.privateDirectory,runId:context.runId,sourceSHA256,deadlineMs:context.deadlineMs};
  assert.equal(identity.directory,join(ROOT,context.devicePrivateWorker?'.local/native-value-private-worker-durable-note-recovery-v3':context.devicePrivateAuthorized?'.local/native-value-private-authorized-durable-note-recovery-v2':context.devicePrivateNative?'.local/native-value-private-durable-note-recovery-v2':context.deviceDurableSQL?'.local/native-value-durable-economic-note-recovery-v1':nativeNote?'.local/native-value-economic-note-recovery-v1':'.local/native-value-economic-recovery-v1','attempt-'+identity.runId,'private-audit'));
  // The recipient child is an original invoice producer, not an issuer section.
@@ -62,7 +63,7 @@ async function captureOriginalSuccessor(context,nativeNote){
  return launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoint,before,stoppedOriginals,sourceSHA256,nativeNote,external:false});
 }
 export async function captureAndLaunchNativeDeviceLiveArmedShortSuccessorV1(context){
- assert.equal(arguments.length,1);assert.equal(context.deviceLiveArmed,true);context.active();assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'));
+ assert.equal(arguments.length,1);assert.equal(context.deviceLiveArmed,true);context.active();assert.equal(realpathSync(process.argv[1]),fileURLToPath(new URL('./native-value-live-armed-short-restart-flow-v1.mjs',import.meta.url)));
  const {runtime,nativeRuntime,bootstrap,system,owner,account,nativeExecution,joined,actor,originalTransport,originalPrepared,economicLifetime,liveProducer,liveClocks,liveRecoveryAuthority}=context;
  assert.equal(economicLifetime.captured,false);const admitted=assertNativeLiveArmedRecoveryCaptureV1(liveRecoveryAuthority),identity={...admitted};delete identity.profile;
  assert.equal(identity.directory,context.privateDirectory);assert.equal(identity.runId,context.runId);const sourceSHA256=nativeValueOriginalRecoverySourceV1(runtime,system);assert.equal(identity.sourceSHA256,sourceSHA256);
@@ -73,7 +74,7 @@ export async function captureAndLaunchNativeDeviceLiveArmedShortSuccessorV1(cont
  economicLifetime.captured=true;const oldTransport=await originalTransport.close();assert.ok(oldTransport.closed&&oldTransport.ownedSocketsRemaining===0&&oldTransport.originalDiagnosticsInFlight===0);
  for(const value of [runtime,nativeRuntime])assert.equal(value.processStatus().stopped,true);assert.equal(owner.report().childExited,true);assert.equal(originalPrepared.custody.report().closed,true);context.result.cleanup.closedDeviceProvider=true;
  const stoppedOriginals={receiver:runtime.processStatus(),native:nativeRuntime.processStatus(),owner:owner.report(),transport:oldTransport};
- return launchCapturedOriginalSuccessor(context,{WORKER:join(ROOT,'integration/native-device-live-armed-short-successor-v1.mjs'),identity,checkpoint,before,stoppedOriginals,sourceSHA256,liveArmed:true,external:false});
+ return launchCapturedOriginalSuccessor(context,{WORKER:fileURLToPath(new URL('./native-device-live-armed-short-successor-v1.mjs',import.meta.url)),identity,checkpoint,before,stoppedOriginals,sourceSHA256,liveArmed:true,external:false});
 }
 async function launchCapturedOriginalSuccessor(context,{WORKER,identity,checkpoint,before,stoppedOriginals,sourceSHA256,nativeNote,external,liveArmed=false}){
  const economicLifetime=external?context.externalLifetime:context.economicLifetime;
@@ -128,7 +129,7 @@ const externalBirth=pid=>{const value=originalBirth(pid),status=readFileSync(`/p
 /** Finite caller over the branded before-effects wallet and original External5.
  * Incoming HTTP/DTOs can neither select this child nor supply captured state. */
 export async function captureAndLaunchExternalDefiVaultExitSuccessorV1(context){
- assert.equal(arguments.length,1);assert.equal(context.externalDefiVaultExitRecovery,true);assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/evm-vault-flow.mjs'));context.active();
+ assert.equal(arguments.length,1);assert.equal(context.externalDefiVaultExitRecovery,true);assert.equal(realpathSync(process.argv[1]),fileURLToPath(new URL('../../chains/evm/evm-vault-flow.mjs',import.meta.url)));context.active();
  const wallet=retainedExternalVaultWalletContextV1(context.wallet),life=externalVaultExitLifetimeContextV1(context.fixture.recoveryLifetime);
  assert.equal(wallet.vaultNotes,true,'EXTERNAL_VAULT_ORIGINAL_NOTE_LIFECYCLE_REQUIRED');
  assert.equal(wallet.runtime,life.runtime);assert.equal(wallet.runtime,context.fixture.runtime);assert.equal(wallet.system,context.fixture.system);assert.equal(wallet.protocolFixture,context.fixture.officialProtocol);assert.equal(wallet.owners[0],context.fixture.sourceOwner);assert.equal(wallet.owners[1],context.fixture.targetOwner);assert.equal(context.privateDirectory,life.identity.directory);
@@ -153,5 +154,5 @@ export async function captureAndLaunchExternalDefiVaultExitSuccessorV1(context){
  assert.equal(wallet.runtime.processStatus().stopped,true);for(const owner of wallet.owners){const row=owner.report();assert.equal(row.childExited,true);assert.deepEqual(row.exit,{code:0,signal:null});}
  const stoppedOriginals={receiver:wallet.runtime.processStatus(),owners:wallet.owners.map(owner=>owner.report())};
  markExternalVaultExitCapturedV1(context.fixture.recoveryLifetime);
- return launchCapturedOriginalSuccessor({...context,expected,externalLifetime:{}},{WORKER:join(ROOT,'integration/external-defi-vault-exit-successor-v1.mjs'),identity:life.identity,checkpoint,before,stoppedOriginals,sourceSHA256,external:true});
+ return launchCapturedOriginalSuccessor({...context,expected,externalLifetime:{}},{WORKER:fileURLToPath(new URL('../../chains/evm/external-defi-vault-exit-successor-v1.mjs',import.meta.url)),identity:life.identity,checkpoint,before,stoppedOriginals,sourceSHA256,external:true});
 }

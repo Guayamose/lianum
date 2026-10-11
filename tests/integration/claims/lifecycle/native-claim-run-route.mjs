@@ -1,26 +1,27 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed supervisor routes. No request supplies a directory or worker path. */
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { ROOT } from '@lianum/proofs/catalog';
 
 export const NATIVE_CLAIM_RUN_ROUTES = Object.freeze({
-  beginPayoutAuditV1: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-begin-payout-audit-v1.mjs'),
+  beginPayoutAuditV1: Object.freeze({ entry: fileURLToPath(new URL('../payouts/run-native-claim-begin-payout-audit-v1.mjs',import.meta.url)),
     local: '.local/native-claim-begin-payout-audit-v1' }),
-  loadedV3: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-loaded-v3-flow.mjs'),
+  loadedV3: Object.freeze({ entry: fileURLToPath(new URL('../inventory/run-native-claim-loaded-v3-flow.mjs',import.meta.url)),
     local: '.local/native-claim-loaded-v3-flow' }),
-  graphV3: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-graph-v3-flow.mjs'),
+  graphV3: Object.freeze({ entry: fileURLToPath(new URL('../graph/flows/run-native-claim-graph-v3-flow.mjs',import.meta.url)),
     local: '.local/native-claim-graph-v3-flow' }),
-  ingressV3ProductionPreflight: Object.freeze({ entry: join(ROOT, 'integration/run-native-ingress-v3-production-preflight.mjs'),
+  ingressV3ProductionPreflight: Object.freeze({ entry: fileURLToPath(new URL('../ingress/run-native-ingress-v3-production-preflight.mjs',import.meta.url)),
     local: '.local/native-ingress-v3-production-preflight' }),
-  ingressV3Preflight: Object.freeze({ entry: join(ROOT, 'integration/run-native-ingress-v3-preflight.mjs'),
+  ingressV3Preflight: Object.freeze({ entry: fileURLToPath(new URL('../ingress/run-native-ingress-v3-preflight.mjs',import.meta.url)),
     local: '.local/native-ingress-v3-preflight' }),
-  legacy: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-flow.mjs'),
+  legacy: Object.freeze({ entry: fileURLToPath(new URL('./run-native-claim-flow.mjs',import.meta.url)),
     local: '.local/native-claim-flow' }),
-  graph: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-graph-flow.mjs'),
+  graph: Object.freeze({ entry: fileURLToPath(new URL('../graph/flows/run-native-claim-graph-flow.mjs',import.meta.url)),
     local: '.local/native-claim-graph-flow' }),
-  loadedFacts: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-loaded-facts-probe.mjs'),
+  loadedFacts: Object.freeze({ entry: fileURLToPath(new URL('../inventory/run-native-claim-loaded-facts-probe.mjs',import.meta.url)),
     local: '.local/native-claim-loaded-facts-probe' }),
-  unfundedHealth: Object.freeze({ entry: join(ROOT, 'integration/run-native-claim-unfunded-health.mjs'),
+  unfundedHealth: Object.freeze({ entry: fileURLToPath(new URL('../health/run-native-claim-unfunded-health.mjs',import.meta.url)),
     local: '.local/native-claim-unfunded-health' }),
 });
 

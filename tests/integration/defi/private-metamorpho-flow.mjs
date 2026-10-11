@@ -1,3 +1,4 @@
+import {applicationFlowEntrypoints} from '../runners/application-flow-entrypoints.mjs';
 /** Supervised genuine share TOP_UP/EXIT and public MetaMorpho redemption.
  * Source of shares is an explicit public fixture deposit. No private PAEG
  * conversion, public network, new credit or lost-keeper recovery is inferred. */
@@ -36,7 +37,7 @@ async function main() {
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
   assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])),
-    join(ROOT, 'integration/defi/run-private-metamorpho-flow.mjs'));
+    applicationFlowEntrypoints.privateMetaMorpho.entry);
   const lock = JSON.parse(readFileSync(join(ROOT, '.local/private-metamorpho-flow/active.lock')));
   assert.equal(lock.pid, process.ppid);
   assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);

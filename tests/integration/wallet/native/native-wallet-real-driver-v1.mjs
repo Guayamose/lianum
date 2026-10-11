@@ -1,3 +1,4 @@
+import {applicationFlowEntrypoints} from '../../runners/application-flow-entrypoints.mjs';
 import { createOwnedLocalTronNativeValueV1, assertOwnedLocalTronNativeValueV1, readOwnedLocalTronNativeValueAuditStateV4, openOwnedTronOriginalReadPort } from '../../../../packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs';
 import { readTronJournal } from '../../../../packages/backend/src/chains/tron/transfers/owned-tron-native-value-journal.mjs';
 import { decodeTronNativeTransferWire } from '../../../../packages/backend/src/chains/tron/transfers/tron-native-transfer-wire.mjs';
@@ -37,11 +38,12 @@ import { createNativeValueSystemStateReader } from '../../../../packages/backend
 import { createNativeValueOwnerProcess } from '../../../../packages/backend/src/custody/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueExecution } from '../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs';
 import { createNativeValueAccountAuthority } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
-import { createNativeValueManualGraphAccountSession,createOriginalSessionWalletEconomicStateV1,readOriginalSessionWalletEconomicStateV1 } from '@lianum/backend/accounts/manual-graph';
+import { createOriginalSessionWalletEconomicStateV1, readOriginalSessionWalletEconomicStateV1 } from '@lianum/backend/accounts/manual-graph';
+import { createNativeValueManualGraphAccountSession } from '@lianum/backend/operations/recovery/native-original-source-lifecycle-v1';
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
 import { FLAT_TRANSACTION_METHODS, encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { decodeStatement, joinReadiness } from '@lianum/components/encoding/statements';
-import { decodeNativeValueTerminalCalldata } from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
+import { decodeNativeValueTerminalCalldata } from '../../../../packages/backend/src/execution/encoding/terminal-calldata-codec.mjs';
 import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import { nativeValueFailureDiagnostic } from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-failure-retention.mjs';
 import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
@@ -72,11 +74,11 @@ export async function runNativeWalletTronDevAcceptanceV5(){
 async function runFixed(unfundedOnly,tron=false) {
   const suffix=unfundedOnly?'preflight':'acceptance', stem=tron?'native-wallet-tron-dev-v5':'native-wallet-real-'+suffix+'-v1';
   assert.equal(process.argv.length,2,'NATIVE_WALLET_NO_ARGUMENTS'); assert.deepEqual(process.execArgv,[]);
-  assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration',stem+'.mjs'));
+  assert.equal(realpathSync(process.argv[1]),applicationFlowEntrypoints[stem==='native-wallet-real-preflight-v1'?'nativeWalletRealPreflight':'nativeWalletRealAcceptance'].worker);
   assert.equal(realpathSync(process.cwd()),ROOT); assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
   assert.equal(process.env.PATH,'/usr/bin:/bin'); assert.equal(process.env.LANG,'C.UTF-8');
   const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);
-  assert.equal(parent.length,2); assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,'integration/run-'+stem+'.mjs'));
+  assert.equal(parent.length,2); assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),applicationFlowEntrypoints[stem==='native-wallet-real-preflight-v1'?'nativeWalletRealPreflight':'nativeWalletRealAcceptance'].entry);
   const local=join(ROOT,'.local',stem), lock=JSON.parse(readFileSync(join(local,'active.lock')));
   assert.equal(lock.pid,process.ppid); assert.match(lock.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(lock.attempt,'.local/'+stem+'/attempt-'+lock.runId);

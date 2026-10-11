@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed labels for the original SOURCE child and its kernel guardian. Labels
  * never mint a process handle or exemption from UID/birth/group/RSS guards. */
 import assert from 'node:assert/strict';
@@ -6,7 +7,7 @@ import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {join,resolve,dirname,basename} from 'node:path';
 import {ROOT,FLAT,GOLDEN} from '@lianum/proofs/catalog';
 import {assertNativeLiveArmedShortRecoverableAnvilV1} from './native-device-live-armed-short-process-scope-v1.mjs';
-const WORKER=join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs'),CHILD=join(ROOT,'integration/native-original-source-abrupt-backend-v1.mjs');
+const WORKER=fileURLToPath(new URL('./native-original-source-abrupt-flow-v1.mjs',import.meta.url)),CHILD=fileURLToPath(new URL('./native-original-source-abrupt-backend-v1.mjs',import.meta.url));
 const ANVIL=join(GOLDEN,'.local/linux-runtimes/foundry-v1.8.4/anvil');
 const helper=join(resolve(FLAT,'../../..'),'packages/backend/src/operations/recovery/native-original-source-process-v1.mjs');
 // Current guard reviewed at f423dc4; the isolated guardian bytes are unchanged.

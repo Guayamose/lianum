@@ -2,11 +2,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, lstatSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath,pathToFileURL } from 'node:url';
+import {resourceRoot} from '@lianum/environment';
 import { resolve } from 'node:path';
 import { compileSoliditySources } from '../../../packages/proofs/src/tooling/solidity-compiler.mjs';
 
-const root = new URL('../', import.meta.url);
+const root = pathToFileURL(resourceRoot('wallet')+'/');
 const sha = value => createHash('sha256').update(value).digest('hex');
 const canonical = value => value === null || typeof value !== 'object' ? JSON.stringify(value)
   : Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']'

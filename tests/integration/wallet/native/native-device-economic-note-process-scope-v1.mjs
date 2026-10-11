@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed process labels and original recoverable-Anvil preflight for the
  * planned economic restart. Labels never mint an account or signal capability.
  * The supervisor retains its original PID/group/UID/birth/RSS checks. */
@@ -13,8 +14,8 @@ export const NATIVE_ECONOMIC_RECOVERABLE_ANVIL_PIN_V1=Object.freeze([
   'be5129d636ea18440d43908536f13ba6578859b695f2ca33f1f09a00aa9dc176',
 ]);
 export const NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1=join(GOLDEN,'.local/linux-runtimes',NATIVE_ECONOMIC_RECOVERABLE_ANVIL_PIN_V1[0]);
-export const NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1=join(ROOT,'integration/native-value-economic-note-recovery-flow-v1.mjs');
-export const NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1=join(ROOT,'integration/native-device-economic-note-successor-worker-v1.mjs');
+export const NATIVE_ECONOMIC_NOTE_RESTART_WORKER_V1=fileURLToPath(new URL('./native-value-economic-note-recovery-flow-v1.mjs',import.meta.url));
+export const NATIVE_ECONOMIC_NOTE_SUCCESSOR_WORKER_V1=fileURLToPath(new URL('./native-device-economic-note-successor-worker-v1.mjs',import.meta.url));
 
 const fixedNode=(argv,script)=>Array.isArray(argv)&&argv.length===2&&argv[0]===process.execPath&&argv[1]===script;
 const unexpected=()=>({role:'native-economic-unexpected-process',proofWorker:true});
@@ -78,8 +79,8 @@ export async function assertNativeEconomicNoteRecoverableAnvilV1(){
   return Object.freeze({path,sha256:NATIVE_ECONOMIC_RECOVERABLE_ANVIL_PIN_V1[1],bytes:before.size,executable:true});
 }
 
-export const NATIVE_DURABLE_NOTE_MAIN_V1=join(ROOT,'integration/paired-native-note-flow-v2.mjs');
-export const NATIVE_DURABLE_NOTE_NEXT_V1=join(ROOT,'integration/run-native-value-durable-economic-note-successor-v1.mjs');
+export const NATIVE_DURABLE_NOTE_MAIN_V1=fileURLToPath(new URL('./paired-native-note-flow-v2.mjs',import.meta.url));
+export const NATIVE_DURABLE_NOTE_NEXT_V1=fileURLToPath(new URL('./run-native-value-durable-economic-note-successor-v1.mjs',import.meta.url));
 export function classifyNativeDurableNoteRestartProcessV1(argv,executable,parent=null){assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
  const main=parent&&fixedNode(parent.argv,NATIVE_DURABLE_NOTE_MAIN_V1),next=parent&&fixedNode(parent.argv,NATIVE_DURABLE_NOTE_NEXT_V1);
  if(argv.includes(NATIVE_DURABLE_NOTE_NEXT_V1))return executable===process.execPath&&main&&fixedNode(argv,NATIVE_DURABLE_NOTE_NEXT_V1)?{role:'native-economic-successor-role',proofWorker:false}:unexpected();
@@ -89,11 +90,11 @@ export function classifyNativeDurableNoteRestartProcessV1(argv,executable,parent
 
 /** Separate private/durable profile labels use the actual physical argv and
  * real parent. No argv alias or legacy process brand is manufactured. */
-export const NATIVE_PRIVATE_DURABLE_NOTE_MAIN_V2=join(ROOT,'integration/native-value-private-durable-note-flow-v2.mjs');
-export const NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2=join(ROOT,'integration/run-native-value-private-durable-note-successor-v2.mjs');
+export const NATIVE_PRIVATE_DURABLE_NOTE_MAIN_V2=fileURLToPath(new URL('./native-value-private-durable-note-flow-v2.mjs',import.meta.url));
+export const NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2=fileURLToPath(new URL('./run-native-value-private-durable-note-successor-v2.mjs',import.meta.url));
 const PRIVATE_NATIVE_RECIPIENTS_V2=Object.freeze([
- join(ROOT,'proof-workers/native-device-private-deposit-recipient-v2.mjs'),
- join(ROOT,'proof-workers/native-device-private-exit-recipient-v2.mjs')]);
+ fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-deposit-recipient-v2.mjs',import.meta.url)),
+ fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-exit-recipient-v2.mjs',import.meta.url))]);
 export function classifyNativePrivateDurableNoteRestartProcessV2(argv,executable,parent=null){
  assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
  const main=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_DURABLE_NOTE_MAIN_V2)),next=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_DURABLE_NOTE_NEXT_V2));
@@ -108,11 +109,11 @@ export function classifyNativePrivateDurableNoteRestartProcessV2(argv,executable
 }
 
 /** Exact private-U entry and parent, never legacy argv substitution. */
-export const NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2=join(ROOT,'integration/native-value-private-authorized-durable-note-flow-v2.mjs');
-export const NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2=join(ROOT,'integration/run-native-value-private-authorized-durable-note-successor-v2.mjs');
+export const NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2=fileURLToPath(new URL('./native-value-private-authorized-durable-note-flow-v2.mjs',import.meta.url));
+export const NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2=fileURLToPath(new URL('./run-native-value-private-authorized-durable-note-successor-v2.mjs',import.meta.url));
 const PRIVATE_AUTHORIZED_RECIPIENTS_V2=Object.freeze([
- join(ROOT,'proof-workers/native-device-private-deposit-recipient-v2.mjs'),
- join(ROOT,'proof-workers/native-device-private-exit-recipient-v2.mjs')]);
+ fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-deposit-recipient-v2.mjs',import.meta.url)),
+ fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-exit-recipient-v2.mjs',import.meta.url))]);
 export function classifyNativePrivateAuthorizedDurableNoteRestartProcessV2(argv,executable,parent=null){
  assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
  const main=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_MAIN_V2)),next=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_AUTHORIZED_DURABLE_NOTE_NEXT_V2));
@@ -127,11 +128,11 @@ export function classifyNativePrivateAuthorizedDurableNoteRestartProcessV2(argv,
 }
 
 /** Own recipient V3 argv and authentic same-generation parent. */
-export const NATIVE_PRIVATE_WORKER_DURABLE_NOTE_MAIN_V3=join(ROOT,'integration/native-value-private-worker-durable-note-flow-v3.mjs');
-export const NATIVE_PRIVATE_WORKER_DURABLE_NOTE_NEXT_V3=join(ROOT,'integration/run-native-value-private-worker-durable-note-successor-v3.mjs');
+export const NATIVE_PRIVATE_WORKER_DURABLE_NOTE_MAIN_V3=fileURLToPath(new URL('./native-value-private-worker-durable-note-flow-v3.mjs',import.meta.url));
+export const NATIVE_PRIVATE_WORKER_DURABLE_NOTE_NEXT_V3=fileURLToPath(new URL('./run-native-value-private-worker-durable-note-successor-v3.mjs',import.meta.url));
 const PRIVATE_WORKER_RECIPIENTS_V3=Object.freeze([
- join(ROOT,'proof-workers/native-device-private-deposit-recipient-v3.mjs'),
- join(ROOT,'proof-workers/native-device-private-exit-recipient-v3.mjs')]);
+ fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-deposit-recipient-v3.mjs',import.meta.url)),
+ fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-exit-recipient-v3.mjs',import.meta.url))]);
 export function classifyNativePrivateWorkerDurableNoteRestartProcessV3(argv,executable,parent=null){
  assert.equal(arguments.length,3);if(!Array.isArray(argv))return null;
  const main=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_WORKER_DURABLE_NOTE_MAIN_V3)),next=Boolean(parent&&fixedNode(parent.argv,NATIVE_PRIVATE_WORKER_DURABLE_NOTE_NEXT_V3));
@@ -139,7 +140,7 @@ export function classifyNativePrivateWorkerDurableNoteRestartProcessV3(argv,exec
  const oldRecipient=argv.some(part=>typeof part==='string'&&/^native-device-private-(deposit|exit)-recipient-v2\.mjs$/.test(basename(part)));
  if(oldRecipient)return unexpected();
  const mode=argv.some(part=>typeof part==='string'&&basename(part)==='native-private-note-deposit-worker-v3.mjs')?'deposit':argv.some(part=>typeof part==='string'&&basename(part)==='native-private-note-withdraw-worker-v3.mjs')?'exit':null;
- if(mode){const ownWorker=join(ROOT,'proof-workers/native-private-note-'+(mode==='deposit'?'deposit':'withdraw')+'-worker-v3.mjs'),ownRecipient=join(ROOT,'proof-workers/native-device-private-'+mode+'-recipient-v3.mjs');return executable===process.execPath&&fixedNode(argv,ownWorker)&&parent&&fixedNode(parent.argv,ownRecipient)?{role:'economic-note-native-coordinator',proofWorker:false}:unexpected();}
+ if(mode){const ownWorker=(mode==='deposit'?fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-private-note-deposit-worker-v3.mjs',import.meta.url)):fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-private-note-withdraw-worker-v3.mjs',import.meta.url))),ownRecipient=(mode==='deposit'?fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-deposit-recipient-v3.mjs',import.meta.url)):fileURLToPath(new URL('../../../../packages/proofs/src/jobs/native-device-private-exit-recipient-v3.mjs',import.meta.url)));return executable===process.execPath&&fixedNode(argv,ownWorker)&&parent&&fixedNode(parent.argv,ownRecipient)?{role:'economic-note-native-coordinator',proofWorker:false}:unexpected();}
  if(argv.some(part=>typeof part==='string'&&/^note-(deposit|withdraw)-native-worker-v1\.mjs$/.test(basename(part))))return unexpected();
  const recipient=PRIVATE_WORKER_RECIPIENTS_V3.find(path=>argv.includes(path));
  if(recipient||argv.some(part=>typeof part==='string'&&PRIVATE_WORKER_RECIPIENTS_V3.some(path=>basename(part)===basename(path))))

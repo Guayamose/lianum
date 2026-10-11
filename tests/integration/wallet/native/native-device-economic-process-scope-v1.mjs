@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed process labels and original recoverable-Anvil preflight for the
  * planned economic restart. Labels never mint an account or signal capability.
  * The supervisor retains its original PID/group/UID/birth/RSS checks. */
@@ -13,8 +14,8 @@ export const NATIVE_ECONOMIC_RECOVERABLE_ANVIL_PIN_V1=Object.freeze([
   'be5129d636ea18440d43908536f13ba6578859b695f2ca33f1f09a00aa9dc176',
 ]);
 export const NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1=join(GOLDEN,'.local/linux-runtimes',NATIVE_ECONOMIC_RECOVERABLE_ANVIL_PIN_V1[0]);
-export const NATIVE_ECONOMIC_RESTART_WORKER_V1=join(ROOT,'integration/native-value-economic-recovery-flow-v1.mjs');
-export const NATIVE_ECONOMIC_SUCCESSOR_WORKER_V1=join(ROOT,'integration/native-device-economic-successor-worker-v1.mjs');
+export const NATIVE_ECONOMIC_RESTART_WORKER_V1=fileURLToPath(new URL('./native-value-economic-recovery-flow-v1.mjs',import.meta.url));
+export const NATIVE_ECONOMIC_SUCCESSOR_WORKER_V1=fileURLToPath(new URL('./native-device-economic-successor-worker-v1.mjs',import.meta.url));
 
 const fixedNode=(argv,script)=>Array.isArray(argv)&&argv.length===2&&argv[0]===process.execPath&&argv[1]===script;
 const unexpected=()=>({role:'native-economic-unexpected-process',proofWorker:true});

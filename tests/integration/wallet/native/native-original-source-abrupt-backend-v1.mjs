@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed SOURCE backend child. Infrastructure crosses IPC; device keys and
  * note openings stay in the parent or its explicitly consented original TLS job. */
 import assert from 'node:assert/strict';
@@ -14,11 +15,11 @@ import {readOriginalNativeSourceProofReceiptsV1} from '../../../../packages/back
 import {createNativeValueSystemStateReader} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
 import {nativeProcStatV1} from '../../native/native-flow-owned-files-v1.mjs';
 import {privateNativeEconomicSuccessorFirstErrorV1} from './native-device-economic-private-error-v1.mjs';
-const name=join(ROOT,'integration/native-original-source-abrupt-backend-v1.mjs');
+const name=fileURLToPath(new URL('./native-original-source-abrupt-backend-v1.mjs',import.meta.url));
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),name);
 assert.equal(realpathSync(process.cwd()),ROOT);assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
 const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);
-assert.deepEqual(parent,[process.execPath,join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs')]);
+assert.deepEqual(parent,[process.execPath,fileURLToPath(new URL('./native-original-source-abrupt-flow-v1.mjs',import.meta.url))]);
 assert.equal(typeof process.send,'function');
 let service=null,started=false,closed=false,closing=false,tail=Promise.resolve();
 const max=4*1024*1024;

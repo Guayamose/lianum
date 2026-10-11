@@ -13,7 +13,7 @@ const FLOW='.local/native-spl-claim-validation-compilation-only-v1';
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),fileURLToPath(import.meta.url));
 assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.LANG,'C.UTF-8');assert.equal(process.env.PATH,'/usr/bin:/bin');
 const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);assert.equal(parent.length,2);
-assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,'integration/run-native-spl-claim-validation-compilation-v1.mjs'));
+assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),fileURLToPath(new URL('./run-native-spl-claim-validation-compilation-v1.mjs',import.meta.url)));
 const lock=JSON.parse(readFileSync(join(ROOT,FLOW,'active.lock')));assert.equal(lock.pid,process.ppid);
 assert.match(lock.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.equal(lock.attempt,FLOW+'/attempt-'+lock.runId);
 const directory=join(ROOT,lock.attempt),began=performance.now(),sourcePins=nativeSplClaimValidationCompilationSourcePinsV1();

@@ -5,17 +5,17 @@ import { mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { nativeProcStatV1 } from '../../../tests/integration/native/native-flow-owned-files-v1.mjs';
-import { catalog, tools, DIRECTORY, STEPS, parse, write, replace, fingerprint, co42Artifacts }
+import { nativeProcStatV1 } from '@lianum/proofs/host/process-files';
+import { catalog, tools, DIRECTORY, STEPS, parse, write, replace, fingerprint, co42Artifacts, NATIVE_CLAIMS_BUILD_SOURCES }
   from '../../../packages/backend/src/proving/native-ingress/tooling/native-claims-build-common.mjs';
 assert.equal(process.argv.length,2,'NATIVE_REBUILD_FIXED_INVOCATION');
 assert.deepEqual(process.execArgv,[]);assert.ok(!process.env.NODE_OPTIONS&&!process.env.NODE_PATH);
 const env={PATH:'/usr/bin:/bin',LANG:'C.UTF-8'};
 const lockPath=join(catalog.LOCAL,'active.lock');
-const worker=join(catalog.ROOT,'proof-workers/native-claims-build-worker.mjs');
+const worker=NATIVE_CLAIMS_BUILD_SOURCES.worker;
 async function rebuildCO42(mode) {
   const result=await new Promise((resolve,reject)=>{
-    const child=spawn('/usr/bin/python3',[join(catalog.ROOT,'proof-workers/native-claims-parent-death.py'),mode],
+    const child=spawn('/usr/bin/python3',[NATIVE_CLAIMS_BUILD_SOURCES.guardian,mode],
       {cwd:catalog.ROOT,env,stdio:['ignore','pipe','pipe']});
     let output='',bytes=0,identity,stopped;
     const signal=()=>{

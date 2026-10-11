@@ -1,3 +1,4 @@
+import {integrationTask} from '../../runners/task-catalog.mjs';
 /** Actual CI51/CO42 key-to-Solidity lineage. No legacy verifier is rebuilt,
  * and this job generates no key, witness, proof, deployment or native effect. */
 import assert from 'node:assert/strict';
@@ -18,8 +19,8 @@ const parentArgs = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('
 assert.equal(parentArgs.length, 2, 'VERIFIER_PARENT_ARGS');
 assert.equal(realpathSync(`/proc/${process.ppid}/exe`), realpathSync(process.execPath), 'VERIFIER_PARENT_EXE');
 assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parentArgs[1])),
-  join(ROOT, 'integration/run-claim-verifier-compilation.mjs'), 'VERIFIER_PARENT_SCRIPT');
-assert.equal(realpathSync(process.argv[1]), join(ROOT, 'integration/claim-verifier-compilation-worker.mjs'), 'VERIFIER_WORKER_SCRIPT');
+  integrationTask('claim-verifiers').entry, 'VERIFIER_PARENT_SCRIPT');
+assert.equal(realpathSync(process.argv[1]), integrationTask('claim-verifiers').worker, 'VERIFIER_WORKER_SCRIPT');
 const lock = JSON.parse(regular(join(LOCAL, 'claim-verifier-compilation.lock')));
 assert.equal(lock.runId, runId); assert.equal(lock.pid, process.ppid);
 const supervisor = JSON.parse(regular(join(attempt, 'resources.json')));

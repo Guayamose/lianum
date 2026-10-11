@@ -1,3 +1,4 @@
+import {applicationFlowEntrypoints} from '../../../runners/application-flow-entrypoints.mjs';
 import {claimWrappedColdStageV1,wrappedColdSourceIdentityV1,reconcileWrappedColdCheckpointPublicationV1,readWrappedColdCheckpointV1} from './wrapped-wallet-cold-cycle-v1.mjs';
 import { inspectWrappedInstallationSourcesV2 } from '../../../deployments/wrapped/wrapped-installation-source-inspector-v2.mjs';
 /** Fixed original-supervisor worker. Source-only until all literal gates and
@@ -27,10 +28,10 @@ export async function runWrappedDeploymentOnlyV1(){assert.equal(arguments.length
 async function run(unfunded,deploymentOnly=false){
  inspectWrappedInstallationSourcesV2();
  const stem=deploymentOnly?'wrapped-deployment-only-v1':'wrapped-wallet-fixed-'+(unfunded?'preflight':'acceptance')+'-v1';
- assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration',stem+'.mjs'));
+ assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),applicationFlowEntrypoints[deploymentOnly?'wrappedDeploymentOnly':unfunded?'wrappedWalletFixedPreflight':'wrappedWalletFixedAcceptance'].worker);
  assert.equal(realpathSync(process.cwd()),ROOT);assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.PATH,'/usr/bin:/bin');assert.equal(process.env.LANG,'C.UTF-8');
  const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);assert.equal(parent.length,2);
- assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,'integration','run-'+stem+'.mjs'));
+ assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),applicationFlowEntrypoints[deploymentOnly?'wrappedDeploymentOnly':unfunded?'wrappedWalletFixedPreflight':'wrappedWalletFixedAcceptance'].entry);
  const lock=JSON.parse(readFileSync(join(ROOT,'.local',stem,'active.lock')));assert.equal(lock.pid,process.ppid);
  assert.match(lock.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.equal(lock.attempt,'.local/'+stem+'/attempt-'+lock.runId);
  const directory=join(ROOT,lock.attempt),privateDirectory=join(directory,'private-audit');if(!existsSync(privateDirectory))mkdirSync(privateDirectory,{mode:0o700});else{assert.equal(unfunded,false);assert.equal(deploymentOnly,false);const stat=lstatSync(privateDirectory);assert.ok(stat.isDirectory()&&!stat.isSymbolicLink()&&(stat.mode&0o777)===0o700);assert.equal(realpathSync(privateDirectory),privateDirectory);}

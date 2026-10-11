@@ -13,7 +13,7 @@ import { integrationTask } from './task-catalog.mjs';
 
 export async function runBoundedIntegrationTask(suite) {
 const task = integrationTask(suite);
-const script = join(ROOT, 'integration', task.entry);
+const script = task.entry;
 assert.equal(process.argv.length, 2, 'ENVELOPE_FIXED_ARGUMENTS');
 assert.equal(realpathSync(resolve(process.argv[1])), script, 'ENVELOPE_FIXED_ENTRY');
 assert.deepEqual(process.execArgv, [], 'ENVELOPE_NO_EXEC_OPTIONS');
@@ -57,7 +57,7 @@ try {
   writeJSON(lockPath, { runId, pid: process.pid }); locked = true;
   report.sourcePins = integrationSourcePins(suite); save(); sample();
   assert.ok(!report.failure, 'ENVELOPE_PREFLIGHT_RESOURCES');
-  child = spawn(process.execPath, [join(ROOT, 'integration', task.worker), runId],
+  child = spawn(process.execPath, [task.worker, runId],
     { cwd: ROOT, env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' }, stdio: ['ignore', 'pipe', 'pipe'] });
   completion = new Promise(resolveClosed => child.once('close', (code, signal) => {
     closed = true; report.exitCode = code; report.signal = signal; resolveClosed();

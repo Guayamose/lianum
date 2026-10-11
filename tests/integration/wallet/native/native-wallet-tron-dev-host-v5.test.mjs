@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Four pure source/metadata regressions. Synthetic values grant no runtime,
  * proof, signature, financial state or acceptance authority. No node starts. */
 import test from 'node:test';
@@ -52,8 +53,8 @@ test('V5 selector requires the original system brand; no caller consumer/path op
  assert.throws(()=>nativeValueOriginalAdmissionConsumer({}, {}, {}),/ARITY/);
  assert.throws(()=>createNativeValueDevLiveProofClientV5({worker:'/tmp/worker.mjs'}),/NO_OPTIONS/);
  assert.throws(()=>nativeValueDevFinancialSourcePinsV5({paths:[]}),/NO_OPTIONS/);
- const original=readFileSync(join(ROOT,'proof-workers/native-value-live-v2-worker.mjs'),'utf8');
- const current=readFileSync(join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs'),'utf8');
+ const original=readFileSync(fileURLToPath(new URL('../../../../packages/backend/src/proving/native-value/runtime/native-value-live-v2-worker.mjs',import.meta.url)),'utf8');
+ const current=readFileSync(fileURLToPath(new URL('../../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs',import.meta.url)),'utf8');
  const body=source=>source.slice(source.indexOf('const expected=[...job.expectedPublicInputs]'),source.indexOf('writeNew(join(attempt,\'proof.bin\')'))
   .replaceAll('loadNativeValueDevLiveArtifactsV5','loadNativeValueLiveArtifacts');
  assert.ok(body(original).length>1000);assert.equal(body(current),body(original));

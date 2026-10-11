@@ -201,8 +201,8 @@ async function noHeavyWork() {
       assert.ok(end > text.indexOf('('), 'TRON_CANDIDATE_PROCESS_STAT'); const comm = text.slice(text.indexOf('(') + 1, end);
       if (comm === 'node') {
         const args = (await readFile('/proc/' + name + '/cmdline')).toString('utf8').split('\0').filter(Boolean);
-        const fixedWorkers = [join(ROOT, 'proof-workers/worker.mjs'), join(ROOT, 'proof-workers/native-claims-build-worker.mjs'),
-          join(ROOT, 'proof-workers/native-ingress-v3-worker.mjs'), join(GOLDEN, 'src/paeg/proof-worker.mjs')];
+        const fixedWorkers = [fileURLToPath(new URL('../../../../packages/proofs/src/jobs/worker.mjs',import.meta.url)), fileURLToPath(new URL('../../../../packages/backend/src/proving/native-ingress/runtime/native-claims-build-worker.mjs',import.meta.url)),
+          fileURLToPath(new URL('../../../../packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-worker.mjs',import.meta.url)), fileURLToPath(new URL('../../../../packages/proofs/src/execution/proof-worker.mjs',import.meta.url))];
         for (const argument of args.slice(1)) {
           if (argument.startsWith('-')) continue;
           assert.equal(fixedWorkers.includes(resolve(await readlink('/proc/' + name + '/cwd'), argument)), false,

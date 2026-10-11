@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed new process: one-use originals, signed HTTPS, no root/key IPC. */
 import assert from 'node:assert/strict';
 import {readFileSync,realpathSync,lstatSync} from 'node:fs';
@@ -12,11 +13,11 @@ import {createOriginalNativeDeviceLiveRecoveryProducerV1} from '../../../../pack
 import {auditNativeDeviceLiveArmedShortV1} from './native-device-live-armed-short-audit-v1.mjs';
 import {privateNativeEconomicSuccessorFirstErrorV1} from './native-device-economic-private-error-v1.mjs';
 import {writeFixturePrivate} from '../../fixtures/runners/owned-flat-fixture.mjs';
-const HERE=join(ROOT,'integration/native-device-live-armed-short-successor-v1.mjs');
+const HERE=fileURLToPath(new URL('./native-device-live-armed-short-successor-v1.mjs',import.meta.url));
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),HERE);assert.equal(realpathSync(process.cwd()),ROOT);
 assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.PATH,'/usr/bin:/bin');assert.equal(process.env.LANG,'C.UTF-8');assert.equal(process.connected,true);
 const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);assert.equal(parent.length,2);assert.equal(parent[0],process.execPath);assert.equal(realpathSync(`/proc/${process.ppid}/exe`),process.execPath);
-assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,'integration/native-value-live-armed-short-restart-flow-v1.mjs'));
+assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),fileURLToPath(new URL('./native-value-live-armed-short-restart-flow-v1.mjs',import.meta.url)));
 let originals,service,clocks,producer,identity,sequence=0,opened=false,closing,deadline,acquisition,closeRequested=false,firstError=false,controlDeadlineMs,auditWork;
 const send=async value=>{assert.ok(Buffer.byteLength(JSON.stringify(value))<=2*1024*1024);await new Promise((done,reject)=>process.send(value,e=>e?reject(e):done()));};
 function privateTLS(name){const path=join(identity.directory,'device-tls',name);assert.equal(realpathSync(path),path);const before=lstatSync(path);assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.uid===process.getuid()&&(before.mode&0o077)===0&&before.nlink===1&&before.size<=65536);

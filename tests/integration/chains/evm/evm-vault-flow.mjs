@@ -1,3 +1,4 @@
+import {applicationFlowEntrypoints} from '../../runners/application-flow-entrypoints.mjs';
 import {sha as canonicalJournalSHA} from '@lianum/engine/accounts/journal';
 /** Actual affected path: one private underlying reservation pays a solver only after
  * its gated official action backs the preauthorized private output note.
@@ -50,13 +51,13 @@ const bare = value => value.slice(2);
 // The fixed supervisor entries reuse this original worker. Neither accepts
 // an argv/environment selector or changes the proof/custody authority.
 const SCENARIOS = Object.freeze({
-  'integration/run-evm-metamorpho-recovery-flow-v1.mjs':Object.freeze({protocol:'OFFICIAL_METAMORPHO_V1',local:'.local/evm-metamorpho-recovery-v1',recovery:true,metaRecovery:true}),
-  'integration/run-evm-metamorpho-exit-recovery-v1.mjs':Object.freeze({protocol:'OFFICIAL_METAMORPHO_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
-  'integration/run-evm-aave-exit-recovery-v1.mjs':Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
-  'integration/run-evm-vault-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_METAMORPHO_V1', local: '.local/evm-vault-flow' }),
-  'integration/run-evm-aave-flow.mjs': Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/evm-aave-flow-v1'}),
-  'integration/run-evm-uniswap-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1', local: '.local/evm-uniswap-flow' }),
-  'integration/run-evm-uniswap-recovery-flow.mjs': Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1',
+  evmMetaMorphoRecoveryV1:Object.freeze({protocol:'OFFICIAL_METAMORPHO_V1',local:'.local/evm-metamorpho-recovery-v1',recovery:true,metaRecovery:true}),
+  externalDefiMetaMorphoExitRecoveryV1:Object.freeze({protocol:'OFFICIAL_METAMORPHO_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
+  externalDefiAaveExitRecoveryV1:Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/external-defi-owner-cycle-v1',retainedExit:true}),
+  evmVault: Object.freeze({ protocol: 'OFFICIAL_METAMORPHO_V1', local: '.local/evm-vault-flow' }),
+  evmAave: Object.freeze({protocol:'OFFICIAL_AAVE_STATIC_V1',local:'.local/evm-aave-flow-v1'}),
+  evmUniswap: Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1', local: '.local/evm-uniswap-flow' }),
+  evmUniswapRecovery: Object.freeze({ protocol: 'OFFICIAL_UNISWAP_V3_V1',
     local: '.local/evm-uniswap-recovery-flow', recovery: true }),
 });
 const safeCode = error => {
@@ -97,7 +98,8 @@ async function main() {
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
   const parentEntry = realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1]));
-  const scenario = Object.entries(SCENARIOS).find(([entry]) => parentEntry === join(ROOT, entry))?.[1];
+  const scenario = Object.entries(SCENARIOS).find(([profile]) => parentEntry === applicationFlowEntrypoints[profile].entry
+    && fileURLToPath(import.meta.url) === applicationFlowEntrypoints[profile].worker)?.[1];
   assert.ok(scenario, 'EVM_VAULT_FIXED_ORIGINAL_SUPERVISOR');
   const PROTOCOL_PROFILE = scenario.protocol, AAVE = PROTOCOL_PROFILE === 'OFFICIAL_AAVE_STATIC_V1',
     UNISWAP = PROTOCOL_PROFILE === 'OFFICIAL_UNISWAP_V3_V1', RECOVERY = scenario.recovery === true, RETAINED_EXIT=scenario.retainedExit===true, META_RECOVERY=scenario.metaRecovery===true;

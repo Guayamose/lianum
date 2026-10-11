@@ -1,3 +1,4 @@
+import {applicationFlowEntrypoints} from '../../runners/application-flow-entrypoints.mjs';
 /** Fixed new lifetime only: original byte-identical artifacts, no compiler/prover.
  * This runner deliberately establishes no private note, native-value wire,
  * public chain/client/consensus/finality or production deployment acceptance. */
@@ -30,7 +31,7 @@ async function main() {
   assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.LANG,'C.UTF-8');assert.equal(process.env.PATH,'/usr/bin:/bin');
   const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length,2);assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),
-    join(ROOT,'integration/evm/osaka/run-development-osaka-smoke.mjs'));
+    applicationFlowEntrypoints.osakaSmoke.entry);
   const lock=JSON.parse(readFileSync(join(ROOT,FLOW,'active.lock')));
   assert.equal(lock.pid,process.ppid);assert.match(lock.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(lock.attempt,FLOW+'/attempt-'+lock.runId);

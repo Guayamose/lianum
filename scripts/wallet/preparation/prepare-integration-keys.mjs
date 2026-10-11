@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Prepare only the five remaining compiled relation keys, serially. The
  * bounded worker reuses an existing validated key instead of regenerating it.
  * No witnesses, proofs, chain runtimes or transfers are supplied or created. */
@@ -16,7 +17,7 @@ try {
   for (const relation of ['dependency', 'ready', 'admission', 'settlement', 'recovery']) {
     assert.equal(interrupted, false, 'PREPARE_INTERRUPTED');
     const outcome = await new Promise((resolve, reject) => {
-      active = spawn(process.execPath, [join(ROOT, 'proof-workers/run-bounded.mjs'), relation, 'prepare-key'],
+      active = spawn(process.execPath, [fileURLToPath(new URL('../../../packages/proofs/src/jobs/run-bounded.mjs',import.meta.url)), relation, 'prepare-key'],
         { cwd: ROOT, env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' }, stdio: ['ignore', 'inherit', 'inherit'] });
       active.once('error', reject);
       active.once('close', (code, signal) => { active = null; resolve({ code, signal }); });

@@ -1,3 +1,4 @@
+import {integrationTask} from './task-catalog.mjs';
 /** Fixed, synthetic U/S/F host-to-circuit conformance. Receives no user inputs,
  * creates no proof/key/native transfer and writes only public case outcomes. */
 import assert from 'node:assert/strict';
@@ -15,7 +16,7 @@ export async function runConstraintWorker({ suite, relationNames, buildCases }) 
 assert.ok(['envelope', 'native', 'completion', 'evm-deposit', 'native-claim'].includes(suite), 'ENVELOPE_FIXED_SUITE');
 assert.ok(Array.isArray(relationNames) && relationNames.length <= 8, 'ENVELOPE_RELATION_SET');
 assert.equal(new Set(relationNames).size, relationNames.length, 'ENVELOPE_UNIQUE_RELATIONS');
-const script = join(ROOT, 'integration/' + suite + '-constraints-worker.mjs');
+const task=integrationTask(suite),script=task.worker;
 assert.equal(process.argv.length, 3, 'ENVELOPE_FIXED_WORKER_ARGS');
 assert.equal(realpathSync(process.argv[1]), script, 'ENVELOPE_FIXED_WORKER');
 assert.deepEqual(process.execArgv, [], 'ENVELOPE_NO_EXEC_OPTIONS');
@@ -27,7 +28,7 @@ assert.equal(realpathSync(`/proc/${process.ppid}/exe`), realpathSync(process.exe
 const parentArgs = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
 assert.equal(parentArgs.length, 2, 'ENVELOPE_PARENT_ARGS');
 assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parentArgs[1])),
-  join(ROOT, 'integration/run-' + suite + '-constraints.mjs'), 'ENVELOPE_PARENT_SCRIPT');
+  task.entry, 'ENVELOPE_PARENT_SCRIPT');
 const lock = JSON.parse(regular(join(LOCAL, suite + '-constraints.lock')));
 assert.equal(lock.pid, process.ppid); assert.equal(lock.runId, runId);
 const supervisor = JSON.parse(regular(join(attempt, 'resources.json')));

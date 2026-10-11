@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Genuine SOURCE product: one mobile D26, abrupt backend exit, the SAME
  * capsule in a new PID, then original unadmitted U/S, first fresh ARM and a second abrupt reopen. */
 import assert from 'node:assert/strict';
@@ -23,12 +24,12 @@ import {privateNativeEconomicSuccessorFirstErrorV1} from './native-device-econom
 import {nativeSourceAbruptSourcePinsV1} from './native-original-source-abrupt-source-pins-v1.mjs';
 import {NATIVE_SOURCE_ABRUPT_PROFILE_V1,NATIVE_SOURCE_ABRUPT_RESULT_V1,assertNativeSourceAbruptReleaseV1,assertNativeSourceAbruptResultV1} from './native-original-source-abrupt-policy-v1.mjs';
 const sha=v=>createHash('sha256').update(v).digest('hex'),bare=v=>v.startsWith('0x')?v.slice(2):v;
-const childScript=join(ROOT,'integration/native-original-source-abrupt-backend-v1.mjs');
+const childScript=fileURLToPath(new URL('./native-original-source-abrupt-backend-v1.mjs',import.meta.url));
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function run(){
  assertNativeSourceAbruptReleaseV1();assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.cwd()),ROOT);
- assert.equal(realpathSync(process.argv[1]),join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs'));assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
- const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);assert.deepEqual(parent,[process.execPath,join(ROOT,'integration/run-native-original-source-abrupt-v1.mjs')]);
+ assert.equal(realpathSync(process.argv[1]),fileURLToPath(new URL('./native-original-source-abrupt-flow-v1.mjs',import.meta.url)));assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);
+ const parent=readFileSync('/proc/'+process.ppid+'/cmdline','utf8').split('\0').filter(Boolean);assert.deepEqual(parent,[process.execPath,fileURLToPath(new URL('./run-native-original-source-abrupt-v1.mjs',import.meta.url))]);
  const lock=JSON.parse(readNativeFlowRegularV1(join(ROOT,'.local',NATIVE_SOURCE_ABRUPT_PROFILE_V1,'active.lock')));assert.equal(lock.pid,process.ppid);assert.match(lock.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.equal(lock.attempt,'.local/'+NATIVE_SOURCE_ABRUPT_PROFILE_V1+'/attempt-'+lock.runId);
  const directory=join(ROOT,lock.attempt),privateDirectory=join(directory,'private-audit'),proofDirectory=join(directory,'public-proofs');
  mkdirSync(privateDirectory,{mode:0o700});mkdirSync(proofDirectory,{mode:0o700});

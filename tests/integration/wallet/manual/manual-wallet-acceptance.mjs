@@ -1,3 +1,5 @@
+import {manualWalletEntrypoints,manualWalletInvocation} from './manual-wallet-entrypoints.mjs';
+import {currentManualWalletSourcePins,currentManualWalletBrowserSourcePins,currentManualWalletBrowserRecoverySourcePins} from './current-manual-wallet-source-pins.mjs';
 /** Actual affected path: one private PALT reservation pays a solver only after
  * its gated vault action backs the exact preauthorized private BLTV note.
  * Reviewed manual/exact-only catalogue route for a fresh development laboratory.
@@ -17,8 +19,6 @@ import { ROOT } from '@lianum/proofs/catalog';
 import { hash } from '@lianum/proofs/tooling/tooling';
 import { createOwnedEvmVaultFixture, prepareEvmVaultFixtureGraph } from '../../fixtures/chains/evm/owned-evm-vault-fixture.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
-import { manualWalletSourcePins } from './manual-wallet-source-pins.mjs';
-import { manualWalletBrowserSourcePins } from './manual-wallet-browser-source-pins.mjs';
 import { MANUAL_WALLET_BROWSER_FORMAT, assertManualWalletBrowserResult } from './manual-wallet-browser-policy.mjs';
 import { NATIVE_FLOW_LIMITS } from '../../native/native-flow-supervisor.mjs';
 import { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools } from '../../chains/evm/evm-vault-terminal-checks.mjs';
@@ -38,7 +38,6 @@ import { createGenerationPrivateVaultExit } from '@lianum/backend/defi/generatio
 import { MANUAL_WALLET_REAL_RUN_DISABLED, assertManualWalletResult } from './manual-wallet-acceptance-policy.mjs';
 import { MANUAL_WALLET_RECOVERY_FORMAT, assertManualWalletRecoveryResult } from './manual-wallet-recovery-policy.mjs';
 import { MANUAL_WALLET_BROWSER_RECOVERY_FORMAT, assertManualWalletBrowserRecoveryResult } from './manual-wallet-browser-recovery-policy.mjs';
-import { manualWalletBrowserRecoverySourcePins } from './manual-wallet-browser-recovery-source-pins.mjs';
 import { createOwnedBackedVault, assertOwnedBackedVaultReceipt } from '../../../../packages/backend/src/defi/vaults/owned-backed-vault.mjs';
 import { createOwnedPrivateVaultExit } from '@lianum/backend/defi/withdrawal';
 
@@ -54,19 +53,19 @@ export async function runManualWalletAcceptance() {
   assert.equal(MANUAL_WALLET_REAL_RUN_DISABLED, false, 'MANUAL_WALLET_REQUIRES_EXCLUSIVE_CHECKPOINTED_SLOT');
   assert.equal(process.argv.length, 2);
   const worker = realpathSync(process.argv[1]);
-  const browserRecovery = worker === join(ROOT, 'integration/manual-wallet-browser-timeout-recovery.mjs');
-  const timeoutRecovery = browserRecovery || worker === join(ROOT, 'integration/manual-wallet-timeout-recovery.mjs');
-  const browserMode = browserRecovery || worker === join(ROOT, 'integration/manual-wallet-browser-acceptance.mjs');
+  const browserRecovery = worker === manualWalletEntrypoints.manualWalletBrowserRecovery.worker;
+  const timeoutRecovery = browserRecovery || worker === manualWalletEntrypoints.manualWalletRecovery.worker;
+  const browserMode = browserRecovery || worker === manualWalletEntrypoints.manualWalletBrowser.worker;
   assert.ok(timeoutRecovery || browserMode || worker === fileURLToPath(import.meta.url), 'MANUAL_WALLET_FIXED_WORKER_REQUIRED');
   const flowName = browserRecovery ? 'manual-wallet-browser-timeout-recovery' : browserMode ? 'manual-wallet-browser-acceptance' : timeoutRecovery ? 'manual-wallet-timeout-recovery' : 'manual-wallet-acceptance';
-  const captureSources = browserRecovery ? manualWalletBrowserRecoverySourcePins : browserMode ? manualWalletBrowserSourcePins : manualWalletSourcePins;
+  const captureSources = browserRecovery ? currentManualWalletBrowserRecoverySourcePins : browserMode ? currentManualWalletBrowserSourcePins : currentManualWalletSourcePins;
   assert.deepEqual(process.execArgv, []);
   assert.deepEqual(Object.keys(process.env).sort(), ['LANG', 'PATH']);
   assert.equal(process.env.PATH, '/usr/bin:/bin'); assert.equal(process.env.LANG, 'C.UTF-8');
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
-  assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])),
-    join(ROOT, 'integration/run-' + flowName + '.mjs'));
+  const invocation=manualWalletInvocation(worker,realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])));
+  assert.equal(invocation.name,flowName);
   const lock = JSON.parse(readFileSync(join(ROOT, '.local/' + flowName + '/active.lock')));
   assert.equal(lock.pid, process.ppid);
   assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);

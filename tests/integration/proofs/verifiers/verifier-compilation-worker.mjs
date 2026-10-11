@@ -1,3 +1,4 @@
+import {integrationTask} from '../../runners/task-catalog.mjs';
 /** Build the fixed twelve-verifier set. The original ten unchanged compiled
  * artifacts are copied only after source/key/compiler identity checks; only
  * the revised admission and new deposit-intent verifier are compiled here.
@@ -22,8 +23,8 @@ const parentArgs = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('
 assert.equal(parentArgs.length, 2, 'VERIFIER_PARENT_ARGS');
 assert.equal(realpathSync(`/proc/${process.ppid}/exe`), realpathSync(process.execPath), 'VERIFIER_PARENT_EXE');
 assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parentArgs[1])),
-  join(ROOT, 'integration/run-verifier-compilation.mjs'), 'VERIFIER_PARENT_SCRIPT');
-assert.equal(realpathSync(process.argv[1]), join(ROOT, 'integration/verifier-compilation-worker.mjs'), 'VERIFIER_WORKER_SCRIPT');
+  integrationTask('verifiers').entry, 'VERIFIER_PARENT_SCRIPT');
+assert.equal(realpathSync(process.argv[1]), integrationTask('verifiers').worker, 'VERIFIER_WORKER_SCRIPT');
 const lock = JSON.parse(regular(join(LOCAL, 'verifier-compilation.lock')));
 assert.equal(lock.runId, runId); assert.equal(lock.pid, process.ppid);
 const supervisor = JSON.parse(regular(join(attempt, 'resources.json')));

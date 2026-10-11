@@ -15,6 +15,25 @@ from workspace import ROOT, DEV, RUNTIME, build
 
 NODE = DEV / "toolchains/node-v24.19.0-linux-x64/bin/node"
 FLAT = RUNTIME / "omnichain-flat-profile/flat-wallet"
+# Fixed source entrypoints; FLAT contains only the retained lab resources/state.
+SOURCE_ENTRIES = {
+    "scripts/prepare-backed-assets.mjs": "scripts/wallet/preparation/prepare-backed-assets.mjs",
+    "scripts/prepare-development-evm.mjs": "scripts/wallet/preparation/prepare-development-evm.mjs",
+    "proof-workers/run-bounded.mjs": "packages/proofs/src/jobs/run-bounded.mjs",
+    **{"integration/run-" + name + ".mjs": "tests/integration/wallet/manual/run-" + name + ".mjs"
+       for name in ("manual-wallet-acceptance", "manual-wallet-timeout-recovery",
+                    "manual-wallet-browser-acceptance", "manual-wallet-browser-timeout-recovery")},
+}
+
+def source_entry(entry):
+    try:
+        selected = ROOT / SOURCE_ENTRIES[str(entry)]
+    except KeyError:
+        raise ValueError("EVM_LAB_FIXED_SOURCE_ENTRY") from None
+    if selected.resolve() != selected or not selected.is_file():
+        raise ValueError("EVM_LAB_PHYSICAL_SOURCE_ENTRY")
+    return selected
+
 CLEAN_ENV = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
 active = None
 interrupted = False
@@ -66,7 +85,7 @@ def run(entry, *arguments, observe=False, flow="manual-wallet-acceptance"):
     def guard_parent():
         if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGTERM, 0, 0, 0) != 0 or os.getppid() != owner_pid:
             os._exit(125)
-    active = subprocess.Popen([str(NODE), str(FLAT / entry), *arguments], cwd=FLAT, env=CLEAN_ENV, preexec_fn=guard_parent)
+    active = subprocess.Popen([str(NODE), str(source_entry(entry)), *arguments], cwd=FLAT, env=CLEAN_ENV, preexec_fn=guard_parent)
     supervisor_pid = active.pid
     if observe:
         last_lab_supervisor_identity = capture_child_identity(active)

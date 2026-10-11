@@ -1,3 +1,4 @@
+import {applicationFlowEntrypoints} from '../runners/application-flow-entrypoints.mjs';
 /** First actual flat U/S/P/R/I/N/T/F vertical, on owned disposable fake-value
  * chains only. The private keeper deliberately sees the schedule and retains
  * custody passwords. This is not hostile-host isolation or public finality.
@@ -80,7 +81,7 @@ async function main() {
   assert.equal(process.env.LANG, 'C.UTF-8'); assert.equal(process.env.PATH, '/usr/bin:/bin');
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2); assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])),
-    join(ROOT, 'integration/run-native-flow.mjs'));
+    applicationFlowEntrypoints.nativeFlow.entry);
   const lock = JSON.parse(regular(join(ROOT, '.local/native-flow/active.lock')));
   assert.equal(lock.pid, process.ppid, 'FLAT_FLOW_OWNED_SUPERVISOR');
   assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/, 'FLAT_FLOW_UNIQUE_RUN_ID');

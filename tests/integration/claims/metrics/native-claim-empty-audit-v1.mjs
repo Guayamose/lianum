@@ -20,7 +20,7 @@ import { EMPTY_AUDIT_PROFILE, EMPTY_AUDIT_RESULT, EMPTY_AUDIT_ACTIVITY_SCOPE,
 import { nativeClaimEmptyAuditSourcePins } from './native-claim-empty-audit-source-pins-v1.mjs';
 
 const LOCAL_RUN = '.local/native-claim-empty-audit-metrics-v1';
-const ENTRY = join(ROOT, 'integration/claims/metrics/run-native-claim-empty-audit-v1.mjs');
+const ENTRY = fileURLToPath(new URL('./run-native-claim-empty-audit-v1.mjs',import.meta.url));
 const code = error => String(error?.message ?? '').match(/\b(?:EMPTY_AUDIT|CLAIM|FLAT|COMBINED_OPERATOR|SOLANA|BITCOIN|NATIVE|LOCAL_EVM)_[A-Z0-9_]+\b/)?.[0]
   ?? 'EMPTY_AUDIT_FAILED';
 

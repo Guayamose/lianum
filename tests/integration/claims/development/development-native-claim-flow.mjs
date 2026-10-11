@@ -52,9 +52,9 @@ import { graphOperatorPrivateAuditActivity }
 
 // The only selector is the source-pinned literal entry/worker pair. There is
 // no caller profile, pool, factory, witness or proof-backend option.
-const graphWorker = join(ROOT, 'integration/claims/development/development-btc-sol-graph-flow.mjs');
+const graphWorker = fileURLToPath(new URL('./development-btc-sol-graph-flow.mjs',import.meta.url));
 const btcToSol = process.argv[1] !== undefined && realpathSync(process.argv[1]) === graphWorker;
-const splWorker=join(ROOT,'integration/claims/development/development-btc-spl-jupiter-flow-v1.mjs');
+const splWorker=fileURLToPath(new URL('./development-btc-spl-jupiter-flow-v1.mjs',import.meta.url));
 const btcToSpl=process.argv[1]!==undefined&&realpathSync(process.argv[1])===splWorker,withGraph=btcToSol||btcToSpl;
 const LOCAL_RUN = btcToSpl?'.local/development-btc-spl-jupiter-v1':btcToSol ? '.local/development-btc-sol-graph-v1' : '.local/development-native-claim-roundtrip-v1';
 const selectedAssets = withGraph ? [0] : [0, 1];
@@ -71,7 +71,7 @@ export async function runDevelopmentNativeClaimAcceptance() {
   const parent = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
   assert.equal(parent.length, 2);
   assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), parent[1])),
-    join(ROOT, btcToSpl?'integration/claims/development/run-development-btc-spl-jupiter-flow-v1.mjs':btcToSol ? 'integration/claims/development/run-development-btc-sol-graph-flow.mjs' : 'integration/claims/development/run-development-native-claim-flow.mjs'));
+    btcToSpl?fileURLToPath(new URL('./run-development-btc-spl-jupiter-flow-v1.mjs',import.meta.url)):btcToSol ? fileURLToPath(new URL('./run-development-btc-sol-graph-flow.mjs',import.meta.url)) : fileURLToPath(new URL('./run-development-native-claim-flow.mjs',import.meta.url)));
   const lock = JSON.parse(readFileSync(join(ROOT, LOCAL_RUN, 'active.lock')));
   assert.equal(lock.pid, process.ppid); assert.match(lock.runId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.equal(lock.attempt, LOCAL_RUN + '/attempt-' + lock.runId);

@@ -1,3 +1,4 @@
+import {integrationTask} from '../../runners/task-catalog.mjs';
 import assert from 'node:assert/strict';
 import { join, resolve } from 'node:path';
 import { readFileSync, realpathSync } from 'node:fs';
@@ -11,7 +12,7 @@ const runId = assertID(process.argv[2]), attempt = join(LOCAL, 'pinned-verificat
 const args = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
 assert.equal(args.length, 2, 'PINNED_CHECK_PARENT_ARGS');
 assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`), args[1])),
-  join(ROOT, 'integration/run-pinned-verification.mjs'), 'PINNED_CHECK_PARENT');
+  integrationTask('verification').entry, 'PINNED_CHECK_PARENT');
 const lock = JSON.parse(regular(join(LOCAL, 'pinned-verification.lock')));
 assert.equal(lock.pid, process.ppid); assert.equal(lock.runId, runId);
 const pins = integrationSourcePins('verification');

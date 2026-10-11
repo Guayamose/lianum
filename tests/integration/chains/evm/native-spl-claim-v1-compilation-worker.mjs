@@ -14,7 +14,7 @@ const FLOW='.local/native-spl-claim-v1-compilation-only-v1';
 assert.equal(process.argv.length,2);assert.deepEqual(process.execArgv,[]);assert.equal(realpathSync(process.argv[1]),fileURLToPath(import.meta.url));
 assert.deepEqual(Object.keys(process.env).sort(),['LANG','PATH']);assert.equal(process.env.LANG,'C.UTF-8');assert.equal(process.env.PATH,'/usr/bin:/bin');
 const parent=readFileSync(`/proc/${process.ppid}/cmdline`,'utf8').split('\0').filter(Boolean);assert.equal(parent.length,2);
-assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),join(ROOT,'integration/run-native-spl-claim-v1-compilation.mjs'));
+assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parent[1])),fileURLToPath(new URL('./run-native-spl-claim-v1-compilation.mjs',import.meta.url)));
 const lock=JSON.parse(readFileSync(join(ROOT,FLOW,'active.lock')));assert.equal(lock.pid,process.ppid);
 assert.match(lock.runId,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);assert.equal(lock.attempt,FLOW+'/attempt-'+lock.runId);
 const directory=join(ROOT,lock.attempt),began=performance.now(),sourcePins=await nativeSplClaimV1CompilationSourcePins();
@@ -25,7 +25,7 @@ const result={format:SPL_CLAIM_V1_COMPILATION_RESULT,profile:SPL_CLAIM_V1_COMPIL
 const save=()=>writeFixturePrivate(join(directory,'result.json'),result);save();
 async function prepareOriginal(mode){
  result.phase='original-ci51-v1-'+mode;save();let bytes=0,closed=false,childError;const stdout=[];
- const child=spawn(process.execPath,[join(ROOT,'proof-workers/run-bounded.mjs'),'native_claim_ingress',mode],{cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe']});
+ const child=spawn(process.execPath,[fileURLToPath(new URL('../../../../packages/proofs/src/jobs/run-bounded.mjs',import.meta.url)),'native_claim_ingress',mode],{cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe']});
  const terminal=await new Promise(resolve=>{child.once('error',error=>{childError=error;});child.once('close',(code,signal)=>{closed=true;resolve({code,signal});});for(const stream of [child.stdout,child.stderr]){stream.once('error',error=>{childError??=error;});stream.on('data',value=>{bytes+=value.length;if(bytes>1048576)childError??=Error('SPL_CLAIM_V1_PUBLIC_TASK_OUTPUT_LIMIT');else if(stream===child.stdout)stdout.push(value);});}});
  assert.equal(closed,true);if(childError)throw childError;assert.equal(terminal.code,0,'SPL_CLAIM_V1_ORIGINAL_PREPARATION_FAILED');assert.equal(terminal.signal,null,'SPL_CLAIM_V1_ORIGINAL_PREPARATION_SIGNAL');
  const status=parseNativeSplClaimV1PreparationStatus(Buffer.concat(stdout),mode),runId=status.runId;
