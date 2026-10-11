@@ -1,3 +1,4 @@
+import {decodeNativeValueTerminalCalldata} from '../../../../src/execution/encoding/terminal-calldata-codec.mjs';
 /** Explicit fake ABI fixtures: SHA is real, receipt/evidence field values and
  * proof bytes are fabricated. These tests start no chain, compiler or prover. */
 import test from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createFlatTerminalObserver, assertOwnedFlatTerminalObserver, decodeFlatTerminalCalldata,
   inspectFlatTerminalDelta } from '../../../../src/execution/account/reconciliation/flat-terminal-observer.mjs';
-import { decodeNativeValueTerminalCalldata, inspectFlatTerminalDelta as inspectNativeValueTerminalDelta }
+import { inspectFlatTerminalDelta as inspectNativeValueTerminalDelta }
   from '../../../../src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import { encodeFlatTransaction } from '../../../../src/execution/encoding/transaction-codec.mjs';
 import { encodeStatement } from '@lianum/components/encoding/statements';

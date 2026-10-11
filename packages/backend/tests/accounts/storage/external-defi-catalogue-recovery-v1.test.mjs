@@ -5,35 +5,31 @@ import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join,resolve} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {join} from 'node:path';
 import {createHash} from 'node:crypto';
-import {ROOT} from '@lianum/proofs/catalog';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {canonical} from '@lianum/engine/crypto/privacy';
-const url=path=>pathToFileURL(join(ROOT,path)).href;
-const golden=path=>pathToFileURL(resolve(ROOT,'../../omnichain-product/src/paeg',path+'.mjs')).href;
-const lower=path=>url('wallet-platform/modules/global-state/'+path+'.mjs');
 const h=value=>createHash('sha256').update(canonical(value)).digest('hex'),copy=structuredClone;
 const runtimes=new WeakMap(),accounts=new WeakMap(),portfolios=new WeakMap(),keepers=new WeakMap(),policies=new WeakMap(),writes=new WeakMap(),reads=new WeakMap();
 const lifetime=new Map(),actions=new Map();let recovery;
-mock.module(golden('generic-account-journal'),{exports:{
+mock.module('@lianum/engine/accounts/journal',{exports:{
  copy,immutable:copy,sha:h,genericAccountIdentity:config=>copy(config),validateInput:copy,
  bindGenericAccountRequest:(request,config)=>({...copy(request),bindingSHA256:h({request,config}),assetBindingSHA256:h(config.registry[0])}),
  validateBoundRequest:request=>copy(request),
 }});
-mock.module(golden('generic-account-process'),{exports:{validateJournalCredentials:copy}});
-mock.module(url('wallet-platform/modules/ops/deploy-system.mjs'),{exports:{assertOwnedFlatSystem:(runtime,system)=>assert.equal(runtimes.get(runtime)?.system,system)}});
-mock.module(url('mobile-core/flat-owner-process.mjs'),{exports:{assertOwnedFlatOwnerProcess:(owner,expected)=>assert.equal(runtimes.get(expected.runtime)?.owners[expected.poolIndex],owner)}});
+mock.module('@lianum/engine/execution/accounts/generic-account-process',{exports:{validateJournalCredentials:copy}});
+mock.module(new URL('../../../src/operations/deployments/system/deploy-system.mjs',import.meta.url),{exports:{assertOwnedFlatSystem:(runtime,system)=>assert.equal(runtimes.get(runtime)?.system,system)}});
+mock.module(new URL('../../../src/custody/processes/flat-owner-process.mjs',import.meta.url),{exports:{assertOwnedFlatOwnerProcess:(owner,expected)=>assert.equal(runtimes.get(expected.runtime)?.owners[expected.poolIndex],owner)}});
 function portfolio(input){const value={config:{accountId:input.accountId,journalId:input.journalId,lifetime:h(input.accounts.map(row=>row.account.config)),registry:input.accounts.flatMap(row=>row.account.registry)},registry:input.accounts.flatMap(row=>row.account.registry),close(){return {closed:true};}};portfolios.set(value,input);return value;}
-mock.module(lower('flat-portfolio-authority'),{exports:{createFlatPortfolioAuthority:portfolio,
+mock.module(new URL('../../../src/accounts/authority/flat-portfolio-authority.mjs',import.meta.url),{exports:{createFlatPortfolioAuthority:portfolio,
  assertOwnedFlatPortfolio:(runtime,value)=>assert.equal(portfolios.get(value)?.runtime,runtime),
  describeFlatPortfolioJournalAuthority:(runtime,value)=>{const input=portfolios.get(value);assert.equal(input?.runtime,runtime);return {runtime,system:input.system,accounts:input.accounts};},
 }});
 function policy(input){const routes=input.accounts.map(row=>({assetId:row.account.registry[0].assetId,pool:'11'.repeat(20),domainCommitment:h('domain'),economicIdentitySHA256:h('economic')}));const result={verifyFreshGeneration:async()=>routes.map(route=>({route})),identityForAsset:id=>routes.find(row=>row.assetId===id),status:()=>({current:input.routeOrder})};policies.set(result,input);return result;}
-mock.module(lower('flat-pool-admission-policy'),{exports:{createFlatPoolAdmissionPolicy:async input=>policy(input),assertOwnedFlatPoolAdmissionPolicy:(value,expected)=>{const input=policies.get(value);assert.equal(input?.runtime,expected.runtime);assert.deepEqual(input.accounts,expected.accounts);}}});
+mock.module(new URL('../../../src/accounts/authority/flat-pool-admission-policy.mjs',import.meta.url),{exports:{createFlatPoolAdmissionPolicy:async input=>policy(input),assertOwnedFlatPoolAdmissionPolicy:(value,expected)=>{const input=policies.get(value);assert.equal(input?.runtime,expected.runtime);assert.deepEqual(input.accounts,expected.accounts);}}});
 function account(runtime,system,poolIndex,config){const value={config:copy(config),registry:copy(config.registry),close:async()=>({closed:true})};accounts.set(value,{runtime,system,poolIndex});return value;}
-mock.module(lower('flat-account-authority'),{exports:{
+mock.module(new URL('../../../src/accounts/authority/flat-account-authority.mjs',import.meta.url),{exports:{
+ assertRetainedExternalVaultNoteAccountV1:()=>assert.fail('HOST_NOTE_ACCOUNT_NOT_USED'),
  retainedFlatAccountInventoryV1:async value=>({poolIndex:accounts.get(value).poolIndex}),
  captureRetainedFlatAccountV1:async value=>({config:value.config,accountId:value.config.accountId,journalId:value.config.journalId,poolIndex:accounts.get(value).poolIndex}),
  reopenRetainedCatalogueFlatAccountV1:async token=>{const {input,saved}=recovery.consumeExternalDefiCatalogueAccountReopenV1(token);return account(input.runtime,input.system,input.poolIndex,saved.config);},
@@ -50,19 +46,18 @@ async function keeper(input,saved){const path=input.journal.path;let record;
  close(){keepers.get(value).closed=true;return {closed:true};},
  };keepers.set(value,{input,record:()=>record,closed:false});return value;
 }
-mock.module(lower('flat-manual-portfolio-keeper'),{exports:{createFlatManualPortfolioKeeper:()=>{throw Error('HOST_LEGACY_FACTORY_FORBIDDEN');},createRetainedFlatManualPortfolioKeeperV1:input=>keeper(input),
+mock.module(new URL('../../../src/accounts/portfolio/flat-manual-portfolio-keeper.mjs',import.meta.url),{exports:{createFlatManualPortfolioKeeper:()=>{throw Error('HOST_LEGACY_FACTORY_FORBIDDEN');},createRetainedFlatManualPortfolioKeeperV1:input=>keeper(input),
  assertOwnedFlatManualPortfolioKeeper:(value,expected)=>{const state=keepers.get(value);assert.ok(state&&!state.closed);assert.equal(state.input.runtime,expected.runtime);assert.equal(state.input.portfolio,expected.portfolio);},
  captureRetainedFlatManualPortfolioKeeperV1:async value=>{const state=keepers.get(value),record=state.record();value.close();return {schema:'EXTERNAL_FLAT_MANUAL_KEEPER_RECOVERY_V1',config:state.input.portfolio.config,journal:state.input.journal,checkpoint:{version:1,identitySHA256:h(state.input.portfolio.config),acknowledged:{revision:record.revision,stateSHA256:h(record.data)},pending:null}};},
  reopenRetainedFlatManualPortfolioKeeperV1:async token=>{const {input,saved}=recovery.consumeExternalDefiCatalogueKeeperReopenV1(token);return keeper(input,saved);},
 }});
-mock.module(url('wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs'),{exports:{
+mock.module(new URL('../../../src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',import.meta.url),{exports:{
  retainWrappedPrivateLifetimePartV1:async(runtime,name,identity,privateState)=>{const handle={};lifetime.set(handle,{runtime,name,identity:copy(identity),privateState:copy(privateState)});return handle;},
  updateWrappedPrivateLifetimePartV1:async(handle,privateState)=>{lifetime.get(handle).privateState=copy(privateState);},
  assertWrappedPrivateLifetimePartSealedV1:handle=>assert.ok(lifetime.has(handle)),
  readWrappedPrivateLifetimePartV1:async(runtime,name,identity)=>{const rows=[...lifetime.entries()].filter(([,row])=>row.runtime===runtime&&row.name===name&&h(row.identity)===h(identity));assert.equal(rows.length,1);return {handle:rows[0][0],privateState:copy(rows[0][1].privateState)};},
  assertWrappedPrivateLifetimeAttemptV1:(runtime,identity)=>assert.equal(runtimes.get(runtime)?.sourceSHA256,identity.sourceSHA256),
-}});
-mock.module(url('wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs'),{exports:{
+
  originalWrappedRecoverySectionIdentityV1:(token,section)=>{assert.equal(section,'wallet');const row=writes.get(token)??reads.get(token);assert.ok(row);return row.identity;},
  retainOriginalWrappedRecoverySectionV1:async(token,section,data)=>{assert.equal(section,'wallet');const row=writes.get(token);assert.ok(row&&!row.used);row.used=true;row.data=copy(data);},
  consumeOriginalWrappedRecoverySectionV1:(token,section)=>{assert.equal(section,'wallet');const row=reads.get(token);assert.ok(row&&!row.used);row.used=true;return copy(row.data);},

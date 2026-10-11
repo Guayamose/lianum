@@ -1,3 +1,5 @@
+import {decodeNativeValueTerminalCalldata} from '../../encoding/terminal-calldata-codec.mjs';
+import {checkRecoveryReorgCheckpointV1} from './recovery-reorg-checkpoint-v1.mjs';
 /** Shared fixed terminal implementation with independently asserted native-only and wrapped account entrypoints. No public adapter can choose authority. */
 /** Original-transaction terminal observation for the owned, fake-value flat
  * runtime. Historical pinned contract execution is the authority; the pure
@@ -12,8 +14,8 @@ import { evmRuntimeCodeHash } from '../../../chains/evm/contracts/evm-code-hash.
 import { assertOwnedNativeValueWalletSystem as assertNativeWallet } from '../../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { exactRecord, bytes32, canonicalField, ZERO } from '@lianum/components/encoding/commitments';
 import { createNativeValueSystemStateReader as createNativeReader, decodeFlatWords, decodeFlatPoolObservation } from './native-value-system-state-v2.mjs';
-import { decodeStatement, validateStatement } from '@lianum/components/encoding/statements';
-import { encodeFlatTransaction, FLAT_TRANSACTION_METHODS } from '../../encoding/transaction-codec.mjs';
+import { validateStatement } from '@lianum/components/encoding/statements';
+import { FLAT_TRANSACTION_METHODS } from '../../encoding/transaction-codec.mjs';
 
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { createWrappedWalletStateReaderV1 } from '../../wrapped/reconciliation/wrapped-wallet-state-v1.mjs';
@@ -23,7 +25,7 @@ export function readOriginalNativeRecoveryCheckpointV1(observer, result) {
   assert.ok(state && !state.wrapped && saved?.observer === observer, 'F_REORG_ORIGINAL_OBSERVATION_REQUIRED');
   return detached(saved.checkpoint);
 }
-const owned = new WeakMap(), ZERO_WORD = '0x' + ZERO, ZERO_ADDRESS = '0x' + '0'.repeat(40), MAX_BYTES = 1024 * 1024;
+const owned = new WeakMap(), ZERO_WORD = '0x' + ZERO, ZERO_ADDRESS = '0x' + '0'.repeat(40);
 const BINDING_FIELDS = ['domainCommitment', 'envelope', 'inputCommitment', 'inputNullifier', 'reserveCommitment',
   'reserveNullifier', 'changeCommitment', 'recoveryCommitment', 'settleBefore', 'authorizationPublicInputsSHA256'];
 const prefix = value => '0x' + value, bare = value => value.slice(2);
@@ -44,52 +46,6 @@ function bindingOf(value) {
   return value;
 }
 
-/** Fixed ABI, canonical re-encoding, and statement joins only. Fake proof bytes
- * are valid parser fixtures but can never pass the owned observer constructor. */
-export function decodeNativeValueTerminalCalldata(calldata) {
-  assert.ok(typeof calldata === 'string' && /^0x(?:[0-9a-f]{2})+$/.test(calldata)
-    && calldata.length <= MAX_BYTES * 2, 'FLAT_TERMINAL_CALLDATA');
-  const name = ['fulfillGeneric', 'recoverGeneric'].find(name => FLAT_TRANSACTION_METHODS[name].selector === calldata.slice(2, 10));
-  assert.ok(name, 'FLAT_TERMINAL_METHOD');
-  const body = calldata.slice(10);
-  const word = at => { assert.ok(Number.isSafeInteger(at) && at >= 0 && (at + 32) * 2 <= body.length,
-    'FLAT_TERMINAL_ABI_BOUNDS'); return body.slice(at * 2, (at + 32) * 2); };
-  const number = at => Number(uint('0x' + word(at), BigInt(MAX_BYTES)));
-  function proof(at, count) {
-    assert.equal(number(at), 64, 'FLAT_TERMINAL_PROOF_OFFSET');
-    const length = number(at + 64); assert.ok(length > 0 && length % 32 === 0, 'FLAT_TERMINAL_PROOF_LENGTH');
-    assert.equal(number(at + 32), 96 + length, 'FLAT_TERMINAL_INPUT_OFFSET');
-    const inputsAt = at + 96 + length; assert.equal(number(inputsAt), count, 'FLAT_TERMINAL_INPUT_COUNT');
-    const publicInputs = Array.from({ length: count }, (_, i) => BigInt('0x' + word(inputsAt + 32 + i * 32)).toString());
-    return { packet: { proof: body.slice((at + 96) * 2, (at + 96 + length) * 2), publicInputs },
-      end: inputsAt + 32 + count * 32 };
-  }
-  let request, statement, kind;
-  if (name === 'recoverGeneric') {
-    const parsed = proof(0, 41); assert.equal(body.length, parsed.end * 2, 'FLAT_TERMINAL_TRAILING_DATA');
-    request = parsed.packet; kind = 'recovery'; statement = decodeStatement(kind, request.publicInputs);
-  } else {
-    assert.equal(number(0), 512, 'FLAT_TERMINAL_SETTLEMENT_OFFSET');
-    const settlement = proof(512, 138), arrayAt = settlement.end;
-    assert.equal(number(32), arrayAt, 'FLAT_TERMINAL_COMPLETIONS_OFFSET');
-    let cursor = arrayAt + 128; const completions = [];
-    for (let i = 0; i < 4; i++) {
-      assert.equal(number(arrayAt + i * 32), cursor - arrayAt, 'FLAT_TERMINAL_COMPLETION_OFFSET');
-      const parsed = proof(cursor, 32); completions.push(parsed.packet); cursor = parsed.end;
-    }
-    assert.equal(body.length, cursor * 2, 'FLAT_TERMINAL_TRAILING_DATA');
-    request = { settlement: settlement.packet, completions,
-      healthFrom: uint('0x' + word(64)).toString(), healthUntil: uint('0x' + word(96)).toString(),
-      healthSignatures: Array.from({ length: 3 }, (_, i) => ({
-        signerIndex: uint('0x' + word(128 + i * 128), 255n).toString(),
-        v: uint('0x' + word(160 + i * 128), 255n).toString(),
-        r: prefix(word(192 + i * 128)), s: prefix(word(224 + i * 128)),
-      })) };
-    kind = 'settlement'; statement = decodeStatement(kind, settlement.packet.publicInputs);
-  }
-  assert.equal(encodeFlatTransaction(name, request), calldata, 'FLAT_TERMINAL_NONCANONICAL_ABI');
-  return detached({ kind, name, statement, request });
-}
 
 function hub(raw, identity, hubDomain) {
   const w = decodeFlatWords(raw, 206);
@@ -373,38 +329,7 @@ async function createTerminalObserver(options, wrapped) {
       return result;
     },
     async checkRecoveryReorg(checkpoint) {
-      assert.ok(!wrapped, 'F_REORG_NATIVE_ONLY');
-      exactRecord(checkpoint, ['schema', 'query', 'before', 'includedHeader', 'receipt']);
-      assert.equal(checkpoint.schema, 'ORIGINAL_NATIVE_F_BEFORE_CHECKPOINT_V1');
-      const { query, before, includedHeader, receipt: old } = checkpoint;
-      exactRecord(query, ['kind', 'submission', 'statement', 'binding']);
-      assert.equal(query.kind, 'recovery'); bindingOf(query.binding);
-      const decoded = decodeNativeValueTerminalCalldata(query.submission.calldata);
-      assert.equal(decoded.kind, 'recovery');
-      assert.deepEqual(decoded.statement, validateStatement('recovery', query.statement));
-      assert.equal(query.submission.target, pool.address);
-      assert.equal(dataHash(query.submission.calldata), query.submission.calldataSHA256);
-      assert.equal(old.transactionHash, prefix(query.submission.transactionHash));
-      assert.equal(old.status, '0x1'); assert.equal(old.to, pool.address);
-      assert.equal(BigInt(old.blockNumber), BigInt(before.header.number) + 1n, 'F_REORG_EXACT_PARENT_REQUIRED');
-      assert.ok(BigInt(old.blockNumber) > 0n);
-      assert.equal(includedHeader.hash, old.blockHash); assert.equal(includedHeader.parentHash, before.header.hash);
-      assert.deepEqual(includedHeader.transactions, [old.transactionHash]);
-      assert.ok(BigInt(includedHeader.timestamp) >= BigInt(query.binding.settleBefore), 'F_REORG_ORIGINAL_CUTOFF_REQUIRED');
-      const head = await runtime.block();
-      assert.deepEqual(head, before.header, 'F_REORG_DEEPER_OR_LATER_HEAD_REJECTED');
-      await runtime.assertCanonical(before.header);
-      const [transaction, included] = await Promise.all([runtime.transaction(old.transactionHash), runtime.receipt(old.transactionHash)]);
-      assert.equal(transaction, null, 'F_REORG_OLD_TRANSACTION_PRESENT');
-      assert.equal(included, null, 'F_REORG_OLD_RECEIPT_PRESENT');
-      assert.deepEqual(await readAt(before.header.number), before, 'F_REORG_ORIGINAL_PARENT_STATE_CHANGED');
-      const current = await reader.read();
-      assert.deepEqual(current.header, before.header);
-      assert.ok(current.ledger.nullifiers.includes(prefix(query.binding.inputNullifier)), 'F_REORG_ORIGINAL_S_REQUIRED');
-      assert.ok(!current.ledger.nullifiers.includes(prefix(query.binding.reserveNullifier)), 'F_REORG_RESERVE_ALREADY_SPENT');
-      await reader.assertCurrent(current); await runtime.assertCanonical(before.header);
-      assert.deepEqual(await runtime.block(), head, 'F_REORG_HEAD_CHANGED');
-      return detached({ parent: head, transactionHash: old.transactionHash, calldataSHA256: query.submission.calldataSHA256 });
+      return checkRecoveryReorgCheckpointV1(checkpoint,{wrapped,bindingOf,decodeNativeValueTerminalCalldata,pool,runtime,readAt,reader});
     },
   });
   owned.set(observer, { runtime, system, poolIndex, wrapped }); return observer;

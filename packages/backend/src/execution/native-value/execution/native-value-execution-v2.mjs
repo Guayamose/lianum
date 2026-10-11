@@ -1,3 +1,6 @@
+import {reconcileRecoveryReorgV1} from '../reconciliation/recovery-reorg-reconcile-v1.mjs';
+import {sendRetainedTerminalV2, observeRetainedTerminalV2, recoverRetainedTerminalV2} from '../reconciliation/terminal-actions-v2.mjs';
+import {reconcileRetainedTerminalV2} from '../reconciliation/terminal-reconciliation-v2.mjs';
 import {nativeSourceRecoverySectionIdentityV1,retainOriginalNativeSourceSectionV1,consumeOriginalNativeSourceSectionV1,resumeOriginalNativeSourceSectionV1,updateOriginalNativeSourceSectionV1} from '../../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import {assertOwnedNativeDurableSourceReceiverV1} from '../../../operations/recovery/native-original-source-lifecycle-v1.mjs';
 import {buildOwnerNativeGraphRoute} from '../../account/preparation/owner-native-graph-review-v1.mjs';
@@ -186,11 +189,7 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     catch(error){if(sourceHandle)poisoned=true;throw error;}finally { busy = false; releaseActive(); releaseActive = null; } }
   async function abi(name) { abis[name] ??= await loadFlatABI(name); return abis[name]; }
   async function prove(ref, name, job, label) { await stage(ref, 'prove-' + label); return proofs.prove(name, job, label); }
-  async function send(ref, kind, target, calldata) {
-    const entry = operation(ref), key = kind === 'recovery' ? 'recoverySubmission' : 'settlementSubmission';
-    assert.equal(entry[key], null, 'FLAT_EXECUTION_NO_RESEND');
-    const submission = { target, calldata, calldataSHA256: dataHash(calldata), transactionHash: null };
-    await update(ref, { [key]: submission });
+  async function beforeTerminalSend(ref, kind) {
     if (!wrapped && kind === 'recovery') {
       const probe = await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
       if (probe.isOwnedOriginalNativeFReorgReceiverV1(runtime)) {
@@ -199,18 +198,18 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
         finally { originalFReorgProbeTokensV1.delete(token); }
       }
     }
-    const receipt = await runtime.send('flat-execution-' + kind + '-' + ref, { to: target, data: calldata });
-    await update(ref, { [key]: { ...submission, transactionHash: bare(receipt.transactionHash) } });
-    return receipt;
+  }
+  async function send(ref, kind, target, calldata) {
+    return sendRetainedTerminalV2(ref, kind, target, calldata, {
+      operation, update, calldataHash: dataHash, beforeSend: beforeTerminalSend,
+      send: (label, request) => runtime.send(label, request), bareHash: bare,
+    });
   }
   async function observedSubmission(ref, kind) {
-    const entry = operation(ref), saved = entry[kind === 'recovery' ? 'recoverySubmission' : 'settlementSubmission'];
-    assert.ok(saved, 'FLAT_EXECUTION_NO_TERMINAL_SUBMISSION');
-    const observed = await terminalObserver.observe({ kind, submission: detached(saved), binding: detached(entry.binding),
-      statement: detached(kind === 'recovery' ? entry.recoveryStatement : entry.settlementStatement) });
-    if (!wrapped && kind === 'recovery' && !entry.originalFCheckpoint)
-      await update(ref, { originalFCheckpoint: readOriginalNativeRecoveryCheckpointV1(terminalObserver, observed) });
-    return observed;
+    return observeRetainedTerminalV2(ref, kind, {
+      operation, update, detached, wrapped, observe: query => terminalObserver.observe(query),
+      recoveryCheckpoint: observed => readOriginalNativeRecoveryCheckpointV1(terminalObserver, observed),
+    });
   }
   function originalProbeToken(ref, phase) {
     const entry = operation(ref); assert.ok(busy && !wrapped && entry.recoverySubmission, 'F_REORG_PROBE_ORIGINAL_OPERATION');
@@ -232,68 +231,19 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
     try { return await rewindOwnedOriginalFReorgProbeV1(runtime, token); }
     finally { originalFReorgProbeTokensV1.delete(token); }
   }); }
-  async function reconcileRecovery(account, ref) { return exclusive(async () => {
-    assert.ok(!wrapped, 'F_REORG_NATIVE_ONLY');
-    const binding = await import('../../../accounts/authority/native-value-account-authority-v2.mjs');
-    const accountState = binding.originalDeviceNativeFReorgStateV1(account, keeper, ref);
-    const entry = operation(ref);
-    assert.ok(entry.recoverySubmission, 'F_REORG_ORIGINAL_CONFIRMED_F_REQUIRED');
-    // Legacy authenticated records may acquire a checkpoint only by a complete
-    // successful original historical observation while that F still exists.
-    if (!entry.originalFCheckpoint) return observedSubmission(ref, 'recovery');
-    assert.deepEqual(entry.originalFCheckpoint.query.binding, entry.binding);
-    assert.deepEqual(entry.originalFCheckpoint.query.statement, entry.recoveryStatement);
-    assert.deepEqual(entry.originalFCheckpoint.query.submission, entry.recoverySubmission);
-    const old = entry.originalFCheckpoint.receipt, hash = '0x' + entry.recoverySubmission.transactionHash;
-    assert.equal(old.transactionHash, hash);
-    assert.deepEqual(accountState.binding, entry.binding, 'F_REORG_ORIGINAL_ACCOUNT_BINDING');
-    assert.deepEqual(accountState.terminal, { transactionHash: entry.recoverySubmission.transactionHash, blockHash: bare(old.blockHash),
-      blockNumber: BigInt(old.blockNumber).toString(), calldataSHA256: entry.recoverySubmission.calldataSHA256, outcome: 'RECOVERED' },
-      'F_REORG_ORIGINAL_ACCOUNT_TERMINAL');
-    if (!entry.nativeFReorg) {
-      assert.equal(entry.outcome, 'RECOVERED');
-      const receipt = await runtime.receipt(hash);
-      if (receipt !== null) { await runtime.assertCanonical(receipt); return observedSubmission(ref, 'recovery'); }
-      // Missing RPC data alone never establishes a chain reorganization.
-      // Confirm the exact original parent and full before-F state first.
-      await terminalObserver.checkRecoveryReorg(entry.originalFCheckpoint);
-      const id = digest({ reference: ref, checkpoint: entry.originalFCheckpoint, binding: entry.binding });
-      await update(ref, { outcome: null, stage: 'UNKNOWN', nativeFReorg: { schema: 'ORIGINAL_NATIVE_F_REORG_V1', id,
-        phase: 'REORG_INVALIDATED', oldReceipt: old, oldOutcome: 'RECOVERED' } });
-      await binding.retainOriginalDeviceNativeFReorgV1(account, keeper, ref, id, 'REORG_INVALIDATED');
-      // A separate fresh RECONCILE must first observe this durable UNKNOWN.
-      // No reemission can hide the invalidation from the original mobile vault.
-      return detached({ outcome: null, originalFReorgInvalidated: true });
-    }
-    const pending = operation(ref).nativeFReorg;
-    if (pending.phase !== 'RECONFIRMED')
-      await binding.retainOriginalDeviceNativeFReorgV1(account, keeper, ref, pending.id, pending.phase);
-    if (pending.phase === 'REORG_INVALIDATED') {
-      const id = pending.id;
-      const checked = await terminalObserver.checkRecoveryReorg(entry.originalFCheckpoint);
-      await update(ref, { nativeFReorg: { ...operation(ref).nativeFReorg, phase: 'OBSERVATION_PENDING' } });
-      await binding.retainOriginalDeviceNativeFReorgV1(account, keeper, ref, id, 'OBSERVATION_PENDING');
-      await healthy(); const revision = record.revision;
-      const assertCurrent = () => { live(); assert.ok(busy && !cancelled);
-        assert.equal(record.revision, revision, 'F_REORG_EXECUTOR_CHANGED');
-        assert.equal(operation(ref).nativeFReorg.phase, 'OBSERVATION_PENDING');
-        assert.equal(operation(ref).nativeFReorg.id, id);
-        binding.assertOriginalDeviceNativeFReorgPendingV1(account, keeper, ref, id); };
-      const revalidate = async () => { await healthy();
-        await binding.checkOriginalDeviceNativeFReorgPendingV1(account, keeper, ref, id); assertCurrent(); };
-      const token = Object.freeze({}); originalFReorgWires.set(token, { runtime, account, ref, id, used: false, assertCurrent, revalidate,
-        parent: checked.parent, transactionHash: hash, calldata: entry.recoverySubmission.calldata,
-        calldataSHA256: entry.recoverySubmission.calldataSHA256, oldReceipt: old, includedHeader: entry.originalFCheckpoint.includedHeader, settleBefore: entry.binding.settleBefore });
-      try {
-        const { reemitOwnedOriginalNativeRecoveryV1 } = await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
-        await reemitOwnedOriginalNativeRecoveryV1(runtime, token);
-      } finally { originalFReorgWires.delete(token); }
-    }
-    const observed = await observedSubmission(ref, 'recovery'), retained = operation(ref).nativeFReorg;
-    await update(ref, { outcome: 'RECOVERED', stage: 'RECOVERED', errorCode: null, nativeFReorg: { ...retained,
-      phase: 'RECONFIRMED', receipt: observed.receipt } });
-    return observed;
-  }); }
+  async function reconcileRecovery(account,ref){return exclusive(async()=>{
+    assert.ok(!wrapped,'F_REORG_NATIVE_ONLY');
+    const binding=await import('../../../accounts/authority/native-value-account-authority-v2.mjs');
+    return reconcileRecoveryReorgV1(account,ref,{wrapped,binding,keeper,operation,runtime,terminalObserver,update,healthy,
+      readRevision:()=>record.revision,assertActive:()=>{live();assert.ok(busy&&!cancelled);},observedSubmission,
+      async emit(saved){
+        const token=Object.freeze({});originalFReorgWires.set(token,saved);
+        try{const {reemitOwnedOriginalNativeRecoveryV1}=await import('../../../chains/evm/runtime/owned-evm-v2-runtime.mjs');
+          await reemitOwnedOriginalNativeRecoveryV1(runtime,token);
+        }finally{originalFReorgWires.delete(token);}
+      }
+    });
+  });}
   async function checkpoint(ref) {
     await refreshNativeValueReceiverClock(runtime);
     const permit = await quorum.checkpoint({ poolIndex, requestId: fresh() }), message = permit.message;
@@ -455,62 +405,25 @@ async function createExecution(input, callbacks, wrapped, recovery=null) {
         throw error;
       }
     }); },
-    async reconcile(ref) { return exclusive(async () => {
-      const entry = operation(ref);
-      const kinds = [...(entry.recoverySubmission ? ['recovery'] : []), ...(entry.settlementSubmission ? ['settlement'] : [])];
-      // A retained terminal attempt is reconciled from its original transaction
-      // before asking an unresolved native adapter for more evidence. Source
-      // recovery does not settle a native exposure; keep that exposure unknown.
-      // An unavailable/invalid terminal observation must never trigger a resend
-      // or turn native admission into authority for source settlement.
-      if (!kinds.length) {
-        for(const [key,original] of admissionAdapters){
-          if(!key.startsWith(ref+':')||operation(ref).receipts.some(r=>r.slot===original.slot))continue;
-          const result=await original.adapter.reconcile();
-          assert.ok(result.receipt,'FLAT_EXECUTION_PARTIAL_DELIVERY_REQUIRES_RECOVERY');
-          const receipt={slot:original.slot,...result.receipt};
-          const view=await reader.read();receiptPath(view,receipt.leaf);
-          await update(ref,{receipts:[...operation(ref).receipts,receipt],exposures:operation(ref).exposures.map(e=>e.slot===original.slot?{...e,status:'ADMITTED',nativeId:receipt.opening.globalEffectId}:e)});
-        }
-      }
-      assert.ok(kinds.length, 'FLAT_EXECUTION_PARTIAL_DELIVERY_REQUIRES_RECOVERY');
-      let observed, originalError;
-      // A rejected/unknown late attempt does not erase a separately retained
-      // successful original terminal transaction. Each candidate must still
-      // pass exact owned calldata, canonical receipt, state and backing checks.
-      for (const kind of kinds) {
-        try { observed = await observedSubmission(ref, kind); break; }
-        catch (error) { originalError ??= error; }
-      }
-      if (!observed) throw originalError;
-      await update(ref, { outcome: observed.outcome, stage: observed.outcome, errorCode: null }); return observed;
-    }); },
-    async recover(ref) { return exclusive(async () => {
-      await refreshNativeValueReceiverClock(runtime);
-      const entry = operation(ref);
-      if (entry.recoverySubmission) return observedSubmission(ref, 'recovery');
-      const view = await reader.read();
-      if (view.ledger.nullifiers.includes(prefix(entry.binding.reserveNullifier))) {
-        assert.ok(entry.settlementSubmission, 'FLAT_EXECUTION_SPENT_OUTCOME_REQUIRES_RECONCILIATION');
-        return observedSubmission(ref, 'settlement');
-      }
-      assert.ok(BigInt(view.head.timestamp) >= BigInt(entry.binding.settleBefore), 'FLAT_EXECUTION_RECOVERY_BEFORE_CUTOFF');
-      assert.ok(view.ledger.nullifiers.includes(prefix(entry.binding.inputNullifier)), 'FLAT_EXECUTION_RESERVATION_REQUIRED');
-      // Preserve any earlier settlement latch, including an unknown reply.
-      // At this original cutoff T can no longer be included successfully; F
-      // competes for the same onchain nullifier and never resends the old T.
-      const authorization = await reader.authorizationPath(view, entry.binding.envelope);
-      const job = await withFlatHash(hashFields => recoveryWitness(entry.prepared.rolePackets.recovery,
-        { authorizationRoot: authorization.root, authorizationPath: fieldLeafPath(view.authorizationTree.path(authorization.index)),
-          poolRoot: bare(view.ledger.tree.root), reservePath: shaLeafPath(notePath(view, entry.binding.reserveCommitment)) }, { hashFields }));
-      const proof = await prove(ref, 'recovery', job, 'original-timeout-recovery');
-      await update(ref, { recoveryStatement: job.statement });
-      await stage(ref, 'submit-original-timeout-recovery');
-      await send(ref, 'recovery', pool.address, encodeFlatTransaction('recoverGeneric', proof));
-      const confirmed = await observedSubmission(ref, 'recovery');
-      await update(ref, { outcome: 'RECOVERED', stage: 'RECOVERED', errorCode: null });
-      await onStage({ reference: ref, stage: 'recovery-included' }); return confirmed;
-    }); },
+    async reconcile(ref) {
+      return exclusive(() => reconcileRetainedTerminalV2(ref, {
+        operation, admissions: admissionAdapters, read: () => reader.read(),
+        assertReceipt: receiptPath, update, observe: observedSubmission,
+      }));
+    },
+    async recover(ref) {
+      return exclusive(() => recoverRetainedTerminalV2(ref, {
+        refresh: () => refreshNativeValueReceiverClock(runtime), operation,
+        read: () => reader.read(), observe: observedSubmission, prefix, prove, update, stage, onStage,
+        async prepare(entry, view) {
+          const authorization = await reader.authorizationPath(view, entry.binding.envelope);
+          return withFlatHash(hashFields => recoveryWitness(entry.prepared.rolePackets.recovery,
+            {authorizationRoot: authorization.root, authorizationPath: fieldLeafPath(view.authorizationTree.path(authorization.index)),
+              poolRoot: bare(view.ledger.tree.root), reservePath: shaLeafPath(notePath(view, entry.binding.reserveCommitment))}, {hashFields}));
+        },
+        send: (reference, proof) => send(reference, 'recovery', pool.address, encodeFlatTransaction('recoverGeneric', proof)),
+      }));
+    },
     snapshot(ref) { live(); const entry = operation(ref); return detached({ reference: ref, stage: entry.stage,
       outcome: entry.outcome, executionStarted: entry.executionStarted,
       nativeExposure: entry.exposures.map(({ slot, family, status }) => ({ slot, family, status })),

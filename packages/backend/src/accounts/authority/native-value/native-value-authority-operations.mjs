@@ -11,7 +11,7 @@ import { withFlatHash } from "@lianum/proofs/tooling/scoped-proof-tools";
 import { reservationWitness } from "../../../execution/account/preparation/funding-inputs.mjs";
 import { reserveProjection } from "@lianum/engine/execution/local/local-ledger";
 import { privateFailureDiagnostic } from "../../../execution/account/reconciliation/failure-diagnostics.mjs";
-import { decodeNativeValueTerminalCalldata } from "../../../execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs";
+import { decodeNativeValueTerminalCalldata } from '../../../execution/encoding/terminal-calldata-codec.mjs';
 export function createNativeValueOwnerOperations({
   journal,
   profile,

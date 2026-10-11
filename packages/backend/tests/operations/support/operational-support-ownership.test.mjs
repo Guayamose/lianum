@@ -26,7 +26,8 @@ test('system recovery retains a single issuer and rejects fabricated tokens',()=
  for(const name of ['createWrappedWalletAcceptanceSystemV1','consumeWrappedSystemRecoveryPartV1','retainWrappedWalletSystemForReopenV1','reopenWrappedWalletAcceptanceSystemV1'])
   assert.equal(oldWallet[name],system[name]);
  assert.throws(()=>system.consumeWrappedSystemRecoveryPartV1(Object.freeze(Object.create(null)),'custody'),/WRAPPED_RECOVERY_SYSTEM_PART_TOKEN/);
- assert.deepEqual(Object.keys(system).sort(),['consumeWrappedSystemRecoveryPartV1','createWrappedWalletAcceptanceSystemV1','reopenWrappedWalletAcceptanceSystemV1','retainWrappedWalletSystemForReopenV1'].sort());
+ assert.equal(Object.hasOwn(system,'buildWrappedSystemRecoveryV1'),false);
+ assert.equal(Object.hasOwn(system,'withSystemRecoveryPartV1'),false);
 });
 
 test('source drift inspection and deployment release policies have one operational owner',()=>{

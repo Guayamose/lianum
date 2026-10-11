@@ -52,6 +52,8 @@
     "../../packages/backend/src/accounts/authority/native-value/native-value-live-recovery.mjs",
     "../../packages/backend/src/accounts/authority/native-value/live-recovery-leases.mjs",
     "../../packages/backend/src/accounts/authority/native-value/native-device-output-balance.mjs",
-    "../../packages/backend/src/accounts/authority/native-value/recovered-device-installations.mjs"
+    "../../packages/backend/src/accounts/authority/native-value/recovered-device-installations.mjs",
+    "../../packages/backend/src/execution/native-value/reconciliation/terminal-actions-v2.mjs",
+    "../../packages/backend/src/execution/native-value/reconciliation/terminal-reconciliation-v2.mjs"
   ]
 }
