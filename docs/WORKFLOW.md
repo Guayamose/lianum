@@ -70,7 +70,7 @@ El comando sustituye la edición manual de las tres tablas actuales declaradas:
 `mobile`, `platform` y `callers` (`all` las incluye). Muestra cada cambio y
 verifica las dependencias públicas fijadas antes de escribir. Platform actualiza
 también su referencia en callers. No cambia originales, publicaciones ni
-recibos históricos, ni acepta automáticamente archivos nuevos en la política.
+recibos históricos, ni acepta automáticamente archivos nuevos en la política. El perfil `runtime` gestiona también los pins actuales de los clientes rollup, sus dispatchers y el guard SOURCE, declarados en `source-pins.json`. Los hashes de binarios, fixtures y publicaciones originales conservan su significado histórico.
 Los consumidores económicos conservan su paso explícito de aceptación de
 generación. [Detalle y límites](SOURCE-GENERATIONS.md).
 

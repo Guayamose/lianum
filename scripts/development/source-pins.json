@@ -325,6 +325,35 @@
         "apps/platform/src/run-original-native-private-worker-durable-note-v3.mjs",
         "apps/platform/src/run.mjs"
       ]
+    },
+    "runtime": {
+      "bindings": [
+        {
+          "target": "packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-backend-v4.mjs",
+          "source": "scripts/development/owned-rollup-original-source-profile-v1.mjs",
+          "declaration": "const sourcePin="
+        },
+        {
+          "target": "packages/backend/src/chains/evm/health/owned-evm-native-value-health-source-backend-v4.mjs",
+          "source": "scripts/development/owned-bsc-original-source-profile-v3.mjs",
+          "declaration": "const pin="
+        },
+        {
+          "target": "tests/integration/wallet/native/native-original-source-abrupt-process-scope-v1.mjs",
+          "source": "packages/backend/src/operations/recovery/native-original-source-process-v1.mjs",
+          "declaration": "const helperSHA="
+        },
+        {
+          "target": "scripts/development/owned-base-rollup-v1.mjs",
+          "source": "scripts/development/owned-base-native-value-dispatch-v1.mjs",
+          "declaration": "const CUSTODY_SHA256 = "
+        },
+        {
+          "target": "scripts/development/owned-arbitrum-nitro-v1.mjs",
+          "source": "scripts/development/owned-arbitrum-native-value-dispatch-v1.mjs",
+          "declaration": "const CUSTODY_SHA256 = "
+        }
+      ]
     }
   }
 }

@@ -19,6 +19,7 @@ TARGETS = {
     "platform": "apps/platform/src/original-device-cloud-source-pins-v1.mjs",
     "callers": "packages/backend/src/operations/recovery/native-device-source-review-v1.mjs",
 }
+PROFILES = (*TARGETS, "runtime")
 MOBILE_MANIFESTS = {
     "packageLockSHA256": "apps/mobile/package-lock.json",
     "mobilePackageSHA256": "apps/mobile/package.json",
@@ -175,7 +176,9 @@ class Plan:
         self.policy = DECODER.decode(self.snapshot.read(POLICY).decode())
         if self.policy.get("schema") != "LIANUM_CURRENT_SOURCE_PIN_POLICY_V1":
             raise ValueError("Unknown source pin policy")
-        self.profiles = list(TARGETS) if profile == "all" else [profile]
+        self.profiles = list(self.policy["profiles"]) if profile == "all" else [profile]
+        if any(name not in PROFILES for name in self.profiles):
+            raise ValueError("Unknown source pin profile in policy")
         if "platform" in self.profiles and "callers" not in self.profiles:
             self.profiles.append("callers")
         self.pending, self.changes, self.immutable_checks = {}, [], 0
@@ -184,10 +187,38 @@ class Plan:
         # A dependent caller pins the proposed capsule, not its stale old bytes.
         return self.pending[name] if name in self.pending else self.snapshot.read(name)
 
-    def change(self, profile, path, field, before, after):
+    def change(self, profile, path, field, before, after, target=None):
         if before != after:
-            self.changes.append({"profile": profile, "target": TARGETS[profile], "path": path,
+            self.changes.append({"profile": profile, "target": target or TARGETS[profile], "path": path,
                                  "field": field, "before": before, "after": after})
+
+    def runtime(self, policy):
+        """Update only explicitly declared current-source assertions in place."""
+        seen = set()
+        for binding in policy["bindings"]:
+            if set(binding) != {"target", "source", "declaration"}:
+                raise ValueError("Unexpected current runtime binding fields")
+            target, source = (public_path(binding[key]) for key in ("target", "source"))
+            if any(not name.startswith(("apps/", "packages/", "scripts/", "tests/"))
+                   or name.startswith("packages/protocol/") or "/node_modules/" in name
+                   for name in (target, source)):
+                raise ValueError("Runtime bindings require active public source paths")
+            declaration = binding["declaration"]
+            if not re.fullmatch(r"const [A-Za-z_$][\w$]*\s*=\s*", declaration):
+                raise ValueError("Expected one literal current pin declaration")
+            if (target, declaration) in seen:
+                raise ValueError("Duplicate runtime binding")
+            seen.add((target, declaration))
+            text = self.source(target).decode()
+            pattern = re.compile(re.escape(declaration) + r"(?P<quote>['\"])(?P<hash>[0-9a-f]{64})(?P=quote)")
+            matches = list(pattern.finditer(text))
+            if len(matches) != 1:
+                raise ValueError("Expected one runtime pin: " + target + " " + declaration)
+            match = matches[0]
+            digest = sha(self.source(source))
+            self.change("runtime", source, "sha256", match["hash"], digest, target)
+            if match["hash"] != digest:
+                self.pending[target] = (text[:match.start("hash")] + digest + text[match.end("hash"):]).encode()
 
     def verify_packages(self, base, packages, exact=False):
         lock = DECODER.decode(self.snapshot.read(base + "/package-lock.json").decode())
@@ -276,9 +307,12 @@ class Plan:
     def build(self):
         for profile in self.profiles:
             policy = self.policy["profiles"][profile]
+            if profile == "runtime":
+                self.runtime(policy)
+                continue
             target = TARGETS[profile]
             if policy["target"] != target:
-                raise ValueError("Only the three current pin tables may be updated")
+                raise ValueError("Current pin table differs from its fixed target")
             original = self.snapshot.read(target)
             text = original.decode()
             new = (self.mobile(policy, text) if profile == "mobile" else self.rows(profile, policy, text)).encode()
@@ -339,7 +373,7 @@ class Plan:
 
 
 def run(action="check", profile="all", root=ROOT):
-    if action not in ("check", "update") or profile not in (*TARGETS, "all"):
+    if action not in ("check", "update") or profile not in (*PROFILES, "all"):
         raise ValueError("Unknown pin action/profile")
     guard = Snapshot(root)
     path = guard.physical(POLICY)
@@ -358,7 +392,7 @@ def run(action="check", profile="all", root=ROOT):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", nargs="?", choices=("check", "update"), default="check")
-    parser.add_argument("--profile", choices=(*TARGETS, "all"), default="all")
+    parser.add_argument("--profile", choices=(*PROFILES, "all"), default="all")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:

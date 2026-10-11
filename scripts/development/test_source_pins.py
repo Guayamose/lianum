@@ -102,6 +102,30 @@ class SourcePinsTest(unittest.TestCase):
         self.assertEqual(set(result["written"]), {pins.TARGETS["platform"], pins.TARGETS["callers"]})
         self.assertEqual(pins.run(root=self.root)["status"], "CURRENT")
 
+    def test_runtime_update_preserves_assertions_and_unlisted_historical_pins(self):
+        source, target = "packages/backend/src/guard.mjs", "tests/integration/scope.mjs"
+        self.write(source, "export const guard = 'original';\n")
+        original_digest = pins.sha((self.root / source).read_bytes())
+        self.write(target, "const helperSHA='" + original_digest + "';\nconst originalPin='" + "ab" * 32 + "';\n")
+        policy = json.loads((self.root / pins.POLICY).read_text())
+        policy["profiles"]["runtime"] = {"bindings": [
+            {"target": target, "source": source, "declaration": "const helperSHA="}]}
+        self.write(pins.POLICY, json.dumps(policy))
+        self.write(source, "export const guard = 'reviewed change';\n")
+        original = (self.root / target).read_bytes()
+        self.assertEqual(pins.run("check", "runtime", self.root)["status"], "STALE")
+        self.assertEqual((self.root / target).read_bytes(), original)
+        result = pins.run("update", "runtime", self.root)
+        self.assertEqual(result["written"], [target])
+        self.assertIn(pins.sha((self.root / source).read_bytes()), (self.root / target).read_text())
+        self.assertIn("const originalPin='" + "ab" * 32, (self.root / target).read_text())
+        self.assertEqual(pins.run("check", "runtime", self.root)["status"], "CURRENT")
+        self.write(target, (self.root / target).read_text() + "const helperSHA='" + "cd" * 32 + "';\n")
+        before = (self.root / target).read_bytes()
+        with self.assertRaisesRegex(ValueError, "Expected one runtime pin"):
+            pins.run("update", "runtime", self.root)
+        self.assertEqual((self.root / target).read_bytes(), before)
+
     def test_changed_dependency_bytes_cannot_be_rebaselined(self):
         original = self.before()
         for path in ("apps/mobile/node_modules/@noble/curves/index.js", "apps/platform/node_modules/pg/index.js"):
