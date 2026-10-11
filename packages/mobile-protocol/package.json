@@ -23,7 +23,24 @@
     "./wallet/public-token-observations": "./src/wallet/contracts/public-token-observations.mjs",
     "./wallet/exact-action-browser-review": "./src/wallet/contracts/exact-action-browser-review.mjs",
     "./wallet/manual-action-handoff": "./src/wallet/contracts/manual-action-handoff.mjs",
-    "./wallet/economic-state-v1": "./src/original-wallet-economic-state-v1.mjs"
+    "./wallet/economic-state-v1": "./src/original-wallet-economic-state-v1.mjs",
+    "./wallet/action-catalog": "./src/wallet/client/actions/catalog.mjs",
+    "./wallet/account-context": "./src/wallet/client/actions/account-context.mjs",
+    "./wallet/action-rules": "./src/wallet/client/actions/rules.mjs",
+    "./wallet/state-validation": "./src/wallet/client/validation/wallet-state.mjs",
+    "./wallet/projection": "./src/wallet/client/presentation/wallet-state.mjs",
+    "./wallet/session": "./src/wallet/client/session.mjs",
+    "./wallet/values": "./src/wallet/client/validation/values.mjs",
+    "./wallet/native-identity": "./src/wallet/client/validation/native-identity.mjs",
+    "./device/source-note-v1": "./src/device-external-flat-note-v1.mjs",
+    "./device/source-graph-v1": "./src/device-external-flat-graph-v1.mjs",
+    "./device/native-claim-v1": "./src/native-claim-device-v1.mjs",
+    "./device/native-deposit-v2": "./src/device-native-private-deposit-v2.mjs",
+    "./device/native-withdrawal-v2": "./src/device-native-private-exit-v2.mjs",
+    "./device/native-reservation-v2": "./src/device-native-private-reservation-v2.mjs",
+    "./device/paged-owner-v3": "./src/device-paged-owner-v3.mjs",
+    "./device/paged-graph-v3": "./src/device-paged-graph-v3.mjs"
   },
-  "types": "./src/authorization.d.mts"
+  "types": "./src/authorization.d.mts",
+  "dependencies": {}
 }

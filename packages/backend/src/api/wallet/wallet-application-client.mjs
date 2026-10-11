@@ -6,7 +6,9 @@ import {isWrappedResumeAction} from '@lianum/mobile-protocol/wallet/wrapped-with
  * the shared browser module. No session factory, persistence or automatic work. */
 import { request as httpRequest } from 'node:http';
 import { types, isDeepStrictEqual } from 'node:util';
-import { ALL_ACTIONS, buildActionBody, createWalletClient } from '@lianum/mobile-protocol/wallet/client';
+import { ALL_ACTIONS } from '@lianum/mobile-protocol/wallet/action-catalog';
+import { buildActionBody } from '@lianum/mobile-protocol/wallet/action-rules';
+import { createWalletClient } from '@lianum/mobile-protocol/wallet/session';
 
 const REQUEST_LIMIT = 4096;
 const RESPONSE_LIMIT = 256 * 1024;

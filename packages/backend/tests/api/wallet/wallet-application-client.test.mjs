@@ -270,12 +270,21 @@ test('production bridge shares the wallet workflow and exposes only explicit man
   const source = await readFile(sourceURL, 'utf8');
   const module = await import('../../../src/api/wallet/wallet-application-client.mjs');
   assert.deepEqual(Object.keys(module).sort(), ['createWalletApplicationClient', 'submitWrappedWithdrawalResume']);
-  const sharedWorkflow = /import \{ ALL_ACTIONS, buildActionBody, createWalletClient \} from '([^']+)'/.exec(source);
-  assert.ok(sharedWorkflow, 'Bridge must import the shared wallet workflow');
-  const sharedURL = sharedWorkflow[1].startsWith('.')
-    ? new URL(sharedWorkflow[1], sourceURL).href : import.meta.resolve(sharedWorkflow[1]);
-  assert.equal(sharedURL,
-    new URL('../../../../mobile-protocol/src/wallet/client/view-model.mjs', import.meta.url).href);
+  const sharedWorkflow = await import('../../../../../apps/wallet/src/client/state/view-model.mjs');
+  const focusedEntries = [
+    ['ALL_ACTIONS', new URL('../../../../mobile-protocol/src/wallet/client/actions/catalog.mjs', import.meta.url)],
+    ['buildActionBody', new URL('../../../../mobile-protocol/src/wallet/client/actions/rules.mjs', import.meta.url)],
+    ['createWalletClient', new URL('../../../../mobile-protocol/src/wallet/client/session.mjs', import.meta.url)],
+  ];
+  for (const [binding, expectedURL] of focusedEntries) {
+    const imported = new RegExp("import \\{ " + binding + " \\} from '([^']+)'").exec(source);
+    assert.ok(imported, 'Bridge must import the focused shared workflow binding: ' + binding);
+    const resolved = imported[1].startsWith('.')
+      ? new URL(imported[1], sourceURL).href : import.meta.resolve(imported[1]);
+    assert.equal(resolved, expectedURL.href, binding + ': focused implementation');
+    const implementation = await import(resolved);
+    assert.equal(implementation[binding], sharedWorkflow[binding], binding + ': original shared identity');
+  }
   assert.doesNotMatch(source, /setInterval|localStorage|sessionStorage|console\.|process\.env|node:fs|fetch\(/);
   assert.equal((source.match(/httpRequest\(/g) ?? []).length, 1);
 });

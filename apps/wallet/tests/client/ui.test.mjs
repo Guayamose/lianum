@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { validateFlatOwnerReadPayload, GENERATION_PORTFOLIO_PROFILE, ORIGINAL_SPL_USDC_UNITS_V1 } from '../../src/client/features/portfolio/owner-portfolio-contract.mjs';
 import { ACTIONS, DEFI_ACTIONS, ACCOUNT_ACTIONS, DEFI_PROFILE, WALLET_PROFILE, atomic, displayUnits, validateWalletState, projectWalletState,
   buildActionBody, actionReview, createWalletClient, NATIVE_IDENTITY_PROFILE, originalNativeIdentity,
@@ -183,7 +183,10 @@ test('missing bootstrap tokens never send, and missing action token leaves reads
   const readOnly = makeClient(fetchImpl, { actionToken: '' }); await readOnly.refresh(); assert.equal(calls, 1); assert.equal(readOnly.can('deposit'), false);
 });
 test('static app has isolated in-memory tokens, safe text rendering and no automatic action seams', async () => {
-  const [html, app, model] = await Promise.all(['index.html', 'app.mjs', 'view-model.mjs'].map(name => readFile(clientSourceURLs[name], 'utf8')));
+  const [html, app] = await Promise.all(['index.html', 'app.mjs'].map(name => readFile(clientSourceURLs[name], 'utf8')));
+  const modelRoot = new URL('./', clientSourceURLs['view-model.mjs']);
+  const modulePaths = (await readdir(modelRoot, { recursive: true })).filter(name => name.endsWith('.mjs'));
+  const model = (await Promise.all(modulePaths.map(name => readFile(new URL(name, modelRoot), 'utf8')))).join('\n');
   assert.match(html, /__WALLET_OWNER_TOKEN__/); assert.match(html, /__WALLET_ACTION_TOKEN__/); assert.match(html, /HOST_REPORTED/);
   assert.match(app, /element\?\.remove\(\)/); assert.match(app, /form\.addEventListener\('input', \(\) => client\.cancelReview\(\)\)/);
   for (const source of [app, model]) assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|document\.cookie|console\.|innerHTML|setInterval|sendBeacon/);
