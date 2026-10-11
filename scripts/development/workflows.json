@@ -33,7 +33,8 @@
         "packages/backend/tests/claims/recovery/wrapped-data-location.test.mjs",
         "packages/backend/tests/accounts/authority/device-bridge-backend-isolation.test.mjs",
         "packages/backend/tests/accounts/authority/native-value-deposits.test.mjs",
-        "packages/backend/tests/operations/payouts/native-value-current-inflight-v4.test.mjs"
+        "packages/backend/tests/operations/payouts/native-value-current-inflight-v4.test.mjs",
+        "packages/backend/tests/operations/operators/wrapped/wrapped-graph-operator-v4-guards.test.mjs"
       ]
     },
     "custody": {

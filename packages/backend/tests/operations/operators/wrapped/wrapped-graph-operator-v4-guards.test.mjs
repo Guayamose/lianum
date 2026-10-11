@@ -1,11 +1,12 @@
+import {readOriginalReverseCoverageV4,finalizeOriginalReverseCoverageV4} from '../../../../src/claims/wrapped/operations/reverse-coverage-finalization-v4.mjs';
+import {createOriginalGraphInventoryRoundV4} from '../../../../src/operations/operators/wrapped/original-graph-inventory-round-v4.mjs';
+import {nativeValueWatermark as watermark} from '../../../../src/operations/operators/wrapped/wrapped-claim-graph-inventory-v1.mjs';
 /** Actual source-only physical guard closures. These lower inert runtime ports
  * cannot issue production brands; no node, compiler, prover or native key runs. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import {assertGraphNativeStateV4,graphNativeProjectionV4} from '../../../../src/operations/operators/wrapped/graph-native-state-v4.mjs';
 import { cloneInput as copy, frozenInput as freeze, inputUint } from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
-const source = readFileSync(new URL('../../../../src/operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs', import.meta.url), 'utf8');
 const operations = new WeakMap();
 const readWrappedGraphDispatchOperationV4 = token => { const read = operations.get(token); assert.ok(read, 'TEST_ORIGINAL_OPERATION_REQUIRED'); return freeze(copy(read())); };
 const api = {
@@ -46,44 +47,20 @@ test('cross-signer GRAPH progress allows monotonic reads only; every physical hi
   for(const key of ['mutationGeneration','lifetimeId','lastTimestamp']){const changed=copy(f.rows);changed[0].state[key]='9';assert.throws(()=>api.graphNativeProjectionV4(f.rows,changed));}
   const changed=copy(f.rows);changed[0].state.transactions.push({phase:'unknown'});assert.throws(()=>api.graphNativeProjectionV4(f.rows,changed));
 });
-test('reverse claim ticket is completed inside original serial after final awaits and fixed native quiescence',()=>{
-  const claim=readFileSync(new URL('../../../../src/claims/wrapped/operations/wrapped-operators-v1.mjs',import.meta.url),'utf8');
-  const start=claim.indexOf('if (reverseCoverageTicketsV4.has(result))'),capture=claim.indexOf('reverseCoverageStatesV4.set(result, snapshot)',start);
-  const body=claim.slice(start,capture);
-  assert.ok(body.includes('await readVault(); await current();'));
-  assert.ok(body.includes('await quiesceOwnedOperatorNativeReads([...nativeReads.values()])'));
-  assert.ok(body.includes('performance.now() - started'));assert.ok(claim.indexOf('return result;',capture)>capture);
-  assert.ok(source.includes('consumeWrappedGraphOperatorKeyLeaseV4'));assert.ok(!source.includes('signWrappedGraphAuthorizationV1'));
-  const combined=readFileSync(new URL('../../../../src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs',import.meta.url),'utf8');
-  assert.ok(!combined.includes('export function signWrappedGraphAuthorizationV1'));assert.ok(combined.includes('consumeWrappedGraphOperatorKeyLeaseV4(lease, token, kind, message, policy, frame)'));
-});
 
 
-/** HOST storage defect only. Execute the original audit/unchanged/save bodies
- * against the real encrypted V3 store. Native observation, binding validation
+
+/** HOST storage defect only. Exercise the original audit/unchanged/save transitions
+ * through their complete mechanism against the real encrypted V3 store. Native observation, binding validation
  * and current-view ports below are explicit inert data fixtures; no key, native
  * runtime, consensus, proof or financial acceptance is created. */
 test('HOST original wrapped audit avoids key-order-only AEAD commits and keeps every fresh check', async t => {
   const { mkdtemp, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
-  const { isDeepStrictEqual } = await import('node:util');
-  const moduleURL = (canonical, mapped) => {
-    const candidate = new URL(canonical, import.meta.url);
-    try { readFileSync(candidate); return candidate; }
-    catch (error) { assert.equal(error.code, 'ENOENT'); const fallback = new URL(mapped, import.meta.url); readFileSync(fallback); return fallback; }
-  };
-  const storeModule = await import(moduleURL('../../../../src/claims/storage/segmented-record-store.mjs', '../native-claims/segmented-record-store.mjs').href);
-  const readiness = await import(moduleURL('../../../../src/execution/account/preparation/readiness-inputs.mjs', '../paeg/readiness-inputs.mjs').href);
-  const commitments = await import(moduleURL('../../../../../components/src/encoding/commitments.mjs', '../paeg/commitments.mjs').href);
-  const inventorySource = readFileSync(moduleURL('../../../../src/operations/operators/wrapped/wrapped-claim-graph-inventory-v1.mjs', './wrapped-claim-graph-inventory-v1.mjs'), 'utf8');
-  const watermarkLine = inventorySource.split('\n').filter(line => line.startsWith('export const nativeValueWatermark = '));
-  assert.equal(watermarkLine.length, 1);
-  const watermark = Function(watermarkLine[0].replace('export ', '') + '\nreturn nativeValueWatermark;')();
-  const unchangedAt = source.indexOf('  async function unchanged() {'), saveEnd = source.indexOf('  async function current() {', unchangedAt);
-  const auditAt = source.indexOf('  async function auditAll('), auditEnd = source.indexOf('  function evmFenceV4()', auditAt);
-  assert.ok(unchangedAt >= 0 && saveEnd > unchangedAt && auditAt >= 0 && auditEnd > auditAt);
-  const bodies = source.slice(unchangedAt, saveEnd) + source.slice(auditAt, auditEnd);
+  const storeModule = await import('../../../../src/claims/storage/segmented-record-store.mjs');
+  const readiness = await import('../../../../src/execution/account/preparation/readiness-inputs.mjs');
+  const commitments = await import('../../../../../components/src/encoding/commitments.mjs');
   const blockId = 'a'.repeat(64), nativeId = 'b'.repeat(64), gid = 'c'.repeat(64);
   const initial = { lastClock: '1000', inventories: [{ profileCommitment: 'd'.repeat(64), entries: [{
     original: { nativeId, facts: { nativeGid: gid } }, watermark: watermark({ finalizedBlockId: blockId, finalizedBlockHeight: '5' }),
@@ -104,16 +81,14 @@ test('HOST original wrapped audit avoids key-order-only AEAD commits and keeps e
   const resources = { store: {
     async load() { control.reads++; const row = await store.read(); return { revision: String(row.revision), state: row.data }; },
     async commit(input) { control.commits++; const row = await store.update(Number(input.expectedRevision), prior => {
-      assert.deepEqual(prior, live.read().state); return input.nextState;
+      assert.deepEqual(prior, scope.record.state); return input.nextState;
     }); return { revision: String(row.revision), state: row.data }; },
   } };
-  const ports = { assert, isDeepStrictEqual, copy: readiness.cloneInput, freeze: readiness.frozenInput,
+  const ports = { copy: readiness.cloneInput, freeze: readiness.frozenInput,
     equal: (a, b) => assert.deepEqual(a, b), exactRecord: commitments.exactRecord, inputUint: readiness.inputUint,
     validateNativeValueOperatorInventory(state) { // Inert prevalidated inventory port: never grants a typed native observation.
       assert.deepEqual(Object.keys(state).sort(), ['authorizations', 'checkpoints', 'inventories', 'lastClock']); return state;
     }, nativeValueWatermark: watermark, MAX_CERTIFICATES_PER_ORIGINAL: 64,
-    bound: { resources, binding: Object.freeze({ inert: true }) },
-    active: { view: { head: { timestamp: '1000' } } }, record: { revision: String(durable.revision), state: durable.data },
     owned() { assert.equal(control.poisoned, false); }, poison() { control.poisoned = true; },
     current: async () => { control.currents++; },
     observe: async () => { control.observations++; if (control.failure) throw control.failure; return {
@@ -121,8 +96,9 @@ test('HOST original wrapped audit avoids key-order-only AEAD commits and keeps e
       original: { facts: { finalizedBlockId: blockId, finalizedBlockHeight: control.height } },
     }; },
   };
-  const names = Object.keys(ports);
-  const live = Function(...names, bodies + '\nreturn {audit:auditAll, read:()=>record};')(...names.map(name => ports[name]));
+  const scope = {bound: {resources,binding:Object.freeze({inert:true})},
+    active:{view:{head:{timestamp:'1000'}}},record:{revision:String(durable.revision),state:durable.data}};
+  const live = createOriginalGraphInventoryRoundV4(scope, ports);
   await live.audit(); await live.audit();
   assert.deepEqual({ reads: control.reads, currents: control.currents, observations: control.observations, commits: control.commits },
     { reads: 4, currents: 4, observations: 2, commits: 0 });
@@ -130,15 +106,53 @@ test('HOST original wrapped audit avoids key-order-only AEAD commits and keeps e
   // A genuinely new watermark still gets the original durable CAS/readback.
   control.height = '6'; await live.audit();
   assert.equal(control.commits, 1); assert.equal((await store.read()).revision, durable.revision + 1);
-  assert.equal(live.read().state.inventories[0].entries[0].watermark.blockHeight, '6');
+  assert.equal(scope.record.state.inventories[0].entries[0].watermark.blockHeight, '6');
   await live.audit(); assert.equal(control.commits, 1); assert.equal(control.observations, 4);
   // A later original-source failure is re-observed and cannot be hidden by a
   // previously equal state. It propagates unchanged without a new commit.
   control.status = 'unknown'; const unavailable = await live.audit();
   assert.equal(unavailable.blockers.length, 1); assert.equal(control.commits, 2);
-  assert.equal(live.read().state.inventories[0].entries[0].status, 'unknown');
+  assert.equal(scope.record.state.inventories[0].entries[0].status, 'unknown');
   const original = Error('INERT_ORIGINAL_SOURCE_FAILED'); control.failure = original;
   await assert.rejects(live.audit(), error => error === original);
   assert.equal(control.observations, 6); assert.equal(control.commits, 2);
   assert.equal((await store.read()).revision, durable.revision + 2);
 });
+
+async function completeReverseCoverage(ports) {
+  const quiet = await readOriginalReverseCoverageV4(ports);
+  finalizeOriginalReverseCoverageV4(ports,quiet);
+}
+function finalizationFixture() {
+  const events = [], quiet = Object.freeze({}), snapshot = Object.freeze({head:'original'});
+  const ports = {
+    async readVault() { events.push('journal'); }, async current() { events.push('current'); },
+    async quiesce() { events.push('quiesce'); return quiet; },
+    assertQuiescent(value) { assert.equal(value,quiet); events.push('quiescent'); },
+    assertLive() { events.push('live'); }, snapshot() { events.push('snapshot'); return snapshot; },
+    now() { events.push('deadline'); return 120; }, started:100,
+    retain(value) { assert.equal(value,snapshot); events.push('retain'); },
+  };
+  return {events,ports};
+}
+test('reverse completion retains only after final journal/head reads, original quiescence and deadline', async () => {
+  const f=finalizationFixture(); let release;
+  f.ports.readVault = () => new Promise(resolve => {f.events.push('journal');release=resolve;});
+  const pending=completeReverseCoverage(f.ports);
+  await Promise.resolve(); assert.deepEqual(f.events,['journal']);
+  release(); await pending;
+  assert.deepEqual(f.events,['journal','current','quiesce','quiescent','live','snapshot','deadline','retain']);
+});
+for (const phase of ['readVault','current','quiesce','assertQuiescent','assertLive'])
+  test('reverse completion never retains after failed '+phase, async () => {
+    const f=finalizationFixture(),failure=Error('ORIGINAL_'+phase);
+    f.ports[phase]=()=>{throw failure;};
+    await assert.rejects(completeReverseCoverage(f.ports),error=>error===failure);
+    assert.equal(f.events.includes('retain'),false);
+  });
+for (const elapsed of [-1,30_000,NaN,Infinity])
+  test('reverse completion rejects invalid or expired elapsed '+elapsed, async () => {
+    const f=finalizationFixture();f.ports.now=()=>f.ports.started+elapsed;
+    await assert.rejects(completeReverseCoverage(f.ports),/CLAIM_OPERATOR_AUDIT_TOO_OLD/);
+    assert.equal(f.events.includes('retain'),false);
+  });

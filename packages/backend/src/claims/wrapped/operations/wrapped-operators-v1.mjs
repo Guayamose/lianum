@@ -1,3 +1,4 @@
+import {readOriginalReverseCoverageV4,finalizeOriginalReverseCoverageV4} from './reverse-coverage-finalization-v4.mjs';
 import { validateWrappedClaimOperationalRegistration } from '../../ingress/operational-registration-v2.mjs';
 import { registryCommitment as wrappedRegistryCommitment } from '../../../chains/shared/transfers/generic-native-value-v2.mjs';
 import { createWrappedClaimFactsCollector } from '../../protocol/facts-collector-registry-v2.mjs';
@@ -273,12 +274,19 @@ function createClaimOperator(input, custody) {
       // Callback assertions and snapshots taken before the final journal/head
       // reads cannot mint this ticket's original claim-source authority.
       if (reverseCoverageTicketsV4.has(result)) {
-        await readVault(); await current();
-        reverseQuietV4 = await quiesceOwnedOperatorNativeReads([...nativeReads.values()]);
-        assertOwnedOperatorNativeReadsQuiescent(reverseQuietV4); assertReverseCoverageLiveV4();
-        const snapshot = reverseSourceStateV4(), elapsed = performance.now() - started;
-        assert.ok(Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 30_000, 'CLAIM_OPERATOR_AUDIT_TOO_OLD');
-        reverseCoverageStatesV4.set(result, snapshot);
+        const finalization = {
+          readVault, current,
+          async quiesce() {
+            reverseQuietV4 = await quiesceOwnedOperatorNativeReads([...nativeReads.values()]);
+            return reverseQuietV4;
+          },
+          assertQuiescent: assertOwnedOperatorNativeReadsQuiescent,
+          assertLive: assertReverseCoverageLiveV4, snapshot: reverseSourceStateV4,
+          now: () => performance.now(), started,
+          retain: snapshot => reverseCoverageStatesV4.set(result, snapshot),
+        };
+        const quiet = await readOriginalReverseCoverageV4(finalization);
+        finalizeOriginalReverseCoverageV4(finalization, quiet);
       }
       return result;
     } catch (cause) {

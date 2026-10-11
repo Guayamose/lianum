@@ -1,3 +1,4 @@
+import {createOriginalGraphInventoryRoundV4} from './original-graph-inventory-round-v4.mjs';
 import {assertGraphNativeStateV4,graphNativeProjectionV4 as compareGraphNativeStateV4} from './graph-native-state-v4.mjs';
 import { readWrappedGraphDispatchOperationV4 } from '../../../chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs';
 import { assertCombinedClaimCoverageV4, assertCombinedClaimSourceCurrentV4, captureCombinedClaimNativeStateV4, quiesceCombinedClaimNativeV4, assertCombinedClaimNativeQuiescenceV4, releaseCombinedClaimNativeQuiescenceV4, assertCombinedGraphOperatorIdleV4, beginWrappedGraphAuditRoundV4, signWrappedGraphAuthorizationV4, acquireCombinedOperatorCustody, assertCombinedOperatorLive, poisonCombinedOperator, closeCombinedOperator, registerCombinedOperatorBranch, consumeCombinedBranchRecoveryV1, enterWrappedOperatorBranchV1, exitWrappedOperatorBranchV1, reserveWrappedOperatorV1, releaseWrappedOperatorV1 } from './wrapped-claim-combined-operators-v1.mjs';
@@ -6,7 +7,6 @@ import { assertCombinedClaimCoverageV4, assertCombinedClaimSourceCurrentV4, capt
  * boolean. Shares only an authenticated immutable receiver head with siblings.
  * Activation is impossible until native-value-system-v2 owns a real deployment. */
 import assert from 'node:assert/strict';
-import { isDeepStrictEqual } from 'node:util';
 import { createPublicKey, generateKeyPairSync } from 'node:crypto';
 import { signature as sign } from '@lianum/engine/notes/private-note-encoding';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
@@ -97,19 +97,12 @@ export function createScopedWrappedClaimGraphOperatorV1(raw, custody) {
     assert.equal(bound.system.claimsEnabled, true, 'WRAPPED_COMBINED_CLAIMS_REQUIRED');
     equal(bound.system.registry, bound.binding.registry); equal(bound.system.adapterProfiles, bound.binding.profiles);
     assert.equal(bound.resources.assertLive(), undefined, 'NATIVE_VALUE_SYNCHRONOUS_LIVENESS_REQUIRED'); }
-  async function unchanged() {
-    try { equal(await bound.resources.store.load(), record); }
-    catch (cause) { poison(); throw new Error('NATIVE_VALUE_JOURNAL_UNAVAILABLE_OR_CHANGED', { cause }); }
-  }
-  async function save(next) {
-    active?.quiet?.release();
-    try {
-      owned(); await unchanged(); const state = validateNativeValueOperatorInventory(next, bound.binding);
-      const result = await bound.resources.store.commit(freeze({ expectedRevision: record.revision, nextState: copy(state) }));
-      exactRecord(result, ['revision', 'state']); assert.equal(inputUint(result.revision), BigInt(record.revision) + 1n); equal(result.state, state);
-      equal(await bound.resources.store.load(), result); record = copy(result);
-    } catch (cause) { poison(); throw new Error('NATIVE_VALUE_DURABLE_WRITE_UNCERTAIN', { cause }); }
-  }
+  const inventoryRound = createOriginalGraphInventoryRoundV4({
+    get bound() { return bound; }, get record() { return record; },
+    set record(next) { record = next; }, get active() { return active; },
+  }, {copy,freeze,equal,exactRecord,inputUint,validateNativeValueOperatorInventory,
+    nativeValueWatermark,MAX_CERTIFICATES_PER_ORIGINAL,owned,poison,current,observe});
+  const {unchanged,save,audit:auditAll} = inventoryRound;
   async function current() {
     owned(); budget(active.started);
     assertWrappedClaimGraphCurrentViewV1(active.view, { runtime: bound.runtime, system: bound.system, poolIndex: active.view.poolIndex });
@@ -162,44 +155,6 @@ export function createScopedWrappedClaimGraphOperatorV1(raw, custody) {
       // classifier and can never be converted into a successful audit.
       return { status: 'unknown', reason: 'NATIVE_VALUE_SOURCE_UNAVAILABLE_OR_INVALID', observed: false, nativeReadCount: '0', sourceStatus: 'unverified' };
     }
-  }
-  async function auditAll(allowedPending = null) {
-    await current(); await unchanged(); const next = copy(record.state), blockers = [], observations = [];
-    next.lastClock = active.view.head.timestamp;
-    for (let i = 0; i < next.inventories.length; i++) {
-      const inventory = next.inventories[i], finality = new Map();
-      if (inventory.entries.length >= 64) blockers.push({ profileCommitment: inventory.profileCommitment, reason: 'NATIVE_VALUE_INVENTORY_SATURATED' });
-      for (const entry of inventory.entries) {
-        // Deliberately includes expired, unadmitted, unsigned and adverse rows.
-        const result = await observe(i, entry.original.nativeId, entry);
-        observations.push({ profileCommitment: inventory.profileCommitment, nativeId: entry.original.nativeId,
-          attempted: true, nativeObservationReturned: result.observed, authenticatedNativeReadCount: result.nativeReadCount, sourceStatus: result.sourceStatus, priorAdverse: entry.status === 'adverse' });
-        if (entry.status !== 'adverse') { entry.status = result.status; entry.reason = result.reason; }
-        entry.lastCheckedAt = active.view.head.timestamp;
-        if (result.status === 'live') {
-          entry.watermark = nativeValueWatermark(result.original.facts);
-          const height = entry.watermark.blockHeight, prior = finality.get(height);
-          if (prior && prior !== entry.watermark.blockId) { entry.status = 'adverse'; entry.reason = 'NATIVE_VALUE_PROFILE_FINALITY_DISAGREEMENT'; }
-          finality.set(height, entry.watermark.blockId);
-        }
-        if (entry.status !== 'live') blockers.push({ profileCommitment: inventory.profileCommitment, nativeId: entry.original.nativeId, nativeGid: entry.original.facts.nativeGid, status: entry.status, reason: entry.reason });
-        if (entry.pending && entry.pending.digest !== allowedPending) blockers.push({ profileCommitment: inventory.profileCommitment,
-          nativeId: entry.original.nativeId, reason: 'NATIVE_VALUE_UNFINISHED_SIGNING_INTENT' });
-        if (entry.history.length >= MAX_CERTIFICATES_PER_ORIGINAL) blockers.push({ profileCommitment: inventory.profileCommitment,
-          nativeId: entry.original.nativeId, reason: 'NATIVE_VALUE_SIGNED_HISTORY_SATURATED' });
-      }
-    }
-    for (const authorization of next.authorizations)
-      if (authorization.signature === null && authorization.digest !== allowedPending)
-        blockers.push({ reason: 'NATIVE_VALUE_UNFINISHED_HEALTH_INTENT' });
-    if (next.authorizations.length >= 256) blockers.push({ reason: 'NATIVE_VALUE_HEALTH_HISTORY_SATURATED' });
-    for (const authorization of next.checkpoints)
-      if (authorization.signature === null && authorization.digest !== allowedPending)
-        blockers.push({ reason: 'NATIVE_VALUE_UNFINISHED_CHECKPOINT_INTENT' });
-
-    if (!isDeepStrictEqual(next, record.state)) await save(next);
-    await current(); await unchanged();
-    return freeze({ head: copy(active.view.head), inventoryCount: String(observations.length), observations, blockers });
   }
   function evmFenceV4() {
     owned(); const state = bound.runtime.ingressSendState;
