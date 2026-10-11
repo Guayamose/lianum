@@ -66,6 +66,7 @@
     "../../packages/backend/src/operations/operators/native-value/original-audit-round-v4.mjs",
     "../../packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs",
     "../../packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs",
-    "../../packages/backend/src/chains/evm/runtime/original-claim-dispatch-v1.mjs"
+    "../../packages/backend/src/chains/evm/runtime/original-claim-dispatch-v1.mjs",
+    "../../packages/proofs/src/toolchain/current-source-generation.mjs"
   ]
 }
