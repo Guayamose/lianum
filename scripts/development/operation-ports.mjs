@@ -10,7 +10,7 @@ const literal = node => ts.isCallExpression(node) && node.expression.getText() =
 
 export function inspectOperationPorts(config, root) {
   const files = [config.composition, ...config.factories.flatMap(row => [
-    row.file, ...Object.values(row.loaders ?? {}).map(loader => loader.file),
+    row.file, ...Object.values(row.loaders ?? {}).flatMap(loader => [loader.file, ...(loader.binding ? [loader.binding.file] : [])]),
   ])];
   const program = ts.createProgram(files.map(file => resolve(root, file)), {
     allowJs: true, noResolve: true, noLib: true, types: [], target: ts.ScriptTarget.Latest,
@@ -142,6 +142,63 @@ export function inspectOperationPorts(config, root) {
       if (!consumed.has(name)) fail(file, value, `${label} has unused loaded export ${name}`);
     }
   }
+  // A composition may pass its fixed loader through a private implementation.
+  // Follow only that configured, frozen binding; arbitrary callbacks still fail.
+  function inspectBoundLoader(file, value, label, descriptor, consumed) {
+    const binding = descriptor.binding;
+    const invalid = () => fail(file, value, `${label} requires the fixed frozen loader binding`);
+    const call = ts.isArrowFunction(value) && !value.parameters.length && !value.modifiers?.length && value.body;
+    if (!call || !ts.isCallExpression(call) || call.arguments.length
+      || !ts.isPropertyAccessExpression(call.expression) || !ts.isIdentifier(call.expression.expression)
+      || call.expression.name.text !== binding.member) { invalid(); return; }
+    const receiver = call.expression.expression;
+    const declaration = symbolOf(receiver)?.declarations?.[0];
+    if (!declaration || !ts.isBindingElement(declaration) || declaration.initializer || declaration.dotDotDotToken
+      || key(declaration.propertyName ?? declaration.name) !== binding.contract) { invalid(); return; }
+    const variable = declaration.parent.parent;
+    let factory = variable;
+    while (factory && !ts.isFunctionDeclaration(factory)) factory = factory.parent;
+    if (!ts.isVariableDeclaration(variable) || !(variable.parent.flags & ts.NodeFlags.Const)
+      || !factory || factory.name?.text !== binding.factory || factory.parent !== file
+      || factory.parameters.length !== 1 || !ts.isIdentifier(factory.parameters[0].name)
+      || !ts.isIdentifier(variable.initializer)
+      || symbolOf(variable.initializer) !== symbolOf(factory.parameters[0].name)) { invalid(); return; }
+
+    const owner = program.getSourceFile(resolve(root, binding.file));
+    if (!owner) { invalid(); return; }
+    const calls = [];
+    walk(owner, node => {
+      if (!ts.isCallExpression(node) || !ts.isIdentifier(node.expression)) return;
+      const declarations = symbolOf(node.expression)?.declarations ?? [];
+      if (declarations.length !== 1 || !ts.isImportSpecifier(declarations[0])) return;
+      const imported = declarations[0];
+      const module = imported.parent.parent.parent.moduleSpecifier;
+      if (key(imported.propertyName ?? imported.name) === binding.factory && ts.isStringLiteral(module)
+        && resolve(dirname(owner.fileName), module.text) === file.fileName) calls.push(node);
+    });
+    const frozenFields = node => {
+      if (!node || !ts.isCallExpression(node) || node.arguments.length !== 1
+        || !ts.isPropertyAccessExpression(node.expression) || node.expression.name.text !== 'freeze'
+        || !ts.isIdentifier(node.expression.expression) || node.expression.expression.text !== 'Object'
+        || symbolOf(node.expression.expression)?.declarations?.length) return null;
+      const object = node.arguments[0];
+      if (!ts.isObjectLiteralExpression(object)) return null;
+      const fields = new Map();
+      for (const field of object.properties) {
+        if (!ts.isPropertyAssignment(field) && !ts.isShorthandPropertyAssignment(field)) return null;
+        const name = key(field.name);
+        if (!name || fields.has(name)) return null;
+        fields.set(name, ts.isPropertyAssignment(field) ? field.initializer : field.name);
+      }
+      return fields;
+    };
+    if (calls.length !== 1 || calls[0].arguments.length !== 1) { invalid(); return; }
+    const contracts = frozenFields(calls[0].arguments[0]);
+    const loaders = frozenFields(contracts?.get(binding.contract));
+    const producer = loaders?.get(binding.member);
+    if (!producer) { invalid(); return; }
+    inspectLoaderProducer(owner, producer, label, descriptor, consumed);
+  }
   for (const row of config.factories) {
     const file = program.getSourceFile(resolve(root, row.file));
     if (!file) { failures.push(`${row.file}: operation factory missing`); continue; }
@@ -186,7 +243,8 @@ export function inspectOperationPorts(config, root) {
         const field = actual.get(name);
         if (!field) continue;
         const value = ts.isPropertyAssignment(field) ? field.initializer : field.name;
-        if (loader) inspectLoaderProducer(composition, value, `${row.name}.${name}`, loader, members);
+        if (loader?.binding) inspectBoundLoader(composition, value, `${row.name}.${name}`, loader, members);
+        else if (loader) inspectLoaderProducer(composition, value, `${row.name}.${name}`, loader, members);
         else compare(composition, field, properties(composition, value, `${row.name}.${name}`), members, `${row.name}.${name}`);
       }
     }

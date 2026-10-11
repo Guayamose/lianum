@@ -182,3 +182,40 @@ test('operation loader ports are bound to one literal module and fixed consumed 
   const unconfigured = { composition: 'root.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation' }] };
   assert.ok(inspectOperationPorts(unconfigured, root).some(message => /whole-port forwarding/.test(message)));
 });
+
+test('private implementation loader resolves only its original frozen composition binding', t => {
+  const config = { composition: 'implementation.mjs', factories: [{ file: 'operation.mjs', name: 'createOperation',
+    loaders: { loadOriginal: { file: 'original.mjs', exports: ['prepare'],
+      binding: { file: 'root.mjs', factory: 'buildImplementation', contract: 'load', member: 'original' } } } }] };
+  const operation = 'export function createOperation({loadOriginal}) { return async () => { const {prepare}=await loadOriginal(); return prepare(); }; }';
+  const implementation = 'export function buildImplementation(contracts) { const {load}=contracts; return createOperation({loadOriginal:()=>load.original()}); }';
+  const rootSource = 'import {buildImplementation as build} from "./implementation.mjs"; const instance=build(Object.freeze({load:Object.freeze({original:()=>import("./original.mjs")})}));';
+  const root = fixture(t, { 'root.mjs': rootSource, 'implementation.mjs': implementation,
+    'operation.mjs': operation, 'original.mjs': 'throw Error("MUST_NOT_EXECUTE"); export function prepare() {}' });
+  assert.deepEqual(inspectOperationPorts(config, root), []);
+  for (const changed of [
+    rootSource.replace('./original.mjs', './substituted.mjs'),
+    rootSource.replace('()=>import("./original.mjs")', 'callback'),
+    rootSource.replace('()=>import("./original.mjs")', '(path)=>import(path)'),
+    rootSource.replace('Object.freeze({load:', '({load:'),
+    rootSource.replace('load:Object.freeze(', 'load:('),
+    rootSource.replace('const instance=', 'const Object={freeze:identity}; const instance='),
+    rootSource.replace('./implementation.mjs', './other-implementation.mjs'),
+    rootSource.replace('original:()=>', '...additional,original:()=>'),
+    rootSource + ' build(Object.freeze({load:Object.freeze({original:()=>import("./original.mjs")})}));',
+  ]) {
+    writeFileSync(join(root, 'root.mjs'), changed);
+    assert.ok(inspectOperationPorts(config, root).length > 0, changed);
+  }
+  writeFileSync(join(root, 'root.mjs'), rootSource);
+  for (const changed of [
+    implementation.replace('load.original()', 'load.original("extra")'),
+    implementation.replace('load.original()', 'load[selector]()'),
+    implementation.replace('const {load}=contracts;', 'const {load}=otherContracts;'),
+    implementation.replace('()=>load.original()', 'callback'),
+    'export function buildImplementation(contracts) { const {load}=contracts; function shadow(load) { return createOperation({loadOriginal:()=>load.original()}); } return shadow; }',
+  ]) {
+    writeFileSync(join(root, 'implementation.mjs'), changed);
+    assert.ok(inspectOperationPorts(config, root).length > 0, changed);
+  }
+});

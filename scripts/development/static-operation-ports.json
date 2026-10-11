@@ -1,6 +1,6 @@
 {
   "schema": "LIANUM_STATIC_OPERATION_PORTS_V1",
-  "composition": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+  "composition": "packages/backend/src/accounts/authority/native-value-account-backend-v2.mjs",
   "factories": [
     {
       "file": "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
@@ -32,6 +32,12 @@
       "loaders": {
         "loadOriginalManualPreparation": {
           "file": "packages/backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs",
+          "binding": {
+            "file": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+            "factory": "buildNativeValueAccountAuthorityV2",
+            "contract": "load",
+            "member": "nativeValueOwnerManualPreparationV1"
+          },
           "exports": [
             "createNativeValueOwnerManualPreparation",
             "restoreNativeValueOwnerManualPreparation"
