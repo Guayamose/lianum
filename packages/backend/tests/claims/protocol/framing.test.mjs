@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import {sourceURL} from '@lianum/environment';
 import { CLAIM_CONFIG_SCHEMA, CLAIM_INGRESS_FIELDS, CLAIM_DISCHARGE_FIELDS,
   claimDomainFrame, claimDomainCommitment, claimConfigToNoir, validateClaimConfig,
   claimReceiptSecret, claimRefundSalt, claimDestinationCommitment, claimIngressReceiptCommitment,
@@ -19,7 +20,7 @@ const u = (value, width) => Buffer.from(BigInt(value).toString(16).padStart(widt
 const b = value => Buffer.from(value, 'hex');
 const frame = (tag, parts) => Buffer.concat([Buffer.from(tag, 'ascii'), ...parts].flatMap(value => [u(value.length, 4), value]));
 const snake = name => name.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase());
-const source = readFileSync(new URL('../../../proof-relations/native-claim-lib/src/framing.nr', import.meta.url), 'utf8');
+const source = readFileSync(sourceURL('packages/proofs/circuits/native-claim-lib/src/framing.nr'), 'utf8');
 function configFixture() {
   const config = Object.fromEntries(CLAIM_CONFIG_SCHEMA.map(([name, type]) => [name,
     type === 'address' ? h(name).slice(0, 40) : type === 'u256' ? ((1n << 255n) + 31337n).toString()
@@ -56,7 +57,7 @@ test('claim domain includes all 25 ordered fields, raw u256/addresses and full s
   const encoded = noirFrame('claim_domain', variables);
   assert.deepEqual(encoded, claimDomainFrame(c)); assert.equal(hash(encoded), claimDomainCommitment(c));
   assert.equal(encoded.length, 834);
-  const typeSource = readFileSync(new URL('../../../proof-relations/native-claim-lib/src/types.nr', import.meta.url), 'utf8');
+  const typeSource = readFileSync(sourceURL('packages/proofs/circuits/native-claim-lib/src/types.nr'), 'utf8');
   const names = [...typeSource.match(/pub struct ClaimConfig \{([\s\S]*?)\n}/)[1].matchAll(/pub (\w+):/g)].map(match => match[1]);
   assert.deepEqual(names, CLAIM_CONFIG_SCHEMA.map(([name]) => snake(name)));
   assert.deepEqual(Object.keys(claimConfigToNoir(c)), names);
@@ -101,7 +102,7 @@ test('CI51/CO42 public and private source ABIs match the exact host statement or
     ['native-claim-ingress', CLAIM_INGRESS_FIELDS, 51, ['config', 'domain', 'evidence', 'note_opening']],
     ['native-claim-discharge', CLAIM_DISCHARGE_FIELDS, 42, ['config', 'domain', 'evidence', 'ticket', 'destination_endpoint', 'destination_salt']],
   ]) {
-    const main = readFileSync(new URL('../../../proof-relations/' + name + '/src/main.nr', import.meta.url), 'utf8');
+    const main = readFileSync(sourceURL('packages/proofs/circuits/' + name + '/src/main.nr'), 'utf8');
     const args = main.match(/fn main\(([\s\S]*?)\n\) \{/)[1];
     const pub = [...args.matchAll(/^\s+(\w+): pub (.*),$/gm)];
     assert.deepEqual(pub.map(match => match[1]), fields.map(snake));

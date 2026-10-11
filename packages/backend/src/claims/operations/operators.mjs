@@ -4,6 +4,7 @@ import { createClaimOperatorMetricsLifetime, beginClaimOperatorMetrics, enterCla
 import { claimBitcoinPayoutBroadcastFrame, CLAIM_BITCOIN_PAYOUT_BROADCAST_PROFILE } from '../payouts/bitcoin-payout-broadcast.mjs';
 import { auditIngressBroadcastOperator } from '../ingress/ingress-v3-lifecycle.mjs';
 import { nonceIngressBroadcastFrame, assertNonceIngressDeployment } from '../ingress/ingress-v3-host.mjs';
+import {validateRetainedClaimAuthorizationV1} from '../authorization/retained-authorization-record-v1.mjs';
 /** Four dedicated same-host synthetic attesters. Authenticity comes only from
  * owned construction and independently repeated reads, never supplied totals.
  * This is not independent infrastructure or a threshold native spending key. */
@@ -381,25 +382,9 @@ function createClaimOperator(input, custody) {
     await current(); return { inventories, financials };
   }
   function assertOriginalAuthorization(kind, message, frame, original, originalFrame) {
-    assert.ok(original, 'CLAIM_ORIGINAL_AUTHORIZATION_REQUIRED');
-    assert.equal(original.kind, kind, 'CLAIM_ORIGINAL_AUTHORIZATION_KIND');
-    assert.equal(original.signerIndex, signerIndex, 'CLAIM_ORIGINAL_AUTHORIZATION_SIGNER');
-    equal(original.head, activeView.head, 'CLAIM_ORIGINAL_AUTHORIZATION_HEAD');
-    const now = claimUint(activeView.head.timestamp), from = claimUint(original.message.validFrom), until = claimUint(original.message.validUntil);
-    // The owned EVM includes its original dispatch at head timestamp + 1.
-    // Neither the certificate's canonical-time bounds nor its bytes are renewed.
-    assert.ok(from <= now && now + 1n < until && until - from <= 30n, 'CLAIM_ORIGINAL_AUTHORIZATION_EXPIRED');
-    equal(message, original.message, 'CLAIM_ORIGINAL_AUTHORIZATION_MESSAGE');
-    assert.equal(frame.toString('hex'), originalFrame, 'CLAIM_ORIGINAL_AUTHORIZATION_FRAME');
-    const digest = claimHash(frame);
-    assert.equal(digest, original.digest, 'CLAIM_ORIGINAL_AUTHORIZATION_DIGEST');
-    const matches = record.data.authorizations.filter(row => row.kind === kind && row.digest === digest);
-    assert.equal(matches.length, 1, 'CLAIM_ORIGINAL_AUTHORIZATION_MISSING');
-    const prior = matches[0];
-    assert.ok(prior.signature && prior.abiSignature, 'CLAIM_ORIGINAL_AUTHORIZATION_UNFINISHED');
-    for (const key of ['kind', 'message', 'digest', 'signature', 'abiSignature'])
-      equal(prior[key], original[key], 'CLAIM_ORIGINAL_AUTHORIZATION_RECORD_CHANGED');
-    return prior;
+    return validateRetainedClaimAuthorizationV1(kind,message,frame,original,originalFrame,{
+      signerIndex,head:activeView.head,authorizations:record.data.authorizations,
+    });
   }
   /** V4 is intentionally different from the V1 whole-operation deadline.
    * A round can replace observations only by rereading COMPLETE claim history,

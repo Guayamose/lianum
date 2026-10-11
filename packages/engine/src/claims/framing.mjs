@@ -2,7 +2,8 @@
  * pool domain, typed receipt leaf and revocation state use canonical fields.
  * These codecs establish bytes, not deployment identity, custody or solvency. */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import {claimUint,claimHash as hash} from './value-codecs.mjs';
+export {claimUint};
 import { exactRecord, fixedArray, bytes32, canonicalField, digestBytes, digestWords, ZERO }
   from '@lianum/components/encoding/commitments';
 
@@ -45,14 +46,6 @@ const freeze = value => {
   return value;
 };
 
-export function claimUint(value, bits = 64) {
-  assert.equal(typeof value, 'string', 'CLAIM_DECIMAL_STRING');
-  assert.ok(value.length > 0 && value.length <= 78 && /^(0|[1-9][0-9]*)$/.test(value), 'CLAIM_CANONICAL_UINT');
-  const result = BigInt(value);
-  assert.equal(result.toString(), value, 'CLAIM_CANONICAL_UINT');
-  assert.ok(result < (1n << BigInt(bits)), 'CLAIM_UINT_RANGE');
-  return result;
-}
 function uintBytes(value, width) {
   return Buffer.from(claimUint(value, width * 8).toString(16).padStart(width * 2, '0'), 'hex');
 }
@@ -68,7 +61,6 @@ function frame(tag, parts) {
     const size = Buffer.alloc(4); size.writeUInt32BE(part.length); return [size, part];
   }));
 }
-const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const digest = (tag, parts) => hash(frame(tag, parts));
 const b32 = value => Buffer.from(bytes32(value, true), 'hex');
 

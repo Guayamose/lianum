@@ -3,22 +3,16 @@
  * Original actor/quorum tests separately exercise provenance and full audits. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import vm from 'node:vm';
-import { claimUint } from '@lianum/engine/claims/framing';
 import { claimHash } from '@lianum/engine/claims/permits';
-
-const source = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
-const start = source.indexOf('  function assertOriginalAuthorization('), end = source.indexOf('\n  async function signed(', start);
-assert.ok(start > 0 && end > start);
-const guard = vm.runInThisContext('(function({ assert, equal, claimUint, claimHash, signerIndex, activeView, record }) { return ('
-  + source.slice(start, end) + '); })');
+import {validateRetainedClaimAuthorizationV1} from '../../../src/claims/authorization/retained-authorization-record-v1.mjs';
 function fixture() {
   const head = { number: '9', hash: 'aa'.repeat(32), timestamp: '1000' };
   const frame = Buffer.from('the exact retained frame'), message = { validFrom: '1000', validUntil: '1030' };
   const row = { kind: 'health', message, digest: claimHash(frame), signature: 'bb'.repeat(64), abiSignature: { signerIndex: '1', v: '27' } };
   const record = { data: { authorizations: [structuredClone(row)] } }, original = { ...structuredClone(row), signerIndex: 1, head };
-  const check = guard({ assert, equal: assert.deepEqual, claimUint, claimHash, signerIndex: 1, activeView: { head }, record });
+  const check=(kind,message,frame,original,originalFrame)=>validateRetainedClaimAuthorizationV1(kind,message,frame,original,originalFrame,{
+    signerIndex:1,head,authorizations:record.data.authorizations,
+  });
   return { head, frame, message, record, original, check,
     run: () => check('health', message, frame, original, frame.toString('hex')) };
 }

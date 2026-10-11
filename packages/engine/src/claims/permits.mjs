@@ -1,10 +1,10 @@
 /** Exact public claim permit byte contracts. These pure codecs grant no
  * observer, signing, custody or deployment authority. */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import {claimUint,claimHash} from './value-codecs.mjs';
+export {claimHash};
 import { exactRecord, bytes32 } from '@lianum/components/encoding/commitments';
 import { cloneInput, frozenInput } from '@lianum/components/plain-input';
-import { claimUint } from './framing.mjs';
 import { createNativeQuorumHostVerifier } from '../evidence/native-quorum.mjs';
 
 export const CLAIM_ACTIONS = Object.freeze({ PREPOSITION: '0', RENEW: '1', RESERVE_INGRESS: '2',
@@ -35,7 +35,6 @@ export function claimFrame(tag, parts) {
     const length = Buffer.alloc(4); length.writeUInt32BE(part.length); return [length, part];
   }));
 }
-export const claimHash = bytes => createHash('sha256').update(bytes).digest('hex');
 export function claimActionFrame(domain, raw) {
   const value = cloneInput(raw); exactRecord(value, CLAIM_ACTION_FIELDS.map(([name]) => name));
   assert.ok(Object.values(CLAIM_ACTIONS).includes(value.action), 'CLAIM_ACTION'); bytes32(domain, true);

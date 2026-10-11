@@ -14,6 +14,7 @@
   },
   "files": [
     "../../packages/environment/src/paths.mjs",
+    "../../packages/backend/src/claims/authorization/retained-authorization-record-v1.mjs",
     "../../packages/backend/src/api/wallet/http/public-errors.mjs",
     "../../packages/backend/src/chains/shared/observations/observation-errors.mjs",
     "../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs",

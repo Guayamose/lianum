@@ -27,6 +27,7 @@
     "./chains/solana/solana-runtime": "./src/chains/solana/solana-runtime.mjs",
     "./claims/abi": "./src/claims/abi.mjs",
     "./claims/framing": "./src/claims/framing.mjs",
+    "./claims/value-codecs": "./src/claims/value-codecs.mjs",
     "./claims/inputs": "./src/claims/inputs.mjs",
     "./claims/issue-call": "./src/claims/issue-call.mjs",
     "./claims/permits": "./src/claims/permits.mjs",
