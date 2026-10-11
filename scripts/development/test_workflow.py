@@ -70,6 +70,19 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(plan["testFiles"], [self.smoke])
         self.assertEqual(plan["smokeOnlyChanges"], [changed])
 
+    def test_frozen_sources_do_not_connect_current_test_dependencies(self):
+        for prefix in ("archive/delivery", "packages/protocol/src"):
+            historical = prefix + "/old.mjs"
+            self.write(historical, "import '@lianum/a/value';\n")
+            self.write(self.consumer, "import '../../../" + historical + "';\n")
+            self.write("packages/a/package.json", '{"name":"@lianum/a","exports":{"./value":"./src/value.mjs"}}')
+            self.files.extend([historical, "packages/a/package.json"])
+            plan = self.plan([self.source])
+            self.assertEqual(plan["testFiles"], [self.smoke])
+        # An edited historical file still needs explicit review; it is not a pass.
+        self.assertEqual(self.plan(["archive/delivery/old.mjs"])["unmappedChanges"],
+                         ["archive/delivery/old.mjs"])
+
     def test_documentation_only_selects_no_execution(self):
         self.assertEqual(self.plan(["packages/a/README.md"])["testFiles"], [])
         self.assertEqual(self.plan(["README.md"])["unmappedChanges"], [])

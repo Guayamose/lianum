@@ -67,6 +67,9 @@ def catalog():
 def dependency_graph(files, root=None):
     """Conservative literal imports; dynamic dependencies are not claimed as covered."""
     root = root or ROOT
+    # Frozen evidence has its own integrity checks. It must not connect today's
+    # consumers through obsolete import trees or be reread for every test plan.
+    files = [path for path in files if not path.startswith(("archive/", "packages/protocol/"))]
     known = set(files)
     reverse = defaultdict(set)
     exports = {}

@@ -100,7 +100,10 @@ cambios respecto al ancestro común con la referencia indicada; debe existir
 esa referencia localmente. No presupone que la rama principal se llame `main`.
 
 La selección recorre imports literales para encontrar pruebas afectadas entre
-los archivos del catálogo. Cuando no puede vincular un cambio con una prueba,
+los archivos del catálogo. El archivo original y `packages/protocol` congelado
+quedan fuera de ese grafo y de las búsquedas habituales con `rg`; se consultan
+explícitamente con `rg --no-ignore`. Sus comprobaciones de integridad permanecen
+separadas. Cuando no puede vincular un cambio con una prueba,
 propone las comprobaciones básicas de su componente y lo indica como
 `component smoke fallback`. Esa selección comprueba comportamiento general:
 no acredita automáticamente cada línea modificada. Los imports calculados en

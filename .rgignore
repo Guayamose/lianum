@@ -1,0 +1,3 @@
+# Original delivery and frozen protocol: inspect explicitly with rg --no-ignore.
+/archive/
+/packages/protocol/
