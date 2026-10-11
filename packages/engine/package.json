@@ -10,7 +10,8 @@
     "./crypto/privacy": "./src/crypto/privacy.mjs",
     "./crypto/vault": "./src/crypto/vault.mjs",
     "./storage/records": "./src/storage/segmented-record-store.mjs",
-    "./accounts/coordinator-lifecycle": "./src/execution/accounts/generic-account-keeper-core.mjs"
+    "./accounts/coordinator-lifecycle": "./src/execution/accounts/generic-account-keeper-core.mjs",
+    "./chains/shared/owned-process-lifecycle": "./src/chains/shared/owned-process-lifecycle.mjs"
   },
   "lianum": {
     "status": "active"

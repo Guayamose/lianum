@@ -3,15 +3,14 @@ import { createReadStream } from 'node:fs';
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 import { legacyDataRoot } from '@lianum/environment';
-import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
+export {sleep, isolatedRuntimeEnvironment, startOwnProcess, stopOwnProcess} from './owned-process-lifecycle.mjs';
 
 // Existing consumers use this name for retained binaries, scratch and evidence.
 // Keep that data location explicit when the module executes from packages/.
 export const projectRoot = legacyDataRoot('engine');
 const integrationRoot = join(projectRoot, '.local', 'integrations');
-export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function pinnedBinary(relative, expectedHash) {
   if (!['win32', 'linux'].includes(process.platform) || process.arch !== 'x64') throw new Error('PINNED_RUNTIME_REQUIRES_REVIEWED_X64_PLATFORM');
@@ -42,36 +41,6 @@ export async function unusedLoopbackPort() {
   await new Promise(resolve => server.close(resolve));
   return port;
 }
-export function isolatedRuntimeEnvironment(cwd) {
-  const env = { HOME: cwd, TMPDIR: cwd, TEMP: cwd, TMP: cwd, LANG: 'C.UTF-8' };
-  for (const key of ['SystemRoot', 'WINDIR']) if (process.env[key]) env[key] = process.env[key];
-  return env;
-}
-export function startOwnProcess(binary, args, cwd) {
-  // Do not inherit RPC URLs, cloud variables, wallet configuration or credentials.
-  const env = isolatedRuntimeEnvironment(cwd);
-  const child = spawn(binary, args, { cwd, windowsHide: true, env, stdio: ['ignore', 'ignore', 'pipe'] });
-  let startupError = null;
-  let stderr = '';
-  child.on('error', e => { startupError = e; });
-  child.stderr.on('data', chunk => { if (stderr.length < 8192) stderr += chunk.toString(); });
-  return { child, assertAlive() { if (startupError || child.exitCode !== null) throw new Error('LOCAL_RUNTIME_EXITED'); }, diagnostic() { return stderr; } };
-}
-export async function stopOwnProcess(processHandle, { graceMs = 5000 } = {}) {
-  const { child } = processHandle;
-  if (!Number.isSafeInteger(graceMs) || graceMs < 1 || graceMs > 60000) throw new Error('INVALID_OWN_PROCESS_GRACE');
-  if (!child.pid || child.exitCode !== null || child.signalCode !== null) return { stopped: true, forced: false };
-  const stopped = once(child, 'exit');
-  const wait = async ms => { let timer; try { return await Promise.race([stopped.then(() => true), new Promise(resolve => { timer = setTimeout(() => resolve(false), ms); })]); } finally { clearTimeout(timer); } };
-  child.kill('SIGTERM');
-  if (await wait(graceMs)) return { stopped: true, forced: false };
-  // Only this exact owned ChildProcess can be forced; no PID discovery or group
-  // signal is used. Its scratch ledger is disposable and is removed afterward.
-  child.kill('SIGKILL');
-  if (!(await wait(5000))) throw new Error('OWN_RUNTIME_DID_NOT_EXIT');
-  return { stopped: true, forced: true };
-}
-
 // BEGIN PRIVATE ORIGINAL LOCAL RPC FAILURE DATA. No logging or request capture.
 const originalOwnedRpcFailures = new WeakMap();
 const rpcOwnData=(value,key)=>{try{const d=Object.getOwnPropertyDescriptor(value,key);return d&&Object.hasOwn(d,'value')?d.value:undefined;}catch{return undefined;}};

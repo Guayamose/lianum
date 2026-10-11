@@ -7,12 +7,26 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2024",
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
   "files": [
     "../../packages/environment/src/paths.mjs",
     "../../apps/wallet/src/server/errors/public-errors.mjs",
     "../../packages/backend/src/chains/shared/observations/observation-errors.mjs",
-    "../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs"
+    "../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs",
+    "../../packages/mobile-protocol/src/authorization.mjs",
+    "../../packages/mobile-protocol/src/original-account-review-contract-v2.mjs",
+    "../../packages/mobile-protocol/src/original-account-private-state-v1.mjs",
+    "../../packages/mobile-protocol/src/device-deposit-consent-v1.mjs",
+    "../../packages/mobile-protocol/src/device-execution-consent-v1.mjs",
+    "../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs",
+    "../../packages/mobile-protocol/src/device-exit-consent-v1.mjs",
+    "../../packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
+    "../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
+    "../../packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
+    "../../packages/backend/src/operations/recovery/native-original-source-process-v1.mjs",
+    "../../packages/engine/src/chains/shared/owned-process-lifecycle.mjs"
   ]
 }
