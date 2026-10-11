@@ -1,5 +1,6 @@
 /** Fixed Aave closure extends the original financial collector; no caller roots. */
 import assert from 'node:assert/strict';
+import {assertCapturedCurrentSources} from '@lianum/proofs/verification/sources/adopted-source-evidence';
 import {join,relative,resolve,sep} from 'node:path';
 import {ROOT,FLAT} from '@lianum/proofs/catalog';
 import {regular,hash} from '@lianum/proofs/tooling/tooling';
@@ -13,8 +14,7 @@ export function aavePrivateGraphSourcePinsV1() {
   function record(path) {const raw=regular(path),name=relative(FLAT,path).split(sep).join('/');
     assert.ok(path.startsWith(FLAT+sep)||path.startsWith(resolve(FLAT,'../../..')+sep),'AAVE_FIXED_SOURCE_ROOT');
     files.set(name,{path:name,bytes:raw.length,sha256:hash(raw)});}
-  for(const name of ['run-evm-aave-flow.mjs','aave-private-graph-source-pins-v1.mjs','aave-private-graph-policy-v1.mjs'])
-    record(join(ROOT,'integration',name));
+  assertCapturedCurrentSources(original,["tests/integration/chains/evm/run-evm-aave-flow.mjs","tests/integration/chains/evm/aave-private-graph-source-pins-v1.mjs","tests/integration/chains/evm/aave-private-graph-policy-v1.mjs"]);
   for(const name of ['BoundedMetaMorphoExit.sol','BoundedAaveStaticExit.sol','LocalAaveFlashYield.sol','PrivateAaveStaticDelivery.sol'])
     record(join(ROOT,'contracts/defi',name));
   record(join(resolve(FLAT,'../../..'),'scripts/development/aave_material.py'));

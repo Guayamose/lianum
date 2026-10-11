@@ -1,41 +1,34 @@
-/** Dedicated current collector; historical nativeClaimSourcePins is unchanged. */
+/** Current executable sources are authenticated by the adopted generation.
+ * Compiler/key publications retain their independent original evidence. */
 import assert from 'node:assert/strict';
-import { dirname, join, relative, resolve, sep } from 'node:path';
-import { ROOT, FLAT, GOLDEN } from '@lianum/proofs/catalog';
-import { regular, hash, verifyAPI, verifyVendor } from '@lianum/proofs/tooling/tooling';
-const MOBILE_PROTOCOL = resolve(FLAT, '../mobile-protocol');
-export function developmentBtcSplJupiterSourcePinsV1() {
-  assert.equal(arguments.length, 0); const files = new Map();
-  function visit(path) {
-    assert.ok([ROOT, FLAT, GOLDEN, MOBILE_PROTOCOL].some(root => path.startsWith(root + sep)) && path.endsWith('.mjs'),
-      'DEVELOPMENT_CLAIM_FIXED_SOURCE_ROOT');
-    if (files.has(path)) return;
-    const bytes = regular(path), source = bytes.toString('utf8');
-    files.set(path, { path: relative(FLAT, path).split(sep).join('/'), bytes: bytes.length, sha256: hash(bytes) });
-    const imports = new Set();
-    for (const match of source.matchAll(/\b(?:import|export)\s+(?:[^;'"\n]*?\s+from\s*)?(['"])([^'"]+)\1/g)) imports.add(match[2]);
-    for (const match of source.matchAll(/^\s*(?:import|export)\s+(?:[^;'"]*?\s+from\s*)?(['"])([^'"]+)\1/gm)) imports.add(match[2]);
-    for (const match of source.matchAll(/\bimport\s*\(\s*(['"])([^'"]+)\1\s*\)/g)) imports.add(match[2]);
-    for (const match of source.matchAll(/\bnew\s+URL\s*\(\s*(['"])([^'"]+\.mjs)\1\s*,\s*import\.meta\.url\s*\)/g)) imports.add(match[2]);
-    for (const name of imports) {
-      if (name.startsWith('node:')) continue;
-      if (['@noir-lang/noir_js', '@noir-lang/noir_wasm', '@aztec/bb.js'].includes(name)) continue;
-      assert.ok(name.startsWith('.'), 'DEVELOPMENT_CLAIM_LOCAL_SOURCE_IMPORT'); visit(resolve(dirname(path), name));
-    }
-  }
-  for (const name of ['integration/claims/development/run-development-btc-spl-jupiter-flow-v1.mjs','integration/claims/development/development-btc-spl-jupiter-flow-v1.mjs','integration/claims/development/development-btc-spl-jupiter-source-pins-v1.mjs','integration/claims/development/development-btc-spl-jupiter-policy-v1.mjs','integration/claims/development/run-development-btc-sol-graph-flow.mjs',
-    'integration/claims/development/development-btc-sol-graph-flow.mjs',
-    'integration/claims/development/development-btc-sol-graph-source-pins.mjs',
-    'integration/claims/development/development-btc-sol-graph-policy.mjs',
-    'integration/claims/development/run-development-native-claim-flow.mjs',
-    'integration/claims/development/development-native-claim-flow.mjs',
-    'integration/claims/development/development-native-claim-source-pins.mjs',
-    'integration/claims/development/development-native-claim-policy.mjs',
-    'integration/native-flow-supervisor.mjs', 'proof-workers/worker.mjs', 'proof-workers/role-process.mjs',
-    'proof-workers/native-ingress-v3-worker.mjs', 'proof-workers/native-ingress-v3-role-process.mjs',
-    'mobile-core/flat-owner-process.mjs']) visit(join(ROOT, name));
-  for (const name of ['src/paeg/proof-worker.mjs', 'experiments/private-core-proof/wallet-notes/resources.mjs',
-    'src/private-resource-policy.mjs', 'src/private-verifier-crs.mjs']) visit(join(GOLDEN, name));
-  return { profile: 'fresh-development-btc-source-sol-jupiter-spl-v1',
-    local: [...files.values()].sort((a,b) => a.path.localeCompare(b.path)), officialAPI: verifyAPI(), vendor: verifyVendor() };
+import {captureAdoptedSourceEvidence,assertCapturedCurrentSources} from '@lianum/proofs/verification/sources/adopted-source-evidence';
+export function developmentBtcSplJupiterSourcePinsV1(){
+ assert.equal(arguments.length,0,"CURRENT_SOURCE_PINS_NO_OPTIONS");
+ const base=captureAdoptedSourceEvidence();
+ assertCapturedCurrentSources(base,[
+  "packages/backend/src/custody/processes/flat-owner-process.mjs",
+  "packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-role-process.mjs",
+  "packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-worker.mjs",
+  "packages/components/src/resources/private-resource-policy.mjs",
+  "packages/components/src/resources/private-verifier-crs.mjs",
+  "packages/components/src/resources/wallet-resources.mjs",
+  "packages/proofs/src/execution/proof-worker.mjs",
+  "packages/proofs/src/jobs/role-process.mjs",
+  "packages/proofs/src/jobs/worker.mjs",
+  "tests/integration/claims/development/development-btc-sol-graph-flow.mjs",
+  "tests/integration/claims/development/development-btc-sol-graph-policy.mjs",
+  "tests/integration/claims/development/development-btc-sol-graph-source-pins.mjs",
+  "tests/integration/claims/development/development-btc-spl-jupiter-flow-v1.mjs",
+  "tests/integration/claims/development/development-btc-spl-jupiter-policy-v1.mjs",
+  "tests/integration/claims/development/development-btc-spl-jupiter-source-pins-v1.mjs",
+  "tests/integration/claims/development/development-native-claim-flow.mjs",
+  "tests/integration/claims/development/development-native-claim-policy.mjs",
+  "tests/integration/claims/development/development-native-claim-source-pins.mjs",
+  "tests/integration/claims/development/run-development-btc-sol-graph-flow.mjs",
+  "tests/integration/claims/development/run-development-btc-spl-jupiter-flow-v1.mjs",
+  "tests/integration/claims/development/run-development-native-claim-flow.mjs",
+  "tests/integration/native/native-flow-supervisor.mjs",
+  "tests/integration/claims/development/development-btc-spl-jupiter-source-pins-v1.mjs"
+]);
+ return {...base,profile:"fresh-development-btc-source-sol-jupiter-spl-v1"};
 }

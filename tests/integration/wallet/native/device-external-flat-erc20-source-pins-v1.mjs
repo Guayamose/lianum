@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {constants,openSync,closeSync,fstatSync,readFileSync,lstatSync,realpathSync} from 'node:fs';
 import {join,resolve} from 'node:path';
-import {ROOT,FLAT} from '@lianum/proofs/catalog';
-import {nativeValueDevFinancialSourcePinsV5} from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
-const DEVELOPMENT=resolve(FLAT,'../../..');
-const RUNNER=Object.freeze(['integration/run-device-external-flat-erc20-v1.mjs','integration/device-external-flat-erc20-flow-v1.mjs','integration/device-external-flat-erc20-host-vault-v1.mjs','integration/device-external-flat-erc20-policy-v1.mjs','integration/device-external-flat-erc20-source-pins-v1.mjs','integration/native-flow-supervisor.mjs','integration/device-external-flat-ordered-restart-v1.mjs','integration/device-external-flat-ordered-successor-v1.mjs']);
-const PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-note-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs','wallet-platform/modules/operations/local/device-external-flat-ordered-observation-service-v1.mjs','wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs','wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs','wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs','wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs']);
+import {projectRoot} from '@lianum/environment';
+import {captureNativeValueCurrentFinancialSourcesV6} from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
+const DEVELOPMENT=projectRoot;
+const RUNNER=Object.freeze(['tests/integration/wallet/native/run-device-external-flat-erc20-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-flow-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-host-vault-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-policy-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-source-pins-v1.mjs','tests/integration/native/native-flow-supervisor.mjs','tests/integration/wallet/native/device-external-flat-ordered-restart-v1.mjs','tests/integration/wallet/native/device-external-flat-ordered-successor-v1.mjs']);
+const PRODUCERS=Object.freeze(['packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs','packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs','packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs','packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs','packages/backend/src/operations/local/device-external-flat-ordered-observation-service-v1.mjs','packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs','packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs']);
 // Final literal hashes are sealed with the producer/SDK READY dependencies.
 const MOBILE=Object.freeze([
  ["apps/mobile/src/custody/native-claim-pending-v1.mjs","45c780791906637591e10b6e2485f3ebf986a0e18979eb1b7a6a99149a548170"],
@@ -115,7 +115,7 @@ const MOBILE=Object.freeze([
   "239bb27dfcf50457b20769d076576252e4662889d1f9a7109f114f82c8d6eb2b"
  ],
  [
-  "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
   "b491e596bf6de9d0b956251dbeac9e02271dfdddfddde2a90a683d3c0ea2e0d7"
  ],
  [
@@ -131,7 +131,7 @@ const MOBILE=Object.freeze([
   "cae4994f39667c26bc5e9b29b6aa0f329b8a7b9b0c52c456f1092cd26c7429bb"
  ],
  [
-  "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
   "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
@@ -139,17 +139,17 @@ const MOBILE=Object.freeze([
   "ad4d37166fe345877180eb2d6d22b7947daee55bbee01974b01c9933081bc46d"
  ]
 ]);
-function pin(base,name,expected){assert.equal(realpathSync(base),base);let path=base;for(const part of name.split('/')){assert.ok(part&&part!=='.'&&part!=='..');path=join(path,part);assert.equal(lstatSync(path).isSymbolicLink(),false);}
+function pin(current,base,name,originalSHA256){assert.equal(realpathSync(base),base);let path=base;for(const part of name.split('/')){assert.ok(part&&part!=='.'&&part!=='..');path=join(path,part);assert.equal(lstatSync(path).isSymbolicLink(),false);}
  assert.equal(realpathSync(path),path);const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW);let bytes;
  try{const before=fstatSync(fd);assert.ok(before.isFile()&&before.uid===process.getuid()&&before.nlink===1&&before.size>0&&before.size<=1048576);bytes=readFileSync(fd);const after=fstatSync(fd),named=lstatSync(path);
   for(const key of ['dev','ino','uid','nlink','size','mtimeMs','ctimeMs']){assert.equal(before[key],after[key]);assert.equal(before[key],named[key]);}assert.equal(bytes.length,before.size);
- }finally{closeSync(fd);}const sha256=createHash('sha256').update(bytes).digest('hex');if(expected!==undefined)assert.equal(sha256,expected,'DEVICE_EXTERNAL_FLAT_ORIGINAL_MOBILE_SOURCE');return{path:name,bytes:bytes.length,sha256};}
-export function deviceExternalFlatErc20SourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_EXTERNAL_FLAT_SOURCE_NO_OPTIONS');
- return{format:'LIANUM_DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),originalProducers:PRODUCERS.map(name=>pin(ROOT,name)),originalRunner:RUNNER.map(name=>pin(ROOT,name)),originalMobile:MOBILE.map(([name,digest])=>pin(DEVELOPMENT,name,digest))};}
+ }finally{closeSync(fd);}const sha256=createHash('sha256').update(bytes).digest('hex');const expected=current.sourceFiles.find(row=>row.source===name);assert.ok(expected,'DEVICE_EXTERNAL_FLAT_ADOPTED_SOURCE_REQUIRED');assert.equal(sha256,expected.sourceSHA256,'DEVICE_EXTERNAL_FLAT_ADOPTED_SOURCE_CHANGED');return{path:name,bytes:bytes.length,sha256,...(originalSHA256===undefined?{}:{originalSHA256})};}
+export function deviceExternalFlatErc20SourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_EXTERNAL_FLAT_SOURCE_NO_OPTIONS');const current=captureNativeValueCurrentFinancialSourcesV6();
+ return{format:'LIANUM_DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_SOURCE_CAPSULE_V1',financialCurrent:current,originalProducers:PRODUCERS.map(name=>pin(current,projectRoot,name)),originalRunner:RUNNER.map(name=>pin(current,projectRoot,name)),originalMobile:MOBILE.map(([name,digest])=>pin(current,DEVELOPMENT,name,digest))};}
 
 // Separate reviewed GRAPH capsule. Original ordered mobile hashes stay intact.
-const GRAPH_RUNNER=Object.freeze(['integration/run-device-external-flat-source-graph-v1.mjs','integration/device-external-flat-erc20-flow-v1.mjs','integration/device-external-flat-erc20-host-vault-v1.mjs','integration/device-external-flat-erc20-policy-v1.mjs','integration/device-external-flat-erc20-source-pins-v1.mjs','integration/native-flow-supervisor.mjs','integration/device-external-flat-ordered-restart-v1.mjs','integration/device-external-flat-ordered-successor-v1.mjs']);
-const GRAPH_PRODUCERS=Object.freeze(['wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs','wallet-platform/modules/global-state/device-external-flat-source-graph-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs','wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs','wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs','wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs','wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs','wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs','wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs','wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs','wallet-platform/modules/paeg/flat-native-execution.mjs']);
+const GRAPH_RUNNER=Object.freeze(['tests/integration/wallet/native/run-device-external-flat-source-graph-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-flow-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-host-vault-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-policy-v1.mjs','tests/integration/wallet/native/device-external-flat-erc20-source-pins-v1.mjs','tests/integration/native/native-flow-supervisor.mjs','tests/integration/wallet/native/device-external-flat-ordered-restart-v1.mjs','tests/integration/wallet/native/device-external-flat-ordered-successor-v1.mjs']);
+const GRAPH_PRODUCERS=Object.freeze(['packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs','packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs','packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs','packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs','packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs','packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs','packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs','packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs','packages/backend/src/execution/account/execution/flat-native-execution.mjs']);
 const GRAPH_MOBILE=Object.freeze([
  ["apps/mobile/src/custody/native-claim-pending-v1.mjs","45c780791906637591e10b6e2485f3ebf986a0e18979eb1b7a6a99149a548170"],
  ["apps/mobile/src/custody/native-claim-pending-v1.d.mts","aac072b99da38b5dc4c9cc35e2d78dbf769dafa49d2af1e2dfff4d69ab72c4e5"],
@@ -212,7 +212,7 @@ const GRAPH_MOBILE=Object.freeze([
   "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
  ],
  [
-  "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs",
+  "packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs",
   "faa60be8edc76588354316594ba7c9cac90714e8363e9817c5ec8b1d6d641399"
  ],
  [
@@ -236,7 +236,7 @@ const GRAPH_MOBILE=Object.freeze([
   "6a7211260df312a8ea42f3401e51f9fb3d1ab06f74d02b26b3e30977a5fe814d"
  ],
  [
-  "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
   "b491e596bf6de9d0b956251dbeac9e02271dfdddfddde2a90a683d3c0ea2e0d7"
  ],
  [
@@ -268,7 +268,7 @@ const GRAPH_MOBILE=Object.freeze([
   "9eb633780fa9d56fc3677c6f60b57c4a40b2feb32d5b49469ba1cbbbd74c1c60"
  ],
  [
-  "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
   "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
@@ -320,11 +320,11 @@ const GRAPH_MOBILE=Object.freeze([
   "f23d26cfb8a0c7b6f06f9056efb638365420290946f29fc1515f7b3aec04ecfa"
  ]
 ]);
-export function deviceExternalFlatGraphSourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_EXTERNAL_FLAT_GRAPH_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),originalProducers:GRAPH_PRODUCERS.map(name=>pin(ROOT,name)),originalRunner:GRAPH_RUNNER.map(name=>pin(ROOT,name)),originalMobile:GRAPH_MOBILE.map(([name,digest])=>pin(DEVELOPMENT,name,digest))};}
+export function deviceExternalFlatGraphSourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_EXTERNAL_FLAT_GRAPH_SOURCE_NO_OPTIONS');const current=captureNativeValueCurrentFinancialSourcesV6();return{format:'LIANUM_DEVICE_EXTERNAL_FLAT_GRAPH_SOURCE_CAPSULE_V1',financialCurrent:current,originalProducers:GRAPH_PRODUCERS.map(name=>pin(current,projectRoot,name)),originalRunner:GRAPH_RUNNER.map(name=>pin(current,projectRoot,name)),originalMobile:GRAPH_MOBILE.map(([name,digest])=>pin(current,DEVELOPMENT,name,digest))};}
 
 // Independent literal closure of the NEW Blue profile; historical capsules unchanged.
-const BLUE_RUNNER=Object.freeze(["integration/run-device-morpho-blue-private-position-v1.mjs","integration/device-external-flat-erc20-flow-v1.mjs","integration/device-external-flat-erc20-host-vault-v1.mjs","integration/device-external-flat-erc20-policy-v1.mjs","integration/device-external-flat-erc20-source-pins-v1.mjs","integration/native-flow-supervisor.mjs","integration/device-external-flat-ordered-restart-v1.mjs","integration/device-external-flat-ordered-successor-v1.mjs"]);
-const BLUE_PRODUCERS=Object.freeze(["wallet-platform/modules/chain-adapters/metamorpho-graph-delivery-observer-v1.mjs","wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs","wallet-platform/modules/defi-adapters/device-morpho-blue-private-exit-v1.mjs","wallet-platform/modules/defi-adapters/morpho-vault-redemption-accounting-v1.mjs","wallet-platform/modules/defi-adapters/owned-metamorpho-vault.mjs","wallet-platform/modules/global-state/device-external-flat-note-authority-v1.mjs","wallet-platform/modules/global-state/device-external-flat-ordered-observation-recovery-v1.mjs","wallet-platform/modules/global-state/device-external-flat-source-graph-v1.mjs","wallet-platform/modules/mobile/device-external-flat-note-http-v1.mjs","wallet-platform/modules/native-claims/wrapped-private-lifetime-registry-v1.mjs","wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-note-service-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-ordered-local-operator-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-ordered-observation-service-v1.mjs","wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs","wallet-platform/modules/ops/deploy-morpho-blue-position-v1.mjs","wallet-platform/modules/ops/deploy-private-external-router-v1.mjs","wallet-platform/modules/ops/external-defi-bootstrap-recovery-v1.mjs","wallet-platform/modules/ops/morpho-blue-position-compilation-v1.mjs","wallet-platform/modules/ops/native-value-dev-financial-source-pins-v5.mjs","wallet-platform/modules/paeg/flat-native-execution.mjs"]);
+const BLUE_RUNNER=Object.freeze(["tests/integration/wallet/native/run-device-morpho-blue-private-position-v1.mjs","tests/integration/wallet/native/device-external-flat-erc20-flow-v1.mjs","tests/integration/wallet/native/device-external-flat-erc20-host-vault-v1.mjs","tests/integration/wallet/native/device-external-flat-erc20-policy-v1.mjs","tests/integration/wallet/native/device-external-flat-erc20-source-pins-v1.mjs","tests/integration/native/native-flow-supervisor.mjs","tests/integration/wallet/native/device-external-flat-ordered-restart-v1.mjs","tests/integration/wallet/native/device-external-flat-ordered-successor-v1.mjs"]);
+const BLUE_PRODUCERS=Object.freeze(["packages/backend/src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs","packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs","packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs","packages/backend/src/defi/vaults/morpho-vault-redemption-accounting-v1.mjs","packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs","packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs","packages/backend/src/accounts/recovery/device-external-flat-ordered-observation-recovery-v1.mjs","packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs","packages/backend/src/api/mobile/device-external-flat-note-http-v1.mjs","packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs","packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs","packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs","packages/backend/src/operations/local/device-external-flat-note-service-v1.mjs","packages/backend/src/operations/local/device-external-flat-ordered-local-operator-v1.mjs","packages/backend/src/operations/local/device-external-flat-ordered-observation-service-v1.mjs","packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs","packages/backend/src/operations/deployments/defi/deploy-morpho-blue-position-v1.mjs","packages/backend/src/operations/deployments/defi/deploy-private-external-router-v1.mjs","packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs","packages/backend/src/operations/deployments/defi/morpho-blue-position-compilation-v1.mjs","packages/backend/src/operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs","packages/backend/src/execution/account/execution/flat-native-execution.mjs"]);
 const BLUE_MOBILE=Object.freeze([
  ["apps/mobile/src/custody/native-claim-pending-v1.mjs","45c780791906637591e10b6e2485f3ebf986a0e18979eb1b7a6a99149a548170"],
  ["apps/mobile/src/custody/native-claim-pending-v1.d.mts","aac072b99da38b5dc4c9cc35e2d78dbf769dafa49d2af1e2dfff4d69ab72c4e5"],
@@ -395,7 +395,7 @@ const BLUE_MOBILE=Object.freeze([
   "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
  ],
  [
-  "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs",
+  "packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs",
   "faa60be8edc76588354316594ba7c9cac90714e8363e9817c5ec8b1d6d641399"
  ],
  [
@@ -435,7 +435,7 @@ const BLUE_MOBILE=Object.freeze([
   "290787a31c3ec35e3ca0bdda3fee1fe06f56f352f2287ea1d0e7d21ab68f957f"
  ],
  [
-  "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
   "b491e596bf6de9d0b956251dbeac9e02271dfdddfddde2a90a683d3c0ea2e0d7"
  ],
  [
@@ -491,7 +491,7 @@ const BLUE_MOBILE=Object.freeze([
   "9eb633780fa9d56fc3677c6f60b57c4a40b2feb32d5b49469ba1cbbbd74c1c60"
  ],
  [
-  "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
   "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
@@ -547,7 +547,7 @@ const BLUE_MOBILE=Object.freeze([
   "f23d26cfb8a0c7b6f06f9056efb638365420290946f29fc1515f7b3aec04ecfa"
  ]
 ]);
-export function deviceMorphoBlueGraphSourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_MORPHO_BLUE_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),originalProducers:BLUE_PRODUCERS.map(name=>pin(ROOT,name)),originalRunner:BLUE_RUNNER.map(name=>pin(ROOT,name)),originalMobile:BLUE_MOBILE.map(([name,digest])=>pin(DEVELOPMENT,name,digest))};}
+export function deviceMorphoBlueGraphSourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_MORPHO_BLUE_SOURCE_NO_OPTIONS');const current=captureNativeValueCurrentFinancialSourcesV6();return{format:'LIANUM_DEVICE_MORPHO_BLUE_PRIVATE_POSITION_SOURCE_CAPSULE_V1',financialCurrent:current,originalProducers:BLUE_PRODUCERS.map(name=>pin(current,projectRoot,name)),originalRunner:BLUE_RUNNER.map(name=>pin(current,projectRoot,name)),originalMobile:BLUE_MOBILE.map(([name,digest])=>pin(current,DEVELOPMENT,name,digest))};}
 
 // Separate four-delivery source capsule. Root seals only these new literals;
 // old Graph/Blue capsules and every historical RAW remain unchanged.
@@ -613,7 +613,7 @@ const META_FOUR_MOBILE=Object.freeze([
   "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
  ],
  [
-  "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs",
+  "packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs",
   "faa60be8edc76588354316594ba7c9cac90714e8363e9817c5ec8b1d6d641399"
  ],
  [
@@ -637,7 +637,7 @@ const META_FOUR_MOBILE=Object.freeze([
   "6a7211260df312a8ea42f3401e51f9fb3d1ab06f74d02b26b3e30977a5fe814d"
  ],
  [
-  "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
   "b491e596bf6de9d0b956251dbeac9e02271dfdddfddde2a90a683d3c0ea2e0d7"
  ],
  [
@@ -669,7 +669,7 @@ const META_FOUR_MOBILE=Object.freeze([
   "9eb633780fa9d56fc3677c6f60b57c4a40b2feb32d5b49469ba1cbbbd74c1c60"
  ],
  [
-  "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs",
+  "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
   "25bbb845b2b40923041041b55c6b3b172241a74503a52b3b4b3a97498f372dd6"
  ],
  [
@@ -721,10 +721,10 @@ const META_FOUR_MOBILE=Object.freeze([
   "f23d26cfb8a0c7b6f06f9056efb638365420290946f29fc1515f7b3aec04ecfa"
  ]
 ]);
-const META_FOUR_RUNNER=Object.freeze(['integration/run-device-external-flat-meta-four-deliveries-v1.mjs',...GRAPH_RUNNER.slice(1,6)]);
-export function deviceMetaFourGraphSourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_META_FOUR_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_META_FOUR_GRAPH_SOURCE_CAPSULE_V1',financialCurrent:nativeValueDevFinancialSourcePinsV5(),originalProducers:[...GRAPH_PRODUCERS].map(name=>pin(ROOT,name)),originalRunner:META_FOUR_RUNNER.map(name=>pin(ROOT,name)),originalMobile:META_FOUR_MOBILE.map(([name,digest])=>pin(DEVELOPMENT,name,digest))};}
+const META_FOUR_RUNNER=Object.freeze(['tests/integration/wallet/native/run-device-external-flat-meta-four-deliveries-v1.mjs',...GRAPH_RUNNER.slice(1,6)]);
+export function deviceMetaFourGraphSourcePinsV1(){assert.equal(arguments.length,0,'DEVICE_META_FOUR_SOURCE_NO_OPTIONS');const current=captureNativeValueCurrentFinancialSourcesV6();return{format:'LIANUM_DEVICE_META_FOUR_GRAPH_SOURCE_CAPSULE_V1',financialCurrent:current,originalProducers:[...GRAPH_PRODUCERS].map(name=>pin(current,projectRoot,name)),originalRunner:META_FOUR_RUNNER.map(name=>pin(current,projectRoot,name)),originalMobile:META_FOUR_MOBILE.map(([name,digest])=>pin(current,DEVELOPMENT,name,digest))};}
 
 /** Current Meta V2 producers remain in the original source closure. */
-const META_UNDERLYING_PRODUCERS_V2=['wallet-platform/modules/defi-adapters/owned-metamorpho-vault.mjs','wallet-platform/modules/defi-adapters/device-morpho-blue-private-exit-v1.mjs','wallet-platform/modules/operations/local/device-external-flat-source-graph-service-v1.mjs'];
-export function deviceMetaUnderlyingGraphSourcePinsV2(){assert.equal(arguments.length,0,'DEVICE_META_UNDERLYING_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_META_UNDERLYING_SOURCE_CAPSULE_V2',sharedOriginalClosure:deviceExternalFlatGraphSourcePinsV1(),originalMeta:META_UNDERLYING_PRODUCERS_V2.map(name=>pin(ROOT,name))};}
-export function deviceMetaFourUnderlyingGraphSourcePinsV2(){assert.equal(arguments.length,0,'DEVICE_META_FOUR_UNDERLYING_SOURCE_NO_OPTIONS');return{format:'LIANUM_DEVICE_META_FOUR_UNDERLYING_SOURCE_CAPSULE_V2',sharedOriginalClosure:deviceMetaFourGraphSourcePinsV1(),originalMeta:META_UNDERLYING_PRODUCERS_V2.map(name=>pin(ROOT,name))};}
+const META_UNDERLYING_PRODUCERS_V2=['packages/backend/src/defi/vaults/owned-metamorpho-vault.mjs','packages/backend/src/defi/withdrawals/device-morpho-blue-private-exit-v1.mjs','packages/backend/src/operations/local/device-external-flat-source-graph-service-v1.mjs'];
+export function deviceMetaUnderlyingGraphSourcePinsV2(){assert.equal(arguments.length,0,'DEVICE_META_UNDERLYING_SOURCE_NO_OPTIONS');const current=captureNativeValueCurrentFinancialSourcesV6();return{format:'LIANUM_DEVICE_META_UNDERLYING_SOURCE_CAPSULE_V2',sharedOriginalClosure:deviceExternalFlatGraphSourcePinsV1(),originalMeta:META_UNDERLYING_PRODUCERS_V2.map(name=>pin(current,projectRoot,name))};}
+export function deviceMetaFourUnderlyingGraphSourcePinsV2(){assert.equal(arguments.length,0,'DEVICE_META_FOUR_UNDERLYING_SOURCE_NO_OPTIONS');const current=captureNativeValueCurrentFinancialSourcesV6();return{format:'LIANUM_DEVICE_META_FOUR_UNDERLYING_SOURCE_CAPSULE_V2',sharedOriginalClosure:deviceMetaFourGraphSourcePinsV1(),originalMeta:META_UNDERLYING_PRODUCERS_V2.map(name=>pin(current,projectRoot,name))};}

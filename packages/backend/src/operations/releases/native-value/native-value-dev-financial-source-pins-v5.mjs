@@ -5,7 +5,7 @@ import { dirname, join, resolve, relative, sep } from 'node:path';
 import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { ROOT, FLAT, GOLDEN, CANDIDATE } from '@lianum/proofs/catalog';
-import { nativeValueDevHostSourcePinsV5 } from './native-value-dev-source-pins-v5.mjs';
+import { nativeValueDevHostSourcePinsV5, captureNativeValueCurrentHostSourcesV6 } from './native-value-dev-source-pins-v5.mjs';
 import { resolveDevelopmentWorkspaceExportV1, isDevelopmentWorkspacePackageLabelV1 } from './workspace-package-source-v1.mjs';
 const DEVELOPMENT=resolve(FLAT,'../../..');
 const roots=Object.freeze([['development-tooling/',join(DEVELOPMENT,'scripts/development')],['development-config/',join(DEVELOPMENT,'scripts')],
@@ -85,4 +85,11 @@ export function nativeValueDevFinancialSourcePinsV5(){
  for(const [path,row]of files)assert.equal(sha(bytes(path)),row.sha256,'NV5_FINANCIAL_CAPTURE_CHANGED');
  const result=[...files.values()].sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);
  assert.equal(new Set(result.map(row=>row.path)).size,result.length,'NV5_FINANCIAL_LABEL_ALIAS');return result;
+}
+
+/** Financial execution captures the complete authenticated current closure;
+ * original source labels and hashes remain in retained publication evidence. */
+export function captureNativeValueCurrentFinancialSourcesV6() {
+ assert.equal(arguments.length,0,'NATIVE_VALUE_CURRENT_FINANCIAL_SOURCE_NO_OPTIONS');
+ return Object.freeze({...captureNativeValueCurrentHostSourcesV6(),format:'LIANUM_NATIVE_VALUE_CURRENT_FINANCIAL_SOURCES_V6'});
 }

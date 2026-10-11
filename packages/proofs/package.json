@@ -35,7 +35,6 @@
     "./wrapped-claims/metadata/wrapped-claim-profile-v1": "./src/wrapped-claims/metadata/wrapped-claim-profile-v1.mjs",
     "./wrapped-claims/metadata/wrapped-claim-proof-pins-v1": "./src/wrapped-claims/metadata/wrapped-claim-proof-pins-v1.mjs",
     "./host/native-flow-limits": "./src/host/native-flow-limits.mjs",
-    "./verification/sources/native-wallet-source-pins-v1": "./src/verification/sources/native-wallet-source-pins-v1.mjs",
     "./toolchain/paged-artifacts-v3": "./src/toolchain/paged-artifacts-v3.mjs",
     "./toolchain/paged-proof-client-v3": "./src/toolchain/paged-proof-client-v3.mjs",
     "./execution/assembly-workers": "./src/execution/assembly-workers.mjs",
@@ -45,7 +44,8 @@
     "./tooling/retained-node-artifacts-v1": "./src/tooling/retained-node-artifacts-v1.mjs",
     "./jobs/node-native-execution-v1": "./src/jobs/node-native-execution-v1.mjs",
     "./jobs/reservation-native-execution-v1": "./src/jobs/reservation-native-execution-v1.mjs",
-    "./toolchain/current-source-generation": "./src/toolchain/current-source-generation.mjs"
+    "./toolchain/current-source-generation": "./src/toolchain/current-source-generation.mjs",
+    "./verification/sources/adopted-source-evidence": "./src/verification/sources/adopted-source-evidence.mjs"
   },
   "lianum": {
     "status": "active"

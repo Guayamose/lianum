@@ -1,6 +1,7 @@
 /** Existing financial capsule plus the fixed portable client modules actually
  * executed by the device-owned D26 step. No caller-selected files/pins. */
 import assert from 'node:assert/strict';
+import {projectRoot} from '@lianum/environment';
 import { createHash } from 'node:crypto';
 import { lstatSync, realpathSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -22,8 +23,8 @@ export function deviceOwnerDepositSourcePinsV1() {
     assert.equal(bytes.length, before.size);
     return { path: 'mobile-app/' + name, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
   });
-  const runner = ['integration/run-device-owner-deposit-v1.mjs', 'integration/device-owner-deposit-flow-v1.mjs'].map(name => {
-    const path = join(ROOT, name); assert.equal(realpathSync(path), path);
+  const runner = ['tests/integration/wallet/native/run-device-owner-deposit-v1.mjs', 'tests/integration/wallet/native/device-owner-deposit-flow-v1.mjs'].map(name => {
+    const path = join(projectRoot, name); assert.equal(realpathSync(path), path);
     const before = lstatSync(path); assert.ok(before.isFile() && !before.isSymbolicLink() && before.size <= 65536);
     const bytes = readFileSync(path), after = lstatSync(path);
     for (const key of ['dev','ino','size','mtimeMs','ctimeMs']) assert.equal(after[key], before[key]);

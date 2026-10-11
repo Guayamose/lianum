@@ -1,7 +1,9 @@
-/** Filesystem-only producer closure over fixed roots. No caller path/profile,
+/** Historical V5 filesystem evidence. Current execution uses the V6 capture below.
+ * Filesystem-only producer closure over fixed roots. No caller path/profile,
  * runtime, compiler or prover. The unpublished literal is excluded to avoid a
  * self hash; its bytes are retained separately by the future lab supervisor. */
 import assert from 'node:assert/strict';
+import {captureAdoptedSourceEvidence} from '@lianum/proofs/verification/sources/adopted-source-evidence';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -121,4 +123,13 @@ export function inspectNativeValueDevMobileDependenciesV5() {
       'NATIVE_VALUE_DEV_PROTOCOL_RUNTIME_JOIN');
   }
   return true;
+}
+
+/** Current executable sources use their canonical owners and the adopted
+ * generation. Never compare this capsule with a historical V5 source array. */
+export function captureNativeValueCurrentHostSourcesV6() {
+  assert.equal(arguments.length, 0, 'NATIVE_VALUE_CURRENT_HOST_SOURCE_NO_OPTIONS');
+  const current = captureAdoptedSourceEvidence();
+  inspectNativeValueDevMobileDependenciesV5();
+  return Object.freeze({...current, format:'LIANUM_NATIVE_VALUE_CURRENT_HOST_SOURCES_V6'});
 }
