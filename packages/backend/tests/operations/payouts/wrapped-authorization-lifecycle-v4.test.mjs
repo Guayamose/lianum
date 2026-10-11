@@ -1,15 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {h,copy} from '../../fixtures/operations/deployments/wrapped/wrapped-v4-host-fixtures.mjs';
+import {hash} from '../../fixtures/chains/evm/transfers/evm-native-transfer-fixture.mjs';
 import {profileCommitment} from '../../../src/chains/shared/transfers/generic-native-value-v2.mjs';
-import {fixture,keys,graphModule,claimModule,bootstrapModule,nativeClaimModule,natives,testGraphOperationsV4,wrappedHostDiagnostic} from '../../support/wrapped-authorization-host.mjs';
+import {fixture,keys,graphModule,claimModule,bootstrapModule,nativeClaimModule,natives,testGraphOperationsV4,wrappedHostDiagnostic,sourceInspectionCalls} from '../../support/wrapped-authorization-host.mjs';
 const cause=regex=>error=>{for(let e=error;e;e=e.cause)if(regex.test(e.message))return true;return false;};
 
 test('actual wrapped factories issue a separate V4 original lease after complete BTC/SOL and typed GRAPH validation',async t=>{
- t.mock.method(performance,'now',()=>0);const f=await fixture(t),before=keys;
+ t.mock.method(performance,'now',()=>0);const f=await fixture(t),before=keys,inspectionsBefore=sourceInspectionCalls;
  const result=await f.quorum.health(f.request);
  wrappedHostDiagnostic('claim-health-complete');
  assert.equal(result.authorizationLifecycleProfile,'WRAPPED_CLAIM_AUTHORIZATION_LIFECYCLE_V4');assert.equal(keys-before,3);
+ assert.ok(sourceInspectionCalls>inspectionsBefore,'whole owners still cross the fixed installation port');
  assert.ok(f.controls.inventoryReads.every(count=>count>=12));assert.ok(f.graphRecords.slice(0,3).every(row=>row.record.state.lastClock==='1000'));
  const saved=copy(result),count=keys;const token=await f.quorum.validateOriginalAuthorizationV4(result);
  wrappedHostDiagnostic('claim-original-validation-complete');

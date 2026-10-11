@@ -1,6 +1,8 @@
 /** Real wrapped combined/claim/typed-GRAPH factories over explicitly inert
  * ownership, EVM/current/native-read and in-memory CAS ports. Real registration,
  * inventory audits, clocks, codecs, ephemeral test signatures and quorum checks.
+ * Installation integrity is verified once, then provided as an inert lower
+ * port. Drift/tampering belongs to current-source-generation and readback tests.
  * No native node, proof, compiler, wallet, network, funding or production keys. */
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -27,8 +29,8 @@ import { recoverSecp256k1Sender } from '../../src/chains/evm/contracts/transacti
 import * as originalBitcoin from '../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs';
 import * as originalSolana from '../../src/chains/solana/runtime/owned-solana-runtime.mjs';
 import * as noteEncoding from '@lianum/engine/notes/private-note-encoding';
-import {wrappedSourceWorkDiagnosticV2} from '@lianum/components/verification/wrapped-installation';
-/** Optional test diagnostics; never replace or skip a source inspection. */
+import {inspectWrappedInstallationSourcesV2,wrappedSourceWorkDiagnosticV2} from '@lianum/components/verification/wrapped-installation';
+/** Optional fixture diagnostics, independent of the product's source guards. */
 export function wrappedHostDiagnostic(stage){if(process.env.LIANUM_WRAPPED_TEST_DIAGNOSTICS==='1')console.error(JSON.stringify({stage,...wrappedSourceWorkDiagnosticV2()}));}
 const url = p => new URL(p,import.meta.url).href;
 const observers = new WeakMap(), systems = new WeakMap(), views = new WeakMap();
@@ -37,6 +39,14 @@ const custodyBootstraps=new WeakMap(),graphNativeEntries=new WeakMap(),observerB
 let activeGraphStores=null;
 const moduleMocks=new Map();
 export async function mockLower(location,options){const original=await import(location);moduleMocks.get(location)?.restore();const handle=mock.module(location,{exports:{...original,...options.exports}});moduleMocks.set(location,handle);return handle;}
+// This suite exercises whole operator owners, not repeated filesystem audits.
+// Authenticate the installation through the actual lower inspector before
+// binding its immutable result. Product code keeps every live source check.
+const installationSnapshot=inspectWrappedInstallationSourcesV2();
+export let sourceInspectionCalls=0;
+await mockLower('@lianum/components/verification/wrapped-installation',{exports:{
+ inspectWrappedInstallationSourcesV2(...args){assert.equal(args.length,0);sourceInspectionCalls++;return installationSnapshot;}
+}});
 const testRoot=await mkdtemp(join(tmpdir(),'wrapped-lifecycle-'));
 test.after(()=>rm(testRoot,{recursive:true,force:true}));
 await mockLower('@lianum/proofs/catalog',{exports:{ROOT:testRoot}});
@@ -126,10 +136,20 @@ for (const [name,path] of Object.entries(owners)) {
  await mockLower(location,{exports:Object.fromEntries(Object.entries(original).map(([key,value])=>[key,
   typeof value==='function'?(...args)=>liveOwners[name][key](...args):value]))});
 }
+// The typed source and its provenance guard must share one whole-module family,
+// just like the operator/read owners. A query import alone creates foreign maps.
+const historyDispatchURL=url('../../src/operations/recovery/native-value-history-dispatch-v1.mjs');
+await mockLower(historyDispatchURL,{exports:await import(historyDispatchURL+'?wrapped-lifecycle-full-source')});
+const healthSourceURL=url('../../src/chains/evm/health/evm-native-value-health-source-v4.mjs');
+const healthSourceModule=await import(healthSourceURL+'?wrapped-lifecycle-full-source');
+await mockLower(healthSourceURL,{exports:healthSourceModule});
+const healthGuardURL=url('../../src/chains/shared/health/native-value-health-source-v4.mjs');
+const healthGuard=await import(healthGuardURL+'?wrapped-lifecycle-full-source');
+await mockLower(healthGuardURL,{exports:healthGuard});
 for(const [name,path] of Object.entries(owners)) liveOwners[name]=await import(url('../../src/'+path)+'?wrapped-lifecycle-full-owner');
 export const {graph:graphModule,claim:claimModule,bootstrap:bootstrapModule}=liveOwners;
 export const nativeClaimModule=await import('../../src/claims/operations/operators.mjs');
-const {createOwnedEvmNativeValueHealthSource}=await import('../../src/chains/evm/health/evm-native-value-health-source-v4.mjs?wrapped-lifecycle-source');
+const {createOwnedEvmNativeValueHealthSource}=healthSourceModule;
 
 const NATIVE_PUBLIC_KEYS = Object.freeze({
   depositor: '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
