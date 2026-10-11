@@ -104,6 +104,9 @@
     "../../packages/engine/src/execution/local/solidity-compiler-v1.mjs",
     "../../packages/backend/src/claims/operations/original-btc-payout-completion-v3.mjs",
     "../../packages/backend/src/accounts/authority/native-value/source-proof-receipts-v1.mjs",
-    "../../packages/backend/src/claims/controller/device-root-spl-source-binding-v3.mjs"
+    "../../packages/backend/src/claims/controller/device-root-spl-source-binding-v3.mjs",
+    "../../packages/backend/src/operations/local/device-graph-recovery-parts-v1.mjs",
+    "../../packages/backend/src/operations/local/retained-device-vault-graph-birth-v1.mjs",
+    "../../packages/backend/src/operations/local/device-graph-preparation-terms-v1.mjs"
   ]
 }

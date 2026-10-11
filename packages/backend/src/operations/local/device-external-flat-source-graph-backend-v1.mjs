@@ -1,0 +1,4070 @@
+import {validateDeviceGraphPreparationTermsV1} from './device-graph-preparation-terms-v1.mjs';
+import { buildDeviceGraphRecoveryPartsV1 } from "./device-graph-recovery-parts-v1.mjs";
+import { buildRetainedDeviceVaultGraphBirthV1 } from "./retained-device-vault-graph-birth-v1.mjs";
+import assert from "node:assert/strict";
+import { types } from "node:util";
+import { randomBytes, createHash } from "node:crypto";
+import { mkdtemp, chmod } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { exactRecord } from "@lianum/components/encoding/commitments";
+/** The canonical composition binds these names privately. Independent builders
+ * issue handles only in their own maps and cannot select the canonical ports. */
+export const DEVICE_GRAPH_DEPENDENCIES_V1 = Object.freeze([
+  "acquireFixedMetaRedemptionsV2",
+  "consumeOriginalDeviceGraphSourceRequestV2",
+  "originalDeviceGraphSourceProducerRequestsV2",
+  "retireOriginalDeviceGraphSourceForOrderedCaptureV2",
+  "armOriginalDeviceExternalFlatGraphSourceV2",
+  "armOriginalDeviceExternalFlatGraphSourceV3",
+  "Vault",
+  "canonicalClaimRecordDataV1",
+  "retainWrappedPrivateLifetimePartV1",
+  "readWrappedPrivateLifetimePartV1",
+  "updateWrappedPrivateLifetimePartV1",
+  "assertWrappedPrivateLifetimePartSealedV1",
+  "assertWrappedPrivateLifetimeAttemptV1",
+  "closeWrappedPrivateLifetimeRegistryV1",
+  "assertDeviceExternalFlatRecoveryAuthorityV1",
+  "assertDeviceExternalFlatAccountCaptureAuthorityV1",
+  "originalWrappedRecoverySectionIdentityV1",
+  "retainOriginalWrappedRecoverySectionV1",
+  "consumeOriginalWrappedRecoverySectionV1",
+  "retainDeviceExternalFlatGraphRecoveryV1",
+  "retainDeviceExternalFlatGraphSystemRecoveryV1",
+  "retainDeviceExternalFlatLifetimeRecoveryV1",
+  "retainDeviceExternalFlatReceiverRuntimeV1",
+  "finishDeviceExternalFlatRecoveryCaptureV1",
+  "reopenDeviceExternalFlatReceiverRuntimeV1",
+  "reopenDeviceExternalFlatLifetimeRecoveryV1",
+  "reopenDeviceExternalFlatSystemRecoveryV1",
+  "reopenDeviceExternalFlatGraphRecoveryV1",
+  "closeDeviceExternalFlatRecoveryAuthorityV1",
+  "captureOwnedFlatSystemRecoveryV1",
+  "assertOwnedDeviceExternalFlatReceiverV1",
+  "captureOfficialAaveFixtureRecoveryV1",
+  "captureOfficialProtocolFixtureRecoveryV1",
+  "captureOwnedPrivateExternalRouterRecoveryV1",
+  "captureOwnedPrivateMorphoBluePositionRouterV1",
+  "readOwnedPrivateMorphoBluePositionRouterV1",
+  "captureOwnedOriginalMorphoBluePositionV1",
+  "assertOwnedOriginalMorphoBluePositionV1",
+  "createRetainedOwnedDeviceMetaMorphoVaultV2",
+  "reopenRetainedOwnedDeviceMetaMorphoVaultV2",
+  "createRetainedOwnedMorphoBluePositionVaultV1",
+  "reopenRetainedOwnedMorphoBluePositionVaultV1",
+  "createRetainedOwnedDeviceAaveStaticVaultV1",
+  "reopenRetainedOwnedDeviceAaveStaticVaultV1",
+  "readOriginalDeviceMetaMorphoPrivateExitRecipientV2",
+  "createOriginalDeviceMetaMorphoPrivateExitV2",
+  "captureOriginalDeviceMetaMorphoPrivateExitV2",
+  "reopenOriginalDeviceMetaMorphoPrivateExitV2",
+  "createOriginalDeviceMorphoBluePrivateExitV1",
+  "captureOriginalDeviceMorphoBluePrivateExitV1",
+  "reopenOriginalDeviceMorphoBluePrivateExitV1",
+  "createOriginalDeviceAaveStaticPrivateExitV1",
+  "captureOriginalDeviceAaveStaticPrivateExitV1",
+  "checkpointOriginalDeviceAaveStaticPrivateExitSourceV3",
+  "reopenOriginalDeviceAaveStaticPrivateExitV1",
+  "retainOriginalDeviceExternalFlatGraphAccountV1",
+  "checkpointOriginalDeviceExternalFlatGraphAccountSourceV2",
+  "captureOriginalDeviceExternalFlatGraphAccountV1",
+  "reopenOriginalDeviceExternalFlatGraphShareBatchV4",
+  "reopenOriginalDeviceExternalFlatGraphAccountV1",
+  "createOriginalRetainedDeviceExternalFlatPrivateMultiSourceGraphV4",
+  "createOriginalRetainedDeviceExternalFlatPrivateSourceGraphV2",
+  "checkpointOriginalDeviceExternalFlatSourceGraphSourceV2",
+  "captureOriginalDeviceExternalFlatSourceGraphV1",
+  "reopenOriginalDeviceExternalFlatSourceGraphV1",
+  "retainOriginalDeviceExternalFlatGraphExecutionV1",
+  "checkpointOriginalDeviceExternalFlatGraphExecutionSourceV2",
+  "captureOriginalDeviceExternalFlatGraphExecutionV1",
+  "reopenOriginalDeviceExternalFlatGraphExecutionV1",
+  "quiesceOriginalDeviceExternalFlatGraphTargetTlsServerV4",
+  "quiesceOriginalDeviceExternalFlatGraphTlsServerV1",
+  "externalFlatExactV1",
+  "externalFlatUintV1",
+  "canonicalNativeOwnerNodes",
+  "createFlatSystemStateReader",
+  "createGenericBalanceNativePreparation",
+  "createNativeRecipientProcess",
+  "nativeRecipientInvoiceRequest",
+  "NATIVE_ADMISSION_LOSS_CLAUSE",
+  "assertOriginalDeviceExternalFlatNoteAuthorityV1",
+  "assertOriginalDeviceExternalFlatShareNoteAuthorityV1",
+  "createOriginalDeviceExternalFlatPrivateShareBatchV4",
+  "consumeOriginalDeviceExternalFlatShareProofV1",
+  "bindOriginalDeviceExternalFlatShareGraphV1",
+  "createOriginalDeviceExternalFlatPrivateMultiSourceGraphV4",
+  "createOriginalDeviceExternalFlatPrivateSourceGraphV2",
+  "assertOriginalDeviceExternalFlatSourceGraphV1",
+  "readOriginalDeviceExternalFlatSourceGraphProofsV1",
+  "createFlatNativeExecution",
+  "createOriginalDeviceMetaMorphoTargetTlsServerV2",
+  "createOriginalDeviceExternalFlatTlsServerV1",
+  "createOriginalDeviceExternalFlatGraphTlsServerV1",
+  "assertOwnedFlatSystem",
+  "assertLocalEvm",
+  "assertOwnedFlatOperatorQuorum",
+  "assertOwnedPrivateExternalRouterV1",
+  "isOwnedMetaMorphoGraphDeliveryBatchV4",
+  "readOriginalMetaMorphoGraphBatchRoutersV4",
+  "isOwnedUniswapGraphDeliveryObserverV1",
+  "prepareOwnedUniswapGraphDescriptorV1",
+  "isOwnedAaveStaticGraphDeliveryObserverV1",
+  "prepareOwnedAaveStaticGraphDescriptorV1",
+  "isOwnedMetaMorphoGraphDeliveryObserverV1",
+  "prepareOwnedMetaMorphoGraphDescriptorV1",
+  "isOwnedMorphoBluePositionGraphDeliveryObserverV1",
+  "prepareOwnedMorphoBluePositionGraphDescriptorV1",
+  "assertOwnedEvmGraphDeliveryObserverV1",
+  "snapshotOriginalDeviceMetaMorphoProviderSlotV4",
+  "createOriginalDeviceMetaMorphoProviderSlotV4",
+  "activateOriginalDeviceMetaMorphoProviderSlotV4",
+  "closeOriginalDeviceMetaMorphoProviderSlotV4",
+  "createOwnedFlatUniswapProviderV1",
+  "createOwnedFlatAaveStaticProviderV1",
+  "createOwnedFlatMetaMorphoProviderV1",
+  "createOwnedFlatMorphoBluePositionProviderV1",
+]);
+export function buildDeviceExternalFlatSourceGraphServiceV1(contracts) {
+  assert.equal(arguments.length, 1);
+  exactRecord(contracts, ["dependencies"]);
+  const { dependencies } = contracts;
+  exactRecord(dependencies, DEVICE_GRAPH_DEPENDENCIES_V1);
+  const {
+    acquireFixedMetaRedemptionsV2,
+    consumeOriginalDeviceGraphSourceRequestV2,
+    originalDeviceGraphSourceProducerRequestsV2,
+    retireOriginalDeviceGraphSourceForOrderedCaptureV2,
+    armOriginalDeviceExternalFlatGraphSourceV2,
+    armOriginalDeviceExternalFlatGraphSourceV3,
+    Vault,
+    canonicalClaimRecordDataV1,
+    retainWrappedPrivateLifetimePartV1,
+    readWrappedPrivateLifetimePartV1,
+    updateWrappedPrivateLifetimePartV1,
+    assertWrappedPrivateLifetimePartSealedV1,
+    assertWrappedPrivateLifetimeAttemptV1,
+    closeWrappedPrivateLifetimeRegistryV1,
+    assertDeviceExternalFlatRecoveryAuthorityV1,
+    assertDeviceExternalFlatAccountCaptureAuthorityV1,
+    originalWrappedRecoverySectionIdentityV1,
+    retainOriginalWrappedRecoverySectionV1,
+    consumeOriginalWrappedRecoverySectionV1,
+    retainDeviceExternalFlatGraphRecoveryV1,
+    retainDeviceExternalFlatGraphSystemRecoveryV1,
+    retainDeviceExternalFlatLifetimeRecoveryV1,
+    retainDeviceExternalFlatReceiverRuntimeV1,
+    finishDeviceExternalFlatRecoveryCaptureV1,
+    reopenDeviceExternalFlatReceiverRuntimeV1,
+    reopenDeviceExternalFlatLifetimeRecoveryV1,
+    reopenDeviceExternalFlatSystemRecoveryV1,
+    reopenDeviceExternalFlatGraphRecoveryV1,
+    closeDeviceExternalFlatRecoveryAuthorityV1,
+    captureOwnedFlatSystemRecoveryV1,
+    assertOwnedDeviceExternalFlatReceiverV1,
+    captureOfficialAaveFixtureRecoveryV1,
+    captureOfficialProtocolFixtureRecoveryV1,
+    captureOwnedPrivateExternalRouterRecoveryV1,
+    captureOwnedPrivateMorphoBluePositionRouterV1,
+    readOwnedPrivateMorphoBluePositionRouterV1,
+    captureOwnedOriginalMorphoBluePositionV1,
+    assertOwnedOriginalMorphoBluePositionV1,
+    createRetainedOwnedDeviceMetaMorphoVaultV2,
+    reopenRetainedOwnedDeviceMetaMorphoVaultV2,
+    createRetainedOwnedMorphoBluePositionVaultV1,
+    reopenRetainedOwnedMorphoBluePositionVaultV1,
+    createRetainedOwnedDeviceAaveStaticVaultV1,
+    reopenRetainedOwnedDeviceAaveStaticVaultV1,
+    readOriginalDeviceMetaMorphoPrivateExitRecipientV2,
+    createOriginalDeviceMetaMorphoPrivateExitV2,
+    captureOriginalDeviceMetaMorphoPrivateExitV2,
+    reopenOriginalDeviceMetaMorphoPrivateExitV2,
+    createOriginalDeviceMorphoBluePrivateExitV1,
+    captureOriginalDeviceMorphoBluePrivateExitV1,
+    reopenOriginalDeviceMorphoBluePrivateExitV1,
+    createOriginalDeviceAaveStaticPrivateExitV1,
+    captureOriginalDeviceAaveStaticPrivateExitV1,
+    checkpointOriginalDeviceAaveStaticPrivateExitSourceV3,
+    reopenOriginalDeviceAaveStaticPrivateExitV1,
+    retainOriginalDeviceExternalFlatGraphAccountV1,
+    checkpointOriginalDeviceExternalFlatGraphAccountSourceV2,
+    captureOriginalDeviceExternalFlatGraphAccountV1,
+    reopenOriginalDeviceExternalFlatGraphShareBatchV4,
+    reopenOriginalDeviceExternalFlatGraphAccountV1,
+    createOriginalRetainedDeviceExternalFlatPrivateMultiSourceGraphV4,
+    createOriginalRetainedDeviceExternalFlatPrivateSourceGraphV2,
+    checkpointOriginalDeviceExternalFlatSourceGraphSourceV2,
+    captureOriginalDeviceExternalFlatSourceGraphV1,
+    reopenOriginalDeviceExternalFlatSourceGraphV1,
+    retainOriginalDeviceExternalFlatGraphExecutionV1,
+    checkpointOriginalDeviceExternalFlatGraphExecutionSourceV2,
+    captureOriginalDeviceExternalFlatGraphExecutionV1,
+    reopenOriginalDeviceExternalFlatGraphExecutionV1,
+    quiesceOriginalDeviceExternalFlatGraphTargetTlsServerV4,
+    quiesceOriginalDeviceExternalFlatGraphTlsServerV1,
+    externalFlatExactV1,
+    externalFlatUintV1,
+    canonicalNativeOwnerNodes,
+    createFlatSystemStateReader,
+    createGenericBalanceNativePreparation,
+    createNativeRecipientProcess,
+    nativeRecipientInvoiceRequest,
+    NATIVE_ADMISSION_LOSS_CLAUSE,
+    assertOriginalDeviceExternalFlatNoteAuthorityV1,
+    assertOriginalDeviceExternalFlatShareNoteAuthorityV1,
+    createOriginalDeviceExternalFlatPrivateShareBatchV4,
+    consumeOriginalDeviceExternalFlatShareProofV1,
+    bindOriginalDeviceExternalFlatShareGraphV1,
+    createOriginalDeviceExternalFlatPrivateMultiSourceGraphV4,
+    createOriginalDeviceExternalFlatPrivateSourceGraphV2,
+    assertOriginalDeviceExternalFlatSourceGraphV1,
+    readOriginalDeviceExternalFlatSourceGraphProofsV1,
+    createFlatNativeExecution,
+    createOriginalDeviceMetaMorphoTargetTlsServerV2,
+    createOriginalDeviceExternalFlatTlsServerV1,
+    createOriginalDeviceExternalFlatGraphTlsServerV1,
+    assertOwnedFlatSystem,
+    assertLocalEvm,
+    assertOwnedFlatOperatorQuorum,
+    assertOwnedPrivateExternalRouterV1,
+    isOwnedMetaMorphoGraphDeliveryBatchV4,
+    readOriginalMetaMorphoGraphBatchRoutersV4,
+    isOwnedUniswapGraphDeliveryObserverV1,
+    prepareOwnedUniswapGraphDescriptorV1,
+    isOwnedAaveStaticGraphDeliveryObserverV1,
+    prepareOwnedAaveStaticGraphDescriptorV1,
+    isOwnedMetaMorphoGraphDeliveryObserverV1,
+    prepareOwnedMetaMorphoGraphDescriptorV1,
+    isOwnedMorphoBluePositionGraphDeliveryObserverV1,
+    prepareOwnedMorphoBluePositionGraphDescriptorV1,
+    assertOwnedEvmGraphDeliveryObserverV1,
+    snapshotOriginalDeviceMetaMorphoProviderSlotV4,
+    createOriginalDeviceMetaMorphoProviderSlotV4,
+    activateOriginalDeviceMetaMorphoProviderSlotV4,
+    closeOriginalDeviceMetaMorphoProviderSlotV4,
+    createOwnedFlatUniswapProviderV1,
+    createOwnedFlatAaveStaticProviderV1,
+    createOwnedFlatMetaMorphoProviderV1,
+    createOwnedFlatMorphoBluePositionProviderV1,
+  } = dependencies;
+
+  /** Device source U/S and device D27 share composition over one original realm.
+   * All resource identities are born before funding. HTTP supplies public terms
+   * and device signatures, never a factory, private note key or native callback. */
+
+  const sha = (v) =>
+    createHash("sha256").update(canonicalClaimRecordDataV1(v)).digest("hex");
+
+  const workspaces = new WeakMap(),
+    services = new WeakMap(),
+    fresh = () => randomBytes(32).toString("hex"),
+    bare = (v) => v.slice(2);
+  const need = (v, c) => assert.ok(v, c),
+    exact = externalFlatExactV1;
+  const {
+    part,
+    consumeOriginalDeviceExternalFlatGraphRecoveryPartV1,
+    checkedPart,
+  } = buildDeviceGraphRecoveryPartsV1({
+    readWrappedPrivateLifetimePartV1,
+    assertWrappedPrivateLifetimePartSealedV1,
+    sha,
+  });
+  const {
+    createOriginalRetainedDeviceAaveStaticGraphServiceV1,
+    createOriginalRetainedDeviceUniswapGraphServiceV1,
+  } = buildRetainedDeviceVaultGraphBirthV1({
+    assertOwnedFlatSystem,
+    assertOwnedEvmGraphDeliveryObserverV1,
+    isOwnedAaveStaticGraphDeliveryObserverV1,
+    isOwnedUniswapGraphDeliveryObserverV1,
+    createFlatSystemStateReader,
+    createService,
+  });
+  function state(workspace) {
+    need(!types.isProxy(workspace), "DEVICE_EXTERNAL_GRAPH_WORKSPACE");
+    const s = workspaces.get(workspace);
+    need(s, "DEVICE_EXTERNAL_GRAPH_WORKSPACE");
+    s.live();
+    return s;
+  }
+  function assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace, input) {
+    assert.equal(arguments.length, 2);
+    need(input && !types.isProxy(input), "DEVICE_EXTERNAL_GRAPH_WORKSPACE");
+    const q = exact(input, ["account", "targetAccount"]),
+      s = state(workspace);
+    assert.equal(
+      q.account,
+      s.account,
+      "DEVICE_EXTERNAL_GRAPH_WORKSPACE_BINDING",
+    );
+    assert.equal(
+      q.targetAccount,
+      s.targetAccount,
+      "DEVICE_EXTERNAL_GRAPH_WORKSPACE_BINDING",
+    );
+    return undefined;
+  }
+  /** DATA configuration only. It cannot supply account/provider capabilities.
+   * Canonical DAG ordering is fixed before any target or invoice is born. */
+  function normalizeOriginalDeviceExternalFlatMultiDeliveriesV4(raw) {
+    assert.equal(arguments.length, 1);
+    need(
+      !types.isProxy(raw) &&
+        Array.isArray(raw) &&
+        Object.getPrototypeOf(raw) === Array.prototype &&
+        raw.length >= 2 &&
+        raw.length <= 4 &&
+        Reflect.ownKeys(raw).length === raw.length + 1,
+      "DEVICE_EXTERNAL_GRAPH_DELIVERY_COUNT",
+    );
+    const rows = Array.from({ length: raw.length }, (_, slot) => {
+      const property = Object.getOwnPropertyDescriptor(raw, String(slot));
+      need(
+        property?.enumerable && Object.hasOwn(property, "value"),
+        "DEVICE_EXTERNAL_GRAPH_DELIVERY_DATA",
+      );
+      need(
+        property.value && !types.isProxy(property.value),
+        "DEVICE_EXTERNAL_GRAPH_DELIVERY_DATA",
+      );
+      const q = exact(property.value, [
+        "id",
+        "dependsOn",
+        "origin",
+        "maximumInput",
+        "shareAmount",
+        "payoutAmount",
+      ]);
+      need(
+        q.id === "device-external-share-" + slot,
+        "DEVICE_EXTERNAL_GRAPH_NODE_ID",
+      );
+      need(
+        !types.isProxy(q.dependsOn) &&
+          Array.isArray(q.dependsOn) &&
+          Object.getPrototypeOf(q.dependsOn) === Array.prototype &&
+          Reflect.ownKeys(q.dependsOn).length === q.dependsOn.length + 1,
+        "DEVICE_EXTERNAL_GRAPH_DAG",
+      );
+      const dependsOn = Array.from({ length: q.dependsOn.length }, (_, i) => {
+        const p = Object.getOwnPropertyDescriptor(q.dependsOn, String(i));
+        need(
+          p?.enumerable && Object.hasOwn(p, "value"),
+          "DEVICE_EXTERNAL_GRAPH_DAG",
+        );
+        return p.value;
+      });
+      need(
+        dependsOn.every(
+          (id) =>
+            typeof id === "string" &&
+            Array.from(
+              { length: slot },
+              (_, i) => "device-external-share-" + i,
+            ).includes(id),
+        ) && new Set(dependsOn).size === dependsOn.length,
+        "DEVICE_EXTERNAL_GRAPH_DAG",
+      );
+      for (const k of ["maximumInput", "shareAmount", "payoutAmount"]) {
+        externalFlatUintV1(q[k]);
+        need(BigInt(q[k]) > 0n, "DEVICE_EXTERNAL_GRAPH_SLOT_TERMS");
+      }
+      need(typeof q.origin === "string", "DEVICE_EXTERNAL_GRAPH_SLOT_ORIGIN");
+      return { ...q, dependsOn: dependsOn.sort() };
+    });
+    need(
+      new Set(rows.map((r) => r.origin)).size === rows.length,
+      "DEVICE_EXTERNAL_GRAPH_DISTINCT_TARGET_ORIGINS",
+    );
+    for (const key of ["maximumInput", "shareAmount", "payoutAmount"])
+      externalFlatUintV1(
+        rows.reduce((n, d) => n + BigInt(d[key]), 0n).toString(),
+      );
+    return Object.freeze(
+      canonicalNativeOwnerNodes(rows).map((r) =>
+        Object.freeze({ ...r, dependsOn: Object.freeze([...r.dependsOn]) }),
+      ),
+    );
+  }
+  function isOriginalDeviceExternalFlatMultiGraphWorkspaceV4(workspace) {
+    assert.equal(arguments.length, 1);
+    need(!types.isProxy(workspace), "DEVICE_EXTERNAL_GRAPH_WORKSPACE");
+    const s = workspaces.get(workspace);
+    need(s, "DEVICE_EXTERNAL_GRAPH_WORKSPACE");
+    s.live();
+    return Array.isArray(s.multi);
+  }
+  function readOriginalDeviceExternalFlatMultiGraphBindingsV4(
+    workspace,
+    input,
+  ) {
+    assert.equal(arguments.length, 2);
+    assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace, input);
+    const s = state(workspace);
+    need(
+      Array.isArray(s.multi) && s.multi.length >= 2 && s.multi.length <= 4,
+      "DEVICE_EXTERNAL_GRAPH_MULTI_WORKSPACE",
+    );
+    return Object.freeze(
+      s.multi.map(({ account, ...fields }) =>
+        Object.freeze({ ...structuredClone(fields), account }),
+      ),
+    );
+  }
+  async function prepareOriginalDeviceExternalFlatMultiWorkspaceV4(s, q) {
+    const totals = (key) =>
+      s.multi.reduce((n, d) => n + BigInt(d[key]), 0n).toString();
+    assert.equal(
+      q.assetAmount,
+      totals("maximumInput"),
+      "DEVICE_EXTERNAL_GRAPH_SLOT_QUOTAS",
+    );
+    assert.equal(
+      q.shareAmount,
+      totals("shareAmount"),
+      "DEVICE_EXTERNAL_GRAPH_SLOT_QUOTAS",
+    );
+    assert.equal(
+      q.payoutAmount,
+      totals("payoutAmount"),
+      "DEVICE_EXTERNAL_GRAPH_SLOT_QUOTAS",
+    );
+    const { runtime, system, deliveryObserver, quorum, rule, rulePath } = s,
+      routers = readOriginalMetaMorphoGraphBatchRoutersV4(deliveryObserver, {
+        runtime,
+        system,
+        poolIndex: 1,
+      }),
+      now = await runtime.time(),
+      cutoff = BigInt(q.settleBefore),
+      until = cutoff - 60n;
+    need(
+      BigInt(q.validFrom) <= now &&
+        now + 120n < cutoff &&
+        until > BigInt(q.validFrom),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_WINDOW",
+    );
+    const domain = system.pools[0].domain,
+      operationId = fresh(),
+      rows = [];
+    for (let slot = 0; slot < s.multi.length; slot++) {
+      const router = routers[slot],
+        target = s.multi[slot],
+        proof = await consumeOriginalDeviceExternalFlatShareProofV1(
+          target.account,
+          {
+            runtime,
+            system,
+            poolIndex: 1,
+            deliveryObserver,
+            shareAmount: target.shareAmount,
+            validFrom: q.validFrom,
+            validUntil: until.toString(),
+          },
+        );
+      const descriptor = prepareOwnedMetaMorphoGraphDescriptorV1({
+        observer: deliveryObserver,
+        router,
+        route: {
+          maximumInput: target.maximumInput,
+          outputAmount: target.shareAmount,
+          validFrom: q.validFrom,
+          validUntil: until.toString(),
+        },
+        ownerPublicInputs: [...proof.publicInputs],
+      });
+      await bindOriginalDeviceExternalFlatShareGraphV1(target.account, {
+        runtime,
+        system,
+        router,
+        deliveryObserver,
+        descriptor,
+      });
+      const provider = await activateOriginalDeviceMetaMorphoProviderSlotV4(
+        s.multiSlots[slot],
+        {
+          runtime,
+          system,
+          poolIndex: 0,
+          router,
+          observer: deliveryObserver,
+          operatorQuorum: quorum,
+          rule,
+          rulePath,
+          descriptor,
+          depositProof: proof.proof,
+          terms: {
+            scope: domain.scope,
+            policy: domain.policy,
+            asset: domain.asset,
+            amount: target.shareAmount,
+            executionFrom: q.validFrom,
+            executionUntil: until.toString(),
+            settleBefore: q.settleBefore,
+          },
+          acceptedLossClause: NATIVE_ADMISSION_LOSS_CLAUSE,
+        },
+      );
+      s.multiProviders.push(provider);
+      s.multiProviderPrivate[slot] =
+        await snapshotOriginalDeviceMetaMorphoProviderSlotV4(
+          s.multiSlots[slot],
+        );
+      const offer = provider.offer(),
+        expectedTerms = {
+          ...Object.fromEntries(
+            ["scope", "policy", "asset", "hubDomain", "registryCommitment"].map(
+              (k) => [k, domain[k]],
+            ),
+          ),
+          operationId,
+          slot,
+          evidencePolicy: offer.evidencePolicy,
+          value: target.payoutAmount,
+          settleBefore: q.settleBefore,
+          actionTemplate: offer.actionTemplate,
+        };
+      const recipientDirectory = await mkdtemp(
+        join(
+          runtime.metadata.scratchDirectory,
+          "device-external-graph-recipient-",
+        ),
+      );
+      await chmod(recipientDirectory, 0o700);
+      const recipient = await createNativeRecipientProcess({
+        mode: "create",
+        path: join(recipientDirectory, "recipient.vault"),
+        password: fresh(),
+        expectedTerms,
+        withdrawalRecipient: bare(system.sender),
+      });
+      s.multiRecipients.push(recipient);
+      const recipientOffer = await recipient.offer(),
+        { settleBefore: _cutoff, ...actionTemplate } = offer.actionTemplate;
+      rows.push({
+        target,
+        provider,
+        recipient,
+        offer,
+        expectedTerms,
+        recipientOffer,
+        actionTemplate,
+      });
+    }
+    const preparation = createGenericBalanceNativePreparation({
+      ...Object.fromEntries(
+        ["scope", "policy", "asset", "hubDomain", "registryCommitment"].map(
+          (k) => [k, domain[k]],
+        ),
+      ),
+      operationId,
+      fundingNotBefore: q.validFrom,
+      fundingValidUntil: (now + 1800n < cutoff - 120n
+        ? now + 1800n
+        : cutoff - 120n
+      ).toString(),
+      settleBefore: q.settleBefore,
+      nodes: rows.map((r) => ({
+        id: r.target.id,
+        dependsOn: [...r.target.dependsOn],
+        evidencePolicy: r.offer.evidencePolicy,
+        actionTemplate: r.actionTemplate,
+        recipientOffer: r.recipientOffer,
+      })),
+    });
+    const invoiceSignatures = [],
+      providers = [];
+    for (let slot = 0; slot < rows.length; slot++) {
+      const r = rows[slot],
+        node = preparation.nodes[slot];
+      assert.equal(node.id, r.target.id, "DEVICE_EXTERNAL_GRAPH_SLOT_BINDING");
+      const accepted = await r.recipient.acceptInvoice(
+        nativeRecipientInvoiceRequest(r.expectedTerms, r.recipientOffer, {
+          action: node.action,
+          deliveryRiskSalt: node.deliveryRiskSalt,
+        }),
+      );
+      await r.provider.bindQuote({ recipientCustody: r.recipient });
+      const quote = await r.recipient.acceptedQuote();
+      assert.equal(
+        quote.deliveryRiskSalt,
+        node.deliveryRiskSalt,
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_INVOICE",
+      );
+      invoiceSignatures.push(accepted.invoiceSignature);
+      providers.push(
+        Object.freeze({
+          slot,
+          family: "3",
+          recipientIndex: 1,
+          rule,
+          rulePath,
+          deliveryRiskSalt: quote.deliveryRiskSalt,
+          provider: r.provider,
+        }),
+      );
+    }
+    for (const recipient of s.multiRecipients) {
+      const stopped = await recipient.close();
+      need(
+        stopped.exited &&
+          stopped.exit.code === 0 &&
+          stopped.exit.signal === null,
+        "DEVICE_EXTERNAL_GRAPH_RECIPIENT_CLOSE",
+      );
+    }
+    s.multiRecipients = [];
+    for (let slot = 0; slot < s.multiSlots.length; slot++)
+      s.multiProviderPrivate[slot] =
+        await snapshotOriginalDeviceMetaMorphoProviderSlotV4(
+          s.multiSlots[slot],
+        );
+    s.terms = structuredClone(q);
+    s.prepared = Object.freeze({
+      preparation,
+      invoiceSignatures: Object.freeze(invoiceSignatures),
+      providers: Object.freeze(providers),
+    });
+    return s.prepared;
+  }
+  /** New composition, fixed before D26 funding: original private SHARE actors
+   * have independent origins; HTTP never chooses a target account or provider. */
+  function createOriginalDeviceExternalFlatMultiGraphServiceV4(input) {
+    assert.equal(arguments.length, 1);
+    return createOriginalMultiServiceV4(input, null);
+  }
+  function createOriginalRetainedDeviceExternalFlatMultiGraphServiceV4(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "deliveries",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createOriginalMultiServiceV4(ordinary, {
+      authority: recoveryAuthority,
+      registry,
+      protocols,
+    });
+  }
+  function createOriginalRetainedDeviceMetaMorphoMultiUnderlyingServiceV2(
+    input,
+  ) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "deliveries",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createOriginalMultiServiceV4(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      true,
+    );
+  }
+  async function createOriginalMultiServiceV4(
+    input,
+    retention,
+    originalMeta = false,
+  ) {
+    const q = exact(input, [
+        "account",
+        "runtime",
+        "system",
+        "quorum",
+        "router",
+        "deliveryObserver",
+        "rule",
+        "rulePath",
+        "deliveries",
+        "tls",
+        "host",
+      ]),
+      deliveries = normalizeOriginalDeviceExternalFlatMultiDeliveriesV4(
+        q.deliveries,
+      );
+    const source = assertOriginalDeviceExternalFlatNoteAuthorityV1(q.account);
+    need(
+      deliveries[0].origin === source.origin,
+      "DEVICE_EXTERNAL_GRAPH_PRIMARY_ORIGIN",
+    );
+    await assertLocalEvm(q.runtime);
+    assertOwnedFlatSystem(q.runtime, q.system);
+    assertOwnedPrivateExternalRouterV1(q.router, {
+      runtime: q.runtime,
+      system: q.system,
+      poolIndex: 1,
+    });
+    assertOwnedEvmGraphDeliveryObserverV1(q.deliveryObserver, {
+      runtime: q.runtime,
+      system: q.system,
+      poolIndex: 1,
+    });
+    need(
+      isOwnedMetaMorphoGraphDeliveryObserverV1(q.deliveryObserver),
+      "DEVICE_EXTERNAL_GRAPH_FIXED_PROTOCOL",
+    );
+    assertOwnedFlatOperatorQuorum(q.quorum, {
+      runtime: q.runtime,
+      system: q.system,
+      nativeRuntime: q.deliveryObserver,
+      family: "3",
+    });
+    need(
+      isOwnedMetaMorphoGraphDeliveryBatchV4(q.deliveryObserver),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_BATCH",
+    );
+    const routers = readOriginalMetaMorphoGraphBatchRoutersV4(
+      q.deliveryObserver,
+      { runtime: q.runtime, system: q.system, poolIndex: 1 },
+    );
+    need(
+      routers.length === deliveries.length && routers[0] === q.router,
+      "DEVICE_EXTERNAL_GRAPH_SLOT_ROUTERS",
+    );
+    const reader = await createFlatSystemStateReader({
+        runtime: q.runtime,
+        system: q.system,
+        poolIndex: 0,
+      }),
+      view = await reader.read();
+    await reader.assertCurrent(view);
+    need(
+      view.ledger.commitments.length === 0 &&
+        view.ledger.nullifiers.length === 0,
+      "DEVICE_EXTERNAL_GRAPH_MULTI_BEFORE_FUNDING",
+    );
+    const targets = await createOriginalDeviceExternalFlatPrivateShareBatchV4({
+        runtime: q.runtime,
+        system: q.system,
+        poolIndex: 1,
+        origins: deliveries.map((v) => v.origin),
+        devicePublicKey: source.devicePublicKey,
+        deliveryObserver: q.deliveryObserver,
+      }),
+      listeners = [];
+    let service;
+    try {
+      const multi = deliveries.map((v, i) =>
+          Object.freeze({
+            ...v,
+            account: targets[i],
+            descriptor: assertOriginalDeviceExternalFlatNoteAuthorityV1(
+              targets[i],
+            ),
+          }),
+        ),
+        maximumSolverInput = deliveries
+          .reduce((sum, r) => sum + BigInt(r.maximumInput), 0n)
+          .toString();
+      externalFlatUintV1(maximumSolverInput);
+      service = await createService(
+        {
+          ...Object.fromEntries(
+            [
+              "account",
+              "runtime",
+              "system",
+              "quorum",
+              "router",
+              "deliveryObserver",
+              "rule",
+              "rulePath",
+              "tls",
+              "host",
+            ].map((k) => [k, q[k]]),
+          ),
+          targetAccount: targets[0],
+          maximumSolverInput,
+        },
+        retention,
+        false,
+        multi,
+        false,
+        false,
+        false,
+        2,
+        originalMeta,
+      );
+      for (let i = 1; i < targets.length; i++)
+        listeners.push(
+          await (
+            originalMeta
+              ? createOriginalDeviceMetaMorphoTargetTlsServerV2
+              : createOriginalDeviceExternalFlatTlsServerV1
+          )({
+            account: targets[i],
+            ...(originalMeta
+              ? { redemption: services.get(service).state.metaExits[i] }
+              : {}),
+            tls: q.tls,
+            host: q.host,
+          }),
+        );
+      let closing;
+      const result = Object.freeze({
+        ...service,
+        profile: originalMeta
+          ? "DEVICE_METAMORPHO_MULTI_UNDERLYING_V2"
+          : "DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_V4",
+        targetDescriptors: Object.freeze(
+          targets.map((a) =>
+            assertOriginalDeviceExternalFlatNoteAuthorityV1(a),
+          ),
+        ),
+        close() {
+          return (closing ??= (async () => {
+            let first;
+            for (const fn of [
+              () => service.close(),
+              ...listeners.map((l) => () => l.close()),
+              ...targets.map((a) => () => a.close()),
+            ])
+              try {
+                await fn();
+              } catch (error) {
+                first ??= error;
+              }
+            if (first) throw first;
+            return {
+              closed: true,
+              ownedSocketsRemaining: 0,
+              originalKeeperDrained: true,
+            };
+          })());
+        },
+      });
+      const retained = services.get(service);
+      retained.targetListeners = listeners;
+      services.set(result, retained);
+      return result;
+    } catch (error) {
+      await Promise.allSettled([
+        ...listeners.map((l) => l.close()),
+        service?.close(),
+        ...targets.map((a) => a.close()),
+      ]);
+      throw error;
+    }
+  }
+  /** Same live Multi factory only; fixed HOST/product composition gets original
+   * actor references, never credentials, records or a caller-selected factory. */
+  function readOriginalDeviceExternalFlatMultiGraphContextV4(service) {
+    assert.equal(arguments.length, 1);
+    need(
+      !types.isProxy(service),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_MULTI_SERVICE",
+    );
+    const r = services.get(service);
+    need(
+      r &&
+        r.state?.multi &&
+        [
+          "DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_V4",
+          "DEVICE_METAMORPHO_MULTI_UNDERLYING_V2",
+        ].includes(service.profile),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_MULTI_SERVICE",
+    );
+    r.live();
+    need(
+      r.state.prepared === null &&
+        !r.state.preparing &&
+        !r.state.poisoned &&
+        r.state.multiSlots.length === r.state.multi.length,
+      "DEVICE_EXTERNAL_GRAPH_MULTI_BEFORE_PREPARATION",
+    );
+    return Object.freeze({
+      account: r.state.account,
+      targetAccounts: Object.freeze(r.state.multi.map((d) => d.account)),
+      providerSlotCount: r.state.multiSlots.length,
+    });
+  }
+  /** Called only by the SAME original bridge after it has consumed device ACCESS.
+   * D27 public inputs and provider context are checked again by original factories. */
+  async function prepareOriginalDeviceExternalFlatGraphWorkspaceV1(
+    workspace,
+    bridge,
+    input,
+  ) {
+    assert.equal(arguments.length, 3);
+    const s = state(workspace);
+    const q = validateDeviceGraphPreparationTermsV1(s, bridge, input);
+    if (s.prepared) {
+      assert.deepEqual(q, s.terms, "DEVICE_EXTERNAL_GRAPH_TERMS_CHANGED");
+      return s.prepared;
+    }
+    s.preparing = true;
+    try {
+      await s.persist({ phase: "PREPARING", terms: structuredClone(q) });
+      if (s.multi) {
+        const result = await prepareOriginalDeviceExternalFlatMultiWorkspaceV4(
+          s,
+          q,
+        );
+        await s.persist();
+        return result;
+      }
+      const {
+          runtime,
+          system,
+          router,
+          deliveryObserver,
+          quorum,
+          rule,
+          rulePath,
+          targetAccount,
+        } = s,
+        now = await runtime.time(),
+        cutoff = BigInt(q.settleBefore),
+        until = cutoff - 60n;
+      need(
+        BigInt(q.validFrom) <= now &&
+          now + 120n < cutoff &&
+          until > BigInt(q.validFrom),
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_WINDOW",
+      );
+      const proof = await consumeOriginalDeviceExternalFlatShareProofV1(
+        targetAccount,
+        {
+          runtime,
+          system,
+          poolIndex: 1,
+          deliveryObserver,
+          shareAmount: q.shareAmount,
+          validFrom: q.validFrom,
+          validUntil: until.toString(),
+        },
+      );
+      const descriptor = (
+        s.originalBlue
+          ? prepareOwnedMorphoBluePositionGraphDescriptorV1
+          : s.originalAave
+            ? prepareOwnedAaveStaticGraphDescriptorV1
+            : s.originalUniswap
+              ? prepareOwnedUniswapGraphDescriptorV1
+              : prepareOwnedMetaMorphoGraphDescriptorV1
+      )({
+        observer: deliveryObserver,
+        router,
+        route: {
+          maximumInput: q.assetAmount,
+          outputAmount: q.shareAmount,
+          validFrom: q.validFrom,
+          validUntil: until.toString(),
+        },
+        ownerPublicInputs: [...proof.publicInputs],
+      });
+      await bindOriginalDeviceExternalFlatShareGraphV1(targetAccount, {
+        runtime,
+        system,
+        router,
+        deliveryObserver,
+        descriptor,
+      });
+      const directory = await mkdtemp(
+        join(
+          runtime.metadata.scratchDirectory,
+          "device-external-graph-provider-",
+        ),
+      );
+      await chmod(directory, 0o700);
+      const domain = system.pools[0].domain;
+      s.providerPrivate = { directory, password: fresh(), record: null };
+      await s.persist({ phase: "PROVIDER_BIRTH", terms: structuredClone(q) });
+      s.provider = await (
+        s.originalBlue
+          ? createOwnedFlatMorphoBluePositionProviderV1
+          : s.originalAave
+            ? createOwnedFlatAaveStaticProviderV1
+            : s.originalUniswap
+              ? createOwnedFlatUniswapProviderV1
+              : createOwnedFlatMetaMorphoProviderV1
+      )({
+        runtime,
+        system,
+        poolIndex: 0,
+        router,
+        observer: deliveryObserver,
+        operatorQuorum: quorum,
+        rule,
+        rulePath,
+        descriptor,
+        depositProof: proof.proof,
+        terms: {
+          scope: domain.scope,
+          policy: domain.policy,
+          asset: domain.asset,
+          amount: q.shareAmount,
+          executionFrom: q.validFrom,
+          executionUntil: until.toString(),
+          settleBefore: q.settleBefore,
+        },
+        acceptedLossClause: NATIVE_ADMISSION_LOSS_CLAUSE,
+        directory,
+        password: s.providerPrivate.password,
+      });
+      const offer = s.provider.offer(),
+        operationId = fresh(),
+        expectedTerms = {
+          ...Object.fromEntries(
+            ["scope", "policy", "asset", "hubDomain", "registryCommitment"].map(
+              (k) => [k, domain[k]],
+            ),
+          ),
+          operationId,
+          slot: 0,
+          evidencePolicy: offer.evidencePolicy,
+          value: q.payoutAmount,
+          settleBefore: q.settleBefore,
+          actionTemplate: offer.actionTemplate,
+        };
+      const recipientDirectory = await mkdtemp(
+        join(
+          runtime.metadata.scratchDirectory,
+          "device-external-graph-recipient-",
+        ),
+      );
+      await chmod(recipientDirectory, 0o700);
+      s.recipient = await createNativeRecipientProcess({
+        mode: "create",
+        path: join(recipientDirectory, "recipient.vault"),
+        password: fresh(),
+        expectedTerms,
+        withdrawalRecipient: bare(system.sender),
+      });
+      const recipientOffer = await s.recipient.offer(),
+        { settleBefore: _cutoff, ...actionTemplate } = offer.actionTemplate;
+      const fundingUntil = (
+          now + 1800n < cutoff - 120n ? now + 1800n : cutoff - 120n
+        ).toString(),
+        preparation = createGenericBalanceNativePreparation({
+          ...Object.fromEntries(
+            ["scope", "policy", "asset", "hubDomain", "registryCommitment"].map(
+              (k) => [k, domain[k]],
+            ),
+          ),
+          operationId,
+          fundingNotBefore: q.validFrom,
+          fundingValidUntil: fundingUntil,
+          settleBefore: q.settleBefore,
+          nodes: [
+            {
+              id: "device-external-share-delivery",
+              dependsOn: [],
+              evidencePolicy: offer.evidencePolicy,
+              actionTemplate,
+              recipientOffer,
+            },
+          ],
+        });
+      const request = nativeRecipientInvoiceRequest(
+          expectedTerms,
+          recipientOffer,
+          {
+            action: preparation.nodes[0].action,
+            deliveryRiskSalt: preparation.nodes[0].deliveryRiskSalt,
+          },
+        ),
+        accepted = await s.recipient.acceptInvoice(request);
+      await s.provider.bindQuote({ recipientCustody: s.recipient });
+      const quote = await s.recipient.acceptedQuote();
+      assert.equal(
+        quote.deliveryRiskSalt,
+        preparation.nodes[0].deliveryRiskSalt,
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_INVOICE",
+      );
+      // Provider retains the authenticated invoice itself; no recipient reference
+      // remains in its dispatcher. Drain the real invoice child before returning.
+      const stopped = await s.recipient.close();
+      need(
+        stopped.exited &&
+          stopped.exit.code === 0 &&
+          stopped.exit.signal === null,
+        "DEVICE_EXTERNAL_GRAPH_RECIPIENT_CLOSE",
+      );
+      s.recipient = null;
+      s.terms = structuredClone(q);
+      s.prepared = Object.freeze({
+        preparation,
+        invoiceSignatures: Object.freeze([accepted.invoiceSignature]),
+        providers: Object.freeze([
+          Object.freeze({
+            slot: 0,
+            family: "3",
+            recipientIndex: 1,
+            rule,
+            rulePath,
+            deliveryRiskSalt: quote.deliveryRiskSalt,
+            provider: s.provider,
+          }),
+        ]),
+      });
+      await s.persist();
+      return s.prepared;
+    } catch (error) {
+      s.poisoned = true;
+      throw error;
+    } finally {
+      s.preparing = false;
+    }
+  }
+  function createOriginalDeviceExternalFlatSourceGraphServiceV1(input) {
+    assert.equal(arguments.length, 1);
+    return createService(input, null);
+  }
+  function createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(ordinary, {
+      authority: recoveryAuthority,
+      registry,
+      protocols,
+    });
+  }
+  function createOriginalRetainedDeviceMorphoBluePositionGraphServiceV1(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      true,
+    );
+  }
+
+  /** Fixed original exact-output swap, selected before either pool is funded. */
+
+  function createOriginalRetainedDeviceExternalFlatGraphSourceServiceV2(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      false,
+      null,
+      false,
+      false,
+      true,
+    );
+  }
+  function createOriginalRetainedDeviceUniswapGraphSourceServiceV2(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      false,
+      null,
+      false,
+      true,
+      true,
+    );
+  }
+  function createOriginalRetainedDeviceExternalFlatGraphSourceServiceV3(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      false,
+      null,
+      false,
+      false,
+      true,
+      3,
+    );
+  }
+  function createOriginalRetainedDeviceUniswapGraphSourceServiceV3(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      false,
+      null,
+      false,
+      true,
+      true,
+      3,
+    );
+  }
+  function createOriginalRetainedDeviceAaveStaticGraphSourceServiceV3(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      false,
+      null,
+      true,
+      false,
+      true,
+      3,
+    );
+  }
+  function createOriginalRetainedDeviceMetaMorphoUnderlyingServiceV2(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+      "recoveryAuthority",
+      "registry",
+      "protocols",
+    ]);
+    const { recoveryAuthority, registry, protocols, ...ordinary } = q;
+    return createService(
+      ordinary,
+      { authority: recoveryAuthority, registry, protocols },
+      false,
+      null,
+      false,
+      false,
+      false,
+      2,
+      true,
+    );
+  }
+  async function createService(
+    input,
+    retention,
+    originalBlue = false,
+    multi = null,
+    originalAave = false,
+    originalUniswap = false,
+    sourceV2 = false,
+    sourceVersion = 2,
+    originalMeta = false,
+  ) {
+    need(
+      sourceVersion === 2 || (sourceV2 && sourceVersion === 3),
+      "DEVICE_GRAPH_SOURCE_FIXED_VERSION",
+    );
+    need(
+      !originalMeta ||
+        (retention &&
+          !originalBlue &&
+          !originalAave &&
+          !originalUniswap &&
+          !sourceV2),
+      "META_REDEMPTION_FIXED_BEFORE_FUND",
+    );
+    need(
+      [originalBlue, originalAave, originalUniswap].filter(Boolean).length <=
+        1 &&
+        (!multi || (!originalBlue && !originalAave && !originalUniswap)),
+      "DEVICE_EXTERNAL_GRAPH_FIXED_PROTOCOL",
+    );
+    need(input && !types.isProxy(input), "DEVICE_EXTERNAL_GRAPH_SERVICE");
+    const v = exact(input, [
+      "account",
+      "targetAccount",
+      "runtime",
+      "system",
+      "quorum",
+      "router",
+      "deliveryObserver",
+      "rule",
+      "rulePath",
+      "maximumSolverInput",
+      "tls",
+      "host",
+    ]);
+    externalFlatUintV1(v.maximumSolverInput);
+    need(
+      BigInt(v.maximumSolverInput) > 0n,
+      "DEVICE_EXTERNAL_GRAPH_EXPLICIT_SOLVER_ALLOWANCE",
+    );
+    await assertLocalEvm(v.runtime);
+    assertOwnedFlatSystem(v.runtime, v.system);
+    assertOwnedPrivateExternalRouterV1(v.router, {
+      runtime: v.runtime,
+      system: v.system,
+      poolIndex: 1,
+    });
+    assertOwnedEvmGraphDeliveryObserverV1(v.deliveryObserver, {
+      runtime: v.runtime,
+      system: v.system,
+      poolIndex: 1,
+    });
+    need(
+      originalBlue
+        ? isOwnedMorphoBluePositionGraphDeliveryObserverV1(v.deliveryObserver)
+        : originalAave
+          ? isOwnedAaveStaticGraphDeliveryObserverV1(v.deliveryObserver)
+          : originalUniswap
+            ? isOwnedUniswapGraphDeliveryObserverV1(v.deliveryObserver)
+            : isOwnedMetaMorphoGraphDeliveryObserverV1(v.deliveryObserver),
+      "DEVICE_EXTERNAL_GRAPH_FIXED_PROTOCOL",
+    );
+    assertOwnedFlatOperatorQuorum(v.quorum, {
+      runtime: v.runtime,
+      system: v.system,
+      nativeRuntime: v.deliveryObserver,
+      family: "3",
+    });
+    const descriptor = assertOriginalDeviceExternalFlatNoteAuthorityV1(
+        v.account,
+      ),
+      targetDescriptor = assertOriginalDeviceExternalFlatShareNoteAuthorityV1(
+        v.targetAccount,
+        {
+          runtime: v.runtime,
+          system: v.system,
+          poolIndex: 1,
+          deliveryObserver: v.deliveryObserver,
+        },
+      );
+    assert.equal(descriptor.origin, targetDescriptor.origin);
+    assert.equal(descriptor.devicePublicKey, targetDescriptor.devicePublicKey);
+    let closed = false,
+      closing = false,
+      closeWork = null,
+      listener,
+      execution;
+    const proofs = [],
+      s = {
+        ...v,
+        descriptor,
+        targetDescriptor,
+        retention,
+        originalBlue,
+        originalAave,
+        originalUniswap,
+        originalMeta,
+        metaExits: [],
+        multi,
+        multiRouters: multi
+          ? readOriginalMetaMorphoGraphBatchRoutersV4(v.deliveryObserver, {
+              runtime: v.runtime,
+              system: v.system,
+              poolIndex: 1,
+            })
+          : null,
+        multiProviders: [],
+        multiRecipients: [],
+        multiSlots: [],
+        multiProviderPrivate: [],
+        position: null,
+        blueExit: null,
+        aaveExit: null,
+        aaveAdapter: null,
+        providerPrivate: null,
+        retentionHandle: null,
+        bridge: null,
+        prepared: null,
+        terms: null,
+        preparing: false,
+        poisoned: false,
+        provider: null,
+        recipient: null,
+        live() {
+          need(!closed, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+          if (multi)
+            for (const d of multi)
+              assertOriginalDeviceExternalFlatShareNoteAuthorityV1(d.account, {
+                runtime: v.runtime,
+                system: v.system,
+                poolIndex: 1,
+                deliveryObserver: v.deliveryObserver,
+              });
+          assert.deepEqual(
+            assertOriginalDeviceExternalFlatNoteAuthorityV1(v.account),
+            descriptor,
+          );
+          assert.deepEqual(
+            assertOriginalDeviceExternalFlatShareNoteAuthorityV1(
+              v.targetAccount,
+              {
+                runtime: v.runtime,
+                system: v.system,
+                poolIndex: 1,
+                deliveryObserver: v.deliveryObserver,
+              },
+            ),
+            targetDescriptor,
+          );
+        },
+      };
+    const workspace = Object.freeze({
+      descriptor,
+      targetDescriptor,
+      challenge() {
+        assert.equal(arguments.length, 0);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.challenge();
+      },
+      preparation(raw) {
+        assert.equal(arguments.length, 1);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.preparation(raw);
+      },
+      review(raw) {
+        assert.equal(arguments.length, 1);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.review(raw);
+      },
+      operate(raw) {
+        assert.equal(arguments.length, 1);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.operate(raw);
+      },
+      outputQuote(raw) {
+        assert.equal(arguments.length, 1);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.outputQuote(raw);
+      },
+      outputReview(raw) {
+        assert.equal(arguments.length, 1);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.outputReview(raw);
+      },
+      outputOperate(raw) {
+        assert.equal(arguments.length, 1);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.outputOperate(raw);
+      },
+      status(raw) {
+        assert.equal(arguments.length, 1);
+        need(!closing, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+        return s.bridge.status(raw);
+      },
+      ...Object.fromEntries(
+        ["Challenge", "Review", "Operate", "Status"].map((name) => [
+          "blue" + name,
+          function (raw) {
+            need(
+              s.originalBlue && s.blueExit && !closing,
+              "BLUE_REDEMPTION_ORIGINAL_SERVICE",
+            );
+            if (name === "Challenge") {
+              assert.equal(arguments.length, 0);
+              return s.blueExit.challenge();
+            }
+            assert.equal(arguments.length, 1);
+            return s.blueExit[name.toLowerCase()](raw);
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        ["Challenge", "Review", "Operate", "Status"].map((name) => [
+          "aave" + name,
+          function (raw) {
+            need(
+              s.originalAave && s.aaveExit && !closing,
+              "AAVE_REDEMPTION_ORIGINAL_SERVICE",
+            );
+            if (name === "Challenge") {
+              assert.equal(arguments.length, 0);
+              return s.aaveExit.challenge();
+            }
+            assert.equal(arguments.length, 1);
+            return s.aaveExit[name.toLowerCase()](raw);
+          },
+        ]),
+      ),
+      ...Object.fromEntries(
+        ["Challenge", "Review", "Operate", "Status"].map((name) => [
+          "meta" + name,
+          function (raw) {
+            need(
+              s.originalMeta && s.metaExits[0] && !closing,
+              "META_REDEMPTION_ORIGINAL_SERVICE",
+            );
+            if (name === "Challenge") {
+              assert.equal(arguments.length, 0);
+              return s.metaExits[0].challenge();
+            }
+            assert.equal(arguments.length, 1);
+            return s.metaExits[0][name.toLowerCase()](raw);
+          },
+        ]),
+      ),
+      close() {
+        assert.equal(arguments.length, 0);
+        if (closeWork) return closeWork;
+        closing = true;
+        return (closeWork = (async () => {
+          let first;
+          const drain = async (fn) => {
+            try {
+              await fn();
+            } catch (e) {
+              first ??= e;
+            }
+          };
+          for (const exit of s.metaExits) await drain(() => exit.close());
+          await drain(async () => {
+            if (s.blueExit) await s.blueExit.close();
+          });
+          await drain(async () => {
+            if (s.aaveExit) await s.aaveExit.close();
+          });
+          await drain(async () => {
+            if (s.bridge) await s.bridge.close();
+          });
+          await drain(async () => {
+            if (execution) await execution.close();
+          });
+          await drain(async () => {
+            if (s.recipient) {
+              const result = await s.recipient.close();
+              need(
+                result.exited &&
+                  result.exit.code === 0 &&
+                  result.exit.signal === null,
+                "DEVICE_EXTERNAL_GRAPH_RECIPIENT_CLOSE",
+              );
+              s.recipient = null;
+            }
+          });
+          for (const recipient of s.multiRecipients)
+            await drain(async () => {
+              const result = await recipient.close();
+              need(
+                result.exited &&
+                  result.exit.code === 0 &&
+                  result.exit.signal === null,
+                "DEVICE_EXTERNAL_GRAPH_RECIPIENT_CLOSE",
+              );
+            });
+          for (const token of s.multiSlots)
+            await drain(() =>
+              closeOriginalDeviceMetaMorphoProviderSlotV4(token),
+            );
+          for (const provider of s.multiProviders)
+            await drain(async () => {
+              const result = await provider.close();
+              need(result.closed, "DEVICE_EXTERNAL_GRAPH_PROVIDER_CLOSE");
+            });
+          await drain(async () => {
+            if (s.provider) {
+              const result = await s.provider.close();
+              need(result.closed, "DEVICE_EXTERNAL_GRAPH_PROVIDER_CLOSE");
+            }
+          });
+          closed = true;
+          if (first) throw first;
+          return { closed: true, originalWorkDrained: true };
+        })());
+      },
+    });
+    workspaces.set(workspace, s);
+    const workspaceIdentity = {
+      profile: "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_LIFETIME_V1",
+      lifetime: descriptor.lifetime,
+      identitySHA256: sha(descriptor),
+    };
+    s.seed = () => ({
+      schema: "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_PRIVATE_V1",
+      terms: s.terms,
+      preparation: s.prepared ? structuredClone(s.prepared.preparation) : null,
+      invoiceSignatures: s.prepared ? [...s.prepared.invoiceSignatures] : null,
+      providers: s.prepared
+        ? s.prepared.providers.map(({ provider, ...fields }) =>
+            structuredClone(fields),
+          )
+        : null,
+      provider: s.providerPrivate ? structuredClone(s.providerPrivate) : null,
+      ...(multi
+        ? {
+            multiDeliveries: multi.map(({ account, descriptor, ...data }) =>
+              structuredClone(data),
+            ),
+            multiProviderPrivate: structuredClone(s.multiProviderPrivate),
+          }
+        : {}),
+      maximumSolverInput: v.maximumSolverInput,
+      rule: structuredClone(v.rule),
+      rulePath: structuredClone(v.rulePath),
+      proofFrames: JSON.stringify(
+        proofs.map((p) => {
+          const key = Object.hasOwn(p, "result") ? "result" : "proof",
+            r = p[key];
+          need(r && r.proof, "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROOF_METADATA");
+          return {
+            ...structuredClone(p),
+            [key]: {
+              ...structuredClone(r),
+              proof:
+                typeof r.proof === "string"
+                  ? r.proof
+                  : Buffer.from(r.proof).toString("hex"),
+            },
+          };
+        }),
+      ),
+    });
+    s.persist = async (candidate = null) => {
+      if (s.retentionHandle)
+        await updateWrappedPrivateLifetimePartV1(s.retentionHandle, {
+          schema: "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_DURABLE_V1",
+          confirmed: s.seed(),
+          candidate,
+        });
+    };
+    if (retention) {
+      assertOwnedDeviceExternalFlatReceiverV1(v.runtime);
+      const identity = assertDeviceExternalFlatRecoveryAuthorityV1(
+        retention.authority,
+      );
+      assertWrappedPrivateLifetimeAttemptV1(v.runtime, identity);
+      s.retentionHandle = await retainWrappedPrivateLifetimePartV1(
+        v.runtime,
+        "provider-0",
+        workspaceIdentity,
+        {
+          schema: "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_DURABLE_V1",
+          confirmed: s.seed(),
+          candidate: null,
+        },
+      );
+      assertWrappedPrivateLifetimePartSealedV1(s.retentionHandle);
+    }
+
+    try {
+      if (multi)
+        for (let slot = 0; slot < multi.length; slot++) {
+          const d = multi[slot],
+            routers = readOriginalMetaMorphoGraphBatchRoutersV4(
+              v.deliveryObserver,
+              { runtime: v.runtime, system: v.system, poolIndex: 1 },
+            );
+          need(
+            routers.length === multi.length,
+            "DEVICE_EXTERNAL_GRAPH_SLOT_ROUTERS",
+          );
+          s.multiSlots.push(
+            await createOriginalDeviceMetaMorphoProviderSlotV4({
+              runtime: v.runtime,
+              system: v.system,
+              poolIndex: 0,
+              router: routers[slot],
+              observer: v.deliveryObserver,
+              operatorQuorum: v.quorum,
+              rule: v.rule,
+              rulePath: v.rulePath,
+              slot,
+              maximumInput: d.maximumInput,
+              shareAmount: d.shareAmount,
+              payoutAmount: d.payoutAmount,
+            }),
+          );
+          s.multiProviderPrivate.push(
+            await snapshotOriginalDeviceMetaMorphoProviderSlotV4(
+              s.multiSlots[slot],
+            ),
+          );
+          await s.persist();
+        }
+      execution = await createFlatNativeExecution(
+        {
+          runtime: v.runtime,
+          system: v.system,
+          poolIndex: 0,
+          bitcoin: null,
+          solana: null,
+          quorum: v.quorum,
+          evmDelivery: v.deliveryObserver,
+        },
+        {
+          onProof: async (frame) => {
+            proofs.push(structuredClone(frame));
+            await s.persist();
+          },
+        },
+      );
+      if (retention)
+        await retainOriginalDeviceExternalFlatGraphExecutionV1(
+          execution,
+          retention.authority,
+        );
+      const bridgeInput = {
+        account: v.account,
+        targetAccount: v.targetAccount,
+        runtime: v.runtime,
+        system: v.system,
+        poolIndex: 0,
+        execution,
+        workspace,
+      };
+      s.bridge = retention
+        ? await (
+            multi
+              ? createOriginalRetainedDeviceExternalFlatPrivateMultiSourceGraphV4
+              : createOriginalRetainedDeviceExternalFlatPrivateSourceGraphV2
+          )({ ...bridgeInput, recoveryAuthority: retention.authority })
+        : await (
+            multi
+              ? createOriginalDeviceExternalFlatPrivateMultiSourceGraphV4
+              : createOriginalDeviceExternalFlatPrivateSourceGraphV2
+          )(bridgeInput);
+      if (retention)
+        for (const account of [
+          v.account,
+          ...(multi ? multi.map((d) => d.account) : [v.targetAccount]),
+        ])
+          await retainOriginalDeviceExternalFlatGraphAccountV1(
+            account,
+            s.bridge,
+            retention.authority,
+          );
+      if (originalMeta)
+        await acquireFixedMetaRedemptionsV2(
+          {
+            runtime: v.runtime,
+            system: v.system,
+            protocols: retention.protocols,
+            targets: multi ? multi.map((d) => d.account) : [v.targetAccount],
+            exits: s.metaExits,
+          },
+          {
+            reader: createFlatSystemStateReader,
+            adapter: createRetainedOwnedDeviceMetaMorphoVaultV2,
+            exit: createOriginalDeviceMetaMorphoPrivateExitV2,
+          },
+        );
+      if (originalBlue) {
+        s.position = readOwnedPrivateMorphoBluePositionRouterV1(v.router, {
+          runtime: v.runtime,
+          system: v.system,
+          poolIndex: 1,
+        });
+        const adapter = await createRetainedOwnedMorphoBluePositionVaultV1({
+          runtime: v.runtime,
+          position: s.position,
+        });
+        try {
+          s.blueExit = await createOriginalDeviceMorphoBluePrivateExitV1({
+            runtime: v.runtime,
+            system: v.system,
+            account: v.targetAccount,
+            position: s.position,
+            adapter,
+          });
+        } catch (error) {
+          await adapter.close();
+          throw error;
+        }
+      }
+      if (originalAave) {
+        const protocols = retention.protocols,
+          adapter = await createRetainedOwnedDeviceAaveStaticVaultV1({
+            runtime: v.runtime,
+            protocolFixture: protocols,
+          });
+        try {
+          s.aaveAdapter = adapter;
+          s.aaveExit = await createOriginalDeviceAaveStaticPrivateExitV1({
+            runtime: v.runtime,
+            system: v.system,
+            account: v.targetAccount,
+            protocols,
+            adapter,
+          });
+        } catch (error) {
+          await adapter.close();
+          throw error;
+        }
+      }
+      if (!sourceV2)
+        listener = await createOriginalDeviceExternalFlatGraphTlsServerV1({
+          account: v.account,
+          targetAccount: v.targetAccount,
+          workspace,
+          tls: v.tls,
+          host: v.host,
+        });
+    } catch (error) {
+      await workspace.close().catch(() => {});
+      throw error;
+    }
+    let serviceClose;
+    const service = Object.freeze({
+      account: v.account,
+      targetAccount: v.targetAccount,
+      descriptor,
+      targetDescriptor,
+      url: sourceV2 ? descriptor.origin : listener.url,
+      ...(originalMeta
+        ? {
+            redemptionRecipient:
+              readOriginalDeviceMetaMorphoPrivateExitRecipientV2(
+                s.metaExits[0],
+              ),
+          }
+        : {}),
+      profile: originalMeta
+        ? "METAMORPHO_PRIVATE_UNDERLYING_V2"
+        : originalBlue
+          ? "MORPHO_BLUE_PRIVATE_SUPPLY_V1"
+          : originalAave
+            ? "AAVE_STATIC_PRIVATE_SHARE_MINT_V1"
+            : originalUniswap
+              ? "UNISWAP_PRIVATE_OUTPUT_NOTE_V1"
+              : "METAMORPHO_PRIVATE_SHARE_MINT_V1",
+      close() {
+        assert.equal(arguments.length, 0);
+        return (serviceClose ??= (async () => {
+          let first;
+          try {
+            const result = await listener.close();
+            need(
+              result.closed &&
+                result.ownedSocketsRemaining === 0 &&
+                result.originalOperationsInFlight === 0,
+              "DEVICE_EXTERNAL_GRAPH_TLS_CLOSE",
+            );
+          } catch (e) {
+            first = e;
+          }
+          try {
+            await workspace.close();
+          } catch (e) {
+            first ??= e;
+          }
+          if (first) throw first;
+          return {
+            closed: true,
+            ownedSocketsRemaining: 0,
+            originalOperationsInFlight: 0,
+            originalKeeperDrained: true,
+          };
+        })());
+      },
+    });
+    services.set(service, {
+      workspace,
+      bridge: s.bridge,
+      execution,
+      listener,
+      proofs,
+      live: s.live,
+      state: s,
+      workspaceIdentity,
+      retention,
+      captureWork: null,
+    });
+    if (sourceV2) {
+      try {
+        await (
+          sourceVersion === 3
+            ? armOriginalDeviceExternalFlatGraphSourceV3
+            : armOriginalDeviceExternalFlatGraphSourceV2
+        )(service);
+        listener = await createOriginalDeviceExternalFlatGraphTlsServerV1({
+          account: v.account,
+          targetAccount: v.targetAccount,
+          workspace,
+          tls: v.tls,
+          host: v.host,
+        });
+        services.get(service).listener = listener;
+      } catch (error) {
+        await workspace.close().catch(() => {});
+        throw error;
+      }
+    }
+    return service;
+  }
+  /** Original single Meta/Uniswap resources, or the fixed Aave exit pair in V3. */
+  async function originalDeviceExternalFlatGraphSourceBirthV2(service) {
+    assert.equal(arguments.length, 1);
+    need(!types.isProxy(service), "DEVICE_GRAPH_SOURCE_ORIGINAL_SERVICE");
+    const r = services.get(service);
+    need(
+      r?.retention && !r.observationOnly && !r.captureWork,
+      "DEVICE_GRAPH_SOURCE_ORIGINAL_SERVICE",
+    );
+    r.live();
+    const s = r.state;
+    need(
+      !s.originalMeta &&
+        !s.multi &&
+        !s.originalBlue &&
+        (!s.originalAave || (s.aaveExit && s.aaveAdapter)) &&
+        !s.prepared &&
+        !s.preparing &&
+        !s.poisoned,
+      "DEVICE_GRAPH_SOURCE_FIXED_SINGLE_META",
+    );
+    const identity = assertDeviceExternalFlatRecoveryAuthorityV1(
+      r.retention.authority,
+    );
+    assertWrappedPrivateLifetimeAttemptV1(s.runtime, identity);
+    for (const poolIndex of [0, 1]) {
+      const reader = await createFlatSystemStateReader({
+          runtime: s.runtime,
+          system: s.system,
+          poolIndex,
+        }),
+        v = await reader.read();
+      need(
+        v.ledger.commitments.length === 0 &&
+          v.ledger.nullifiers.length === 0 &&
+          v.ledger.publicState.liveReservations === 0,
+        "DEVICE_GRAPH_SOURCE_BEFORE_FUNDING",
+      );
+      await reader.assertCurrent(v);
+    }
+    need(
+      service.descriptor.devicePublicKey ===
+        service.targetDescriptor.devicePublicKey,
+      "DEVICE_GRAPH_SOURCE_PAIRED_ACCOUNT",
+    );
+    return {
+      devicePublicKey: service.descriptor.devicePublicKey,
+      protocol: s.originalAave
+        ? "AAVE_STATIC_PRIVATE_SHARE_MINT_V1"
+        : s.originalUniswap
+          ? "UNISWAP_PRIVATE_OUTPUT_NOTE_V1"
+          : "METAMORPHO_PRIVATE_SHARE_MINT_V1",
+      runtime: s.runtime,
+      registry: r.retention.registry,
+      identity,
+      account: s.account,
+      targetAccount: s.targetAccount,
+      bridge: r.bridge,
+      execution: r.execution,
+      ...(s.originalAave
+        ? { aaveExit: s.aaveExit, aaveAdapter: s.aaveAdapter }
+        : {}),
+    };
+  }
+  async function checkpointOriginalDeviceExternalFlatGraphSourceV2(
+    service,
+    token,
+  ) {
+    assert.equal(arguments.length, 2);
+    consumeOriginalDeviceGraphSourceRequestV2(
+      token,
+      "service-checkpoint",
+      service,
+    );
+    const q = originalDeviceGraphSourceProducerRequestsV2(token),
+      r = services.get(service);
+    need(
+      r?.retention && !r.observationOnly && !r.captureWork,
+      "DEVICE_GRAPH_SOURCE_ORIGINAL_SERVICE",
+    );
+    r.live();
+    const s = r.state;
+    need(
+      !s.originalMeta &&
+        !s.multi &&
+        !s.originalBlue &&
+        (!s.originalAave || (s.aaveExit && s.aaveAdapter)) &&
+        !s.poisoned,
+      "DEVICE_GRAPH_SOURCE_FIXED_SINGLE_META",
+    );
+    if (s.preparing || s.recipient) return null;
+    const accounts = [];
+    for (const [account, request] of [
+      [s.account, q.account],
+      [s.targetAccount, q.targetAccount],
+    ]) {
+      const part =
+        await checkpointOriginalDeviceExternalFlatGraphAccountSourceV2(
+          account,
+          request,
+        );
+      if (!part) return null;
+      accounts.push(part);
+    }
+    const bridge =
+      await checkpointOriginalDeviceExternalFlatSourceGraphSourceV2(
+        r.bridge,
+        q.bridge,
+      );
+    if (!bridge) return null;
+    const execution =
+      await checkpointOriginalDeviceExternalFlatGraphExecutionSourceV2(
+        r.execution,
+        q.execution,
+      );
+    if (!execution) return null;
+    const aaveExit = s.originalAave
+      ? await checkpointOriginalDeviceAaveStaticPrivateExitSourceV3(
+          s.aaveExit,
+          q.aaveExit,
+          q.aaveAdapter,
+        )
+      : null;
+    if (s.originalAave && !aaveExit) return null;
+    const beforeWorkspace = await readWrappedPrivateLifetimePartV1(
+      s.runtime,
+      "provider-0",
+      r.workspaceIdentity,
+    );
+    assertWrappedPrivateLifetimePartSealedV1(beforeWorkspace.handle);
+    need(
+      beforeWorkspace.privateState.candidate === null,
+      "DEVICE_GRAPH_SOURCE_WORKSPACE_PENDING",
+    );
+    if (s.provider) {
+      need(
+        s.provider.report().persistenceUncertain === false,
+        "DEVICE_EXTERNAL_GRAPH_PROVIDER_UNCERTAIN",
+      );
+      const pv = new Vault(
+        join(s.providerPrivate.directory, "evm-vault-provider.vault"),
+      );
+      s.providerPrivate.record = await pv.read(s.providerPrivate.password);
+      assert.deepEqual(
+        await pv.read(s.providerPrivate.password),
+        s.providerPrivate.record,
+      );
+    }
+    await s.persist();
+    const workspace = await readWrappedPrivateLifetimePartV1(
+      s.runtime,
+      "provider-0",
+      r.workspaceIdentity,
+    );
+    assertWrappedPrivateLifetimePartSealedV1(workspace.handle);
+    need(
+      workspace.privateState.candidate === null,
+      "DEVICE_GRAPH_SOURCE_WORKSPACE_PENDING",
+    );
+    assert.deepEqual(workspace.privateState.confirmed, s.seed());
+    const head = await s.runtime.block(),
+      system = await captureOwnedFlatSystemRecoveryV1(s.runtime, s.system),
+      protocols = await (
+        s.originalAave
+          ? captureOfficialAaveFixtureRecoveryV1
+          : captureOfficialProtocolFixtureRecoveryV1
+      )(s.runtime, r.retention.protocols),
+      router = await captureOwnedPrivateExternalRouterRecoveryV1(s.router);
+    for (const part of [system, protocols, router])
+      assert.deepEqual(part.head, head);
+    await s.runtime.assertCanonical(head);
+    assert.deepEqual(await s.runtime.block(), head);
+    const saved = {
+        schema: s.originalAave
+          ? "DEVICE_AAVE_STATIC_GRAPH_SYSTEM_PRIVATE_V1"
+          : s.originalUniswap
+            ? "DEVICE_UNISWAP_GRAPH_SYSTEM_PRIVATE_V1"
+            : "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_PRIVATE_V1",
+        system,
+        protocols,
+        router,
+        head,
+      },
+      identity = {
+        profile: "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_LIFETIME_V1",
+        genesis: s.runtime.metadata.evmGenesis,
+        hub: s.system.hub.address,
+      };
+    return {
+      head,
+      sections: {
+        system: {
+          schema: "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_SOURCE_V2",
+          identity,
+          stateSHA256: sha(saved),
+          saved,
+          observationOnly: true,
+        },
+        deviceAccount: {
+          schema: s.originalAave
+            ? "DEVICE_AAVE_STATIC_GRAPH_SECTION_V2"
+            : s.originalUniswap
+              ? "DEVICE_UNISWAP_GRAPH_SECTION_V1"
+              : "DEVICE_EXTERNAL_FLAT_GRAPH_SECTION_V1",
+          ...(s.originalAave ? { aaveExit } : {}),
+          accounts,
+          bridge,
+          execution,
+          workspace: {
+            slot: "provider-0",
+            identity: r.workspaceIdentity,
+            stateSHA256: sha(workspace.privateState),
+          },
+          descriptor: structuredClone(s.descriptor),
+          targetDescriptor: structuredClone(s.targetDescriptor),
+          observationOnly: true,
+        },
+      },
+    };
+  }
+  /** Fixed opener-only references for the private SOURCE checkpoint producer. */
+  function readOriginalDeviceGraphSourceObservationResourcesV2(service, token) {
+    assert.equal(arguments.length, 2);
+    const source = consumeOriginalDeviceGraphSourceRequestV2(
+        token,
+        "observation-resources",
+        service,
+      ),
+      r = services.get(service);
+    need(
+      source.opening && r?.observationOnly,
+      "DEVICE_GRAPH_SOURCE_ORIGINAL_OBSERVATION",
+    );
+    r.live();
+    return Object.freeze({
+      bridge: r.bridge,
+      execution: r.execution,
+      ...(r.state.originalAave
+        ? { aaveExit: r.state.aaveExit, aaveAdapter: r.state.aaveAdapter }
+        : {}),
+    });
+  }
+  /** A second SOURCE checkpoint comes only from the original reopened service.
+   * All four actor sections and the same immutable deployments are read afresh;
+   * the private SOURCE wrapper is the sole producer of its one-use request. */
+  async function checkpointOriginalDeviceExternalFlatGraphObservationSourceV2(
+    service,
+    token,
+  ) {
+    assert.equal(arguments.length, 2);
+    const source = consumeOriginalDeviceGraphSourceRequestV2(
+        token,
+        "service-checkpoint",
+        service,
+      ),
+      q = originalDeviceGraphSourceProducerRequestsV2(token),
+      r = services.get(service);
+    need(
+      source.opening &&
+        r?.sourceObservation &&
+        r.observationOnly &&
+        !r.captureWork,
+      "DEVICE_GRAPH_SOURCE_ORIGINAL_OBSERVATION",
+    );
+    r.live();
+    const s = r.state;
+    need(
+      !s.originalBlue && (!s.originalAave || (s.aaveExit && s.aaveAdapter)),
+      "DEVICE_GRAPH_SOURCE_FIXED_SINGLE_META",
+    );
+    const accounts = [];
+    for (const [account, request] of [
+      [s.account, q.account],
+      [s.targetAccount, q.targetAccount],
+    ]) {
+      const saved =
+        await checkpointOriginalDeviceExternalFlatGraphAccountSourceV2(
+          account,
+          request,
+        );
+      if (!saved) return null;
+      accounts.push(saved);
+    }
+    const bridge =
+      await checkpointOriginalDeviceExternalFlatSourceGraphSourceV2(
+        r.bridge,
+        q.bridge,
+      );
+    if (!bridge) return null;
+    const execution =
+      await checkpointOriginalDeviceExternalFlatGraphExecutionSourceV2(
+        r.execution,
+        q.execution,
+      );
+    if (!execution) return null;
+    const aaveExit = s.originalAave
+      ? await checkpointOriginalDeviceAaveStaticPrivateExitSourceV3(
+          s.aaveExit,
+          q.aaveExit,
+          q.aaveAdapter,
+        )
+      : null;
+    if (s.originalAave && !aaveExit) return null;
+    const workspace = await readWrappedPrivateLifetimePartV1(
+      s.runtime,
+      "provider-0",
+      r.workspaceIdentity,
+    );
+    assertWrappedPrivateLifetimePartSealedV1(workspace.handle);
+    need(
+      workspace.privateState.candidate === null,
+      "DEVICE_GRAPH_SOURCE_WORKSPACE_PENDING",
+    );
+    assert.deepEqual(
+      workspace.privateState.confirmed,
+      r.workspaceSaved,
+      "DEVICE_GRAPH_SOURCE_WORKSPACE_CHECKPOINT",
+    );
+    const provider = r.workspaceSaved.provider;
+    if (provider)
+      assert.deepEqual(
+        await new Vault(
+          join(provider.directory, "evm-vault-provider.vault"),
+        ).read(provider.password),
+        provider.record,
+        "DEVICE_EXTERNAL_GRAPH_PROVIDER_ORIGINAL_CHECKPOINT",
+      );
+    const head = await s.runtime.block(),
+      system = await captureOwnedFlatSystemRecoveryV1(s.runtime, s.system),
+      protocols = await (
+        s.originalAave
+          ? captureOfficialAaveFixtureRecoveryV1
+          : captureOfficialProtocolFixtureRecoveryV1
+      )(s.runtime, r.systemContext.protocols),
+      router = await captureOwnedPrivateExternalRouterRecoveryV1(
+        r.systemContext.router,
+      );
+    for (const saved of [system, protocols, router])
+      assert.deepEqual(saved.head, head);
+    await s.runtime.assertCanonical(head);
+    assert.deepEqual(await s.runtime.block(), head);
+    const saved = {
+        schema: s.originalAave
+          ? "DEVICE_AAVE_STATIC_GRAPH_SYSTEM_PRIVATE_V1"
+          : s.originalUniswap
+            ? "DEVICE_UNISWAP_GRAPH_SYSTEM_PRIVATE_V1"
+            : "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_PRIVATE_V1",
+        system,
+        protocols,
+        router,
+        head,
+      },
+      identity = {
+        profile: "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_LIFETIME_V1",
+        genesis: s.runtime.metadata.evmGenesis,
+        hub: s.system.hub.address,
+      };
+    return {
+      head,
+      sections: {
+        system: {
+          schema: "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_SOURCE_V2",
+          identity,
+          stateSHA256: sha(saved),
+          saved,
+          observationOnly: true,
+        },
+        deviceAccount: {
+          schema: s.originalAave
+            ? "DEVICE_AAVE_STATIC_GRAPH_SECTION_V2"
+            : s.originalUniswap
+              ? "DEVICE_UNISWAP_GRAPH_SECTION_V1"
+              : "DEVICE_EXTERNAL_FLAT_GRAPH_SECTION_V1",
+          ...(s.originalAave ? { aaveExit } : {}),
+          accounts,
+          bridge,
+          execution,
+          workspace: {
+            slot: "provider-0",
+            identity: r.workspaceIdentity,
+            stateSHA256: sha(workspace.privateState),
+          },
+          descriptor: structuredClone(service.descriptor),
+          targetDescriptor: structuredClone(service.targetDescriptor),
+          observationOnly: true,
+        },
+      },
+    };
+  }
+  /** Preserve the same private observation context through the SOURCE owner. */
+  function wrapOriginalDeviceGraphSourceObservationV2(service, token, close) {
+    assert.equal(arguments.length, 3);
+    consumeOriginalDeviceGraphSourceRequestV2(token, "service-wrap", service);
+    const r = services.get(service);
+    need(
+      r?.observationOnly === true && typeof close === "function",
+      "DEVICE_GRAPH_SOURCE_ORIGINAL_SERVICE",
+    );
+    const result = Object.freeze({ ...service, close });
+    r.sourceObservation = true;
+    services.set(result, r);
+    return result;
+  }
+  function readOriginalDeviceExternalFlatSourceGraphServiceProofsV1(service) {
+    assert.equal(arguments.length, 1);
+    need(!types.isProxy(service), "DEVICE_EXTERNAL_GRAPH_SERVICE");
+    const s = services.get(service);
+    need(s, "DEVICE_EXTERNAL_GRAPH_SERVICE");
+    s.live();
+    return [
+      ...readOriginalDeviceExternalFlatSourceGraphProofsV1(s.bridge),
+      ...s.proofs.map((v) => structuredClone(v)),
+    ];
+  }
+
+  /** Ordered original capture only. Interrupted/pending writers retain their
+   * encrypted data, but cannot issue the old CAPTURED authority. */
+  function captureOriginalDeviceExternalFlatGraphServiceV1(service) {
+    assert.equal(arguments.length, 1);
+    const r = services.get(service);
+    need(
+      r?.retention && !r.captureWork,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_RETAINED",
+    );
+    r.live();
+    const networks = [
+        quiesceOriginalDeviceExternalFlatGraphTlsServerV1(
+          r.listener,
+          r.workspace,
+        ),
+        ...(r.targetListeners ?? []).map((listener, i) =>
+          quiesceOriginalDeviceExternalFlatGraphTargetTlsServerV4(
+            listener,
+            r.state.multi[i + 1].account,
+            r.bridge,
+          ),
+        ),
+      ],
+      network = Promise.all(networks).then((rows) => {
+        for (const row of rows)
+          need(
+            row.closed &&
+              row.originalOperationsInFlight === 0 &&
+              row.ownedSocketsRemaining === 0,
+            "DEVICE_EXTERNAL_GRAPH_TLS_CLOSE",
+          );
+        return rows[0];
+      });
+    return (r.captureWork = (async () => {
+      await retireOriginalDeviceGraphSourceForOrderedCaptureV2(service);
+      const stopped = await network;
+      need(
+        stopped.closed &&
+          stopped.originalOperationsInFlight === 0 &&
+          stopped.ownedSocketsRemaining === 0,
+        "DEVICE_EXTERNAL_GRAPH_TLS_CLOSE",
+      );
+      await retainDeviceExternalFlatGraphRecoveryV1(
+        r.retention.authority,
+        service,
+      );
+      await retainDeviceExternalFlatGraphSystemRecoveryV1(
+        r.retention.authority,
+        service,
+      );
+      await retainDeviceExternalFlatLifetimeRecoveryV1(
+        r.retention.authority,
+        r.state.runtime,
+      );
+      await retainDeviceExternalFlatReceiverRuntimeV1(
+        r.retention.authority,
+        r.state.runtime,
+      );
+      const checkpoint = await finishDeviceExternalFlatRecoveryCaptureV1(
+        r.retention.authority,
+      );
+      return {
+        profile: "DEVICE_EXTERNAL_FLAT_ORDERED_OBSERVATION_RECOVERY_V1",
+        checkpoint,
+        originalResourcesStopped: true,
+        observationOnly: true,
+        abruptRecoveryEstablished: false,
+      };
+    })());
+  }
+  async function retainOriginalDeviceExternalFlatGraphServiceSectionV1(
+    service,
+    token,
+  ) {
+    assert.equal(arguments.length, 2);
+    const r = services.get(service);
+    need(r?.retention, "DEVICE_EXTERNAL_GRAPH_ORIGINAL_RETAINED");
+    const identity = assertDeviceExternalFlatAccountCaptureAuthorityV1(
+      r.retention.authority,
+      token,
+    );
+    assertWrappedPrivateLifetimeAttemptV1(r.state.runtime, identity);
+    const s = r.state;
+    const metaExits = s.originalMeta
+      ? await Promise.all(
+          s.metaExits.map((exit) =>
+            captureOriginalDeviceMetaMorphoPrivateExitV2(exit),
+          ),
+        )
+      : null;
+    const blueExit = s.originalBlue
+        ? await captureOriginalDeviceMorphoBluePrivateExitV1(s.blueExit)
+        : null,
+      aaveExit = s.originalAave
+        ? await captureOriginalDeviceAaveStaticPrivateExitV1(s.aaveExit)
+        : null;
+    const bridge = await captureOriginalDeviceExternalFlatSourceGraphV1(
+        r.bridge,
+        token,
+      ),
+      execution = await captureOriginalDeviceExternalFlatGraphExecutionV1(
+        r.execution,
+        token,
+      );
+    const accounts = [];
+    for (const a of [
+      s.account,
+      ...(s.multi ? s.multi.map((d) => d.account) : [s.targetAccount]),
+    ])
+      accounts.push(
+        await captureOriginalDeviceExternalFlatGraphAccountV1(
+          a,
+          r.bridge,
+          token,
+        ),
+      );
+    need(
+      !s.preparing && !s.poisoned && !s.recipient,
+      "DEVICE_EXTERNAL_GRAPH_CAPTURE_UNCERTAIN",
+    );
+    if (s.multi) {
+      need(
+        s.multiRecipients.length === 0 &&
+          s.multiSlots.length === s.multi.length,
+        "DEVICE_EXTERNAL_GRAPH_CAPTURE_UNCERTAIN",
+      );
+      for (let slot = 0; slot < s.multiSlots.length; slot++) {
+        s.multiProviderPrivate[slot] =
+          await snapshotOriginalDeviceMetaMorphoProviderSlotV4(
+            s.multiSlots[slot],
+          );
+        if (s.multiProviders[slot]) {
+          const result = await s.multiProviders[slot].close();
+          need(result.closed, "DEVICE_EXTERNAL_GRAPH_PROVIDER_CLOSE");
+        }
+        closeOriginalDeviceMetaMorphoProviderSlotV4(s.multiSlots[slot]);
+      }
+    }
+    if (s.provider) {
+      need(
+        s.provider.report().persistenceUncertain === false,
+        "DEVICE_EXTERNAL_GRAPH_PROVIDER_UNCERTAIN",
+      );
+      const providerVault = new Vault(
+        join(s.providerPrivate.directory, "evm-vault-provider.vault"),
+      );
+      s.providerPrivate.record = await providerVault.read(
+        s.providerPrivate.password,
+      );
+      assert.deepEqual(
+        await providerVault.read(s.providerPrivate.password),
+        s.providerPrivate.record,
+      );
+      const closed = await s.provider.close();
+      need(closed.closed, "DEVICE_EXTERNAL_GRAPH_PROVIDER_CLOSE");
+    }
+    await s.persist();
+    const workspace = await readWrappedPrivateLifetimePartV1(
+      s.runtime,
+      "provider-0",
+      r.workspaceIdentity,
+    );
+    need(
+      workspace.privateState.candidate === null,
+      "DEVICE_EXTERNAL_GRAPH_CAPTURE_UNCERTAIN",
+    );
+    assertWrappedPrivateLifetimePartSealedV1(workspace.handle);
+    await retainOriginalWrappedRecoverySectionV1(token, "deviceAccount", {
+      schema: s.originalMeta
+        ? s.multi
+          ? "DEVICE_METAMORPHO_MULTI_UNDERLYING_SECTION_V2"
+          : "DEVICE_METAMORPHO_UNDERLYING_SECTION_V2"
+        : s.multi
+          ? "DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_SECTION_V4"
+          : s.originalBlue
+            ? "DEVICE_MORPHO_BLUE_GRAPH_SECTION_V1"
+            : s.originalAave
+              ? "DEVICE_AAVE_STATIC_GRAPH_SECTION_V2"
+              : s.originalUniswap
+                ? "DEVICE_UNISWAP_GRAPH_SECTION_V1"
+                : "DEVICE_EXTERNAL_FLAT_GRAPH_SECTION_V1",
+      ...(s.originalMeta ? { metaExits } : {}),
+      ...(s.originalBlue ? { blueExit } : {}),
+      ...(s.originalAave ? { aaveExit } : {}),
+      accounts,
+      bridge,
+      execution,
+      workspace: {
+        slot: "provider-0",
+        identity: r.workspaceIdentity,
+        stateSHA256: sha(workspace.privateState),
+      },
+      descriptor: structuredClone(s.descriptor),
+      targetDescriptor: structuredClone(s.targetDescriptor),
+      ...(s.multi
+        ? {
+            targetDescriptors: s.multi.map((d) =>
+              structuredClone(d.descriptor),
+            ),
+            deliveries: s.multi.map(({ account, descriptor, ...data }) =>
+              structuredClone(data),
+            ),
+          }
+        : {}),
+      observationOnly: true,
+    });
+    return { retained: true, originalResourcesStopped: true };
+  }
+  async function retainOriginalDeviceExternalFlatGraphSystemV1(service, token) {
+    assert.equal(arguments.length, 2);
+    const r = services.get(service);
+    need(r?.retention, "DEVICE_EXTERNAL_GRAPH_ORIGINAL_RETAINED");
+    const s = r.state,
+      identity = originalWrappedRecoverySectionIdentityV1(token, "system");
+    assertWrappedPrivateLifetimeAttemptV1(s.runtime, identity);
+    const head = await s.runtime.block(),
+      routers = s.multi
+        ? await Promise.all(
+            s.multiRouters.map((router) =>
+              captureOwnedPrivateExternalRouterRecoveryV1(router),
+            ),
+          )
+        : null,
+      system = await captureOwnedFlatSystemRecoveryV1(s.runtime, s.system),
+      protocols = await (
+        s.originalAave
+          ? captureOfficialAaveFixtureRecoveryV1
+          : captureOfficialProtocolFixtureRecoveryV1
+      )(s.runtime, r.retention.protocols),
+      router = await (
+        s.originalBlue
+          ? captureOwnedPrivateMorphoBluePositionRouterV1
+          : captureOwnedPrivateExternalRouterRecoveryV1
+      )(s.router),
+      position = s.originalBlue
+        ? await captureOwnedOriginalMorphoBluePositionV1(s.position)
+        : null;
+    for (const p of [
+      system,
+      protocols,
+      ...(routers ?? [router]),
+      ...(position ? [position] : []),
+    ])
+      assert.deepEqual(p.head, head);
+    await s.runtime.assertCanonical(head);
+    assert.deepEqual(await s.runtime.block(), head);
+    const partIdentity = {
+        profile: "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_LIFETIME_V1",
+        genesis: s.runtime.metadata.evmGenesis,
+        hub: s.system.hub.address,
+      },
+      saved = {
+        schema: s.multi
+          ? "DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_SYSTEM_PRIVATE_V4"
+          : s.originalBlue
+            ? "DEVICE_MORPHO_BLUE_GRAPH_SYSTEM_PRIVATE_V1"
+            : s.originalAave
+              ? "DEVICE_AAVE_STATIC_GRAPH_SYSTEM_PRIVATE_V1"
+              : s.originalUniswap
+                ? "DEVICE_UNISWAP_GRAPH_SYSTEM_PRIVATE_V1"
+                : "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_PRIVATE_V1",
+        system,
+        protocols,
+        ...(routers ? { routers } : { router }),
+        head,
+        ...(position ? { position } : {}),
+      };
+    const handle = await retainWrappedPrivateLifetimePartV1(
+      s.runtime,
+      "device-external-flat-system",
+      partIdentity,
+      saved,
+    );
+    assertWrappedPrivateLifetimePartSealedV1(handle);
+    await retainOriginalWrappedRecoverySectionV1(token, "system", {
+      schema: "DEVICE_EXTERNAL_FLAT_GRAPH_SYSTEM_SECTION_V1",
+      identity: partIdentity,
+      stateSHA256: sha(saved),
+      observationOnly: true,
+    });
+    return { retained: true, originalResourcesStopped: true };
+  }
+
+  function originalFile(runtime, saved, prefix, file) {
+    need(
+      typeof saved.directory === "string" &&
+        dirname(saved.directory) === runtime.metadata.scratchDirectory &&
+        saved.directory
+          .slice(dirname(saved.directory).length + 1)
+          .startsWith(prefix),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_DIRECTORY",
+    );
+    need(
+      saved.file === undefined || saved.file === join(saved.directory, file),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_FILE",
+    );
+    need(
+      typeof saved.password === "string" &&
+        /^[0-9a-f]{64}$/.test(saved.password),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PASSWORD",
+    );
+  }
+  async function reopenOriginalDeviceExternalFlatGraphServiceSectionV1(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, [
+        "runtime",
+        "systemContext",
+        "attemptToken",
+        "tls",
+        "host",
+      ]),
+      identity = originalWrappedRecoverySectionIdentityV1(
+        q.attemptToken,
+        "deviceAccount",
+      );
+    assertWrappedPrivateLifetimeAttemptV1(q.runtime, identity);
+    const d = consumeOriginalWrappedRecoverySectionV1(
+      q.attemptToken,
+      "deviceAccount",
+    );
+    if (
+      d.schema === "DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_SECTION_V4" ||
+      d.schema === "DEVICE_METAMORPHO_MULTI_UNDERLYING_SECTION_V2"
+    )
+      return reopenOriginalMultiServiceSectionV4(q, d);
+    const originalMeta = d.schema === "DEVICE_METAMORPHO_UNDERLYING_SECTION_V2",
+      originalBlue = d.schema === "DEVICE_MORPHO_BLUE_GRAPH_SECTION_V1",
+      aaveUnderlying = d.schema === "DEVICE_AAVE_STATIC_GRAPH_SECTION_V2",
+      originalAave =
+        aaveUnderlying || d.schema === "DEVICE_AAVE_STATIC_GRAPH_SECTION_V1",
+      originalUniswap = d.schema === "DEVICE_UNISWAP_GRAPH_SECTION_V1";
+    exact(d, [
+      "schema",
+      "accounts",
+      "bridge",
+      "execution",
+      "workspace",
+      "descriptor",
+      "targetDescriptor",
+      "observationOnly",
+      ...(originalBlue ? ["blueExit"] : []),
+      ...(aaveUnderlying ? ["aaveExit"] : []),
+      ...(originalMeta ? ["metaExits"] : []),
+    ]);
+    need(
+      (originalMeta ||
+        originalBlue ||
+        originalAave ||
+        originalUniswap ||
+        d.schema === "DEVICE_EXTERNAL_FLAT_GRAPH_SECTION_V1") &&
+        d.observationOnly === true &&
+        d.accounts.length === 2,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_SECTION",
+    );
+    const { runtime } = q,
+      { system, router, deliveryObserver } = q.systemContext;
+    need(
+      q.systemContext.runtime === runtime,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_CONTEXT",
+    );
+    assertOwnedFlatSystem(runtime, system);
+    assertOwnedPrivateExternalRouterV1(router, {
+      runtime,
+      system,
+      poolIndex: 1,
+    });
+    assertOwnedEvmGraphDeliveryObserverV1(deliveryObserver, {
+      runtime,
+      system,
+      poolIndex: 1,
+    });
+    need(
+      originalBlue
+        ? isOwnedMorphoBluePositionGraphDeliveryObserverV1(deliveryObserver)
+        : originalAave
+          ? isOwnedAaveStaticGraphDeliveryObserverV1(deliveryObserver)
+          : originalUniswap
+            ? isOwnedUniswapGraphDeliveryObserverV1(deliveryObserver)
+            : isOwnedMetaMorphoGraphDeliveryObserverV1(deliveryObserver),
+      "DEVICE_EXTERNAL_GRAPH_FIXED_PROTOCOL",
+    );
+    let account, targetAccount, execution, bridge, listener, blueExit, aaveExit;
+    const metaExits = [];
+    let closing = null;
+    try {
+      const seeds = [];
+      for (let i = 0; i < 2; i++) {
+        const descriptor = d.accounts[i];
+        need(
+          descriptor.slot === "device-external-flat-account-" + i,
+          "DEVICE_EXTERNAL_GRAPH_ORIGINAL_SLOT",
+        );
+        const saved = await checkedPart(
+          runtime,
+          descriptor,
+          "DEVICE_EXTERNAL_FLAT_GRAPH_ACCOUNT_DURABLE_V1",
+        );
+        exact(saved, [
+          "schema",
+          "directory",
+          "file",
+          "password",
+          "descriptor",
+          "identitySHA256",
+          "initialCheckpoint",
+          "record",
+          "proofFrames",
+          "proofFramesSHA256",
+          "shareGraph",
+        ]);
+        need(saved.schema === "DEVICE_EXTERNAL_FLAT_GRAPH_ACCOUNT_PRIVATE_V1");
+        originalFile(
+          runtime,
+          saved,
+          "device-external-flat-note-",
+          "operations.vault",
+        );
+        need(
+          createHash("sha256").update(saved.proofFrames).digest("hex") ===
+            saved.proofFramesSHA256 &&
+            Buffer.byteLength(saved.proofFrames) <= 2097152,
+        );
+        const proofs = JSON.parse(saved.proofFrames);
+        need(
+          Array.isArray(proofs) &&
+            proofs.length <= 2 &&
+            JSON.stringify(proofs) === saved.proofFrames,
+        );
+        for (const p of proofs) {
+          const job = saved.record.data.jobs.find((j) => j.mode === p.relation);
+          need(job?.proof);
+          assert.deepEqual(p.result.publicInputs, job.proof.publicInputs);
+          need(
+            (typeof p.result.proof === "string"
+              ? p.result.proof
+              : Buffer.from(p.result.proof).toString("hex")) ===
+              job.proof.proof,
+          );
+          need(
+            (await system.verify(
+              p.relation,
+              Buffer.from(job.proof.proof, "hex"),
+              job.proof.publicInputs.map(
+                (w) => "0x" + BigInt(w).toString(16).padStart(64, "0"),
+              ),
+            )) === true,
+            "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROOF",
+          );
+        }
+        seeds.push(saved);
+      }
+      assert.deepEqual(seeds[0].descriptor, d.descriptor);
+      assert.deepEqual(seeds[1].descriptor, d.targetDescriptor);
+      account = await reopenOriginalDeviceExternalFlatGraphAccountV1(
+        part("account", {
+          input: {
+            runtime,
+            system,
+            poolIndex: 0,
+            origin: d.descriptor.origin,
+            devicePublicKey: d.descriptor.devicePublicKey,
+          },
+          saved: seeds[0],
+          share: null,
+        }),
+      );
+      targetAccount = await reopenOriginalDeviceExternalFlatGraphAccountV1(
+        part("account", {
+          input: {
+            runtime,
+            system,
+            poolIndex: 1,
+            origin: d.targetDescriptor.origin,
+            devicePublicKey: d.targetDescriptor.devicePublicKey,
+          },
+          saved: seeds[1],
+          share: { deliveryObserver, router },
+        }),
+      );
+      const executionSaved = await checkedPart(
+        runtime,
+        d.execution,
+        "DEVICE_EXTERNAL_FLAT_EXECUTION_DURABLE_V1",
+      );
+      exact(executionSaved, ["schema", "directory", "password", "record"]);
+      need(
+        executionSaved.schema === "DEVICE_EXTERNAL_FLAT_EXECUTION_PRIVATE_V1",
+      );
+      originalFile(
+        runtime,
+        executionSaved,
+        "flat-execution-",
+        "operations.vault",
+      );
+      execution = await reopenOriginalDeviceExternalFlatGraphExecutionV1(
+        part("execution", {
+          runtime,
+          system,
+          poolIndex: 0,
+          saved: executionSaved,
+        }),
+      );
+      const graphSaved = await checkedPart(
+        runtime,
+        d.bridge,
+        "DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1",
+      );
+      exact(graphSaved, [
+        "schema",
+        "directory",
+        "file",
+        "password",
+        "record",
+        "preparation",
+        "invoiceSignatures",
+        "proposal",
+        "proofFrames",
+        "proofFramesSHA256",
+      ]);
+      need(graphSaved.schema === "DEVICE_EXTERNAL_FLAT_GRAPH_PRIVATE_V1");
+      originalFile(
+        runtime,
+        graphSaved,
+        "device-external-source-graph-",
+        "operations.vault",
+      );
+      need(
+        createHash("sha256").update(graphSaved.proofFrames).digest("hex") ===
+          graphSaved.proofFramesSHA256 &&
+          Buffer.byteLength(graphSaved.proofFrames) <= 2097152,
+      );
+      const workspaceSaved = await checkedPart(
+        runtime,
+        d.workspace,
+        "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_DURABLE_V1",
+      );
+      exact(workspaceSaved, [
+        "schema",
+        "terms",
+        "preparation",
+        "invoiceSignatures",
+        "providers",
+        "provider",
+        "maximumSolverInput",
+        "rule",
+        "rulePath",
+        "proofFrames",
+      ]);
+      need(
+        workspaceSaved.schema ===
+          "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_PRIVATE_V1",
+      );
+      assert.deepEqual(graphSaved.preparation, workspaceSaved.preparation);
+      assert.deepEqual(
+        graphSaved.invoiceSignatures,
+        workspaceSaved.invoiceSignatures,
+      );
+      if (workspaceSaved.provider) {
+        originalFile(
+          runtime,
+          workspaceSaved.provider,
+          "device-external-graph-provider-",
+          "evm-vault-provider.vault",
+        );
+        assert.deepEqual(
+          await new Vault(
+            join(workspaceSaved.provider.directory, "evm-vault-provider.vault"),
+          ).read(workspaceSaved.provider.password),
+          workspaceSaved.provider.record,
+          "DEVICE_EXTERNAL_GRAPH_PROVIDER_ORIGINAL_CHECKPOINT",
+        );
+      }
+      let closed = false;
+      const s = {
+        account,
+        targetAccount,
+        runtime,
+        system,
+        bridge: null,
+        originalMeta,
+        metaExits,
+        originalBlue,
+        originalAave,
+        originalUniswap,
+        position: originalBlue ? q.systemContext.position : null,
+        blueExit: null,
+        aaveExit: null,
+        live() {
+          need(!closed, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+          assertOwnedFlatSystem(runtime, system);
+          assertOriginalDeviceExternalFlatNoteAuthorityV1(account);
+          assertOriginalDeviceExternalFlatShareNoteAuthorityV1(targetAccount, {
+            runtime,
+            system,
+            poolIndex: 1,
+            deliveryObserver,
+          });
+        },
+      };
+      const workspace = Object.freeze({
+        descriptor: d.descriptor,
+        targetDescriptor: d.targetDescriptor,
+        ...Object.fromEntries(
+          [
+            "challenge",
+            "preparation",
+            "review",
+            "operate",
+            "outputQuote",
+            "outputReview",
+            "outputOperate",
+            "status",
+          ].map((name) => [
+            name,
+            function (raw) {
+              s.live();
+              return name === "challenge"
+                ? s.bridge[name]()
+                : s.bridge[name](raw);
+            },
+          ]),
+        ),
+        ...Object.fromEntries(
+          ["Challenge", "Review", "Operate", "Status"].map((name) => [
+            "blue" + name,
+            function (raw) {
+              s.live();
+              need(
+                originalBlue && blueExit,
+                "BLUE_REDEMPTION_ORIGINAL_SERVICE",
+              );
+              return name === "Challenge"
+                ? blueExit.challenge()
+                : blueExit[name.toLowerCase()](raw);
+            },
+          ]),
+        ),
+        ...Object.fromEntries(
+          ["Challenge", "Review", "Operate", "Status"].map((name) => [
+            "aave" + name,
+            function (raw) {
+              s.live();
+              need(
+                aaveUnderlying && aaveExit,
+                "AAVE_REDEMPTION_ORIGINAL_SERVICE",
+              );
+              if (name === "Challenge") {
+                assert.equal(arguments.length, 0);
+                return aaveExit.challenge();
+              }
+              assert.equal(arguments.length, 1);
+              return aaveExit[name.toLowerCase()](raw);
+            },
+          ]),
+        ),
+        ...Object.fromEntries(
+          ["Challenge", "Review", "Operate", "Status"].map((name) => [
+            "meta" + name,
+            function (raw) {
+              need(
+                s.originalMeta && s.metaExits[0] && !closing,
+                "META_REDEMPTION_ORIGINAL_SERVICE",
+              );
+              if (name === "Challenge") {
+                assert.equal(arguments.length, 0);
+                return s.metaExits[0].challenge();
+              }
+              assert.equal(arguments.length, 1);
+              return s.metaExits[0][name.toLowerCase()](raw);
+            },
+          ]),
+        ),
+        close() {
+          return (closing ??= (async () => {
+            closed = true;
+            let first;
+            for (const fn of [
+              ...metaExits.map((exit) => () => exit.close()),
+              () => blueExit?.close(),
+              () => aaveExit?.close(),
+              () => bridge?.close(),
+              () => execution?.close(),
+            ])
+              try {
+                await fn();
+              } catch (e) {
+                first ??= e;
+              }
+            if (first) throw first;
+            return { closed: true, originalWorkDrained: true };
+          })());
+        },
+      });
+      workspaces.set(workspace, s);
+      bridge = await reopenOriginalDeviceExternalFlatSourceGraphV1(
+        part("bridge", {
+          input: {
+            account,
+            targetAccount,
+            runtime,
+            system,
+            poolIndex: 0,
+            execution,
+            workspace,
+          },
+          saved: graphSaved,
+        }),
+      );
+      s.bridge = bridge;
+      if (originalMeta) {
+        need(
+          Array.isArray(d.metaExits) && d.metaExits.length === 1,
+          "META_REDEMPTION_ORIGINAL_SLOT",
+        );
+        const protocols = q.systemContext.protocols,
+          adapter = await reopenRetainedOwnedDeviceMetaMorphoVaultV2(
+            part("meta-exit", {
+              runtime,
+              protocols,
+              saved: d.metaExits[0].adapter,
+            }),
+          );
+        try {
+          metaExits.push(
+            await reopenOriginalDeviceMetaMorphoPrivateExitV2(
+              part("meta-redemption", {
+                input: {
+                  runtime,
+                  system,
+                  account: targetAccount,
+                  protocols,
+                  adapter,
+                },
+                saved: d.metaExits[0],
+              }),
+            ),
+          );
+        } catch (error) {
+          await adapter.close();
+          throw error;
+        }
+      }
+      if (originalBlue) {
+        const position = q.systemContext.position;
+        need(
+          position ===
+            readOwnedPrivateMorphoBluePositionRouterV1(router, {
+              runtime,
+              system,
+              poolIndex: 1,
+            }),
+          "BLUE_REDEMPTION_ORIGINAL_POSITION",
+        );
+        const adapter = await reopenRetainedOwnedMorphoBluePositionVaultV1(
+          part("blue-exit", { runtime, position, saved: d.blueExit.adapter }),
+        );
+        try {
+          blueExit = await reopenOriginalDeviceMorphoBluePrivateExitV1(
+            part("blue-redemption", {
+              input: {
+                runtime,
+                system,
+                account: targetAccount,
+                position,
+                adapter,
+              },
+              saved: d.blueExit,
+            }),
+          );
+          s.blueExit = blueExit;
+        } catch (error) {
+          await adapter.close();
+          throw error;
+        }
+      }
+      if (aaveUnderlying) {
+        const protocols = q.systemContext.protocols,
+          adapter = await reopenRetainedOwnedDeviceAaveStaticVaultV1(
+            part("aave-exit", {
+              runtime,
+              protocols,
+              saved: d.aaveExit.adapter,
+            }),
+          );
+        try {
+          s.aaveAdapter = adapter;
+          aaveExit = await reopenOriginalDeviceAaveStaticPrivateExitV1(
+            part("aave-redemption", {
+              input: {
+                runtime,
+                system,
+                account: targetAccount,
+                protocols,
+                adapter,
+              },
+              saved: d.aaveExit,
+            }),
+          );
+          s.aaveExit = aaveExit;
+        } catch (error) {
+          await adapter.close();
+          throw error;
+        }
+      }
+      listener = await createOriginalDeviceExternalFlatGraphTlsServerV1({
+        account,
+        targetAccount,
+        workspace,
+        tls: q.tls,
+        host: q.host,
+      });
+      let serviceClose;
+      const service = Object.freeze({
+        runtime,
+        account,
+        targetAccount,
+        descriptor: d.descriptor,
+        targetDescriptor: d.targetDescriptor,
+        url: listener.url,
+        ...(originalMeta
+          ? {
+              redemptionRecipient:
+                readOriginalDeviceMetaMorphoPrivateExitRecipientV2(
+                  s.metaExits[0],
+                ),
+            }
+          : {}),
+        profile: originalMeta
+          ? "METAMORPHO_PRIVATE_UNDERLYING_V2"
+          : originalBlue
+            ? "MORPHO_BLUE_PRIVATE_SUPPLY_V1"
+            : originalAave
+              ? "AAVE_STATIC_PRIVATE_SHARE_MINT_V1"
+              : originalUniswap
+                ? "UNISWAP_PRIVATE_OUTPUT_NOTE_V1"
+                : "METAMORPHO_PRIVATE_SHARE_MINT_V1",
+        observationOnly: true,
+        close() {
+          return (serviceClose ??= (async () => {
+            let first;
+            for (const fn of [
+              () => listener.close(),
+              () => workspace.close(),
+              () => targetAccount.close(),
+              () => account.close(),
+            ])
+              try {
+                await fn();
+              } catch (e) {
+                first ??= e;
+              }
+            if (first) throw first;
+            return {
+              closed: true,
+              ownedSocketsRemaining: 0,
+              originalOperationsInFlight: 0,
+              originalKeeperDrained: true,
+            };
+          })());
+        },
+      });
+      services.set(service, {
+        workspace,
+        bridge,
+        execution,
+        listener,
+        proofs: JSON.parse(workspaceSaved.proofFrames),
+        live: s.live,
+        observationOnly: true,
+        state: s,
+        systemContext: q.systemContext,
+        workspaceIdentity: structuredClone(d.workspace.identity),
+        workspaceSaved: structuredClone(workspaceSaved),
+      });
+      return service;
+    } catch (error) {
+      for (const fn of [
+        () => listener?.close(),
+        ...metaExits.map((exit) => () => exit.close()),
+        () => blueExit?.close(),
+        () => aaveExit?.close(),
+        () => bridge?.close(),
+        () => execution?.close(),
+        () => targetAccount?.close(),
+        () => account?.close(),
+      ])
+        try {
+          await fn();
+        } catch {}
+      throw error;
+    }
+  }
+  /** Authenticated four-section continuation. Every native/resource reference
+   * comes from its original opener. This branch cannot activate a provider,
+   * admit a proof, sign or send; unknown historical effects stay unknown. */
+  async function originalMultiAccountSeedV4(runtime, system, descriptor) {
+    const saved = await checkedPart(
+      runtime,
+      descriptor,
+      "DEVICE_EXTERNAL_FLAT_GRAPH_ACCOUNT_DURABLE_V1",
+    );
+    exact(saved, [
+      "schema",
+      "directory",
+      "file",
+      "password",
+      "descriptor",
+      "identitySHA256",
+      "initialCheckpoint",
+      "record",
+      "proofFrames",
+      "proofFramesSHA256",
+      "shareGraph",
+    ]);
+    need(
+      saved.schema === "DEVICE_EXTERNAL_FLAT_GRAPH_ACCOUNT_PRIVATE_V1",
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_SECTION",
+    );
+    originalFile(
+      runtime,
+      saved,
+      "device-external-flat-note-",
+      "operations.vault",
+    );
+    need(
+      typeof saved.proofFrames === "string" &&
+        Buffer.byteLength(saved.proofFrames) <= 2097152 &&
+        createHash("sha256").update(saved.proofFrames).digest("hex") ===
+          saved.proofFramesSHA256,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROOF",
+    );
+    const proofs = JSON.parse(saved.proofFrames);
+    need(
+      Array.isArray(proofs) &&
+        proofs.length <= 2 &&
+        JSON.stringify(proofs) === saved.proofFrames,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROOF",
+    );
+    for (const p of proofs) {
+      const job = saved.record.data.jobs.find((j) => j.mode === p.relation);
+      need(job?.proof, "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROOF");
+      assert.deepEqual(p.result.publicInputs, job.proof.publicInputs);
+      assert.equal(p.result.proof, job.proof.proof);
+      need(
+        (await system.verify(
+          p.relation,
+          Buffer.from(job.proof.proof, "hex"),
+          job.proof.publicInputs.map(
+            (w) => "0x" + BigInt(w).toString(16).padStart(64, "0"),
+          ),
+        )) === true,
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROOF",
+      );
+    }
+    return saved;
+  }
+  async function reopenOriginalMultiServiceSectionV4(q, d) {
+    const originalMeta =
+      d.schema === "DEVICE_METAMORPHO_MULTI_UNDERLYING_SECTION_V2";
+    exact(d, [
+      "schema",
+      "accounts",
+      "bridge",
+      "execution",
+      "workspace",
+      "descriptor",
+      "targetDescriptor",
+      "targetDescriptors",
+      "deliveries",
+      "observationOnly",
+      ...(originalMeta ? ["metaExits"] : []),
+    ]);
+    need(d.observationOnly === true, "DEVICE_EXTERNAL_GRAPH_ORIGINAL_SECTION");
+    const deliveries = normalizeOriginalDeviceExternalFlatMultiDeliveriesV4(
+        d.deliveries,
+      ),
+      count = deliveries.length;
+    need(
+      Array.isArray(d.accounts) &&
+        d.accounts.length === count + 1 &&
+        Array.isArray(d.targetDescriptors) &&
+        d.targetDescriptors.length === count,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_SECTION",
+    );
+    assert.deepEqual(d.targetDescriptors[0], d.targetDescriptor);
+    const { runtime } = q,
+      { system, deliveryObserver, routers } = q.systemContext;
+    need(
+      q.systemContext.runtime === runtime &&
+        isOwnedMetaMorphoGraphDeliveryBatchV4(deliveryObserver),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_CONTEXT",
+    );
+    const originalRouters = readOriginalMetaMorphoGraphBatchRoutersV4(
+      deliveryObserver,
+      { runtime, system, poolIndex: 1 },
+    );
+    need(
+      routers &&
+        routers.length === count &&
+        originalRouters.length === count &&
+        routers.every((r, i) => r === originalRouters[i]),
+      "DEVICE_EXTERNAL_GRAPH_SLOT_ROUTERS",
+    );
+    assertOwnedFlatSystem(runtime, system);
+    const seeds = [];
+    for (let i = 0; i < d.accounts.length; i++) {
+      need(
+        d.accounts[i].slot ===
+          (i === 0
+            ? "device-external-flat-account-0"
+            : "device-external-flat-account-multi-" + (i - 1)),
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_SLOT",
+      );
+      seeds.push(
+        await originalMultiAccountSeedV4(runtime, system, d.accounts[i]),
+      );
+      assert.deepEqual(
+        seeds[i].descriptor,
+        i === 0 ? d.descriptor : d.targetDescriptors[i - 1],
+      );
+    }
+    for (let i = 0; i < count; i++) {
+      need(
+        seeds[i + 1].descriptor.origin === deliveries[i].origin &&
+          seeds[i + 1].descriptor.devicePublicKey ===
+            d.descriptor.devicePublicKey,
+        "DEVICE_EXTERNAL_GRAPH_SLOT_BINDING",
+      );
+      if (seeds[i + 1].shareGraph)
+        assert.deepEqual(
+          seeds[i + 1].shareGraph.plan.identity,
+          routers[i].identity,
+          "DEVICE_EXTERNAL_GRAPH_SLOT_ROUTERS",
+        );
+    }
+    const executionSaved = await checkedPart(
+      runtime,
+      d.execution,
+      "DEVICE_EXTERNAL_FLAT_EXECUTION_DURABLE_V1",
+    );
+    exact(executionSaved, ["schema", "directory", "password", "record"]);
+    need(executionSaved.schema === "DEVICE_EXTERNAL_FLAT_EXECUTION_PRIVATE_V1");
+    originalFile(
+      runtime,
+      executionSaved,
+      "flat-execution-",
+      "operations.vault",
+    );
+    const graphSaved = await checkedPart(
+      runtime,
+      d.bridge,
+      "DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1",
+    );
+    exact(graphSaved, [
+      "schema",
+      "directory",
+      "file",
+      "password",
+      "record",
+      "preparation",
+      "invoiceSignatures",
+      "proposal",
+      "proofFrames",
+      "proofFramesSHA256",
+    ]);
+    need(graphSaved.schema === "DEVICE_EXTERNAL_FLAT_GRAPH_PRIVATE_V1");
+    originalFile(
+      runtime,
+      graphSaved,
+      "device-external-source-graph-",
+      "operations.vault",
+    );
+    need(
+      typeof graphSaved.proofFrames === "string" &&
+        Buffer.byteLength(graphSaved.proofFrames) <= 2097152 &&
+        createHash("sha256").update(graphSaved.proofFrames).digest("hex") ===
+          graphSaved.proofFramesSHA256,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROOF",
+    );
+    const saved = await checkedPart(
+      runtime,
+      d.workspace,
+      "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_DURABLE_V1",
+    );
+    exact(saved, [
+      "schema",
+      "terms",
+      "preparation",
+      "invoiceSignatures",
+      "providers",
+      "provider",
+      "multiDeliveries",
+      "multiProviderPrivate",
+      "maximumSolverInput",
+      "rule",
+      "rulePath",
+      "proofFrames",
+    ]);
+    need(
+      saved.schema === "DEVICE_EXTERNAL_FLAT_GRAPH_WORKSPACE_PRIVATE_V1" &&
+        saved.provider === null,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_SECTION",
+    );
+    assert.deepEqual(
+      saved.multiDeliveries,
+      deliveries.map((r) => structuredClone(r)),
+    );
+    assert.deepEqual(saved.preparation, graphSaved.preparation);
+    assert.deepEqual(saved.invoiceSignatures, graphSaved.invoiceSignatures);
+    need(
+      Array.isArray(saved.multiProviderPrivate) &&
+        saved.multiProviderPrivate.length === count,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER",
+    );
+    for (let i = 0; i < count; i++) {
+      const p = saved.multiProviderPrivate[i];
+      exact(p, [
+        "schema",
+        "slot",
+        "directory",
+        "password",
+        "router",
+        "slotRecord",
+        "providerRecord",
+      ]);
+      need(
+        p.schema === "ORIGINAL_DEVICE_META_PROVIDER_SLOT_CHECKPOINT_V4" &&
+          p.slot === i &&
+          p.router === routers[i].address,
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER",
+      );
+      originalFile(
+        runtime,
+        p,
+        "device-external-graph-provider-slot-",
+        "provider-slot.vault",
+      );
+      const slotVault = new Vault(join(p.directory, "provider-slot.vault"));
+      assert.deepEqual(
+        await slotVault.read(p.password),
+        p.slotRecord,
+        "DEVICE_EXTERNAL_GRAPH_PROVIDER_ORIGINAL_CHECKPOINT",
+      );
+      need(
+        p.slotRecord.data.schema === "ORIGINAL_DEVICE_META_PROVIDER_SLOT_V4" &&
+          p.slotRecord.data.slot === i &&
+          ["BORN", "BOUND"].includes(p.slotRecord.data.state),
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER",
+      );
+      for (const k of ["maximumInput", "shareAmount", "payoutAmount"])
+        assert.equal(p.slotRecord.data[k], deliveries[i][k]);
+      assert.deepEqual(p.slotRecord.data.rule, saved.rule);
+      assert.deepEqual(p.slotRecord.data.rulePath, saved.rulePath);
+      need(
+        (p.providerRecord !== null) === (p.slotRecord.data.state === "BOUND"),
+        "DEVICE_EXTERNAL_GRAPH_ORIGINAL_PROVIDER",
+      );
+      if (p.providerRecord !== null)
+        assert.deepEqual(
+          await new Vault(join(p.directory, "evm-vault-provider.vault")).read(
+            p.password,
+          ),
+          p.providerRecord,
+          "DEVICE_EXTERNAL_GRAPH_PROVIDER_ORIGINAL_CHECKPOINT",
+        );
+      assert.deepEqual(
+        await slotVault.read(p.password),
+        p.slotRecord,
+        "DEVICE_EXTERNAL_GRAPH_PROVIDER_ORIGINAL_CHECKPOINT",
+      );
+    }
+    if (saved.preparation !== null) {
+      need(
+        saved.providers?.length === count &&
+          saved.invoiceSignatures?.length === count &&
+          saved.preparation.config.nodes.length === count,
+        "DEVICE_EXTERNAL_GRAPH_SLOT_BINDING",
+      );
+      for (let i = 0; i < count; i++) {
+        const node = saved.preparation.config.nodes[i],
+          target = deliveries[i],
+          p = saved.providers[i];
+        assert.equal(node.id, target.id);
+        assert.deepEqual(node.dependsOn, target.dependsOn);
+        assert.equal(node.actionTemplate.amount, target.shareAmount);
+        assert.equal(node.recipientOffer.value, target.payoutAmount);
+        need(
+          p.slot === i &&
+            p.family === "3" &&
+            p.recipientIndex === 1 &&
+            p.deliveryRiskSalt === node.deliveryRiskSalt,
+          "DEVICE_EXTERNAL_GRAPH_SLOT_BINDING",
+        );
+        assert.deepEqual(p.rule, saved.rule);
+        assert.deepEqual(p.rulePath, saved.rulePath);
+      }
+    }
+    let account,
+      targets = [],
+      execution,
+      bridge,
+      listener,
+      closing,
+      closed = false;
+    const extraListeners = [],
+      metaExits = [];
+    try {
+      account = await reopenOriginalDeviceExternalFlatGraphAccountV1(
+        part("account", {
+          input: {
+            runtime,
+            system,
+            poolIndex: 0,
+            origin: d.descriptor.origin,
+            devicePublicKey: d.descriptor.devicePublicKey,
+          },
+          saved: seeds[0],
+          share: null,
+        }),
+      );
+      targets = await reopenOriginalDeviceExternalFlatGraphShareBatchV4(
+        part("account-batch", {
+          runtime,
+          system,
+          deliveryObserver,
+          routers,
+          seeds: seeds.slice(1),
+        }),
+      );
+      execution = await reopenOriginalDeviceExternalFlatGraphExecutionV1(
+        part("execution", {
+          runtime,
+          system,
+          poolIndex: 0,
+          saved: executionSaved,
+        }),
+      );
+      const multi = deliveries.map((data, i) =>
+          Object.freeze({
+            ...data,
+            account: targets[i],
+            descriptor: d.targetDescriptors[i],
+          }),
+        ),
+        s = {
+          account,
+          targetAccount: targets[0],
+          runtime,
+          system,
+          multi,
+          originalMeta,
+          metaExits,
+          bridge: null,
+          multiRouters: routers,
+          prepared: null,
+          live() {
+            need(!closed, "DEVICE_EXTERNAL_GRAPH_WORKSPACE_CLOSED");
+            assertOwnedFlatSystem(runtime, system);
+            assertOriginalDeviceExternalFlatNoteAuthorityV1(account);
+            for (const a of targets)
+              assertOriginalDeviceExternalFlatShareNoteAuthorityV1(a, {
+                runtime,
+                system,
+                poolIndex: 1,
+                deliveryObserver,
+              });
+          },
+        };
+      const workspace = Object.freeze({
+        descriptor: d.descriptor,
+        targetDescriptor: d.targetDescriptor,
+        ...Object.fromEntries(
+          [
+            "challenge",
+            "preparation",
+            "review",
+            "operate",
+            "outputQuote",
+            "outputReview",
+            "outputOperate",
+            "status",
+          ].map((name) => [
+            name,
+            function (raw) {
+              s.live();
+              return name === "challenge"
+                ? s.bridge[name]()
+                : s.bridge[name](raw);
+            },
+          ]),
+        ),
+        ...Object.fromEntries(
+          ["Challenge", "Review", "Operate", "Status"].map((name) => [
+            "meta" + name,
+            function (raw) {
+              need(
+                s.originalMeta && s.metaExits[0] && !closing,
+                "META_REDEMPTION_ORIGINAL_SERVICE",
+              );
+              if (name === "Challenge") {
+                assert.equal(arguments.length, 0);
+                return s.metaExits[0].challenge();
+              }
+              assert.equal(arguments.length, 1);
+              return s.metaExits[0][name.toLowerCase()](raw);
+            },
+          ]),
+        ),
+        close() {
+          return (closing ??= (async () => {
+            closed = true;
+            let first;
+            for (const fn of [
+              ...metaExits.map((exit) => () => exit.close()),
+              () => bridge?.close(),
+              () => execution?.close(),
+            ])
+              try {
+                await fn();
+              } catch (e) {
+                first ??= e;
+              }
+            if (first) throw first;
+            return { closed: true, originalWorkDrained: true };
+          })());
+        },
+      });
+      workspaces.set(workspace, s);
+      bridge = await reopenOriginalDeviceExternalFlatSourceGraphV1(
+        part("bridge", {
+          input: {
+            account,
+            targetAccount: targets[0],
+            runtime,
+            system,
+            poolIndex: 0,
+            execution,
+            workspace,
+          },
+          saved: graphSaved,
+          multi: true,
+        }),
+      );
+      s.bridge = bridge;
+      if (originalMeta) {
+        need(
+          Array.isArray(d.metaExits) && d.metaExits.length === count,
+          "META_REDEMPTION_ORIGINAL_SLOT",
+        );
+        for (let slot = 0; slot < count; slot++) {
+          const protocols = q.systemContext.protocols,
+            adapter = await reopenRetainedOwnedDeviceMetaMorphoVaultV2(
+              part("meta-exit", {
+                runtime,
+                protocols,
+                saved: d.metaExits[slot].adapter,
+              }),
+            );
+          try {
+            metaExits.push(
+              await reopenOriginalDeviceMetaMorphoPrivateExitV2(
+                part("meta-redemption", {
+                  input: {
+                    runtime,
+                    system,
+                    account: targets[slot],
+                    protocols,
+                    adapter,
+                  },
+                  saved: d.metaExits[slot],
+                }),
+              ),
+            );
+          } catch (error) {
+            await adapter.close();
+            throw error;
+          }
+        }
+      }
+      listener = await createOriginalDeviceExternalFlatGraphTlsServerV1({
+        account,
+        targetAccount: targets[0],
+        workspace,
+        tls: q.tls,
+        host: q.host,
+      });
+      for (let i = 1; i < count; i++)
+        extraListeners.push(
+          await (
+            originalMeta
+              ? createOriginalDeviceMetaMorphoTargetTlsServerV2
+              : createOriginalDeviceExternalFlatTlsServerV1
+          )({
+            account: targets[i],
+            ...(originalMeta ? { redemption: metaExits[i] } : {}),
+            tls: q.tls,
+            host: q.host,
+          }),
+        );
+      let serviceClose;
+      const service = Object.freeze({
+        runtime,
+        account,
+        targetAccount: targets[0],
+        descriptor: d.descriptor,
+        targetDescriptor: d.targetDescriptor,
+        targetDescriptors: Object.freeze(
+          d.targetDescriptors.map((v) => Object.freeze(structuredClone(v))),
+        ),
+        ...(originalMeta
+          ? {
+              redemptionRecipient:
+                readOriginalDeviceMetaMorphoPrivateExitRecipientV2(
+                  metaExits[0],
+                ),
+            }
+          : {}),
+        profile: originalMeta
+          ? "DEVICE_METAMORPHO_MULTI_UNDERLYING_V2"
+          : "DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_V4",
+        url: listener.url,
+        observationOnly: true,
+        close() {
+          return (serviceClose ??= (async () => {
+            let first;
+            for (const fn of [
+              () => listener.close(),
+              ...extraListeners.map((l) => () => l.close()),
+              () => workspace.close(),
+              ...targets.map((a) => () => a.close()),
+              () => account.close(),
+            ])
+              try {
+                await fn();
+              } catch (e) {
+                first ??= e;
+              }
+            if (first) throw first;
+            return {
+              closed: true,
+              ownedSocketsRemaining: 0,
+              originalOperationsInFlight: 0,
+              originalKeeperDrained: true,
+            };
+          })());
+        },
+      });
+      services.set(service, {
+        workspace,
+        bridge,
+        execution,
+        listener,
+        proofs: JSON.parse(saved.proofFrames),
+        live: s.live,
+        observationOnly: true,
+      });
+      return service;
+    } catch (error) {
+      for (const fn of [
+        () => listener?.close(),
+        ...extraListeners.map((l) => () => l.close()),
+        ...metaExits.map((exit) => () => exit.close()),
+        () => bridge?.close(),
+        () => execution?.close(),
+        ...targets.map((a) => () => a.close()),
+        () => account?.close(),
+      ])
+        try {
+          await fn();
+        } catch {}
+      throw error;
+    }
+  }
+  function readOriginalDeviceExternalFlatMultiGraphObservationContextV4(
+    service,
+  ) {
+    assert.equal(arguments.length, 1);
+    const context =
+        readOriginalDeviceExternalFlatGraphObservationContextV1(service),
+      s = state(services.get(service).workspace);
+    need(
+      s.multi &&
+        [
+          "DEVICE_EXTERNAL_FLAT_MULTI_GRAPH_V4",
+          "DEVICE_METAMORPHO_MULTI_UNDERLYING_V2",
+        ].includes(service.profile),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_REOPENED_CONTEXT",
+    );
+    return Object.freeze({
+      ...context,
+      targetAccounts: Object.freeze(s.multi.map((d) => d.account)),
+      routers: Object.freeze([...s.multiRouters]),
+    });
+  }
+  async function reopenOriginalDeviceExternalFlatGraphServiceV1(input) {
+    assert.equal(arguments.length, 1);
+    const q = exact(input, ["recoveryAuthority", "tls", "host"]);
+    assertDeviceExternalFlatRecoveryAuthorityV1(q.recoveryAuthority);
+    let runtime, registry, context, service;
+    try {
+      runtime = await reopenDeviceExternalFlatReceiverRuntimeV1(
+        q.recoveryAuthority,
+      );
+      registry = await reopenDeviceExternalFlatLifetimeRecoveryV1(
+        q.recoveryAuthority,
+        runtime,
+      );
+      context = await reopenDeviceExternalFlatSystemRecoveryV1(
+        q.recoveryAuthority,
+        { runtime },
+      );
+      service = await reopenDeviceExternalFlatGraphRecoveryV1(
+        q.recoveryAuthority,
+        { runtime, systemContext: context, tls: q.tls, host: q.host },
+      );
+      await closeDeviceExternalFlatRecoveryAuthorityV1(q.recoveryAuthority);
+      const close = service.close;
+      let closing;
+      const result = Object.freeze({
+        ...service,
+        close() {
+          return (closing ??= (async () => {
+            let first, serviceReceipt;
+            for (const fn of [
+              async () => {
+                serviceReceipt = await close();
+              },
+              () => closeWrappedPrivateLifetimeRegistryV1(registry),
+              () => runtime.close(),
+            ])
+              try {
+                await fn();
+              } catch (e) {
+                first ??= e;
+              }
+            if (first) throw first;
+            return {
+              closed: true,
+              originalResourcesStopped: true,
+              observationOnly: true,
+              receipts: { service: serviceReceipt },
+            };
+          })());
+        },
+      });
+      services.set(result, services.get(service));
+      return result;
+    } catch (error) {
+      for (const fn of [
+        () => service?.close(),
+        () => registry && closeWrappedPrivateLifetimeRegistryV1(registry),
+        () => runtime?.close(),
+        () => closeDeviceExternalFlatRecoveryAuthorityV1(q.recoveryAuthority),
+      ])
+        try {
+          await fn();
+        } catch {}
+      throw error;
+    }
+  }
+
+  /** Original reopened-only references for the fixed observation caller.
+   * Neither a descriptor nor a copied service can supply these capabilities. */
+  function readOriginalDeviceExternalFlatGraphObservationContextV1(service) {
+    assert.equal(arguments.length, 1);
+    need(
+      !types.isProxy(service),
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_REOPENED_CONTEXT",
+    );
+    const r = services.get(service);
+    need(
+      r?.observationOnly === true,
+      "DEVICE_EXTERNAL_GRAPH_ORIGINAL_REOPENED_CONTEXT",
+    );
+    r.live();
+    const s = state(r.workspace);
+    assertOwnedFlatSystem(s.runtime, s.system);
+    return Object.freeze({
+      runtime: s.runtime,
+      system: s.system,
+      account: s.account,
+      targetAccount: s.targetAccount,
+    });
+  }
+
+  /** Original position reference for the fixed reopened Blue observation caller. */
+  function readOriginalDeviceMorphoBlueGraphObservationContextV1(service) {
+    assert.equal(arguments.length, 1);
+    const context =
+        readOriginalDeviceExternalFlatGraphObservationContextV1(service),
+      s = state(services.get(service).workspace);
+    need(s.originalBlue && s.position, "BLUE_REDEMPTION_ORIGINAL_POSITION");
+    assertOwnedOriginalMorphoBluePositionV1(context.runtime, s.position);
+    return Object.freeze({ ...context, position: s.position });
+  }
+
+  return Object.freeze({
+    consumeOriginalDeviceExternalFlatGraphRecoveryPartV1,
+    assertOriginalDeviceExternalFlatGraphWorkspaceV1,
+    normalizeOriginalDeviceExternalFlatMultiDeliveriesV4,
+    isOriginalDeviceExternalFlatMultiGraphWorkspaceV4,
+    readOriginalDeviceExternalFlatMultiGraphBindingsV4,
+    createOriginalDeviceExternalFlatMultiGraphServiceV4,
+    createOriginalRetainedDeviceExternalFlatMultiGraphServiceV4,
+    createOriginalRetainedDeviceMetaMorphoMultiUnderlyingServiceV2,
+    readOriginalDeviceExternalFlatMultiGraphContextV4,
+    prepareOriginalDeviceExternalFlatGraphWorkspaceV1,
+    createOriginalDeviceExternalFlatSourceGraphServiceV1,
+    createOriginalRetainedDeviceExternalFlatSourceGraphServiceV1,
+    createOriginalRetainedDeviceMorphoBluePositionGraphServiceV1,
+    createOriginalRetainedDeviceAaveStaticGraphServiceV1,
+    createOriginalRetainedDeviceUniswapGraphServiceV1,
+    createOriginalRetainedDeviceExternalFlatGraphSourceServiceV2,
+    createOriginalRetainedDeviceUniswapGraphSourceServiceV2,
+    createOriginalRetainedDeviceExternalFlatGraphSourceServiceV3,
+    createOriginalRetainedDeviceUniswapGraphSourceServiceV3,
+    createOriginalRetainedDeviceAaveStaticGraphSourceServiceV3,
+    createOriginalRetainedDeviceMetaMorphoUnderlyingServiceV2,
+    originalDeviceExternalFlatGraphSourceBirthV2,
+    checkpointOriginalDeviceExternalFlatGraphSourceV2,
+    readOriginalDeviceGraphSourceObservationResourcesV2,
+    checkpointOriginalDeviceExternalFlatGraphObservationSourceV2,
+    wrapOriginalDeviceGraphSourceObservationV2,
+    readOriginalDeviceExternalFlatSourceGraphServiceProofsV1,
+    captureOriginalDeviceExternalFlatGraphServiceV1,
+    retainOriginalDeviceExternalFlatGraphServiceSectionV1,
+    retainOriginalDeviceExternalFlatGraphSystemV1,
+    reopenOriginalDeviceExternalFlatGraphServiceSectionV1,
+    readOriginalDeviceExternalFlatMultiGraphObservationContextV4,
+    reopenOriginalDeviceExternalFlatGraphServiceV1,
+    readOriginalDeviceExternalFlatGraphObservationContextV1,
+    readOriginalDeviceMorphoBlueGraphObservationContextV1,
+  });
+}

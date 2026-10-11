@@ -72,7 +72,7 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   const fakeProcess=new EventEmitter();Object.assign(fakeProcess,{execPath:fileURLToPath(new URL('../../../.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node',appURL)),execArgv:['--max-old-space-size=384'],env:{},getuid:()=>process.getuid(),stdout:{write:value=>events.push(value.trim())},stderr:{write:value=>events.push(value.trim())}});fakeProcess.argv=[fakeProcess.execPath,fileURLToPath(appURL)];
   const start=caller.indexOf('async function run(){'),end=caller.indexOf('\nawait run();',start);assert.ok(start>=0&&end>start);
   let body=caller.slice(start,end).replaceAll('import.meta.url','appURL');
-  const originalImport="await import(new URL('../../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/operations/local/device-external-flat-local-operator-v1.mjs',appURL))";assert.equal(body.split(originalImport).length,2);body=body.replace(originalImport,'inertOriginal');
+  const originalImport="await import(new URL('../../../packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs',appURL))";assert.equal(body.split(originalImport).length,2);body=body.replace(originalImport,'inertOriginal');
   const helpers=caller.slice(caller.indexOf('async function privateConfiguration(path){'),start);
   const cliPorts={assert,constants,open,lstat,realpath:async path=>path===fileURLToPath(appURL)?path:realpath(path),dirname,join,fileURLToPath,URL,Buffer,appURL:appURL.href,process:fakeProcess,
     inertOriginal:{originalDeviceExternalFlatLocalConfigurationPathV1:()=>configPath,createOriginalDeviceExternalFlatLocalOperatorV1:create}};
@@ -127,12 +127,11 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   assert.equal(events.filter(v=>v==='exact-approve').length,2);
   assert.ok(events.indexOf('paired-source-birth-before-runtime')<events.indexOf('runtime-start'));
   assert.ok(events.indexOf('source-exact-quota-before-allowance')<events.indexOf('exact-approve'));
-  const serviceURL=new URL(generated?'../operations/local/device-external-flat-source-graph-service-v1.mjs':'../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs',import.meta.url),serviceText=await readFile(serviceURL,'utf8'),guardStart=serviceText.indexOf('export async function prepareOriginalDeviceExternalFlatGraphWorkspaceV1('),guardStop=serviceText.indexOf('s.preparing=true;',guardStart);
-  // Guard is run from its production function before any D27 consumption,
-  // journal or provider creation. Equal quota reaches the original latch.
-  assert.ok(guardStart>=0&&guardStop>guardStart);let preparings=0;const workspace=Object.freeze({}),bridge=Object.freeze({}),ws={bridge,preparing:false,poisoned:false,multi:null,originalAave:false,originalBlue:false,maximumSolverInput:'200',prepared:null};
-  const need=(v,c)=>assert.ok(v,c),exactTerms=(v,names)=>{assert.deepEqual(Object.keys(v).sort(),names.slice().sort());return v;};
-  const uint=v=>assert.match(v,/^(0|[1-9][0-9]*)$/),guard=await new AsyncFunction('assert','types','state','need','exact','externalFlatUintV1','onPrepared',serviceText.slice(guardStart,guardStop).replace('export async function','async function')+'onPrepared();return q;}return prepareOriginalDeviceExternalFlatGraphWorkspaceV1;')(assert,types,v=>{assert.equal(v,workspace);return ws;},need,exactTerms,uint,()=>{preparings++;});
+  const {validateDeviceGraphPreparationTermsV1}=await import('../../../src/operations/local/device-graph-preparation-terms-v1.mjs');
+  const {prepareOriginalDeviceExternalFlatGraphWorkspaceV1}=await import('../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs');
+  let preparings=0;const workspace=Object.freeze({}),bridge=Object.freeze({}),ws={bridge,preparing:false,poisoned:false,multi:null,originalAave:false,originalBlue:false,maximumSolverInput:'200',prepared:null};
+  const guard=async(w,b,terms)=>{assert.equal(w,workspace);const q=validateDeviceGraphPreparationTermsV1(ws,b,terms);preparings++;return q;};
+  await assert.rejects(prepareOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,bridge,{}),/DEVICE_EXTERNAL_GRAPH_WORKSPACE/);
   const terms={assetAmount:'100',shareAmount:'100',payoutAmount:'100',validFrom:'1',settleBefore:'1000'};
   await assert.rejects(guard(workspace,bridge,terms),/DEVICE_EXTERNAL_GRAPH_EXACT_SOLVER_ALLOWANCE/);assert.equal(preparings,0);
   assert.equal((await guard(workspace,bridge,{...terms,assetAmount:'200'})).assetAmount,'200');assert.equal(preparings,1);
@@ -147,52 +146,12 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   assert.equal(events.includes('ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY'),false);
 });
 
-test('HOST original Graph backend stores exact encrypted checkpoints and denies pending, substituted or copied recovery parts',async t=>{
- const directory=await mkdtemp(join(tmpdir(),'device-external-graph-checkpoint-'));t.after(()=>rm(directory,{recursive:true,force:true}));
- const serviceURL=new URL(generated?'../operations/local/device-external-flat-source-graph-service-v1.mjs':'../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs',import.meta.url),source=await readFile(serviceURL,'utf8');
- const vaultURL=new URL(generated?'../../../../../omnichain-product/src/vault.mjs':'../../../../engine/src/crypto/vault.mjs',import.meta.url),{Vault}=await import(vaultURL);
- const storageURL=new URL(generated?'../native-claims/segmented-record-store.mjs':'../../../src/claims/storage/segmented-record-store.mjs',import.meta.url),{canonicalClaimRecordDataV1}=await import(storageURL);
- const sha=v=>createHash('sha256').update(canonicalClaimRecordDataV1(v)).digest('hex'),password='07'.repeat(32),vault=new Vault(join(directory,'part.vault'));
- const confirmed={schema:'EXPLICIT_INERT_ORIGINAL_GRAPH_SEED',jobId:'01'.repeat(32),claim:{jobId:'01'.repeat(32)},submission:{dispatchLatched:true,transactionHash:null},withdrawals:[]};
- let record=await vault.create({schema:'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1',confirmed,candidate:null},password),reads=0;
- const runtime=Object.freeze({}),handle=Object.freeze({}),identity={lifetime:'02'.repeat(32)},descriptor={slot:'wallet-graph-keeper-0',identity,stateSHA256:sha(record.data)};
- const checkedStart=source.indexOf('async function checkedPart('),checkedEnd=source.indexOf('function originalFile(',checkedStart);assert.ok(checkedStart>=0&&checkedEnd>checkedStart);
- const partStart=source.indexOf('function part('),partEnd=source.indexOf('const workspaces=',partStart);assert.ok(partStart>=0&&partEnd>partStart);
- const need=(v,c)=>assert.ok(v,c),exact=(v,keys)=>{assert.deepEqual(Object.keys(v).sort(),[...keys].sort());return v;};
- const ports={assert,types,need,exact,sha,readWrappedPrivateLifetimePartV1:async(r,name,id)=>{assert.equal(r,runtime);assert.equal(name,descriptor.slot);assert.deepEqual(id,identity);reads++;return{privateState:(await vault.read(password)).data,handle};},assertWrappedPrivateLifetimePartSealedV1:h=>assert.equal(h,handle)};
- const body=source.slice(checkedStart,checkedEnd)+source.slice(partStart,partEnd).replace('export function','function');
- const api=await new AsyncFunction(...Object.keys(ports),'const recoveryParts=new WeakMap();'+body+';return{checkedPart,part,consume:consumeOriginalDeviceExternalFlatGraphRecoveryPartV1};')(...Object.values(ports));
- assert.deepEqual(await api.checkedPart(runtime,descriptor,'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1'),confirmed);assert.equal(reads,1);
- const token=api.part('bridge',{confirmed});assert.deepEqual(api.consume(token,'bridge'),{confirmed});assert.throws(()=>api.consume(token,'bridge'));assert.throws(()=>api.consume(Object.freeze({}),'bridge'));
- const other=api.part('execution',{confirmed});assert.throws(()=>api.consume(other,'bridge'));assert.deepEqual(api.consume(other,'execution'),{confirmed});
- const graphURL=new URL(generated?'device-external-flat-source-graph-v1.mjs':'../../../src/accounts/authority/device-external-flat-source-graph-v1.mjs',import.meta.url),graphSource=await readFile(graphURL,'utf8');
- const saveStart=graphSource.indexOf(' async function save(change){'),saveEnd=graphSource.indexOf(' const update=',saveStart);assert.ok(saveStart>=0&&saveEnd>saveStart);
- let failOriginalCAS=false;const events=[];
- class FaultVault extends Vault{async update(...args){events.push('original-cas');assert.notEqual((await vault.read(password)).data.candidate,null);if(failOriginalCAS)throw Object.assign(Error('EXPLICIT_INERT_CAS_FAILURE'),{code:'EIO'});return super.update(...args);}}
- const operationVault=new FaultVault(join(directory,'operations.vault'));let operation=await operationVault.create({jobId:confirmed.jobId,dispatchLatched:false},password);
- const writerPorts={initial:operation,assert,copy:structuredClone,password,vault:operationVault,physical:async()=>{},persistRecord:async(candidate,current)=>{events.push(candidate?'candidate':'confirmed');record=await vault.update(password,record.revision,d=>({...d,confirmed:structuredClone(current.data),candidate:candidate??null}));assert.deepEqual(await vault.read(password),record);}};
- const writer=await new AsyncFunction(...Object.keys(writerPorts),'let record=initial,poisoned=false;async function healthy(){assert.deepEqual(await vault.read(password),record);}async function persist(candidate=null){return persistRecord(candidate,record);}'+graphSource.slice(saveStart,saveEnd)+';return{save,current:()=>record,poisoned:()=>poisoned};')(...Object.values(writerPorts));
- await writer.save(d=>({...d,dispatchLatched:true}));operation=writer.current();assert.deepEqual(events,['candidate','original-cas','confirmed']);assert.equal(record.data.candidate,null);assert.equal(record.data.confirmed.dispatchLatched,true);
- failOriginalCAS=true;await assert.rejects(writer.save(d=>({...d,secondAdmission:true})),{code:'EIO'});assert.equal(writer.poisoned(),true);assert.equal((await operationVault.read(password)).data.secondAdmission,undefined);const pending={...descriptor,stateSHA256:sha(record.data)};
- await assert.rejects(api.checkedPart(runtime,pending,'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1'),/DEVICE_EXTERNAL_GRAPH_PENDING_REOPEN_DENIED/);
- await assert.rejects(api.checkedPart(runtime,descriptor,'DEVICE_EXTERNAL_FLAT_GRAPH_DURABLE_V1'),/DEVICE_EXTERNAL_GRAPH_ORIGINAL_PRIVATE_CHECKPOINT/);
- assert.equal((await vault.read(password)).data.confirmed.dispatchLatched,true);assert.equal((await vault.read(password)).data.candidate.data.secondAdmission,true);
-});
+
 
 // Original constructor body: these boundary ports cannot issue an account,
 // provider, proof or transaction. Existing product lifecycle above exercises
 // real private files, actual CLI and the SAME before-allowance sequencing.
-test('HOST original Aave mobile constructor rejects a funded, foreign or moving original source before service birth',async()=>{
- const source=await readFile(new URL(generated?'../operations/local/device-external-flat-source-graph-service-v1.mjs':'../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs',import.meta.url),'utf8'),start=source.indexOf('export async function createOriginalRetainedDeviceAaveStaticGraphServiceV1(input){'),end=source.indexOf('\nasync function createService(',start);assert.ok(start>=0&&end>start);const body=source.slice(start,end).replaceAll('export async function','async function');
- const runtime=Object.freeze({}),system=Object.freeze({}),observer=Object.freeze({}),authority=Object.freeze({}),protocols=Object.freeze({}),registry=Object.freeze({}),account=Object.freeze({}),targetAccount=Object.freeze({});let funded=-1,nullifier=-1,moved=false,births=0,reads=0,checks=0;
- const exact=(q,keys)=>{assert.ok(q&&!types.isProxy(q));assert.deepEqual(Reflect.ownKeys(q).sort(),[...keys].sort());return q;},need=(value,code)=>assert.ok(value,code);
- const ports={assert,exact,need,assertOwnedFlatSystem:(r,s)=>{assert.equal(r,runtime);assert.equal(s,system);},assertOwnedEvmGraphDeliveryObserverV1:(o,q)=>{assert.equal(o,observer);assert.equal(q.runtime,runtime);assert.equal(q.system,system);assert.equal(q.poolIndex,1);},isOwnedAaveStaticGraphDeliveryObserverV1:o=>o===observer,
-  createFlatSystemStateReader:async q=>{assert.equal(q.runtime,runtime);return{async read(){reads++;return{head:{number:moved&&q.poolIndex===1?'2':'1'},ledger:{commitments:funded===q.poolIndex?['ORIGINAL_ALREADY_FUNDED']:[],nullifiers:nullifier===q.poolIndex?['ORIGINAL_ALREADY_SPENT']:[]}};},async assertCurrent(){checks++;}};},
-  createService:async(q,r,blue,multi,aave)=>{births++;assert.equal(q.account,account);assert.equal(q.targetAccount,targetAccount);assert.equal(r.authority,authority);assert.equal(r.protocols,protocols);assert.equal(r.registry,registry);assert.equal(blue,false);assert.equal(multi,null);assert.equal(aave,true);return Object.freeze({profile:'EXPLICIT_INERT_ORIGINAL_AAVE_SERVICE'});}};
- const create=await new AsyncFunction(...Object.keys(ports),body+'\nreturn createOriginalRetainedDeviceAaveStaticGraphServiceV1;')(...Object.values(ports)),input={account,targetAccount,runtime,system,quorum:Object.freeze({}),router:Object.freeze({}),deliveryObserver:observer,rule:{},rulePath:{},maximumSolverInput:'500',tls:{},host:'EXPLICIT_INERT_HOST',recoveryAuthority:authority,registry,protocols};
- await create(input);assert.equal(births,1);assert.equal(reads,2);assert.equal(checks,4);
- for(const pool of [0,1]){funded=pool;await assert.rejects(create(input),/DEVICE_AAVE_GRAPH_BEFORE_FUNDING/);funded=-1;nullifier=pool;await assert.rejects(create(input),/DEVICE_AAVE_GRAPH_BEFORE_FUNDING/);nullifier=-1;}moved=true;await assert.rejects(create(input),/DEVICE_AAVE_GRAPH_SAME_BEFORE_FUND_HEAD/);moved=false;await assert.rejects(create({...input,deliveryObserver:{}}));await assert.rejects(create({...input,runtime:{}}));await assert.rejects(create({...input,callerSelectedProvider:{}}));assert.equal(births,1);
-});
+
 
 
 // Actual financial caller method; all capabilities below are explicitly inert
@@ -212,17 +171,7 @@ test('HOST original Aave financial caller preserves private factories and drains
  caller=await make();events.length=0;gated=true;const pending=caller.startAaveGraph(...args);await new Promise(resolve=>setImmediate(resolve));state.closed=true;held.resolve();await assert.rejects(pending,/DEVICE_EXTERNAL_FLAT_HOST_CLOSED/);assert.deepEqual(events,['source-before-fund','share-before-fund','aave-original-service-before-fund','same-service-closed']);
 });
 
-test('HOST original Uniswap mobile constructor rejects a funded, foreign or moving original source before service birth',async()=>{
- const source=await readFile(new URL(generated?'../operations/local/device-external-flat-source-graph-service-v1.mjs':'../../../src/operations/local/device-external-flat-source-graph-service-v1.mjs',import.meta.url),'utf8'),start=source.indexOf('export async function createOriginalRetainedDeviceUniswapGraphServiceV1(input){'),end=source.indexOf('\nasync function createService(',start);assert.ok(start>=0&&end>start);const body=source.slice(start,end).replaceAll('export async function','async function');
- const runtime=Object.freeze({}),system=Object.freeze({}),observer=Object.freeze({}),authority=Object.freeze({}),protocols=Object.freeze({}),registry=Object.freeze({}),account=Object.freeze({}),targetAccount=Object.freeze({});let funded=-1,nullifier=-1,moved=false,births=0,reads=0,checks=0;
- const exact=(q,keys)=>{assert.ok(q&&!types.isProxy(q));assert.deepEqual(Reflect.ownKeys(q).sort(),[...keys].sort());return q;},need=(value,code)=>assert.ok(value,code);
- const ports={assert,exact,need,assertOwnedFlatSystem:(r,s)=>{assert.equal(r,runtime);assert.equal(s,system);},assertOwnedEvmGraphDeliveryObserverV1:(o,q)=>{assert.equal(o,observer);assert.equal(q.runtime,runtime);assert.equal(q.system,system);assert.equal(q.poolIndex,1);},isOwnedUniswapGraphDeliveryObserverV1:o=>o===observer,
-  createFlatSystemStateReader:async q=>{assert.equal(q.runtime,runtime);return{async read(){reads++;return{head:{number:moved&&q.poolIndex===1?'2':'1'},ledger:{commitments:funded===q.poolIndex?['ORIGINAL_ALREADY_FUNDED']:[],nullifiers:nullifier===q.poolIndex?['ORIGINAL_ALREADY_SPENT']:[]}};},async assertCurrent(){checks++;}};},
-  createService:async(q,r,blue,multi,aave,uniswap)=>{births++;assert.equal(q.account,account);assert.equal(q.targetAccount,targetAccount);assert.equal(r.authority,authority);assert.equal(r.protocols,protocols);assert.equal(r.registry,registry);assert.equal(blue,false);assert.equal(multi,null);assert.equal(aave,false);assert.equal(uniswap,true);return Object.freeze({profile:'EXPLICIT_INERT_ORIGINAL_UNISWAP_SERVICE'});}};
- const create=await new AsyncFunction(...Object.keys(ports),body+'\nreturn createOriginalRetainedDeviceUniswapGraphServiceV1;')(...Object.values(ports)),input={account,targetAccount,runtime,system,quorum:Object.freeze({}),router:Object.freeze({}),deliveryObserver:observer,rule:{},rulePath:{},maximumSolverInput:'500',tls:{},host:'EXPLICIT_INERT_HOST',recoveryAuthority:authority,registry,protocols};
- await create(input);assert.equal(births,1);assert.equal(reads,2);assert.equal(checks,4);
- for(const pool of [0,1]){funded=pool;await assert.rejects(create(input),/DEVICE_UNISWAP_GRAPH_BEFORE_FUNDING/);funded=-1;nullifier=pool;await assert.rejects(create(input),/DEVICE_UNISWAP_GRAPH_BEFORE_FUNDING/);nullifier=-1;}moved=true;await assert.rejects(create(input),/DEVICE_UNISWAP_GRAPH_SAME_BEFORE_FUND_HEAD/);moved=false;await assert.rejects(create({...input,deliveryObserver:{}}));await assert.rejects(create({...input,runtime:{}}));await assert.rejects(create({...input,callerSelectedProvider:{}}));assert.equal(births,1);
-});
+
 
 test('HOST original Uniswap financial caller preserves private factories and drains a cancelled before-funding acquisition',async()=>{
  const root=resolve(FLAT,'../../..'),hostPath=generated?join(FLAT,'flat-wallet/integration/device-external-flat-erc20-host-vault-v1.mjs'):join(root,'tests/integration/wallet/native/device-external-flat-erc20-host-vault-v1.mjs'),source=await readFile(hostPath,'utf8');

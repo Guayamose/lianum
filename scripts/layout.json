@@ -22800,6 +22800,10 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-recovery-backend-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-backend-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/device-root-spl-source-binding-v3.mjs": "packages/backend/src/claims/controller/device-root-spl-source-binding-v3.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/device-root-claim-observation-v3.mjs": "packages/backend/src/claims/controller/device-root-claim-observation-v3.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/external-defi-catalogue-recovery-backend-v1.mjs": "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-backend-v1.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/external-defi-catalogue-recovery-backend-v1.mjs": "packages/backend/src/accounts/recovery/external-defi-catalogue-recovery-backend-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/device-external-flat-source-graph-backend-v1.mjs": "packages/backend/src/operations/local/device-external-flat-source-graph-backend-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/device-graph-recovery-parts-v1.mjs": "packages/backend/src/operations/local/device-graph-recovery-parts-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/retained-device-vault-graph-birth-v1.mjs": "packages/backend/src/operations/local/retained-device-vault-graph-birth-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/device-graph-preparation-terms-v1.mjs": "packages/backend/src/operations/local/device-graph-preparation-terms-v1.mjs"
   }
 }
