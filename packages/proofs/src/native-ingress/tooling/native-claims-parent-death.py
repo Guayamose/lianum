@@ -23,17 +23,19 @@ def bind_parent_lifetime(expected_parent: int) -> None:
 def main() -> None:
     if len(sys.argv) != 2 or sys.argv[1] not in {"compile", "stats", "prepare-key"}:
         raise RuntimeError("NATIVE_REBUILD_FIXED_PARENT_GUARD_ARGUMENTS")
-    root = Path(__file__).resolve().parent.parent
+    project = Path(__file__).resolve().parents[5]
+    supervisor = project / "scripts/wallet/preparation/prepare-development-native-claims.mjs"
+    bounded = project / "packages/proofs/src/jobs/run-bounded.mjs"
     parent = os.getppid()
     args = Path(f"/proc/{parent}/cmdline").read_bytes().split(b"\0")
     args = [value.decode() for value in args if value]
     parent_cwd = Path(f"/proc/{parent}/cwd").resolve()
-    if len(args) != 2 or (parent_cwd / args[1]).resolve() != root / "scripts/prepare-development-native-claims.mjs":
+    if len(args) != 2 or (parent_cwd / args[1]).resolve() != supervisor:
         raise RuntimeError("NATIVE_REBUILD_FIXED_ACTUAL_PARENT")
     node = str(Path(f"/proc/{parent}/exe").resolve())
     bind_parent_lifetime(parent)
-    os.chdir(root)
-    os.execve(node, [node, str(root / "proof-workers/run-bounded.mjs"),
+    # Retain the resource cwd supplied by the authenticated supervisor.
+    os.execve(node, [node, str(bounded),
                     "native_claim_discharge", sys.argv[1]],
               {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"})
 

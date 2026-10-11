@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { catalog, tools, v3, compiler, engine, helpers, DIRECTORY, STEPS, parse, write, publish,
-  replace, fingerprint, co42Artifacts, publicProgramSHA256, reusePriorV3, RETAINED_CONTRACTS, RETAINED_CONTRACTS_SHA }
+  replace, fingerprint, co42Artifacts, publicProgramSHA256, reusePriorV3, RETAINED_CONTRACTS, RETAINED_CONTRACTS_SHA, NATIVE_CLAIMS_BUILD_SOURCES }
   from '../tooling/native-claims-build-common.mjs';
 for (const name of ['log','info','warn','error','debug','trace']) console[name] = () => {};
 globalThis.fetch = async () => { throw Error('NATIVE_REBUILD_OFFLINE_REQUIRED'); };
@@ -19,7 +19,7 @@ assert.equal(lock.mode,step); assert.equal(lock.relation,'development_native_cla
 const parentArgs = readFileSync(`/proc/${process.ppid}/cmdline`, 'utf8').split('\0').filter(Boolean);
 assert.equal(parentArgs.length,2);
 assert.equal(realpathSync(resolve(realpathSync(`/proc/${process.ppid}/cwd`),parentArgs[1])),
-  join(catalog.ROOT,'scripts/prepare-development-native-claims.mjs'));
+  NATIVE_CLAIMS_BUILD_SOURCES.supervisor);
 assert.equal(realpathSync(`/proc/${process.ppid}/exe`),realpathSync(process.execPath));
 assert.equal(realpathSync(process.cwd()),catalog.ROOT);
 assert.equal(typeof process.send,'function','NATIVE_REBUILD_PARENT_LIVENESS_CHANNEL');

@@ -1,3 +1,6 @@
+import {fileURLToPath} from 'node:url';
+import {projectRoot} from '@lianum/environment';
+import {assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
 /** Fixed original I84 V5 official BB5.2 transport. No caller backend, role, path, PID, limits or authority. */
 import assert from 'node:assert/strict';
 import {ChildProcess} from 'node:child_process';
@@ -29,8 +32,8 @@ const same=(a,b)=>a&&b&&a.pid===b.pid&&a.startTimeTicks===b.startTimeTicks&&a.pp
 const identity=stat=>({...Object.fromEntries(['pid','ppid','pgrp','session','startTimeTicks'].map(name=>[name,stat[name]])),uid:process.getuid()});
 const fileIdentity=stat=>['dev','ino','uid','size','mode','nlink','mtimeNs','ctimeNs'].map(name=>[name,stat[name].toString()]);
 const argvFor=pid=>readFileSync(`/proc/${pid}/cmdline`,'utf8').split('\0').filter(Boolean);
-const WORKER=join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs');
-const ROLE=join(ROOT,'proof-workers/native-value-dev-live-v5-role-process.mjs');
+const WORKER=fileURLToPath(new URL('./native-value-dev-live-v5-worker.mjs',import.meta.url));
+const ROLE=fileURLToPath(new URL('./native-value-dev-live-v5-role-process.mjs',import.meta.url));
 const uuid=value=>/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
 function originalI84Worker(argv){return argv.length===4&&argv[0]===process.execPath&&argv[1]===WORKER&&uuid(argv[2])&&uuid(argv[3]);}
 function authenticateI84Worker(){
@@ -235,15 +238,17 @@ export function assertI84NativeReceiptV1(spec,result,resource){
  * original API/vendor/toolchain/CRS and retained I84 program/key provenance. */
 export function nativeI84ExecutionSourcesV1(){
  assert.equal(arguments.length,0);pins();
- const record=path=>{const base=path.startsWith(ROOT+sep)?ROOT:GOLDEN;assert.ok(path.startsWith(base+sep),'NV2_NATIVE_SOURCE_LOCATION');
-  const bytes=regular(path);return{root:base===ROOT?'wallet':'golden',path:relative(base,path).split(sep).join('/'),bytes:bytes.length,sha256:hash(bytes)};};
- const files=['proof-workers/native-value-dev-live-v5-native-execution.mjs','proof-workers/native-value-dev-live-v5-public-crs.mjs',
-  'proof-workers/native-value-dev-live-v5-worker.mjs','proof-workers/native-value-dev-live-v5-role-process.mjs',
-  'proof-workers/native-value-dev-live-v5-run-bounded.mjs','proof-workers/native-value-dev-live-v5-tooling.mjs',
-  'proof-workers/native-value-dev-live-v5-client.mjs','proof-workers/standard-proof-resources-v1.mjs',
-  'integration/native-flow-owned-files-v1.mjs','integration/native-flow-owned-rss-v1.mjs','integration/native-flow-supervisor.mjs']
-  .map(path=>record(join(ROOT,path)));
- for(const[path,expected]of I84_NATIVE_PINS_V1){const value=record(join(EXPERIMENT,'node_modules',path));assert.equal(value.sha256,expected,'NV2_NATIVE_FIXED_PIN');files.push(value);}
- files.push(record(join(GOLDEN,'src/private-verifier-crs.mjs')));
- return files;
+ const adopted=assertAdoptedSourceGeneration(),expected=new Map(adopted.sourceFiles.map(row=>[row.source,row.sourceSHA256]));
+ const sources=["packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-native-execution.mjs", "packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-public-crs.mjs", "packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs", "packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-role-process.mjs", "packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-client.mjs", "packages/backend/src/proving/native-value/tooling/native-value-dev-live-v5-run-bounded.mjs", "packages/backend/src/proving/native-value/tooling/native-value-dev-live-v5-tooling.mjs", "packages/proofs/src/jobs/standard-proof-resources-v1.mjs", "packages/proofs/src/host/process-files.mjs", "tests/integration/native/native-flow-owned-rss-v1.mjs", "tests/integration/native/native-flow-supervisor.mjs", "packages/components/src/resources/private-verifier-crs.mjs"].map(source=>{
+  assert.ok(expected.has(source),'NV2_NATIVE_ADOPTED_SOURCE_REQUIRED');
+  const bytes=regular(join(projectRoot,source)),sha256=hash(bytes);
+  assert.equal(sha256,expected.get(source),'NV2_NATIVE_ADOPTED_SOURCE_CHANGED');
+  return{root:'active-source',path:source,bytes:bytes.length,sha256};
+ });
+ const retainedExecutionResources=I84_NATIVE_PINS_V1.map(([path,expected])=>{
+  const physical=join(EXPERIMENT,'node_modules',path);assert.ok(physical.startsWith(GOLDEN+sep),'NV2_NATIVE_SOURCE_LOCATION');
+  const bytes=regular(physical);assert.equal(hash(bytes),expected,'NV2_NATIVE_FIXED_PIN');
+  return{root:'golden',path:relative(GOLDEN,physical).split(sep).join('/'),bytes:bytes.length,sha256:expected};
+ });
+ return{format:'LIANUM_I84_ADOPTED_EXECUTION_SOURCES_V2',generation:adopted.generation,sourceSHA256:adopted.sourceSHA256,sources,retainedExecutionResources};
 }

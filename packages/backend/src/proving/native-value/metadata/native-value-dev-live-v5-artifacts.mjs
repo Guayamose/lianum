@@ -4,17 +4,27 @@ import assert from 'node:assert/strict';
 import { ROOT, SETTINGS } from '@lianum/proofs/catalog';
 import { hash, regular, assertABI } from '@lianum/proofs/tooling/tooling';
 import { join } from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {hasAdoptedSourceGeneration, assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
 import { NATIVE_VALUE_ACCEPTED_PROGRAM_SHA256, assertNativeValueCompiledIdentity } from '@lianum/proofs/native-value/metadata/native-value-v2-profile';
 import { NATIVE_VALUE_LIVE_V2_SPEC, NATIVE_VALUE_LIVE_V2_SOURCE_VERSION, NATIVE_VALUE_LIVE_V2_KEY_SHA256,
  NATIVE_VALUE_LIVE_V2_KEY_MANIFEST_SHA256 } from '@lianum/proofs/native-value/metadata/native-value-live-v2-profile';
 import { loadNativeValueDevDeploymentArtifactsV5, inspectRetainedNativeValueAdmissionForDevV5 }
  from '../../../operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
+import {validateRetainedNativeValuePublicationV6} from '../../../operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
 import { nativeValueDevFinancialSourcePinsV5 } from '../../../operations/releases/native-value/native-value-dev-financial-source-pins-v5.mjs';
 import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../../../operations/releases/native-value/native-value-dev-release-v5.mjs';
 import { validateNativeValueDevReleaseV5, nativeValueDevDigestV5 } from '../../../operations/releases/native-value/native-value-dev-release-contract-v5.mjs';
 export function assertNativeValueDevLiveSourcePinsV5(){
  assert.equal(arguments.length,0,'NATIVE_VALUE_DEV_I84_SOURCE_NO_OPTIONS');
  assert.ok(NATIVE_VALUE_DEV_RELEASE_V5,'NATIVE_VALUE_DEV_I84_RELEASE_UNPUBLISHED');
+ if (hasAdoptedSourceGeneration()) {
+  const adopted = assertAdoptedSourceGeneration();
+  const original = validateRetainedNativeValuePublicationV6(NATIVE_VALUE_DEV_RELEASE_V5);
+  return {releaseSHA256: nativeValueDevDigestV5(original), hostSourceClosureSHA256: adopted.sourceSHA256,
+   adoptedSourceGeneration: adopted.generation,
+   releaseRawSHA256: hash(regular(fileURLToPath(new URL('../../../operations/releases/native-value/native-value-dev-release-v5.mjs', import.meta.url))))};
+ }
  const release=validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5),current=nativeValueDevFinancialSourcePinsV5();
  assert.deepEqual(current,release.sourceFiles,'NATIVE_VALUE_DEV_I84_CURRENT_SOURCE_PUBLICATION');
  assert.equal(nativeValueDevDigestV5(current),release.hostSourceClosureSHA256);

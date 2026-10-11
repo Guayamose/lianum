@@ -15,8 +15,8 @@ import {nativeI84ExecutionSourcesV1} from '../runtime/native-value-dev-live-v5-n
 import {i84PublicCRSCachePinV1} from '../runtime/native-value-dev-live-v5-public-crs.mjs';
 export const NATIVE_VALUE_LIVE_V2_LOCAL=join(ROOT,'.local/proof-workers-native-value-dev-live-v5');
 export const GLOBAL_PROOF_LOCK = join(LOCAL,'active.lock');
-export const NV2_WORKER = join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs');
-export const NV2_ROLE_PROCESS = join(ROOT,'proof-workers/native-value-dev-live-v5-role-process.mjs');
+export const NV2_WORKER = fileURLToPath(new URL('../runtime/native-value-dev-live-v5-worker.mjs',import.meta.url));
+export const NV2_ROLE_PROCESS = fileURLToPath(new URL('../runtime/native-value-dev-live-v5-role-process.mjs',import.meta.url));
 export const json=value=>JSON.stringify(value,null,2)+'\n';
 export const readJSON=path=>JSON.parse(regular(path));
 export function outputDirectory(path){

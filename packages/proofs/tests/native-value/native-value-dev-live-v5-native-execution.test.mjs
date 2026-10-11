@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** HOST execution framing only. No process, proof, key regeneration, filesystem
  * publication or native/financial acceptance is created by these fixtures. */
 import test from 'node:test';
@@ -12,7 +13,7 @@ import {NATIVE_VALUE_LIVE_V2_SPEC,NATIVE_VALUE_LIVE_V2_SOURCE_VERSION,NATIVE_VAL
 import {nativeProofProcessResources,nativeResourceFailure,NATIVE_FLOW_LIMITS}
   from '../../../../tests/integration/native/native-flow-supervisor.mjs';
 const runId='01234567-89ab-4def-8abc-0123456789ab',jobId='89abcdef-0123-4567-89ab-cdef01234567';
-const argv=[process.execPath,join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs'),runId,jobId];
+const argv=[process.execPath,fileURLToPath(new URL('../../../backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs',import.meta.url)),runId,jobId];
 const parent={pid:42,argv};
 const bbargv=[I84_NATIVE_BINARY_V1,'msgpack','run','--input','/tmp/bb-42-0-0.sock'];
 function receipt(){
@@ -31,8 +32,8 @@ function receipt(){
 test('only the exact fixed I84 V5 coordinator and original socket child get their execution labels',()=>{
   assert.deepEqual(classifyI84NativeProcessV1(argv,process.execPath,null),{role:'native-value-dev-live-v5-native-coordinator',proofWorker:false});
   assert.deepEqual(classifyI84NativeProcessV1(bbargv,I84_NATIVE_BINARY_V1,parent),{role:'native-value-dev-live-v5-native-backend',proofWorker:true});
-  for(const invalid of[[...argv,'Wasm'],[process.execPath,join(ROOT,'proof-workers/native-value-live-v2-worker.mjs'),runId,jobId],
-    [process.execPath,join(ROOT,'proof-workers/worker.mjs'),'authorization','prove',runId]])
+  for(const invalid of[[...argv,'Wasm'],[process.execPath,fileURLToPath(new URL('../../../backend/src/proving/native-value/runtime/native-value-live-v2-worker.mjs',import.meta.url)),runId,jobId],
+    [process.execPath,fileURLToPath(new URL('../../src/jobs/worker.mjs',import.meta.url)),'authorization','prove',runId]])
     assert.equal(classifyI84NativeProcessV1(invalid,process.execPath,null),null);
   assert.equal(classifyI84NativeProcessV1(bbargv,I84_NATIVE_BINARY_V1,{pid:42,argv:[process.execPath,'caller.mjs']}),null);
   assert.throws(()=>classifyI84NativeProcessV1([...bbargv.slice(0,-1),'/tmp/caller.sock'],I84_NATIVE_BINARY_V1,parent),/FIXED_CHILD_ARGUMENTS/);

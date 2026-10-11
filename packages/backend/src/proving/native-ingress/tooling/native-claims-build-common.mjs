@@ -3,11 +3,22 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync, renameSync, realpathSync, lstatSync } from 'node:fs';
 import { dirname, join, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {createRequire} from 'node:module';
+import {projectRoot} from '@lianum/environment';
+import {assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
 import * as catalogModule from '@lianum/proofs/catalog';
 import * as toolsModule from '@lianum/proofs/tooling/tooling';
 import * as v3Module from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 import * as compilerModule from '@lianum/proofs/tooling/solidity-compiler';
 import * as engineModule from '@lianum/engine/execution/local/local-deployment';
+export const NATIVE_CLAIMS_BUILD_SOURCES=Object.freeze({
+  supervisor:fileURLToPath(new URL('../../../../../../scripts/wallet/preparation/prepare-development-native-claims.mjs',import.meta.url)),
+  worker:fileURLToPath(new URL('../runtime/native-claims-build-worker.mjs',import.meta.url)),
+  guardian:fileURLToPath(new URL('../../../../../proofs/src/native-ingress/tooling/native-claims-parent-death.py',import.meta.url)),
+  bounded:fileURLToPath(new URL('../../../../../proofs/src/jobs/run-bounded.mjs',import.meta.url)),
+  qualification:fileURLToPath(new URL('./qualification-cases.mjs',import.meta.url)),
+  common:fileURLToPath(import.meta.url)
+});
 export const catalog=catalogModule,tools=toolsModule,v3=v3Module,compiler=compilerModule,engine=engineModule;
 export const helpers = await import(tools.resourceModuleURL);
 export const DIRECTORY = join(catalog.ROOT, '.local/development-native-claims/v2');
@@ -93,26 +104,30 @@ export function identities(toolchain) {
   return { CI51: ci51, CO42: co42 };
 }
 export async function fingerprint() {
+  const adopted=assertAdoptedSourceGeneration(),expected=new Map(adopted.sourceFiles.map(row=>[row.source,row.sourceSHA256]));
   const toolchain = helpers.verifyToolchain(), crs = helpers.verifyCRS();
-  const files=new Map(),roots={wallet:catalog.ROOT,flat:catalog.FLAT,golden:catalog.GOLDEN};
+  const files=new Map(),roots={wallet:catalog.ROOT,flat:catalog.FLAT,golden:catalog.GOLDEN,'active-source':projectRoot,
+    'active-components':join(projectRoot,'packages/components/src'),'active-environment':join(projectRoot,'packages/environment/src')};
   function visit(path) {
     path=resolve(path);if(files.has(path))return;
-    const root=path.startsWith(catalog.ROOT+sep)?'wallet':path.startsWith(catalog.FLAT+sep)?'flat':'golden';
+    const root=path.startsWith(catalog.ROOT+sep)?'wallet':path.startsWith(catalog.FLAT+sep)?'flat':path.startsWith(catalog.GOLDEN+sep)?'golden':'active-source';
     assert.ok(path.startsWith(roots[root]+sep),'NATIVE_REBUILD_HOST_SOURCE_LOCATION');
-    const bytes=tools.regular(path);files.set(path,{root,path:relative(roots[root],path).split(sep).join('/'),bytes:bytes.length,sha256:tools.hash(bytes)});
+    const bytes=tools.regular(path),name=relative(roots[root],path).split(sep).join('/');
+    if(root==='active-source')assert.equal(tools.hash(bytes),expected.get(name),'NATIVE_REBUILD_ADOPTED_SOURCE_REQUIRED');
+    files.set(path,{root,path:name,bytes:bytes.length,sha256:tools.hash(bytes)});
     if(!path.endsWith('.mjs'))return;
     for(const match of bytes.toString('utf8').matchAll(/(?:\bfrom\s+|^\s*import\s+)(['"])([^'"]+)\1/gm)) {
       if(match[2].startsWith('node:'))continue;
-      assert.ok(match[2].startsWith('.'),'NATIVE_REBUILD_HOST_LOCAL_IMPORT');visit(resolve(dirname(path),match[2]));
+      const specifier=match[2];
+      assert.ok(specifier.startsWith('.')||specifier.startsWith('@lianum/'),'NATIVE_REBUILD_HOST_LOCAL_IMPORT');
+      visit(specifier.startsWith('.')?resolve(dirname(path),specifier):createRequire(path).resolve(specifier));
     }
   }
-  for(const path of ['proof-workers/native-claims-build-common.mjs','scripts/prepare-development-native-claims.mjs',
-    'proof-workers/native-claims-build-worker.mjs','proof-workers/native-claims-parent-death.py',
-    'experiments/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs'])visit(join(catalog.ROOT,path));
+  for(const path of Object.values(NATIVE_CLAIMS_BUILD_SOURCES))visit(path);
   const execution=tools.executionSources(catalog.relation('native_claim_discharge'),'compile');
   for(const record of execution)visit(join(roots[record.root],record.path));
   const host=[...files.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([,record])=>record);
-  return { toolchain, crs, identities: identities(toolchain), api: tools.verifyAPI(),
+  return { sourceGeneration:adopted.generation,sourceSHA256:adopted.sourceSHA256,toolchain, crs, identities: identities(toolchain), api: tools.verifyAPI(),
     vendor: tools.verifyVendor(), host,
     execution };
 }

@@ -1,5 +1,5 @@
 /** Fixed development consumer of the original I84 algorithm. No new ACIR, VK or historical release. */
-import { NATIVE_VALUE_LIVE_V2_LOCAL } from '../tooling/native-value-dev-live-v5-tooling.mjs';
+import { NATIVE_VALUE_LIVE_V2_LOCAL, NV2_ROLE_PROCESS } from '../tooling/native-value-dev-live-v5-tooling.mjs';
 /** Trusted scoped role launcher. No root signing keys or caller-selected worker
  * paths/backends. One private job enters a fresh role; only its public proof is
  * returned. The enclosing owned runtime supervisor owns aggregate resources. */
@@ -65,7 +65,7 @@ export function createNativeValueDevLiveProofClientV5() {
         const job = validateNativeValueLiveV2Job(artifacts.program.abi, request.inputs, expected);
         request.inputs = job.inputs; job.inputs = undefined;
         assert.equal(failure, null, failure ?? 'NV2_CLIENT_PREFLIGHT_TIMEOUT');
-        child = spawn(process.execPath, [join(ROOT, 'proof-workers/native-value-dev-live-v5-role-process.mjs'), spec.name],
+        child = spawn(process.execPath, [NV2_ROLE_PROCESS, spec.name],
           { cwd: ROOT, env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' }, serialization: 'json',
             stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
         state.active = { stop };

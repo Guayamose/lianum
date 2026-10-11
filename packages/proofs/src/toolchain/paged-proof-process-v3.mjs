@@ -1,11 +1,9 @@
 /** Fixed original V3 proof child; ciphertext input and public result only. */
 import assert from 'node:assert/strict';
 import {readFileSync,realpathSync} from 'node:fs';
-import {createRequire} from 'node:module';
 import {join} from 'node:path';
-import {pathToFileURL} from 'node:url';
 import * as resources from '@lianum/components/resources/wallet-resources';
-import {legacyDataRoot} from '@lianum/environment';
+import {loadOfficialProofLibrariesV1} from './official-proof-libraries.mjs';
 import {PAEG_PAGED_ARTIFACT_DIRECTORY_V3,PAEG_PAGED_WORDS_V3,loadFundedPagedGraphArtifactsV3} from './paged-artifacts-v3.mjs';
 import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1,privateProofBindingSHA256V1} from '@lianum/engine/crypto/private-proof-transit-v1';
 const role=Object.freeze({reserve:'owner',fold:'owner',terminal:'owner',admission:'local',withdraw:'recipient'});
@@ -18,9 +16,8 @@ process.on('message',async packet=>{
  try{
   const opened=openPrivateProofJobV1(recipient,packet);inputs=opened.inputs;assert.equal(opened.authorization.jobId,jobId,'PAEG_PAGED_JOB_BINDING');
   const expected=opened.expectedPublicInputs;assert.equal(expected.length,PAEG_PAGED_WORDS_V3[mode],'PAEG_PAGED_EXPECTED_WORDS');
-  const original=legacyDataRoot('engine');const require=createRequire(join(original,'experiments/private-core-proof/package.json'));
   resources.verifyToolchain();resources.verifyCRS();resources.guard();
-  const {Noir}=await import(pathToFileURL(require.resolve('@noir-lang/noir_js')));const kit=await import(pathToFileURL(require.resolve('@aztec/bb.js')));
+  const kit=await loadOfficialProofLibrariesV1();const {Noir}=kit;
   const program=JSON.parse(readFileSync(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'prepared',mode+'.json')));const vk=readFileSync(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'prepared',mode+'.vk'));
   globalThis.fetch=async()=>{throw new Error('PAEG_PAGED_OFFLINE_REQUIRED');};api=await kit.Barretenberg.new({backend:kit.BackendType.Wasm,threads:1,skipSrsInit:true,memory:{initial:37,maximum:65536}});
   await api.srsInitSrs({pointsBuf:readFileSync(resources.CRS+'bn254_g1_compressed.dat'),numPoints:2097152,g2Point:readFileSync(resources.CRS+'bn254_g2.dat')});
