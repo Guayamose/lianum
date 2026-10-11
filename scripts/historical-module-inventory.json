@@ -1,0 +1,471 @@
+{
+  "schema": "LIANUM_HISTORICAL_MODULE_INVENTORY_V1",
+  "historicalPackage": "packages/protocol",
+  "activePackage": "packages/engine",
+  "pairs": [
+    {
+      "active": "packages/engine/src/accounts/private-account-state.mjs",
+      "historical": "packages/protocol/src/accounts/private-account-state.mjs",
+      "historicalSHA256": "71171f5c7ca4c4ec4ec9a7f4ed4b9c0d9ab2982a3e82290e28109dde9b660d0b"
+    },
+    {
+      "active": "packages/engine/src/chains/bitcoin/bitcoin-runtime.mjs",
+      "historical": "packages/protocol/src/chains/bitcoin/bitcoin-runtime.mjs",
+      "historicalSHA256": "c630fd35eb3affb75e5aff0b644e6bcab781431029b61f24f8b6061a2e13cfae"
+    },
+    {
+      "active": "packages/engine/src/chains/shared/linux-runtime-pins.mjs",
+      "historical": "packages/protocol/src/chains/shared/linux-runtime-pins.mjs",
+      "historicalSHA256": "6956aaf4e19fd1cc97acadef9e5299bbbc9c1f976cd31733ab37b2df25386de8"
+    },
+    {
+      "active": "packages/engine/src/chains/solana/solana-runtime.mjs",
+      "historical": "packages/protocol/src/chains/solana/solana-runtime.mjs",
+      "historicalSHA256": "fe6960baed250ac545f8fb491e47c7e27af10a799fe24c85543593285da122d2"
+    },
+    {
+      "active": "packages/engine/src/crypto/privacy.mjs",
+      "historical": "packages/protocol/src/crypto/privacy.mjs",
+      "historicalSHA256": "9c971fbd40b69b4e6a56ec56c309c57b4d9ef4117fc22a8b25696befab1b8edd"
+    },
+    {
+      "active": "packages/engine/src/crypto/private-resource-policy.mjs",
+      "historical": "packages/protocol/src/crypto/private-resource-policy.mjs",
+      "historicalSHA256": "cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c"
+    },
+    {
+      "active": "packages/engine/src/crypto/private-verifier-crs.mjs",
+      "historical": "packages/protocol/src/crypto/private-verifier-crs.mjs",
+      "historicalSHA256": "ace66e3bcec0dfa278b1527f8338b16bf64d655d707b61dc42668947b3a740a0"
+    },
+    {
+      "active": "packages/engine/src/crypto/vault.mjs",
+      "historical": "packages/protocol/src/crypto/vault.mjs",
+      "historicalSHA256": "d288d08ec58ade40aa352bd4579df1a6d3c2ac6395c29d08c0b46b5d6db5da8e"
+    },
+    {
+      "active": "packages/engine/src/evidence/native-evidence.mjs",
+      "historical": "packages/protocol/src/evidence/native-evidence.mjs",
+      "historicalSHA256": "8d93007c6d95a2064af9e32a13cbd0000e9deda183cff13ce50a841bb522d98e"
+    },
+    {
+      "active": "packages/engine/src/evidence/native-hub-messages.mjs",
+      "historical": "packages/protocol/src/evidence/native-hub-messages.mjs",
+      "historicalSHA256": "1506475bc345d7c66a707c7861976910832d873a7796b08a7abbca23250c44b2"
+    },
+    {
+      "active": "packages/engine/src/evidence/native-quorum-observer.mjs",
+      "historical": "packages/protocol/src/evidence/native-quorum-observer.mjs",
+      "historicalSHA256": "41f4cf18bc27138a850fbcf4d58027771eab4f2816b2ea104decacbdc82d6d19"
+    },
+    {
+      "active": "packages/engine/src/evidence/native-quorum.mjs",
+      "historical": "packages/protocol/src/evidence/native-quorum.mjs",
+      "historicalSHA256": "d8fcb494326e7ad9befd975a8252651fc60a75b4dd6b2ad10c14bc78c7f71915"
+    },
+    {
+      "active": "packages/engine/src/execution/accounts/generic-account-child.mjs",
+      "historical": "packages/protocol/src/execution/accounts/generic-account-child.mjs",
+      "historicalSHA256": "1de21ee001502f69b5b6aae8a643194db85fd9cfe4109b12eb7d2fe56729f2f2"
+    },
+    {
+      "active": "packages/engine/src/execution/accounts/generic-account-coordinator.mjs",
+      "historical": "packages/protocol/src/execution/accounts/generic-account-coordinator.mjs",
+      "historicalSHA256": "8157f449a73573c59b60b97132dbc45fcde5e7df6cad9f52297befb6e8e600a9"
+    },
+    {
+      "active": "packages/engine/src/execution/accounts/generic-account-journal.mjs",
+      "historical": "packages/protocol/src/execution/accounts/generic-account-journal.mjs",
+      "historicalSHA256": "da033e88d4b2f354c784e371dcd34ff6d8dd3be53d9cde92d6e73e3dab951f9d"
+    },
+    {
+      "active": "packages/engine/src/execution/balances/generic-balance-custody.mjs",
+      "historical": "packages/protocol/src/execution/balances/generic-balance-custody.mjs",
+      "historicalSHA256": "4ae66c939ef444c55e15af49213107c65b0be739c4653403eac0e430b4b9211c"
+    },
+    {
+      "active": "packages/engine/src/execution/balances/generic-balance-owner-child.mjs",
+      "historical": "packages/protocol/src/execution/balances/generic-balance-owner-child.mjs",
+      "historicalSHA256": "9451759d4ed80edf8953d7ec565363316a13398ad410355484da56d2c08715f3"
+    },
+    {
+      "active": "packages/engine/src/execution/balances/generic-balance-owner-process.mjs",
+      "historical": "packages/protocol/src/execution/balances/generic-balance-owner-process.mjs",
+      "historicalSHA256": "04b315e7e9dbd46deb4b58552ac5ff727de78c9ffb4a9ddf3677c538248714dd"
+    },
+    {
+      "active": "packages/engine/src/execution/balances/generic-balance-owner-protocol.mjs",
+      "historical": "packages/protocol/src/execution/balances/generic-balance-owner-protocol.mjs",
+      "historicalSHA256": "ec0527f0afd991a85e2c6e75cdac3266f3dbeed3061a64c44a5f2ba2b90c9bc0"
+    },
+    {
+      "active": "packages/engine/src/execution/graph/funded-graph.mjs",
+      "historical": "packages/protocol/src/execution/graph/funded-graph.mjs",
+      "historicalSHA256": "7118e47af0fd24c061fadfd764336aa9c4aa10f2a21d8b7584f995b061221be8"
+    },
+    {
+      "active": "packages/engine/src/execution/graph/graph.mjs",
+      "historical": "packages/protocol/src/execution/graph/graph.mjs",
+      "historicalSHA256": "06c512a41c12621e4ed56691d697ed18d02aa39ec86d2cf291dd7ee6e63c5e99"
+    },
+    {
+      "active": "packages/engine/src/execution/local/local-deployment.mjs",
+      "historical": "packages/protocol/src/execution/local/local-deployment.mjs",
+      "historicalSHA256": "214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813"
+    },
+    {
+      "active": "packages/engine/src/execution/local/local-evm.mjs",
+      "historical": "packages/protocol/src/execution/local/local-evm.mjs",
+      "historicalSHA256": "edd406bc7d479cff5cb9b7f1cb1f4364163a40ef1c9583c04b8fb16364b49f82"
+    },
+    {
+      "active": "packages/engine/src/execution/local/local-ledger.mjs",
+      "historical": "packages/protocol/src/execution/local/local-ledger.mjs",
+      "historicalSHA256": "c1a09c6ee91a4ae5dbf813534710e030bc7ebae48811f70c43e274deca90cdab"
+    },
+    {
+      "active": "packages/engine/src/execution/local/local-owner.mjs",
+      "historical": "packages/protocol/src/execution/local/local-owner.mjs",
+      "historicalSHA256": "bf85d0b77393ad857065bc96d7588ab53428cb30edf2b6e5cb51e5a43f94978c"
+    },
+    {
+      "active": "packages/engine/src/execution/native/dispatch/native-admission.mjs",
+      "historical": "packages/protocol/src/execution/native/dispatch/native-admission.mjs",
+      "historicalSHA256": "7566e4008f20a5347751a8db02f23c4123e3e1652f7b2bcf446743910ff2776c"
+    },
+    {
+      "active": "packages/engine/src/execution/native/dispatch/native-capsules.mjs",
+      "historical": "packages/protocol/src/execution/native/dispatch/native-capsules.mjs",
+      "historicalSHA256": "3f58f78e0a2336cbfaf250bab35347b1d3afdcc83a6642c7d20eb3afc4e2e07e"
+    },
+    {
+      "active": "packages/engine/src/execution/native/dispatch/native-dependency.mjs",
+      "historical": "packages/protocol/src/execution/native/dispatch/native-dependency.mjs",
+      "historicalSHA256": "0b8025d5d4f7e05dbe6e0c7344f319aa9e5bbf0b72583ae3a18d16464a12c6a4"
+    },
+    {
+      "active": "packages/engine/src/execution/native/dispatch/native-node.mjs",
+      "historical": "packages/protocol/src/execution/native/dispatch/native-node.mjs",
+      "historicalSHA256": "664e91c84922ee0407e31c694c360e04f3f4921d26495656d9604b1a6fb6d6e1"
+    },
+    {
+      "active": "packages/engine/src/execution/native/dispatch/native-owner.mjs",
+      "historical": "packages/protocol/src/execution/native/dispatch/native-owner.mjs",
+      "historicalSHA256": "cedfd5a3a999cb305bea717a1a859f7fb9eeb7af57abdef618b50a8ae665e3a9"
+    },
+    {
+      "active": "packages/engine/src/execution/native/dispatch/native-ready.mjs",
+      "historical": "packages/protocol/src/execution/native/dispatch/native-ready.mjs",
+      "historicalSHA256": "98bfe7d63bb3d17c36e3306a0a59d6820f7ef1f3ba61b812887e0c155b67cea0"
+    },
+    {
+      "active": "packages/engine/src/execution/native/recipients/native-recipient-withdrawal.mjs",
+      "historical": "packages/protocol/src/execution/native/recipients/native-recipient-withdrawal.mjs",
+      "historicalSHA256": "77dbb052ca6df4b87007e8733fced9f1d0c63ccd60e828396213639536497ad1"
+    },
+    {
+      "active": "packages/engine/src/execution/native/recovery/native-owner-recovery-child.mjs",
+      "historical": "packages/protocol/src/execution/native/recovery/native-owner-recovery-child.mjs",
+      "historicalSHA256": "e9848b026756773d501090acb9bc3f96a481547c69994e088cd8ac5c077dcbf6"
+    },
+    {
+      "active": "packages/engine/src/execution/native/recovery/native-owner-recovery-process.mjs",
+      "historical": "packages/protocol/src/execution/native/recovery/native-owner-recovery-process.mjs",
+      "historicalSHA256": "70cfa53665090fa8062c540eb656c7c3cafa3fb2bc1831613ad4b4e7a1f4cbce"
+    },
+    {
+      "active": "packages/engine/src/execution/native/state/native-receipt.mjs",
+      "historical": "packages/protocol/src/execution/native/state/native-receipt.mjs",
+      "historicalSHA256": "d49a64d6176aa1a592c0b5e6f1f699d983addb061447528ac078f7028fa2baaa"
+    },
+    {
+      "active": "packages/engine/src/execution/native/state/native-state.mjs",
+      "historical": "packages/protocol/src/execution/native/state/native-state.mjs",
+      "historicalSHA256": "0432453c7aafb8e4612e231f2aed1f9415aa6473c9d165edd72e51ad0f86fd33"
+    },
+    {
+      "active": "packages/engine/src/execution/native/state/native-system-state.mjs",
+      "historical": "packages/protocol/src/execution/native/state/native-system-state.mjs",
+      "historicalSHA256": "11861b323cfcf15664f86bc4386798473d8167fdbc2c4ff310aca8f6f170c08c"
+    },
+    {
+      "active": "packages/engine/src/execution/proofs/native-proof-pins.mjs",
+      "historical": "packages/protocol/src/execution/proofs/native-proof-pins.mjs",
+      "historicalSHA256": "a735a21d7530a490876af74b76954a80bce6df93c096c02ee40ad6db1b12d630"
+    },
+    {
+      "active": "packages/engine/src/execution/proofs/proof-resource-policy.mjs",
+      "historical": "packages/protocol/src/execution/proofs/proof-resource-policy.mjs",
+      "historicalSHA256": "9221e344d4c9efdbcae11f0d67377d2c9ba33c259a65385feb774f7414177355"
+    },
+    {
+      "active": "packages/engine/src/notes/private-note-tree.mjs",
+      "historical": "packages/protocol/src/notes/private-note-tree.mjs",
+      "historicalSHA256": "e2ac35aa1d1f2a805feb55717fa3bd18308867f9d14940754fb52877f063eb57"
+    },
+    {
+      "active": "packages/engine/src/wallet/notes/private-wallet-asset-binding.mjs",
+      "historical": "packages/protocol/src/wallet/notes/private-wallet-asset-binding.mjs",
+      "historicalSHA256": "a32154537a20b747671e9575ce0dfdbb9d68ab42364e779669ecd1250a466317"
+    },
+    {
+      "active": "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
+      "historical": "packages/protocol/src/wallet/notes/private-wallet-note-encoding.mjs",
+      "historicalSHA256": "8633efa599ebf6b70d13b5b5a615b614dcb60c891206409aefa7baf685be33e6"
+    }
+  ],
+  "historicalFiles": [
+    {
+      "path": "packages/protocol/src/accounts/private-account-state.mjs",
+      "sha256": "71171f5c7ca4c4ec4ec9a7f4ed4b9c0d9ab2982a3e82290e28109dde9b660d0b"
+    },
+    {
+      "path": "packages/protocol/src/chains/bitcoin/bitcoin-runtime.mjs",
+      "sha256": "c630fd35eb3affb75e5aff0b644e6bcab781431029b61f24f8b6061a2e13cfae"
+    },
+    {
+      "path": "packages/protocol/src/chains/shared/linux-runtime-pins.mjs",
+      "sha256": "6956aaf4e19fd1cc97acadef9e5299bbbc9c1f976cd31733ab37b2df25386de8"
+    },
+    {
+      "path": "packages/protocol/src/chains/shared/runtime-harness.mjs",
+      "sha256": "05478f09774d78917f2459214f5e6517b810bad1ba863726c86e72884c19fd0c"
+    },
+    {
+      "path": "packages/protocol/src/chains/solana/solana-runtime.mjs",
+      "sha256": "fe6960baed250ac545f8fb491e47c7e27af10a799fe24c85543593285da122d2"
+    },
+    {
+      "path": "packages/protocol/src/crypto/privacy.mjs",
+      "sha256": "9c971fbd40b69b4e6a56ec56c309c57b4d9ef4117fc22a8b25696befab1b8edd"
+    },
+    {
+      "path": "packages/protocol/src/crypto/private-resource-policy.mjs",
+      "sha256": "cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c"
+    },
+    {
+      "path": "packages/protocol/src/crypto/private-verifier-crs.mjs",
+      "sha256": "ace66e3bcec0dfa278b1527f8338b16bf64d655d707b61dc42668947b3a740a0"
+    },
+    {
+      "path": "packages/protocol/src/crypto/vault.mjs",
+      "sha256": "d288d08ec58ade40aa352bd4579df1a6d3c2ac6395c29d08c0b46b5d6db5da8e"
+    },
+    {
+      "path": "packages/protocol/src/evidence/native-evidence.mjs",
+      "sha256": "8d93007c6d95a2064af9e32a13cbd0000e9deda183cff13ce50a841bb522d98e"
+    },
+    {
+      "path": "packages/protocol/src/evidence/native-hub-messages.mjs",
+      "sha256": "1506475bc345d7c66a707c7861976910832d873a7796b08a7abbca23250c44b2"
+    },
+    {
+      "path": "packages/protocol/src/evidence/native-quorum-observer.mjs",
+      "sha256": "41f4cf18bc27138a850fbcf4d58027771eab4f2816b2ea104decacbdc82d6d19"
+    },
+    {
+      "path": "packages/protocol/src/evidence/native-quorum.mjs",
+      "sha256": "d8fcb494326e7ad9befd975a8252651fc60a75b4dd6b2ad10c14bc78c7f71915"
+    },
+    {
+      "path": "packages/protocol/src/execution/accounts/generic-account-child.mjs",
+      "sha256": "1de21ee001502f69b5b6aae8a643194db85fd9cfe4109b12eb7d2fe56729f2f2"
+    },
+    {
+      "path": "packages/protocol/src/execution/accounts/generic-account-coordinator.mjs",
+      "sha256": "8157f449a73573c59b60b97132dbc45fcde5e7df6cad9f52297befb6e8e600a9"
+    },
+    {
+      "path": "packages/protocol/src/execution/accounts/generic-account-journal.mjs",
+      "sha256": "da033e88d4b2f354c784e371dcd34ff6d8dd3be53d9cde92d6e73e3dab951f9d"
+    },
+    {
+      "path": "packages/protocol/src/execution/accounts/generic-account-keeper.mjs",
+      "sha256": "824b37a4d6f521609820b9878c1a9fdd07b0f81b22757bf94f525bf7123e318c"
+    },
+    {
+      "path": "packages/protocol/src/execution/accounts/generic-account-process.mjs",
+      "sha256": "6a978c5ea73f637bd587029e5791ecfa38ac8bc9cb3116b4d7d778d1a6af39d6"
+    },
+    {
+      "path": "packages/protocol/src/execution/accounts/generic-account-refund-handoff.mjs",
+      "sha256": "c3617e29e30956b7236762d3a884de527c4ab6db394fdab9708c9d746cfc910f"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-account-authority.mjs",
+      "sha256": "15a923100cf83a00a763dfa49ace06beb87a227f432e28942cd9255853142177"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-custody.mjs",
+      "sha256": "4ae66c939ef444c55e15af49213107c65b0be739c4653403eac0e430b4b9211c"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-native-preparation.mjs",
+      "sha256": "524021348b4ec08c5df006f55637befb60cd7fd17e5599e82209db2f5de330ac"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-native-proofs.mjs",
+      "sha256": "94bb6907f3ceab0fdb296314716c743ffdcc8d4f774c705ca6e88e9a3f830a00"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-observer.mjs",
+      "sha256": "2bab8f11b1b66a54f89d4cbf561bfee5cc355d84f306045a4d4f851eca8f43f8"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-owner-child.mjs",
+      "sha256": "9451759d4ed80edf8953d7ec565363316a13398ad410355484da56d2c08715f3"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-owner-process.mjs",
+      "sha256": "04b315e7e9dbd46deb4b58552ac5ff727de78c9ffb4a9ddf3677c538248714dd"
+    },
+    {
+      "path": "packages/protocol/src/execution/balances/generic-balance-owner-protocol.mjs",
+      "sha256": "ec0527f0afd991a85e2c6e75cdac3266f3dbeed3061a64c44a5f2ba2b90c9bc0"
+    },
+    {
+      "path": "packages/protocol/src/execution/graph/funded-graph.mjs",
+      "sha256": "7118e47af0fd24c061fadfd764336aa9c4aa10f2a21d8b7584f995b061221be8"
+    },
+    {
+      "path": "packages/protocol/src/execution/graph/graph.mjs",
+      "sha256": "06c512a41c12621e4ed56691d697ed18d02aa39ec86d2cf291dd7ee6e63c5e99"
+    },
+    {
+      "path": "packages/protocol/src/execution/local/local-deployment.mjs",
+      "sha256": "214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813"
+    },
+    {
+      "path": "packages/protocol/src/execution/local/local-evm.mjs",
+      "sha256": "edd406bc7d479cff5cb9b7f1cb1f4364163a40ef1c9583c04b8fb16364b49f82"
+    },
+    {
+      "path": "packages/protocol/src/execution/local/local-ledger.mjs",
+      "sha256": "c1a09c6ee91a4ae5dbf813534710e030bc7ebae48811f70c43e274deca90cdab"
+    },
+    {
+      "path": "packages/protocol/src/execution/local/local-owner.mjs",
+      "sha256": "bf85d0b77393ad857065bc96d7588ab53428cb30edf2b6e5cb51e5a43f94978c"
+    },
+    {
+      "path": "packages/protocol/src/execution/local/local-profile.mjs",
+      "sha256": "556c90fa6263056f709ac62c263d0e26b26b9072bdf53795b319abad5dec8496"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/generic-native-execution.mjs",
+      "sha256": "21b3342b83f55f7114bae8dbba9fc5f9b3765ffc1b066e3524c30635a71bedae"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-admission.mjs",
+      "sha256": "7566e4008f20a5347751a8db02f23c4123e3e1652f7b2bcf446743910ff2776c"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-capsules.mjs",
+      "sha256": "3f58f78e0a2336cbfaf250bab35347b1d3afdcc83a6642c7d20eb3afc4e2e07e"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-dependency.mjs",
+      "sha256": "0b8025d5d4f7e05dbe6e0c7344f319aa9e5bbf0b72583ae3a18d16464a12c6a4"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-deployment.mjs",
+      "sha256": "b7b673ee9bea81670aceb981be3fa0b9190211ea831737c12e84c28a0ca39afd"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-dispatch-gate.mjs",
+      "sha256": "3e5cd494ecd72948ce5cf8842d91a8e627a987d62ccdfae8da562756d68cb0d8"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-fulfillment.mjs",
+      "sha256": "2a9724a99b3d95390598d080df39c7370a80a5eed8420b4a13c97910aea012a9"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-node.mjs",
+      "sha256": "664e91c84922ee0407e31c694c360e04f3f4921d26495656d9604b1a6fb6d6e1"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-owner.mjs",
+      "sha256": "cedfd5a3a999cb305bea717a1a859f7fb9eeb7af57abdef618b50a8ae665e3a9"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/dispatch/native-ready.mjs",
+      "sha256": "98bfe7d63bb3d17c36e3306a0a59d6820f7ef1f3ba61b812887e0c155b67cea0"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/recipients/native-recipient-custody.mjs",
+      "sha256": "8b2de7c687bec58beefcda8870a029bf2e8eb9513090216622071af354f127fc"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/recipients/native-recipient-process.mjs",
+      "sha256": "d34e4a73a3493db9c59b2720db53ab0182985642f5f62814db285cb243be7134"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/recipients/native-recipient-withdrawal.mjs",
+      "sha256": "77dbb052ca6df4b87007e8733fced9f1d0c63ccd60e828396213639536497ad1"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/recovery/native-owner-recovery-child.mjs",
+      "sha256": "e9848b026756773d501090acb9bc3f96a481547c69994e088cd8ac5c077dcbf6"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/recovery/native-owner-recovery-custody.mjs",
+      "sha256": "68f91b022568044f53788795467c06ea768727ca3ba67859bdcddf745fa96ac3"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/recovery/native-owner-recovery-process.mjs",
+      "sha256": "70cfa53665090fa8062c540eb656c7c3cafa3fb2bc1831613ad4b4e7a1f4cbce"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/recovery/native-owner-recovery-protocol.mjs",
+      "sha256": "6b64fd27f2c78e74916014df5a87758e5b282f60ff557b5e8b0c542d6506f89f"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/state/native-receipt.mjs",
+      "sha256": "d49a64d6176aa1a592c0b5e6f1f699d983addb061447528ac078f7028fa2baaa"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/state/native-state.mjs",
+      "sha256": "0432453c7aafb8e4612e231f2aed1f9415aa6473c9d165edd72e51ad0f86fd33"
+    },
+    {
+      "path": "packages/protocol/src/execution/native/state/native-system-state.mjs",
+      "sha256": "11861b323cfcf15664f86bc4386798473d8167fdbc2c4ff310aca8f6f170c08c"
+    },
+    {
+      "path": "packages/protocol/src/execution/proofs/native-proof-pins.mjs",
+      "sha256": "a735a21d7530a490876af74b76954a80bce6df93c096c02ee40ad6db1b12d630"
+    },
+    {
+      "path": "packages/protocol/src/execution/proofs/proof-process.mjs",
+      "sha256": "41a86c8e68321e46a0d6b1486517dc62259b6f79062a1640ae10ffde06898d38"
+    },
+    {
+      "path": "packages/protocol/src/execution/proofs/proof-resource-policy.mjs",
+      "sha256": "9221e344d4c9efdbcae11f0d67377d2c9ba33c259a65385feb774f7414177355"
+    },
+    {
+      "path": "packages/protocol/src/execution/proofs/proof-worker.mjs",
+      "sha256": "fd920c8f5b9a9d0791ffeb8faa32b8826cd5c7da703f0969a272f95a901744ab"
+    },
+    {
+      "path": "packages/protocol/src/notes/private-asset-runtime.mjs",
+      "sha256": "9d81ce06da9033ab84d363b99788323a2c817c4213f26acdeb0bba71bd15dc39"
+    },
+    {
+      "path": "packages/protocol/src/notes/private-note-encoding.mjs",
+      "sha256": "cdc25d1d94a32354bd474aebba2a3d733daec07fba25c419f5633642cd26875a"
+    },
+    {
+      "path": "packages/protocol/src/notes/private-note-tree.mjs",
+      "sha256": "e2ac35aa1d1f2a805feb55717fa3bd18308867f9d14940754fb52877f063eb57"
+    },
+    {
+      "path": "packages/protocol/src/wallet/notes/private-wallet-asset-binding.mjs",
+      "sha256": "a32154537a20b747671e9575ce0dfdbb9d68ab42364e779669ecd1250a466317"
+    },
+    {
+      "path": "packages/protocol/src/wallet/notes/private-wallet-note-encoding.mjs",
+      "sha256": "8633efa599ebf6b70d13b5b5a615b614dcb60c891206409aefa7baf685be33e6"
+    }
+  ]
+}

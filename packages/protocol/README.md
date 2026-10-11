@@ -1,6 +1,7 @@
 # Protocolo heredado
 
-`src/` contiene la implementación y `tests/` sus pruebas por dominio.
+`src/` conserva la implementación histórica congelada y `tests/` sus pruebas.
+Para cambiar comportamiento actual, trabaja en [`packages/engine`](../engine/README.md).
 
 | Dominio | Responsabilidad |
 | --- | --- |
@@ -16,6 +17,11 @@
 Este paquete conserva una generación anterior del protocolo. Sus módulos y escenarios no equivalen a una segunda aplicación actual; algunos tienen dependencias históricas incompletas.
 Las carpetas presentes reflejan el código conservado de cada generación.
 
-Las entradas públicas de `@lianum/protocol` están en
-[`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
-para consumirlas y comprobar los límites entre componentes.
+Las entradas de [`package.json`](package.json) se conservan para reproducción
+histórica. El comprobador de módulos impide añadir consumidores activos de este
+paquete y verifica que sus 63 fuentes originales no cambien. El inventario de
+42 parejas con su implementación activa está en
+[`historical-module-inventory.json`](../../scripts/historical-module-inventory.json).
+Los destinos históricos no recuperados se enumeran en
+[`static-check-exceptions.json`](../../scripts/development/static-check-exceptions.json).
+Se conserva esa limitación; no se sustituyen con implementaciones de engine.

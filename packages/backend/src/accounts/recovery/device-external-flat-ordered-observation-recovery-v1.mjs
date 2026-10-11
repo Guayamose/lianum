@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {types} from 'node:util';
 import {join,dirname} from 'node:path';
 import {exactRecord} from '../../execution/encoding/commitments.mjs';
-import {canonicalClaimRecordDataV1} from '../../claims/storage/segmented-record-store.mjs';
+import {canonicalClaimRecordDataV1} from '@lianum/engine/storage/records';
 import {assertOwnedDeviceExternalFlatReceiverV1} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertOwnedFlatSystem,captureOwnedFlatSystemRecoveryV1} from '../../operations/deployments/system/deploy-system.mjs';
 import {readWrappedPrivateLifetimePartV1,retainWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';

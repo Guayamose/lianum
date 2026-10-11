@@ -8,7 +8,7 @@ import { ACTIONS, DEFI_ACTIONS, ACCOUNT_ACTIONS, DEFI_PROFILE, WALLET_PROFILE, a
 const clientSourceURLs = {
   'index.html': new URL('../../src/client/index.html', import.meta.url),
   'app.mjs': new URL('../../src/client/app.mjs', import.meta.url),
-  'view-model.mjs': new URL('../../src/client/state/view-model.mjs', import.meta.url),
+  'view-model.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs', import.meta.url),
 };
 const ownerToken = 'a'.repeat(64), actionToken = 'b'.repeat(64), intentId = 'c'.repeat(64);
 const requestId = 'original_request_01';

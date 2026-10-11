@@ -1,7 +1,13 @@
 # Protocolo público móvil
 
-Contrato compartido entre `apps/mobile` y `apps/platform`. No contiene claves,
-dependencias de Node, acceso a red ni autoridad para acreditar fondos.
+Contratos compartidos entre móvil, wallet, platform y backend. No contienen
+claves, dependencias de Node ni autoridad para acreditar fondos.
+
+`src/wallet/contracts/` contiene esquemas, validadores y revisiones que antes
+vivían en la app web. `src/wallet/client/view-model.mjs` contiene la proyección y
+el transporte manual compartido; usa un `fetchImpl` inyectado y conserva tokens
+solo en memoria. Está separado de los contratos y no accede al DOM. Las rutas
+anteriores de wallet son reexports de estas implementaciones, no otra copia.
 
 `POST /v1/mobile/challenges` recibe `{ ownerPublicKey, intent }`. El `intent`
 contiene exactamente:

@@ -1,7 +1,7 @@
 /** Read-only owner-private Node/local bridge. Shared wire validation with the
  * browser; generation routes remain original, separate and non-aggregated. */
 import { readFlatAccountOwnerWire } from '../transport/fixed-owner-read-transport.mjs';
-import { validateFlatOwnerReadPayload } from '../../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
+import { validateFlatOwnerReadPayload } from '@lianum/mobile-protocol/wallet/owner-portfolio-contract';
 const INVALID = 'FLAT_ACCOUNT_OWNER_CLIENT_RESPONSE_INVALID';
 const limitations = Object.freeze({ source: 'HOST_REPORTED', chainVerifiedByClient: false,
   proofsVerifiedByClient: false, nativeSelfCustodyEstablished: false, crossAssetTotalsProvided: false });

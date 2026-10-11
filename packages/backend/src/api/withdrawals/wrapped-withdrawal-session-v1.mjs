@@ -24,7 +24,7 @@ await assertWrappedWithdrawalReleasedV1();
  const { assertOwnedNativeRecipientProcess,assertOriginalNativeRecipientRecoveryV1 }=await import('../../../../engine/src/execution/native/recipients/native-recipient-process.mjs');
  const { assertOwnedNativeValueProviderCustody,ownedNativeValueProviderCustodyReview }=await import('../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs');
  const { createWrappedWalletStateReaderV1 }=await import('../../execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs');
- const { createClaimRecordStore,openClaimRecordStore }=await import('../../claims/storage/segmented-record-store.mjs');
+ const { createClaimRecordStore,openClaimRecordStore }=await import('@lianum/engine/storage/records');
  const { createProofProcess }=await import('../../../../engine/src/execution/proofs/proof-process.mjs');
  const { walletInputPublicWords,decodeWalletPoolInputs }=await import('../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs');
  const { encodeFlatTransaction }=await import('../../execution/encoding/transaction-codec.mjs');

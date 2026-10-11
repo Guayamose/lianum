@@ -14,10 +14,10 @@ import {assertFlatManualGraphCatalogueSession,assertNativeWalletEconomicSessionV
 import {assertOwnedNativeValueAccountAuthority} from '../authority/native-value-account-authority-v2.mjs';
 import {assertOwnedWrappedWalletPortfolioV1} from '../portfolio/wrapped-wallet-portfolio-v1.mjs';
 import {generationPrivateVaultExitBinding, assertGenerationPrivateVaultExitSession} from '../../defi/withdrawals/generation-private-vault-exit.mjs';
-import {validateFlatOwnerReadPayload} from '../../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
-import {validatePositionStateEnvelope, samePositionHead} from '../../../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs';
+import {validateFlatOwnerReadPayload} from '@lianum/mobile-protocol/wallet/owner-portfolio-contract';
+import {validatePositionStateEnvelope, samePositionHead} from '@lianum/mobile-protocol/wallet/generation-position-state-v2';
 import {ORIGINAL_ECONOMIC_STATE_V1, ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS, validateOriginalWalletEconomicStateV1}
-  from '../../../../../apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs';
+  from '@lianum/mobile-protocol/wallet/economic-state-v1';
 
 import {readOriginalNativeClaimPortfolioViewV1} from '../../claims/operations/portfolio-view.mjs';
 import {originalNativeClaimAssetUnitsV1} from '../../claims/operations/native-claim-asset-units-v1.mjs';

@@ -5,7 +5,7 @@ import { nativeSourceRecoverySectionIdentityV1, retainOriginalNativeSourceSectio
   from '../../operations/recovery/native-original-source-capsule-v1.mjs';
 import { assertOriginalNativeSourceObservedClockV1, refreshOriginalNativeSourceObservedClockV1 }
   from '../../operations/recovery/native-original-source-observed-clock-v1.mjs';
-import {validateOwnerGraphReview} from '../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
+import {validateOwnerGraphReview} from '@lianum/mobile-protocol/wallet/owner-graph-review-v1';
 import { ownedNativeValueProviderCustodyReview as recoveryProviderReviewV1 } from '../../chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs';
 import { assertWrappedWalletAccountReleasedV1 } from '../../operations/releases/wrapped/wrapped-wallet-release-v1.mjs';
 /** Separately versioned native-value graph-only wallet binding. Historical flat modules remain unchanged. */

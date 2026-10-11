@@ -8,8 +8,8 @@ import {readFileSync,readdirSync,readlinkSync} from 'node:fs';
 import {join} from 'node:path';
 import {ROOT} from '../catalog.mjs';
 import {resources} from '../tooling/tooling.mjs';
-import {parseNativeProcStat,nativeProcStatV1} from '../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
-import {observeNativeOwnedRSSV1} from '../../../../tests/integration/native/native-flow-owned-rss-v1.mjs';
+import {parseNativeProcStat,nativeProcStatV1} from '../host/process-files.mjs';
+import {observeNativeOwnedRSSV1} from '../host/process-rss.mjs';
 
 const retained=new WeakMap();
 const absent=error=>['ENOENT','ESRCH'].includes(error.code);

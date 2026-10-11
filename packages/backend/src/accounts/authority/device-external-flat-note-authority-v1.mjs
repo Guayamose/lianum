@@ -30,7 +30,7 @@ import {createFlatSystemStateReader} from '../../execution/account/reconciliatio
 import {encodeFlatTransaction} from '../../execution/encoding/transaction-codec.mjs';
 import {flatAccountCalldataHash,validateFlatAccountOwnerObservation} from './flat-account-validation.mjs';
 import * as protocol from '../../../../mobile-protocol/src/device-external-flat-note-v1.mjs';
-import {canonicalClaimRecordDataV1} from '../../claims/storage/segmented-record-store.mjs';
+import {canonicalClaimRecordDataV1} from '@lianum/engine/storage/records';
 import {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1,assertWrappedPrivateLifetimeAttemptV1} from '../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs';
 import {assertDeviceExternalFlatRecoveryAuthorityV1,deviceExternalFlatAccountCaptureIdentityV1,retainOriginalWrappedRecoverySectionV1} from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {consumeOriginalDeviceExternalFlatAccountReopenV1} from '../recovery/device-external-flat-ordered-observation-recovery-v1.mjs';

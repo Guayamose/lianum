@@ -11,10 +11,10 @@ import { lstat, realpath, mkdir, open, unlink, readFile } from 'node:fs/promises
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exactRecord } from '../../../execution/encoding/commitments.mjs';
-import { canonicalClaimRecordDataV1 } from '../../storage/segmented-record-store.mjs';
+import { canonicalClaimRecordDataV1 } from '@lianum/engine/storage/records';
 import { LOCAL_EVM_PROFILE } from '../../../../../engine/src/execution/local/local-evm.mjs';
 import { assertStoppedNativeFilesV1 } from '../../../chains/shared/runtime/owned-runtime-recovery-files-v1.mjs';
-import { createClaimRecordStore, openClaimRecordStore, observeClaimRecordStoreV1 } from '../../storage/segmented-record-store.mjs';
+import { createClaimRecordStore, openClaimRecordStore, observeClaimRecordStoreV1 } from '@lianum/engine/storage/records';
 
 const EXTERNAL_LINEAGE_PROFILE='EXTERNAL_DEFI_CAPTURE_LINEAGE_V1';
 const EXTERNAL_PARTIAL_PROFILE='EXTERNAL_DEFI_BOOTSTRAP_PARTIAL_SUCCESSOR_V1';

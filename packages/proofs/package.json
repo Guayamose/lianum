@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Producción y verificación de pruebas criptográficas",
+  "description": "Producci\u00f3n y verificaci\u00f3n de pruebas criptogr\u00e1ficas",
   "exports": {
     "./client": "./src/jobs/role-client.mjs",
     "./catalog": "./src/catalog.mjs",
-    "./verification": "./src/verification/pinned-verifier.mjs"
+    "./verification": "./src/verification/pinned-verifier.mjs",
+    "./host/process-files": "./src/host/process-files.mjs",
+    "./host/process-rss": "./src/host/process-rss.mjs"
   },
   "lianum": {
     "status": "active"

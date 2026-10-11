@@ -49,7 +49,7 @@ async function accountKeeper(input, options = {}, durable) {
   const identity = genericAccountIdentity(config);
   let worker, checkpoint = null, pendingCheckpoint = null, busy = false, closed = false, capturing=false, fault=false, parentStore=null,parentRecord=null,sourceSession=null;
   if(durable){
-    const {createClaimRecordStore,openClaimRecordStore}=await import('../../../../backend/src/claims/storage/segmented-record-store.mjs');
+    const {createClaimRecordStore,openClaimRecordStore}=await import('../../storage/segmented-record-store.mjs');
     const settings={path:journal.path+'.private-parent-v1',password:journal.password,identity:{profile:'WRAPPED_GRAPH_PARENT_CHECKPOINT_V1',identity}};
     parentStore=durable.create?await createClaimRecordStore(settings,{checkpoint:null,pendingCheckpoint:null}):await openClaimRecordStore(settings);
     try{

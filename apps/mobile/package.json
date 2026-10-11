@@ -24,12 +24,19 @@
     "expo-secure-store": "57.0.4",
     "expo-system-ui": "57.0.4",
     "react": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "@lianum/crypto": "file:../../packages/crypto"
   },
   "devDependencies": {
     "@types/react": "19.2.4",
     "typescript": "6.0.3"
   },
-  "engines": { "node": ">=24.19.0" },
-  "overrides": { "xcode": { "uuid": "11.1.1" } }
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  }
 }

@@ -11,7 +11,19 @@
     "./original-account-v2": {
       "types": "./src/original-account-review-v2.d.mts",
       "default": "./src/original-account-review-v2.mjs"
-    }
+    },
+    "./wallet/owner-graph-review-v1": "./src/wallet/contracts/owner-graph-review-v1.mjs",
+    "./wallet/client": "./src/wallet/client/view-model.mjs",
+    "./wallet/wrapped-withdrawal-review": "./src/wallet/contracts/wrapped-withdrawal-review.mjs",
+    "./wallet/wrapped-withdrawal-resume-actions": "./src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs",
+    "./wallet/native-note-review": "./src/wallet/contracts/native-note-review.mjs",
+    "./wallet/owner-portfolio-contract": "./src/wallet/contracts/owner-portfolio-contract.mjs",
+    "./wallet/generation-position-state-v2": "./src/wallet/contracts/generation-position-state-v2.mjs",
+    "./wallet/generation-defi-contract": "./src/wallet/contracts/generation-defi-contract.mjs",
+    "./wallet/public-token-observations": "./src/wallet/contracts/public-token-observations.mjs",
+    "./wallet/exact-action-browser-review": "./src/wallet/contracts/exact-action-browser-review.mjs",
+    "./wallet/manual-action-handoff": "./src/wallet/contracts/manual-action-handoff.mjs",
+    "./wallet/economic-state-v1": "./src/original-wallet-economic-state-v1.mjs"
   },
   "types": "./src/authorization.d.mts"
 }

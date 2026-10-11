@@ -5,7 +5,7 @@
  */
 import { fork } from 'node:child_process';
 import {NOTE_NATIVE_WORKERS_V1,nativeEconomicNoteResourcesV1,assertNativeEconomicNoteReceiptV1} from './note-native-execution-v1.mjs';
-import {nativeProcStatV1} from '../../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import {nativeProcStatV1} from '@lianum/proofs/host/process-files';
 import { assertBeginPayoutAuditLegacyLaunchV1 } from '../../../../proofs/src/jobs/native-flow-proof-scope-v1.mjs';
 import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync, unlinkSync, fstatSync, statSync, statfsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Implementación candidata Poseidon",
+  "description": "Implementaci\u00f3n candidata Poseidon",
   "exports": {
-    "./framing": "./src/framing.mjs"
+    "./framing": "./src/framing.mjs",
+    "./portable-poseidon2": "./src/portable/poseidon2-bn254-v1.mjs"
   },
   "lianum": {
     "status": "candidate"

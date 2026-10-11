@@ -11,7 +11,7 @@ import { ROOT } from '../../../../../proofs/src/catalog.mjs';
 import { exactRecord, fixedArray, bytes32, ZERO } from '../../../execution/encoding/commitments.mjs';
 import { cloneInput, frozenInput } from '../../../execution/account/preparation/readiness-inputs.mjs';
 import { createLocalNativeValueOperator, createNativeValueOperatorQuorum } from './native-value-operators-v3.mjs';
-import { createClaimRecordStore } from '../../../claims/storage/segmented-record-store.mjs';
+import { createClaimRecordStore } from '@lianum/engine/storage/records';
 import { assertNativeValueRegistrations } from '../../deployments/native-value/native-value-registry-v2.mjs';
 import { createNativeValueOperatorInventory, nativeValueInventoryBinding, nativeValuePolicy,
   validateNativeValueOperatorInventory } from './native-value-inventory-v3.mjs';

@@ -13,7 +13,7 @@ import { loadNativeValueDevLiveArtifactsV5 } from '../metadata/native-value-dev-
 import { exactRecord } from '../../../../backend/src/execution/encoding/commitments.mjs';
 import { cloneInput } from '../../../../backend/src/execution/account/preparation/readiness-inputs.mjs';
 import {I84_NATIVE_LIMITS_V1,nativeI84ResourcesV1,assertI84NativeReceiptV1} from '../runtime/native-value-dev-live-v5-native-execution.mjs';
-import {nativeProcStatV1} from '../../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import {nativeProcStatV1} from '../../host/process-files.mjs';
 import {proofResourceMonitorErrorCodeV1} from '../../jobs/standard-proof-resources-v1.mjs';
 export async function runNativeValueLiveV2Proof(raw){
  assert.equal(realpathSync(process.argv[1]),NV2_ROLE_PROCESS,'NV2_JOB_FIXED_ROLE_PARENT');assert.deepEqual(process.argv.slice(2),[NATIVE_VALUE_LIVE_V2_SPEC.name]);

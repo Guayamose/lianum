@@ -6,7 +6,7 @@ import {randomBytes,createHash,createPublicKey,verify} from 'node:crypto';
 import {mkdtemp,chmod} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
 import {Vault} from '../../../../engine/src/crypto/vault.mjs';
-import {canonicalClaimRecordDataV1} from '../../claims/storage/segmented-record-store.mjs';
+import {canonicalClaimRecordDataV1} from '@lianum/engine/storage/records';
 import {assertOwnedFlatSystem} from '../../operations/deployments/system/deploy-system.mjs';
 import {assertOfficialProtocolFixture} from '../../../tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs';
 import {assertOfficialAaveFixtureV1} from '../../../tests/fixtures/operations/deployments/system/official-aave-fixture-v1.mjs';

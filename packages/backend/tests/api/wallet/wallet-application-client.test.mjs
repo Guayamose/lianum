@@ -272,8 +272,10 @@ test('production bridge shares the wallet workflow and exposes only explicit man
   assert.deepEqual(Object.keys(module).sort(), ['createWalletApplicationClient', 'submitWrappedWithdrawalResume']);
   const sharedWorkflow = /import \{ ALL_ACTIONS, buildActionBody, createWalletClient \} from '([^']+)'/.exec(source);
   assert.ok(sharedWorkflow, 'Bridge must import the shared wallet workflow');
-  assert.equal(new URL(sharedWorkflow[1], sourceURL).href,
-    new URL('../../../../../apps/wallet/src/client/state/view-model.mjs', import.meta.url).href);
+  const sharedURL = sharedWorkflow[1].startsWith('.')
+    ? new URL(sharedWorkflow[1], sourceURL).href : import.meta.resolve(sharedWorkflow[1]);
+  assert.equal(sharedURL,
+    new URL('../../../../mobile-protocol/src/wallet/client/view-model.mjs', import.meta.url).href);
   assert.doesNotMatch(source, /setInterval|localStorage|sessionStorage|console\.|process\.env|node:fs|fetch\(/);
   assert.equal((source.match(/httpRequest\(/g) ?? []).length, 1);
 });

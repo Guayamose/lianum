@@ -4,6 +4,14 @@
   "delivery": "archive/delivery",
   "rules": [
     {
+      "source": "packages/proofs/src/host/",
+      "runtime": "omnichain-flat-profile/flat-wallet/proof-workers/host/"
+    },
+    {
+      "source": "packages/engine/src/storage/",
+      "runtime": "omnichain-product/src/storage/"
+    },
+    {
       "source": "packages/environment/src/",
       "runtime": "omnichain-product/src/environment/"
     },

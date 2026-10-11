@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Motor compartido de ejecución y estado",
+  "description": "Motor compartido de ejecuci\u00f3n y estado",
   "exports": {
     "./accounts/keeper": "./src/execution/accounts/generic-account-keeper.mjs",
     "./accounts/journal": "./src/execution/accounts/generic-account-journal.mjs",
     "./crypto/privacy": "./src/crypto/privacy.mjs",
-    "./crypto/vault": "./src/crypto/vault.mjs"
+    "./crypto/vault": "./src/crypto/vault.mjs",
+    "./storage/records": "./src/storage/segmented-record-store.mjs"
   },
   "lianum": {
     "status": "active"
@@ -17,6 +18,7 @@
     "@lianum/backend": "file:../backend",
     "@lianum/proofs": "file:../proofs",
     "@lianum/mobile-protocol": "file:../mobile-protocol",
-    "@lianum/environment": "file:../environment"
+    "@lianum/environment": "file:../environment",
+    "@lianum/crypto": "file:../crypto"
   }
 }

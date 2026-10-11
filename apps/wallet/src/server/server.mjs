@@ -57,10 +57,26 @@ for (const [url, type] of Object.values(assets)) {
   const pathname = '/' + url.pathname.slice(clientRoot.pathname.length);
   if (!Object.hasOwn(assets, pathname)) assets[pathname] = [url, type];
 }
-// This shared, browser-safe projection is the sole client import outside client/.
-const economicProjection = [new URL('../../../../packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs', import.meta.url), 'text/javascript; charset=utf-8'];
-assets['/packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs'] = economicProjection;
-assets['/mobile-protocol/src/original-wallet-economic-state-v1.mjs'] = economicProjection;
+// Explicit browser-safe shared modules; no directory listing or arbitrary paths.
+const sharedBrowserAssets = {
+  'original-wallet-economic-state-v1.mjs': new URL('../../../../packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs', import.meta.url),
+  'wallet/client/view-model.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs', import.meta.url),
+  'wallet/contracts/exact-action-browser-review.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/exact-action-browser-review.mjs', import.meta.url),
+  'wallet/contracts/generation-defi-contract.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/generation-defi-contract.mjs', import.meta.url),
+  'wallet/contracts/generation-position-state-v2.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs', import.meta.url),
+  'wallet/contracts/manual-action-handoff.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/manual-action-handoff.mjs', import.meta.url),
+  'wallet/contracts/native-note-review.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/native-note-review.mjs', import.meta.url),
+  'wallet/contracts/owner-graph-review-v1.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/owner-graph-review-v1.mjs', import.meta.url),
+  'wallet/contracts/owner-portfolio-contract.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs', import.meta.url),
+  'wallet/contracts/public-token-observations.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/public-token-observations.mjs', import.meta.url),
+  'wallet/contracts/wrapped-withdrawal-resume-actions.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-resume-actions.mjs', import.meta.url),
+  'wallet/contracts/wrapped-withdrawal-review.mjs': new URL('../../../../packages/mobile-protocol/src/wallet/contracts/wrapped-withdrawal-review.mjs', import.meta.url),
+};
+for (const [relative, url] of Object.entries(sharedBrowserAssets)) {
+  const entry = [url, 'text/javascript; charset=utf-8'];
+  assets['/packages/mobile-protocol/src/' + relative] = entry;
+  assets['/mobile-protocol/src/' + relative] = entry;
+}
 Object.freeze(assets);
 const sensitiveHeaders = new Set(['host', 'origin', 'content-type', 'content-length', 'transfer-encoding',
   'x-wallet-owner-token', 'x-wallet-action-token', 'sec-fetch-site']);

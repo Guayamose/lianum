@@ -7,8 +7,8 @@ import {accessSync,constants,closeSync,fstatSync,lstatSync,openSync,readFileSync
 import {join} from 'node:path';
 import {ROOT,EXPERIMENT,LIMITS,MEMORY,operation} from '../catalog.mjs';
 import {regular,hash,resources,authenticateSupervisor,argumentsFor} from '../tooling/tooling.mjs';
-import {nativeProcStatV1} from '../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
-import {nativeOwnedRSSV1} from '../../../../tests/integration/native/native-flow-owned-rss-v1.mjs';
+import {nativeProcStatV1} from '../host/process-files.mjs';
+import {nativeOwnedRSSV1} from '../host/process-rss.mjs';
 
 export const RESERVATION_NATIVE_PROFILE_V1='LIANUM_ORIGINAL_S_NATIVE_UNIX_SOCKET_V1';
 export const RESERVATION_NATIVE_THREADS_V1=12;

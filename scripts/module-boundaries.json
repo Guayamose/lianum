@@ -13,7 +13,8 @@
       "packages/backend",
       "packages/proofs",
       "packages/mobile-protocol",
-      "packages/environment"
+      "packages/environment",
+      "packages/crypto"
     ],
     "packages/proofs": [
       "packages/backend",
@@ -40,7 +41,8 @@
       "packages/mobile-protocol"
     ],
     "apps/mobile": [
-      "packages/mobile-protocol"
+      "packages/mobile-protocol",
+      "packages/crypto"
     ],
     "apps/platform": [
       "packages/backend",
@@ -87,15 +89,13 @@
     ],
     "apps/mobile/src/api/device-paged-graph-transit-v3.mjs": [
       "packages/mobile-protocol/src/device-paged-graph-v3.mjs",
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
     ],
     "apps/mobile/src/api/device-paged-owner-api-v3.mjs": [
       "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
     ],
     "apps/mobile/src/api/device-paged-owner-transit-v3.mjs": [
-      "packages/mobile-protocol/src/device-paged-owner-v3.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
     ],
     "apps/mobile/src/api/device-private-graph-proof-transit-v2.mjs": [
       "packages/mobile-protocol/src/device-external-flat-graph-v1.mjs"
@@ -106,20 +106,16 @@
       "packages/mobile-protocol/src/native-claim-device-v1.mjs"
     ],
     "apps/mobile/src/api/native-claim-device-api-v1.mjs": [
-      "packages/mobile-protocol/src/native-claim-device-v1.mjs",
-      "packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs"
+      "packages/mobile-protocol/src/native-claim-device-v1.mjs"
     ],
     "apps/mobile/src/api/native-private-deposit-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/mobile-protocol/src/device-native-private-deposit-v2.mjs"
     ],
     "apps/mobile/src/api/native-private-exit-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/mobile-protocol/src/device-native-private-exit-v2.mjs"
     ],
     "apps/mobile/src/api/native-private-reservation-transit-v2.mjs": [
-      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs",
-      "packages/mobile-protocol/src/original-account-review-v2.mjs"
+      "packages/mobile-protocol/src/device-native-private-reservation-v2.mjs"
     ],
     "apps/mobile/src/api/original-account-api-v2.mjs": [
       "packages/mobile-protocol/src/device-execution-consent-v1.mjs",
@@ -206,18 +202,6 @@
     "apps/mobile/src/state/private-wallet-state-v1.mjs": [
       "packages/mobile-protocol/src/device-external-flat-note-v1.mjs"
     ],
-    "apps/platform/src/legacy-authorization-redaction-v1.mjs": [
-      "packages/mobile-protocol/src/authorization.mjs"
-    ],
-    "apps/platform/src/original-device-cloud-local-gateway-v1.mjs": [
-      "packages/mobile-protocol/src/authorization.mjs"
-    ],
-    "apps/platform/src/server.mjs": [
-      "packages/mobile-protocol/src/authorization.mjs"
-    ],
-    "apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs": [
-      "packages/mobile-protocol/src/original-wallet-economic-state-v1.mjs"
-    ],
     "apps/wallet/src/server/server.mjs": [
       "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs"
     ],
@@ -294,7 +278,6 @@
       "packages/mobile-protocol/src/device-paged-owner-v3.mjs"
     ],
     "packages/backend/src/accounts/authority/flat-account-authority.mjs": [
-      "apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs",
       "packages/custody/src/observers/flat-owner-observer.mjs",
       "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
       "packages/custody/src/preparation/flat-owner-manual-preparation.mjs",
@@ -325,7 +308,6 @@
       "packages/proofs/src/jobs/native-private-note-execution-v3.mjs"
     ],
     "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs": [
-      "apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs",
       "packages/custody/src/observers/native-value-owner-observer-v2.mjs",
       "packages/custody/src/observers/wrapped-claim-owner-observer-v1.mjs",
       "packages/custody/src/preparation/flat-owner-manual-binding.mjs",
@@ -382,9 +364,6 @@
       "packages/engine/src/execution/accounts/generic-account-keeper.mjs"
     ],
     "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs": [
-      "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs",
-      "apps/wallet/src/client/features/portfolio/original-economic-state-v1.mjs",
-      "apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs",
       "packages/engine/src/crypto/vault.mjs",
       "packages/engine/src/execution/accounts/generic-account-journal.mjs"
     ],
@@ -398,9 +377,6 @@
       "packages/custody/src/processes/flat-owner-process.mjs",
       "packages/engine/src/crypto/vault.mjs",
       "packages/engine/src/execution/accounts/generic-account-journal.mjs"
-    ],
-    "packages/backend/src/api/accounts/flat-account-owner-client.mjs": [
-      "apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs"
     ],
     "packages/backend/src/api/accounts/flat-manual-graph-session.mjs": [
       "packages/engine/src/execution/accounts/generic-account-journal.mjs",
@@ -442,10 +418,6 @@
     ],
     "packages/backend/src/api/mobile/paired-original-defi-position-reader-v1.mjs": [
       "packages/mobile-protocol/src/device-defi-position-read-v1.mjs"
-    ],
-    "packages/backend/src/api/wallet/wallet-application-client.mjs": [
-      "apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs",
-      "apps/wallet/src/client/state/view-model.mjs"
     ],
     "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs": [
       "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs",
@@ -702,10 +674,6 @@
     "packages/backend/src/defi/delivery/private-external-delivery.mjs": [
       "packages/engine/src/cohorts/private-cohort-public-native.mjs"
     ],
-    "packages/backend/src/defi/positions/private-position-state-v2.mjs": [
-      "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs",
-      "apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs"
-    ],
     "packages/backend/src/defi/vaults/owned-backed-vault.mjs": [
       "packages/engine/src/cohorts/private-cohort-public-native.mjs",
       "packages/engine/src/crypto/privacy.mjs",
@@ -726,9 +694,6 @@
       "packages/engine/src/crypto/vault.mjs",
       "packages/mobile-protocol/src/device-external-flat-note-v1.mjs",
       "packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs"
-    ],
-    "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs": [
-      "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs"
     ],
     "packages/backend/src/defi/withdrawals/private-vault-exit.mjs": [
       "packages/custody/src/signing/flat-owner-custody.mjs",
@@ -765,9 +730,6 @@
     "packages/backend/src/execution/account/preparation/funding-inputs.mjs": [
       "packages/engine/src/execution/graph/funded-graph.mjs",
       "packages/engine/src/notes/private-note-tree.mjs"
-    ],
-    "packages/backend/src/execution/account/preparation/owner-native-graph-review-v1.mjs": [
-      "apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs"
     ],
     "packages/backend/src/execution/account/preparation/readiness-inputs.mjs": [
       "packages/engine/src/execution/native/dispatch/native-capsules.mjs",
@@ -1364,7 +1326,6 @@
       "packages/proofs/src/tooling/tooling.mjs"
     ],
     "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs": [
-      "packages/backend/src/claims/storage/segmented-record-store.mjs",
       "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs",
       "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
       "packages/backend/src/execution/encoding/commitments.mjs",
@@ -1409,11 +1370,7 @@
     ],
     "packages/engine/src/execution/accounts/generic-account-keeper.mjs": [
       "packages/backend/src/api/accounts/flat-manual-graph-session.mjs",
-      "packages/backend/src/claims/storage/segmented-record-store.mjs",
       "packages/backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs"
-    ],
-    "packages/engine/src/execution/graph/funded-graph-paged-trees-v3.mjs": [
-      "apps/mobile/src/custody/poseidon2-bn254-v1.mjs"
     ],
     "packages/engine/src/execution/graph/funded-graph-paged-v3.mjs": [
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs"
@@ -1469,9 +1426,6 @@
       "packages/proofs/src/jobs/private-proof-transit-v1.mjs",
       "packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs",
       "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs"
-    ],
-    "packages/mobile-protocol/src/device-defi-position-read-v1.mjs": [
-      "apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs"
     ],
     "packages/proofs/src/jobs/native-device-private-deposit-recipient-v2.mjs": [
       "packages/engine/src/execution/proofs/proof-process.mjs"
@@ -1647,5 +1601,221 @@
       "packages/backend/src/execution/encoding/commitments.mjs",
       "packages/backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs"
     ]
+  },
+  "legacySupportImports": {
+    "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs": [
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/api/accounts/flat-manual-graph-session.mjs": [
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/api/withdrawals/wrapped-withdrawal-release-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs",
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs": [
+      "tests/integration/pools/pool-generation-acceptance-policy.mjs"
+    ],
+    "packages/backend/src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs": [
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/chains/tron/runtime/guarded/tron-first-error-private-material-v3.mjs": [
+      "tests/integration/chains/tron/tron-first-error-private-profile-v3.mjs"
+    ],
+    "packages/backend/src/chains/tron/runtime/guarded/tron-product-node-driver-v1.mjs": [
+      "tests/integration/chains/tron/tron-first-error-private-profile-v3.mjs"
+    ],
+    "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs": [
+      "tests/integration/fixtures/wallet/wrapped/flows/wrapped-wallet-fixed-fixture-v1.mjs",
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs": [
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/backend/src/operations/deployments/native-value/native-value-dev-w39-artifacts-v5.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/backend/src/operations/deployments/native-value/native-value-dev-w39-consumer-artifacts-v5.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/backend/src/operations/deployments/native-value/native-value-dev-w39-reused-artifacts-v6.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/backend/src/operations/deployments/wrapped/wrapped-claim-deployment-artifacts-v1.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs",
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs",
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/operations/operators/wrapped/wrapped-claim-combined-operators-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/backend/src/operations/operators/wrapped/wrapped-claim-custody-bootstrap-v1.mjs": [
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/operations/operators/wrapped/wrapped-claim-operator-bootstrap-v1.mjs": [
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/backend/src/operations/releases/wrapped/wrapped-claim-proof-artifacts-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/backend/src/operations/releases/wrapped/wrapped-claim-retained-preparation-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/backend/src/operations/releases/wrapped/wrapped-wallet-release-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/custody/src/processes/wrapped-claim-owner-process-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/custody/src/signing/authorized-envelope.mjs": [
+      "experiments/engine/private-core-proof/generic-funding/witness.mjs"
+    ],
+    "packages/custody/src/signing/flat-owner-custody.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/engine/src/accounts/private-account-runtime.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/prover.mjs"
+    ],
+    "packages/engine/src/accounts/private-shared-account-runtime.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/prover.mjs"
+    ],
+    "packages/engine/src/execution/accounts/generic-account-refund-handoff.mjs": [
+      "experiments/engine/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/engine/src/execution/balances/generic-balance-account-authority.mjs": [
+      "experiments/engine/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/engine/src/execution/balances/generic-balance-native-proofs.mjs": [
+      "experiments/engine/private-core-proof/generic-funding/witness.mjs",
+      "experiments/engine/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/engine/src/execution/local/local-profile.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/engine/src/execution/native/dispatch/generic-native-execution.mjs": [
+      "experiments/engine/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/engine/src/execution/native/dispatch/native-fulfillment.mjs": [
+      "experiments/engine/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/engine/src/execution/native/recipients/native-recipient-process.mjs": [
+      "tests/integration/fixtures/wallet/wrapped/flows/wrapped-wallet-fixed-fixture-v1.mjs",
+      "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs"
+    ],
+    "packages/engine/src/execution/proofs/note-native-execution-v1.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/prover.mjs",
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/engine/src/execution/proofs/proof-process.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/engine/src/execution/proofs/proof-worker.mjs": [
+      "experiments/engine/private-core-proof/generic-native/pin-key.mjs",
+      "experiments/engine/private-core-proof/generic-wrappers/abi.mjs",
+      "experiments/engine/private-core-proof/generic-wrappers/pin-owner-key.mjs",
+      "experiments/engine/private-core-proof/wallet-notes/prover.mjs",
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/engine/src/payments/private-payment-engine.mjs": [
+      "experiments/engine/private-core-proof/owner-independent/prover.mjs"
+    ],
+    "packages/engine/src/wallet/custody/private-wallet-authority.mjs": [
+      "experiments/engine/private-core-proof/owner-independent/prover.mjs",
+      "experiments/engine/private-core-proof/wallet-notes/prover.mjs"
+    ],
+    "packages/proofs/src/jobs/native-private-note-execution-v3.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/proofs/src/jobs/native-private-note-process-v3.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs": [
+      "experiments/engine/private-core-proof/wallet-notes/prover.mjs",
+      "experiments/engine/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/proofs/src/wrapped-claims/runtime/wrapped-claim-role-process-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/proofs/src/wrapped-claims/runtime/wrapped-claim-worker-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/proofs/src/wrapped-claims/tooling/wrapped-claim-run-bounded-v1.mjs": [
+      "tests/integration/deployments/wrapped/wrapped-installation-source-inspector-v2.mjs"
+    ],
+    "packages/protocol/src/execution/accounts/generic-account-refund-handoff.mjs": [
+      "experiments/protocol/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/protocol/src/execution/balances/generic-balance-account-authority.mjs": [
+      "experiments/protocol/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/protocol/src/execution/balances/generic-balance-native-proofs.mjs": [
+      "experiments/protocol/private-core-proof/generic-funding/witness.mjs",
+      "experiments/protocol/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/protocol/src/execution/local/local-profile.mjs": [
+      "experiments/protocol/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/protocol/src/execution/native/dispatch/generic-native-execution.mjs": [
+      "experiments/protocol/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/protocol/src/execution/native/dispatch/native-fulfillment.mjs": [
+      "experiments/protocol/private-core-proof/generic-wrappers/abi.mjs"
+    ],
+    "packages/protocol/src/execution/proofs/proof-process.mjs": [
+      "experiments/protocol/private-core-proof/wallet-notes/resources.mjs"
+    ],
+    "packages/protocol/src/execution/proofs/proof-worker.mjs": [
+      "experiments/protocol/private-core-proof/generic-native/pin-key.mjs",
+      "experiments/protocol/private-core-proof/generic-wrappers/abi.mjs",
+      "experiments/protocol/private-core-proof/generic-wrappers/pin-owner-key.mjs",
+      "experiments/protocol/private-core-proof/wallet-notes/prover.mjs",
+      "experiments/protocol/private-core-proof/wallet-notes/resources.mjs"
+    ]
+  },
+  "historicalPackages": [
+    "packages/protocol"
+  ],
+  "historicalInventory": "scripts/historical-module-inventory.json",
+  "legacyImportMoves": {
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs": {
+      "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+      "reason": "Same original dependencies after splitting account operations; exact targets only."
+    },
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs": {
+      "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+      "reason": "Same original dependencies after splitting account operations; exact targets only."
+    },
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-interface.mjs": {
+      "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+      "reason": "Same original dependencies after splitting account operations; exact targets only."
+    },
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs": {
+      "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+      "reason": "Same original dependencies after splitting account operations; exact targets only."
+    },
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs": {
+      "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+      "reason": "Same original dependencies after splitting account operations; exact targets only."
+    },
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-reservations.mjs": {
+      "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+      "reason": "Same original dependencies after splitting account operations; exact targets only."
+    },
+    "packages/backend/src/accounts/authority/native-value/native-value-authority-withdrawals.mjs": {
+      "from": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
+      "reason": "Same original dependencies after splitting account operations; exact targets only."
+    }
   }
 }

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ROOT, GOLDEN } from '../catalog.mjs';
-import { nativeProcStatV1, readNativeFlowRegularV1 } from '../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import { nativeProcStatV1, readNativeFlowRegularV1 } from '../host/process-files.mjs';
 import { CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, assertBeginPayoutAuditReleaseV1 }
   from '../../../backend/src/claims/payouts/begin-payout-audit-policy-v1.mjs';
 const ENTRY = join(ROOT, 'integration/run-native-claim-begin-payout-audit-v1.mjs');

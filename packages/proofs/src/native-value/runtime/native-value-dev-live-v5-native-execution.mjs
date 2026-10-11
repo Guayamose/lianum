@@ -7,7 +7,7 @@ import {accessSync,constants,closeSync,fstatSync,lstatSync,openSync,readFileSync
 import {join,relative,sep} from 'node:path';
 import {ROOT,GOLDEN,EXPERIMENT,LIMITS} from '../../catalog.mjs';
 import {regular,hash,resources} from '../../tooling/tooling.mjs';
-import {nativeProcStatV1} from '../../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import {nativeProcStatV1} from '../../host/process-files.mjs';
 import {observeStandardProofRSSV1} from '../../jobs/standard-proof-resources-v1.mjs';
 import {NATIVE_VALUE_LIVE_V2_SPEC,NATIVE_VALUE_LIVE_V2_SOURCE_VERSION,NATIVE_VALUE_LIVE_V2_KEY_SHA256,NATIVE_VALUE_LIVE_V2_KEY_MANIFEST_SHA256} from '../metadata/native-value-live-v2-profile.mjs';
 

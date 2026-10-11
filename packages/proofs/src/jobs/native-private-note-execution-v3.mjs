@@ -17,8 +17,8 @@ import {CRS,verifyToolchain,verifyCRS} from '../../../../experiments/engine/priv
 import {gunzipSync} from 'node:zlib';
 import {pathToFileURL} from 'node:url';
 import {regular,hash,resources} from '../tooling/tooling.mjs';
-import {nativeProcStatV1} from '../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
-import {nativeOwnedRSSV1} from '../../../../tests/integration/native/native-flow-owned-rss-v1.mjs';
+import {nativeProcStatV1} from '../host/process-files.mjs';
+import {nativeOwnedRSSV1} from '../host/process-rss.mjs';
 
 export const PRIVATE_NOTE_NATIVE_PROFILE_V1='LIANUM_ECONOMIC_D26_W39_PRIVATE_NATIVE_UNIX_SOCKET_V3';
 export const PRIVATE_NOTE_NATIVE_THREADS_V1=12;

@@ -3,8 +3,8 @@
 import assert from 'node:assert/strict';
 import {validateVaultIdentity} from '../vaults/backed-vault.mjs';
 import {projectPrivateVaultPosition} from '../vaults/private-vault-position.mjs';
-import {validateFlatOwnerReadPayload} from '../../../../../apps/wallet/src/client/features/portfolio/owner-portfolio-contract.mjs';
-import {validatePositionStateRow} from '../../../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs';
+import {validateFlatOwnerReadPayload} from '@lianum/mobile-protocol/wallet/owner-portfolio-contract';
+import {validatePositionStateRow} from '@lianum/mobile-protocol/wallet/generation-position-state-v2';
 const frozen=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(frozen);Object.freeze(value);}return value;};
 export function projectPrivatePositionStateV2({generationId,shareAssetId,underlyingAssetId,identity,portfolioView,vaultView}) {
   const original=validateVaultIdentity(identity);

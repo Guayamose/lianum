@@ -4,6 +4,7 @@
 | --- | --- |
 | `src/catalog.mjs` | Catálogo de perfiles disponibles |
 | `src/jobs/` | Cliente, procesos, workers y límites de jobs compartidos |
+| `src/host/` | Lectura física de archivos, identidad de procesos y observación RSS compartidas por producción y pruebas |
 | `src/tooling/` | Herramientas de compilación y generación |
 | `src/verification/` | Verificación ligada a pines |
 | `src/native-value/`, `src/native-ingress/`, `src/wrapped-claims/` | Recorridos específicos, separados en runtime, tooling y metadata |

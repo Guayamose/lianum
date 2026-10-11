@@ -5,6 +5,7 @@ are independent. Computed import expressions require review; literal imports,
 re-exports and require calls are checked without loading application code.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import posixpath
@@ -99,9 +100,41 @@ def resolve_package(specifier, manifests):
     return posixpath.normpath(posixpath.join(manifest["root"], path)), None
 
 
+def historical_inventory_errors(root, policy):
+    """Original protocol files are evidence, not a second active implementation."""
+    location = policy.get("historicalInventory")
+    if not location:
+        return []
+    errors = []
+    inventory = json.loads((root / location).read_text())
+    historical = inventory["historicalPackage"]
+    active = inventory["activePackage"]
+    retained = {row["path"]: row["sha256"] for row in inventory["historicalFiles"]}
+    present = {path.relative_to(root).as_posix()
+               for path in (root / historical / "src").rglob("*") if path.is_file()}
+    for path in sorted(present - retained.keys()):
+        errors.append(f"{path}: new source in the frozen historical package")
+    for path, digest in retained.items():
+        if not path.startswith(historical + "/src/"):
+            errors.append(f"{path}: historical inventory path is outside its package")
+        elif path not in present:
+            errors.append(f"{path}: retained historical source is missing")
+        elif hashlib.sha256((root / path).read_bytes()).hexdigest() != digest:
+            errors.append(f"{path}: frozen historical source changed; edit the active implementation")
+    for pair in inventory["pairs"]:
+        if (pair["historical"] not in retained
+                or retained[pair["historical"]] != pair["historicalSHA256"]
+                or not pair["active"].startswith(active + "/src/")
+                or not (root / pair["active"]).is_file()):
+            errors.append(f"{pair.get('historical')}: invalid active/historical implementation pair")
+    return errors
+
+
 def inspect(root, policy):
     manifests = packages(root)
-    errors, private, public, graph = [], set(), set(), set()
+    errors, private, public, graph, support = [], set(), set(), set(), set()
+    historical = set(policy.get("historicalPackages", []))
+    export_owners = {}
     for name, manifest in manifests.items():
         for key, value in manifest.get("exports", {}).items():
             target = default_export(value)
@@ -110,6 +143,8 @@ def inspect(root, policy):
                 errors.append(f"{name}: export must name one explicit local file: {key}")
             elif not (root / manifest["root"] / target).is_file():
                 errors.append(f"{name}: export target missing: {target}")
+            else:
+                export_owners[posixpath.normpath(posixpath.join(manifest["root"], target))] = name
     for path in sources(root):
         source = path.relative_to(root).as_posix()
         component = owner(source)
@@ -129,17 +164,26 @@ def inspect(root, policy):
             else:
                 continue
             dependency = owner(target)
+            if target.startswith(("tests/", "experiments/")):
+                support.add((source, target))
             if dependency is None or dependency == component:
                 continue
             edge = (source, target)
             graph.add((component, dependency))
-            if is_public:
+            if component.startswith("packages/") and dependency.startswith("apps/"):
+                errors.append(f"{source}: package implementations cannot depend on application code: {target}")
+            if dependency in historical and component not in historical:
+                errors.append(f"{source}: active code cannot consume the historical package {dependency}")
+            # Browsers need URL imports. A relative app import is still a public
+            # boundary when its exact file is an explicitly exported package API.
+            browser_public = component.startswith("apps/") and target in export_owners
+            if is_public or browser_public:
                 public.add(edge)
                 allowed = policy["dependencies"].get(component, [])
                 if dependency not in allowed:
                     errors.append(f"{source}: dependency direction {component} -> {dependency} is not allowed")
                 manifest = next((row for row in manifests.values() if row["root"] == component), None)
-                name = "/".join(specifier.split("/")[:2])
+                name = export_owners[target] if browser_public else "/".join(specifier.split("/")[:2])
                 if manifest is not None and name not in manifest.get("dependencies", {}):
                     errors.append(f"{source}: {name} missing from package dependencies")
             else:
@@ -148,10 +192,17 @@ def inspect(root, policy):
               for target in targets}
     for source, target in sorted(private - legacy):
         errors.append(f"{source}: new private cross-import {target}; use a declared @lianum export")
+    legacy_support = {(source, target) for source, targets in policy.get("legacySupportImports", {}).items()
+                      for target in targets}
+    for source, target in sorted(support - legacy_support):
+        errors.append(f"{source}: new execution dependency on tests or experiments: {target}")
+    errors.extend(historical_inventory_errors(root, policy))
     return {"files": sum(1 for _ in sources(root)), "public": len(public),
             "legacyPrivate": len(private & legacy), "retiredLegacy": len(legacy - private),
+            "legacySupport": len(support & legacy_support),
+            "retiredSupport": len(legacy_support - support),
             "graph": [list(edge) for edge in sorted(graph)], "errors": errors,
-            "privateImports": sorted(private)}
+            "privateImports": sorted(private), "supportImports": sorted(support)}
 
 
 def main(argv=None):
@@ -170,13 +221,21 @@ def main(argv=None):
             for source, targets in policy["legacyPrivateImports"].items()
             if any((source, target) in current for target in targets)
         }
+        current_support = set(report["supportImports"])
+        policy["legacySupportImports"] = {
+            source: [target for target in targets if (source, target) in current_support]
+            for source, targets in policy.get("legacySupportImports", {}).items()
+            if any((source, target) in current_support for target in targets)
+        }
         POLICY.write_text(json.dumps(policy, indent=2) + "\n")
     del report["privateImports"]
+    del report["supportImports"]
     if args.json:
         print(json.dumps(report, indent=2))
     else:
         print(f"Module boundaries: {report['files']} files, {report['public']} public imports, "
-              f"{report['legacyPrivate']} inherited private imports.")
+              f"{report['legacyPrivate']} inherited private imports, "
+              f"{report['legacySupport']} retained test/experiment dependencies.")
         if report["retiredLegacy"]:
             print(f"{report['retiredLegacy']} inherited exceptions can be removed with --prune.")
         for error in report["errors"]:

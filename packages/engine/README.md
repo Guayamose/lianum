@@ -12,6 +12,7 @@
 | `execution/` | Grafo PAEG, cuentas, balances, ejecución local y nativa |
 | `native/`, `chains/`, `evidence/` | Activos nativos, adaptadores y evidencia |
 | `core/`, `api/` | Modelo y API del motor |
+| `storage/` | Registro segmentado cifrado compartido por keeper y backend |
 
 La aplicación actual sigue consumiendo módulos de este motor.
 Las carpetas presentes reflejan el código conservado de cada generación.

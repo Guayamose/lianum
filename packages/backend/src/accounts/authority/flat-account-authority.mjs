@@ -1,4 +1,4 @@
-import {validateOwnerGraphReview,ownerFlatDeFiEconomicAllocationV1} from '../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
+import {validateOwnerGraphReview,ownerFlatDeFiEconomicAllocationV1} from '@lianum/mobile-protocol/wallet/owner-graph-review-v1';
 /** Private account authority for the fixed local flat owner. One source, one
  * authorization, and its original exits; no balance rollover is implemented.
  * The generic account keeper/journal/coordinator are reused without changes. */

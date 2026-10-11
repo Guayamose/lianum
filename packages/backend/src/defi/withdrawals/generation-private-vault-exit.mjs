@@ -1,5 +1,5 @@
 import {projectPrivatePositionStateV2} from '../positions/private-position-state-v2.mjs';
-import {POSITION_STATE_PROFILE} from '../../../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs';
+import {POSITION_STATE_PROFILE} from '@lianum/mobile-protocol/wallet/generation-position-state-v2';
 /** Fixed private composition of original branded private-share EXIT services.
  * Uses the catalogue's already durable request bindings, never a second keeper,
  * mutable registry, public service registration, new request ID or resend. */

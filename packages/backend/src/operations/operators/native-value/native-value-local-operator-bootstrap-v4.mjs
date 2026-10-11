@@ -13,7 +13,7 @@ import { createLocalNativeValueOperator, createNativeValueOperatorQuorum, assert
   fenceOriginalNativeOperatorEconomicRecoveryV1, captureOriginalNativeOperatorEconomicRecoveryV1,
   stopCapturedNativeOperatorEconomicRecoveryV1, abortNativeOperatorEconomicRecoveryV1,
   reopenOriginalNativeOperatorEconomicRecoveryV1, snapshotOriginalNativeOperatorSourceV1 } from './native-value-operators-v4.mjs';
-import { createClaimRecordStore, openClaimRecordStore, canonicalClaimRecordDataV1 } from '../../../claims/storage/segmented-record-store.mjs';
+import { createClaimRecordStore, openClaimRecordStore, canonicalClaimRecordDataV1 } from '@lianum/engine/storage/records';
 import { assertNativeEconomicRecoveryCaptureV1, nativeEconomicRecoverySectionIdentityV1,
   consumeNativeEconomicRecoverySectionV1 } from '../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import { nativeValueOriginalRecoverySourceV1 } from '../../deployments/native-value/native-value-system-v2.mjs';

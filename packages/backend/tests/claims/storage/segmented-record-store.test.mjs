@@ -522,10 +522,8 @@ test('tiny encrypted cells allocate to their FD size while every original read r
 });
 
 test('original bounded read follows FD growth through EOF or max+1 and wipes buffers on overflow or IO failure', async () => {
-  // Canonical and relocated test layouts are the only two fixed source paths.
-  let text;
-  try { text = await fs.readFile(new URL('./segmented-record-store.mjs', import.meta.url), 'utf8'); }
-  catch (error) { if (error.code !== 'ENOENT') throw error; text = await fs.readFile(new URL('../../../src/claims/storage/segmented-record-store.mjs', import.meta.url), 'utf8'); }
+  // Inspect the canonical implementation, not its compatibility reexport.
+  const text = await fs.readFile(new URL('../../../../engine/src/storage/segmented-record-store.mjs', import.meta.url), 'utf8');
   const a = text.indexOf('async function boundedRead('), b = text.indexOf('async function syncDirectory(', a);
   assert.ok(a >= 0 && b > a);
   const body = text.slice(a, b), directory = await fs.mkdtemp(join(tmpdir(), 'claim-v3-growth-'));

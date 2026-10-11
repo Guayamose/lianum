@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { types } from 'node:util';
 import { exactRecord } from '../../execution/encoding/commitments.mjs';
-import { createClaimRecordStore, openClaimRecordStore, CLAIM_RECORD_STORE_LIMITS } from './segmented-record-store.mjs';
+import { createClaimRecordStore, openClaimRecordStore, CLAIM_RECORD_STORE_LIMITS } from '@lianum/engine/storage/records';
 
 const WORKER = fileURLToPath(import.meta.url);
 const PROTOCOL = 'LIANUM_CLAIM_STORE_PRIVATE_IPC_V1';

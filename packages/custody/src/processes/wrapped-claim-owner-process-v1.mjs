@@ -33,7 +33,7 @@ const plane = method => OWNER.includes(method) ? 'owner' : PROOF.includes(method
   : method === 'bindNativeClaimIssuance' ? 'claimIngress'
     : method === 'selectRole' ? 'role' : ['privateSummary', 'preparationTerms', 'manualPreparations', 'graphPreparationTerms'].includes(method) ? 'ownerView' : ['summary', 'close'].includes(method) ? 'lifecycle' : null;
 const ownedProcesses = new WeakMap();
-const { createClaimRecordStore, openClaimRecordStore } = await import('../../../backend/src/claims/storage/segmented-record-store.mjs');
+const { createClaimRecordStore, openClaimRecordStore } = await import('@lianum/engine/storage/records');
 const {retainWrappedPrivateLifetimePartV1,readWrappedPrivateLifetimePartV1,updateWrappedPrivateLifetimePartV1,assertWrappedPrivateLifetimePartSealedV1}=await import('../../../backend/src/claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs');
 const { retainOriginalWrappedRecoverySectionV1, consumeOriginalWrappedRecoverySectionV1 } = await import('../../../backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
 const ownedNativeClaimHandoffs = new WeakMap();

@@ -376,7 +376,7 @@ const observationRecordFields=['source','contractName','address','nonce','receip
   'codeHash','runtimeBytes','libraries','immutableValues','constructorData','creationSHA256','proofAcceptanceClaim'];
 function observationRecord(value){return Object.fromEntries(observationRecordFields.map(name=>[name,structuredClone(value[name])]));}
 function observationArtifactSHA(artifact){return createHash('sha256').update(observationCanonical(artifact)).digest('hex');}
-import {canonicalClaimRecordDataV1 as observationCanonical} from '../../../claims/storage/segmented-record-store.mjs';
+import {canonicalClaimRecordDataV1 as observationCanonical} from '@lianum/engine/storage/records';
 export async function captureNativeValueD26ObservationSystemV1(runtime,system) {
   assert.equal(arguments.length,2);assertOwnedNativeValueSystem(runtime,system);
   return captureNativeSystemRecord(runtime,system,()=>assertOwnedNativeValueSystem(runtime,system),'ORIGINAL_NATIVE_D26_OBSERVATION_SYSTEM_V1');

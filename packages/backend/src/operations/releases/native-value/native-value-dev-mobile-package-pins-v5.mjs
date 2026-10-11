@@ -2,9 +2,9 @@
  * installed JavaScript bytes. No package download or arbitrary bare import.
  * This table grants no authority; the producer/loader re-read all raw pins. */
 export const NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 = Object.freeze({
-  "packageLockSHA256": "e7f2ddb2e141e8c5a026dca04cdd2c68dcdc0700c93364b0b64b3d446887e447",
-  "mobilePackageSHA256": "3832c74467f8ad2225dc10bac23d895b9ef017c03a5c0d59d3631ba4239f0998",
-  "localProtocolPackageSHA256": "57b39de1a212291ddbbb670c034f8139e0ccf8540c886c1b11479fc7ad0d8bf8",
+  "packageLockSHA256": "768a13e82af3e04906b51543c003218ac59142086e1eb73d91e61bdc3ad72063",
+  "mobilePackageSHA256": "4e2585a0896ee17f9fe61f5c4acb741f19dc34ef385fe1629cc5cdc8249d9df9",
+  "localProtocolPackageSHA256": "c048eab021886c898c1e912a5d2c00e7a4cad386fdce06efb06e325a08ef7ee1",
   "packages": [
     {
       "version": "2.4.0",
@@ -206,4 +206,4 @@ export const NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 = Object.freeze({
     }
   ]
 });
-export const NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 = '23f1f2a7c669a204854068190c40b602d87dd6f7902690c3c26a3839de99f254';
+export const NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 = '32f3704616c9753d73c447d5d7e57326d3b9ff3f6025b3af0662a750db9d3d0a';

@@ -1,5 +1,6 @@
 """Small failure-case tests for the boundary check; no networks or proof jobs."""
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -64,6 +65,56 @@ class ModuleBoundariesTests(unittest.TestCase):
         self.assertEqual(report["errors"], [])
         self.assertEqual(report["retiredLegacy"], 1)
         self.assertEqual(report["legacyPrivate"], 0)
+
+    def test_browser_url_can_only_address_an_exported_package_file(self):
+        source = "apps/wallet/src/shared.mjs"
+        self.write(source, "export * from '../../../packages/engine/src/api.mjs';\n")
+        self.policy["dependencies"]["apps/wallet"] = ["packages/engine"]
+        self.assertEqual(self.report()["errors"], [])
+        self.write("packages/engine/src/private.mjs", "export const secret = 2;\n")
+        self.write(source, "export * from '../../../packages/engine/src/private.mjs';\n")
+        self.assertIn("new private cross-import", "\n".join(self.report()["errors"]))
+
+    def test_application_inversion_is_rejected_even_if_in_private_baseline(self):
+        source = "packages/backend/src/session.mjs"
+        target = "apps/wallet/src/shared.mjs"
+        self.write(target, "export const value = 1;\n")
+        self.write(source, "import {value} from '../../../apps/wallet/src/shared.mjs';\n")
+        self.policy["legacyPrivateImports"][source] = [target]
+        self.assertIn("cannot depend on application code", "\n".join(self.report()["errors"]))
+
+    def test_support_dependencies_cannot_expand_to_new_consumers(self):
+        source = "packages/backend/src/session.mjs"
+        target = "tests/fixture.mjs"
+        self.write(target, "export const value = 1;\n")
+        self.write(source, "import {value} from '../../../tests/fixture.mjs';\n")
+        self.assertIn("new execution dependency", "\n".join(self.report()["errors"]))
+        self.policy["legacySupportImports"] = {source: [target]}
+        self.assertEqual(self.report()["errors"], [])
+        self.write("packages/backend/src/another.mjs", "import '../../../tests/fixture.mjs';\n")
+        self.assertIn("another.mjs: new execution dependency", "\n".join(self.report()["errors"]))
+
+    def test_frozen_history_remains_present_and_cannot_become_an_active_dependency(self):
+        historical = "packages/protocol/src/api.mjs"
+        active = "packages/engine/src/api.mjs"
+        text = (self.root / active).read_text()
+        self.write(historical, text)
+        self.manifest("protocol", {"./api": "./src/api.mjs"})
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        self.policy["historicalPackages"] = ["packages/protocol"]
+        self.policy["historicalInventory"] = "scripts/history.json"
+        self.write("scripts/history.json", json.dumps({
+            "historicalPackage": "packages/protocol", "activePackage": "packages/engine",
+            "historicalFiles": [{"path": historical, "sha256": digest}],
+            "pairs": [{"active": active, "historical": historical, "historicalSHA256": digest}]}))
+        self.assertEqual(self.report()["errors"], [])
+        self.write(active, "export const value = 2;\n")
+        self.assertEqual(self.report()["errors"], [])  # Editing the active copy is allowed.
+        self.write(historical, "export const value = 2;\n")
+        self.assertIn("frozen historical source changed", "\n".join(self.report()["errors"]))
+        self.write(historical, text)
+        self.write("packages/backend/src/session.mjs", "import '@lianum/protocol/api';\n")
+        self.assertIn("cannot consume the historical package", "\n".join(self.report()["errors"]))
 
     def test_parser_handles_literal_dynamic_import_and_ignores_text(self):
         text = '''// import 'comment'

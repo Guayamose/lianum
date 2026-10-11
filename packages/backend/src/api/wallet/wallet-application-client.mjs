@@ -1,12 +1,12 @@
 import {describeWrappedResumeSuccessorV1} from '../withdrawals/wrapped-withdrawal-successor-review-v1.mjs';
 import {describeWrappedWithdrawalResumeReviewV1} from '../withdrawals/wrapped-withdrawal-resume-review-v1.mjs';
-import {isWrappedResumeAction} from '../../../../../apps/wallet/src/client/features/withdrawals/wrapped-withdrawal-resume-actions.mjs';
+import {isWrappedResumeAction} from '@lianum/mobile-protocol/wallet/wrapped-withdrawal-resume-actions';
 /** Manual Node/local bridge to the existing wallet application workflow.
  * Transport bounds live here; all wallet schemas and state transitions stay in
  * the shared browser module. No session factory, persistence or automatic work. */
 import { request as httpRequest } from 'node:http';
 import { types, isDeepStrictEqual } from 'node:util';
-import { ALL_ACTIONS, buildActionBody, createWalletClient } from '../../../../../apps/wallet/src/client/state/view-model.mjs';
+import { ALL_ACTIONS, buildActionBody, createWalletClient } from '@lianum/mobile-protocol/wallet/client';
 
 const REQUEST_LIMIT = 4096;
 const RESPONSE_LIMIT = 256 * 1024;

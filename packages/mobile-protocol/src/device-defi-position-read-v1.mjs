@@ -1,7 +1,7 @@
 /** Read-only framing. Parsed records never establish catalogue membership,
  * note custody, economic authority or spendable underlying credit. */
 import {normalizeMobileOrigin} from './authorization.mjs';
-import {validatePositionStateEnvelope} from '../../../apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs';
+import {validatePositionStateEnvelope} from './wallet/contracts/generation-position-state-v2.mjs';
 export const DEFI_POSITION_ACCESS_V1='LIANUM_DEVICE_DEFI_POSITION_ACCESS_V1';
 export const DEFI_POSITION_READ_V1='LIANUM_DEVICE_DEFI_POSITION_READ_V1';
 export const DEFI_POSITION_OBSERVATION_V1='LIANUM_DEVICE_DEFI_POSITION_OBSERVATION_V1';

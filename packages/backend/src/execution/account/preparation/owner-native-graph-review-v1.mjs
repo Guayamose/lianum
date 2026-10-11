@@ -5,7 +5,7 @@ import {validatePreparedGraphDependencies} from './prepared-graph-dependencies-v
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {cloneInput,frozenInput} from './readiness-inputs.mjs';
-import {canonicalOwnerGraphTerms,validateOwnerGraphStructure} from '../../../../../../apps/wallet/src/client/features/accounts/owner-graph-review-v1.mjs';
+import {canonicalOwnerGraphTerms,validateOwnerGraphStructure} from '@lianum/mobile-protocol/wallet/owner-graph-review-v1';
 export function buildOwnerNativeGraphRoute({binding,packets,selected,reviewProvider,wrapped,flat=false}){
  assert.ok(Array.isArray(selected)&&selected.length>0&&selected.length<=4,'OWNER_GRAPH_ORIGINAL_PROVIDERS');
  assert.equal(typeof reviewProvider,'function');assert.equal(typeof wrapped,'boolean');assert.equal(packets.local.length,4);assert.equal(packets.dependency.length,4);

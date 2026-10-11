@@ -10,7 +10,7 @@ import { nonceIngressBroadcastFrame, assertNonceIngressDeployment } from '../ing
 import assert from 'node:assert/strict';
 import { createPublicKey, generateKeyPairSync, randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { createClaimRecordStore } from '../storage/segmented-record-store.mjs';
+import { createClaimRecordStore } from '@lianum/engine/storage/records';
 import { signature as lowSignature } from '../../../../engine/src/notes/private-note-encoding.mjs';
 import { publicKeccak256 } from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
 import { nativeAdmissionRulesTree } from '../../../../engine/src/execution/native/dispatch/native-admission.mjs';

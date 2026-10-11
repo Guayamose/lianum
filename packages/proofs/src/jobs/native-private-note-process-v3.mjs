@@ -7,7 +7,7 @@ import{ROOT}from'../catalog.mjs';
  */
 import { fork } from 'node:child_process';
 import{PRIVATE_NOTE_NATIVE_WORKERS_V1 as NOTE_NATIVE_WORKERS_V1,nativePrivateEconomicNoteResourcesV3 as nativeEconomicNoteResourcesV1,assertNativePrivateEconomicNoteReceiptV3 as assertNativeEconomicNoteReceiptV1}from'./native-private-note-execution-v3.mjs';
-import {nativeProcStatV1} from '../../../../tests/integration/native/native-flow-owned-files-v1.mjs';
+import {nativeProcStatV1} from '../host/process-files.mjs';
 import { assertBeginPayoutAuditLegacyLaunchV1 } from './native-flow-proof-scope-v1.mjs';
 import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync, unlinkSync, fstatSync, statSync, statfsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

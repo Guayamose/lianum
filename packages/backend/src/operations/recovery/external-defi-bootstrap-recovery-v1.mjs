@@ -2,7 +2,7 @@
  * lifetime registry and ordered recovery authority. No raw JSON authority. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {canonicalClaimRecordDataV1} from '../../claims/storage/segmented-record-store.mjs';
+import {canonicalClaimRecordDataV1} from '@lianum/engine/storage/records';
 import {exactRecord} from '../../execution/encoding/commitments.mjs';
 import {assertOwnedLocalEvmV2} from '../../chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {assertOwnedFlatSystem,captureOwnedFlatSystemRecoveryV1,reopenOwnedFlatSystemRecoveryV1} from '../deployments/system/deploy-system.mjs';
