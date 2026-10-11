@@ -37,7 +37,20 @@
         "packages/backend/tests/operations/operators/wrapped/wrapped-graph-operator-v4-guards.test.mjs",
         "packages/backend/tests/accounts/state/original-wallet-economic-state-v1.test.mjs",
         "packages/backend/tests/accounts/state/original-session-economic-lifecycle-v1.test.mjs",
-        "packages/backend/tests/accounts/authority/paired-actor-backend-isolation.test.mjs"
+        "packages/backend/tests/accounts/authority/paired-actor-backend-isolation.test.mjs",
+        "packages/backend/tests/accounts/authority/device-share-batch-admission-v4.test.mjs",
+        "packages/backend/tests/accounts/authority/device-confirmed-source-backend-v2.test.mjs",
+        "packages/backend/tests/accounts/authority/device-source-host-session-v3.test.mjs",
+        "packages/backend/tests/accounts/authority/device-morpho-blue-withdrawal-original-context-v1.test.mjs",
+        "packages/backend/tests/accounts/authority/device-multi-graph-preparation-v4.test.mjs",
+        "packages/backend/tests/accounts/authority/device-source-local-context-v2.test.mjs",
+        "packages/backend/tests/accounts/authority/device-graph-proof-retention-v1.test.mjs",
+        "packages/backend/tests/accounts/authority/device-external-flat-http-v1.test.mjs",
+        "packages/backend/tests/accounts/authority/device-graph-source-journal-v2.test.mjs",
+        "packages/backend/tests/accounts/authority/device-aave-source-checkpoint-v3.test.mjs",
+        "packages/backend/tests/accounts/authority/device-external-flat-note-authority-v1.test.mjs",
+        "packages/backend/tests/accounts/authority/device-source-graph-release-v1.test.mjs",
+        "packages/backend/tests/accounts/authority/device-note-source-lease-v1.test.mjs"
       ]
     },
     "custody": {

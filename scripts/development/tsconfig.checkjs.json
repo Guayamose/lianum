@@ -78,6 +78,15 @@
     "../../packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
     "../../packages/backend/src/operations/operators/native-value/original-inventory-round-v4.mjs",
     "../../packages/backend/src/claims/wrapped/operations/reverse-coverage-finalization-v4.mjs",
-    "../../packages/backend/src/operations/operators/wrapped/original-graph-inventory-round-v4.mjs"
+    "../../packages/backend/src/operations/operators/wrapped/original-graph-inventory-round-v4.mjs",
+    "../../packages/backend/src/accounts/authority/device-note-observation-v1.mjs",
+    "../../packages/backend/src/accounts/authority/device-graph-canonical-reads-v1.mjs",
+    "../../packages/backend/src/accounts/authority/device-graph-proof-retention-v1.mjs",
+    "../../packages/backend/src/accounts/authority/device-graph-output-proof-work-v1.mjs",
+    "../../packages/backend/src/operations/recovery/source-journal/device-graph-source-codec-v2.mjs",
+    "../../tests/integration/wallet/native/device-confirmed-source-channel-v2.mjs",
+    "../../tests/integration/wallet/native/device-confirmed-source-cleanup-v2.mjs",
+    "../../tests/integration/wallet/native/device-confirmed-source-consent-v2.mjs",
+    "../../tests/integration/wallet/native/device-external-flat-host-routing-v1.mjs"
   ]
 }
