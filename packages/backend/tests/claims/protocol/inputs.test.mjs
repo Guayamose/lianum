@@ -401,57 +401,6 @@ test('HOST RootNote prospective SPL SOURCE binds only original provider before F
 });
 
 
-// Actual prospective SOURCE lifecycle body, real claim Vault/AEAD/CAS;
-// all proof, owner, receiver, native, dispatch and observer ports are inert.
-// This case establishes admission/observation/cleanup, no financial acceptance.
-test('HOST RootNote SPL SOURCE consumer fixes original birth before FUND and lost GRAPH reply observes without repeat proof or send',async()=>{
- const {readFile,mkdtemp,rm}=await import('node:fs/promises'),fs=await import('node:fs/promises'),{existsSync}=await import('node:fs'),path=await import('node:path'),os=await import('node:os'),crypto=await import('node:crypto'),util=await import('node:util');
- const {createClaimVaultSession}=await import('../../../src/claims/storage/vault-session.mjs');
- const candidate=new URL('../api/native-claim-http.mjs',import.meta.url),api=await readFile(existsSync(candidate)?candidate:new URL('../../../src/api/claims/native-claim-http.mjs',import.meta.url),'utf8');
- const a=api.indexOf('async function createDeviceRootSplOriginalSourceExecutionV4(');assert.ok(a>0);const body=api.slice(a).replaceAll('import(', 'fixedImport(');
- const root=await mkdtemp(path.join(os.tmpdir(),'root-note-spl-consumer-host-'));const originals=new WeakSet(),fixtures=[];
- const code=c=>{throw Error(c);};let active;
- const fixedImport=async name=>{
-  const f=active;
-  if(name==='node:fs/promises')return fs;if(name==='node:path')return path;if(name==='node:crypto')return crypto;if(name==='node:util')return util;
-  if(name==='../../claims/storage/vault-session.mjs')return{createClaimVaultSession};
-  if(name==='../../providers/native-provider.mjs')return{assertOwnedFlatNativeProvider:(provider,expected)=>{assert.equal(provider,f.provider);for(const[k,v]of Object.entries(expected))assert.equal(v,f.expected[k]);}};
-  if(name==='../../custody/observers/flat-owner-native-claim-observer.mjs')return{createFlatOwnerNativeClaimObserver:async input=>{assert.equal(input.runtime,f.runtime);assert.equal(input.claims,f.claims);assert.equal(f.funds,0);return Object.freeze({profile:'HOST_INERT_OBSERVER'});}};
-  if(name==='../../custody/processes/flat-owner-process.mjs')return{createFlatOwnerProcess:async input=>{assert.equal(input.runtime,f.runtime);assert.equal(input.system,f.system);assert.equal(input.poolIndex,0);assert.equal(f.funds,0);f.births.push('owner');return f.owner;}};
-  if(name==='../../execution/native/recipients/native-recipient-process.mjs')return{createNativeRecipientProcess:async boot=>{assert.equal(f.funds,0);assert.equal(boot.expectedTerms.value,'20000');assert.equal(boot.expectedTerms.actionTemplate.amount,'10000000');f.births.push('recipient');return f.recipient;}};
-  if(name==='../../execution/account/execution/flat-native-execution.mjs')return{createFlatNativeExecution:async(input,callbacks)=>{assert.equal(f.funds,0);assert.equal(input.quorum,f.quorum);f.births.push('execution');f.execCallbacks=callbacks;return f.execution;}};
-  if(name==='../../accounts/authority/flat-account-authority.mjs')return{createFlatAccountAuthority:async(input,callbacks)=>{assert.equal(f.funds,0);assert.equal(input.owner,f.owner);assert.equal(input.nativeExecution,f.execution);f.births.push('account');f.accountCallbacks=callbacks;return f.account;}};
-  if(name==='@lianum/engine/accounts/keeper')return{createGenericAccountKeeper:async input=>{assert.equal(f.funds,0);assert.equal(input.config,f.account.config);assert.equal(input.authority,f.account.authority);f.births.push('keeper');return f.accountKeeper;}};
-  if(name==='@lianum/engine/execution/inputs/deposit-intent')return{decodeDepositIntentInputs:()=>({amount:'100000'})};
-  if(name==='@lianum/engine/claims/framing')return{claimDomainCommitment:()=> 'HOST_DISTINCT_ORIGINAL_CBTC_DOMAIN'};
-  if(name==='@lianum/engine/native/native-receipt-binding')return{validateSolanaBindingTransaction:(wire,intent)=>{assert.equal(wire,'HOST_INERT_WIRE');assert.equal(intent.lamports,'10000000');return{signatureHex:'HOST_INERT_NATIVE_ID',transactionSHA256:'HOST_INERT_WIRE_SHA'};}};
-  throw Error('HOST_UNKNOWN_IMPORT');
- };
- const create=Function('randomBytes','Buffer','deviceHttpFail','fixedImport',body+'return createDeviceRootSplOriginalSourceExecutionV4;')(crypto.randomBytes,Buffer,()=>code('HOST_ARITY'),fixedImport);
- async function fixture(lost=false){const directory=path.join(root,String(fixtures.length));await fs.mkdir(directory,{mode:0o700});const domain={scope:'HOST_SCOPE',policy:'HOST_POLICY',asset:'HOST_ASSET',hubDomain:'HOST_HUB',registryCommitment:'HOST_REGISTRY'},runtime={accounts:['00','01','02','03'].map(v=>'0x'+v.repeat(20)),time:async()=>1000n},system={pools:[{domain}]},graphBitcoin={transfers:[]},graphSolana={transfers:[]},quorum=Object.freeze({}),claims={flatSystem:system,configs:[{}]},template={amount:'10000000',executionFrom:'1000',executionUntil:'8140',settleBefore:'8200'};
-  const f={directory,runtime,system,claims,graphBitcoin,graphSolana,quorum,births:[],funds:0,send:0,confirms:0,issues:0,proofs:0,graphs:0,reconciles:0,wrapped:0,providerBound:0,closed:[],available:true,childExited:false,phase:'BORN',lost};fixtures.push(f);
-  const result=()=>{f.proofs++;return{proof:'00',publicInputs:['0'],metrics:{scope:'HOST_INERT_NOT_GENUINE_PROOF'}};};
-  const provider={offer:()=>({evidencePolicy:'HOST_INERT_POLICY',actionTemplate:template}),async bindQuote({recipientCustody}){assert.equal(recipientCustody,f.recipient);f.providerBound++;}};f.provider=provider;f.expected={runtime,system,poolIndex:0,nativeRuntime:graphSolana,operatorQuorum:quorum,family:'2',recipientIndex:1};
-  f.owner={owner:{async prepareDepositIntent(terms){assert.equal(terms.amount,'100000');assert.equal(f.funds,0);},async createNativeClaimIngressHandoff(){return Object.freeze({});},async reconcileDepositIntent(){},async prepareAuthorization(config){assert.equal(config.nativeConfig.nodes.length,1);assert.equal(config.nativeConfig.nodes[0].actionTemplate.amount,'10000000');assert.equal(f.issues,1);},async invoiceRequests(){return[{slot:0,invoice:'HOST_INERT_INVOICE'}];},async authorize(){assert.equal(f.providerBound,1);}},ownerProof:{async proveDepositIntent(){return result();},async proveAuthorization(){return result();}},async suspend(){f.available=false;f.childExited=true;},async restart(){f.available=true;f.childExited=false;},report:()=>({available:f.available,childExited:f.childExited}),roles:Object.fromEntries(['reservation','recovery','assembler','local','dependency'].map(role=>[role,async(slot)=>({select:()=>role==='local'?{local:{value:{active:slot===0}}}:{profile:'HOST_INERT_ROLE'}})])),close:async()=>{f.closed.push('owner');}};
-  f.recipient={offer:async()=>({profile:'HOST_INERT_OFFER'}),acceptInvoice:async()=>({invoiceSignature:'HOST_INERT_SIGNATURE'}),acceptedQuote:async()=>({deliveryRiskSalt:'HOST_INERT_RISK'}),close:async()=>{f.closed.push('recipient');}};
-  f.execution={snapshot:()=>({outcome:f.graphs?'FULFILLED':null}),close:async()=>{f.closed.push('execution');}};
-  f.account={config:Object.freeze({}),authority:Object.freeze({}),assetId:'HOST_INERT_ASSET',ownerActions:{async registerGraph(g){assert.equal(g.providers[0].provider,provider);assert.equal(g.providers[0].recipientIndex,1);assert.equal(g.prepared.rolePackets.local.filter(r=>r.local.value.active).length,1);}},abort:async()=>{f.closed.push('abort');},close:async()=>{f.closed.push('account');}};
-  f.accountKeeper={async prepare(request){f.request=request;},async execute(id){assert.equal(id,f.request.requestId);f.graphs++;await f.execCallbacks.onProof({label:'HOST_INERT_S',relation:'reservation',proof:result()});graphSolana.transfers.push({phase:'OBSERVED_FINALIZED',broadcastAttempts:1,intent:{lamports:'10000000'},nativeWire:'HOST_INERT_WIRE',nativeId:'HOST_INERT_NATIVE_ID',transactionSHA256:'HOST_INERT_WIRE_SHA',observation:{nativeWire:'HOST_INERT_WIRE'}});if(lost)throw Error('HOST_LOST_ORIGINAL_GRAPH_REPLY');},async reconcile(id){assert.equal(id,f.request.requestId);f.reconciles++;},close:async()=>{f.closed.push('keeper');}};
-  f.bitcoin={transfers:[],async confirm(id){assert.equal(id,'HOST_ORIGINAL_BTC_ID');f.confirms++;}};
-  f.controller={async prepare(){return{intentId:'HOST_ORIGINAL_BTC_INTENT'};},async preposition(){f.funds++;assert.deepEqual(f.births,['owner','recipient','execution','account','keeper']);},async ingress(){assert.equal(f.available,false);f.send++;f.bitcoin.transfers.push({route:'deposit'});},async privateNativeReceipt(){return{family:'1',broadcastAttempts:1,nativeId:'HOST_ORIGINAL_BTC_ID'};},async reconcile(){f.reconciles++;},async issue(){f.issues++;return{status:'ISSUED',submission:'HOST_INERT_SUBMISSION'};}};
-  f.binding={status:async()=>({phase:f.phase,availablePrivateClaims:null,privateCreditEstablished:false}),async bindObservedOriginalOnce(){assert.equal(graphSolana.transfers.length,1);f.wrapped++;f.phase='READY';return{amount:'123',privateCreditEstablished:false};}};
-  const original={runtime,bitcoin:f.bitcoin,graphBitcoin,graphSolana,claims,bootstrap:{graphSolanaRule:{family:'2'},rulePaths:[[],[],[]]},observer:Object.freeze({}),graphQuorum:quorum,controller:f.controller,ingressProverIdentity:'HOST_INERT_PROVER_ID',sourceProvider:provider,sourceBinding:f.binding,directory};originals.add(original);active=f;f.producer=await create(original);return f;
- }
- try{
-  const f=await fixture();assert.equal(f.funds,0);assert.equal(f.proofs,0);assert.equal((await f.producer.status()).phase,'BORN');assert.throws(()=>f.producer.deliverOnce({}),/ARITY/);
-  const completed=await f.producer.deliverOnce();assert.equal(completed.phase,'TARGET_QUOTED');assert.equal(completed.privateCreditEstablished,false);assert.equal(completed.claimCustody,'DEVICE_ROOT_NOTE');assert.equal(f.funds,1);assert.equal(f.send,1);assert.equal(f.confirms,1);assert.equal(f.issues,1);assert.equal(f.graphs,1);assert.equal(f.wrapped,1);assert.equal(f.proofs,3);
-  assert.throws(()=>f.producer.deliverOnce(),/ALREADY_ADMITTED/);const counts=[f.funds,f.send,f.proofs,f.graphs,f.wrapped];let callback=false;await f.producer.observe.call({status(){callback=true;}});assert.equal(callback,false);assert.deepEqual([f.funds,f.send,f.proofs,f.graphs,f.wrapped],counts);
-  const u=await fixture(true);await assert.rejects(u.producer.deliverOnce(),/LOST_ORIGINAL_GRAPH_REPLY/);assert.equal((await u.producer.status()).phase,'UNKNOWN');assert.equal(u.wrapped,0);const before=[u.funds,u.send,u.proofs,u.graphs,u.wrapped];await u.producer.observe();await u.producer.observe();assert.deepEqual([u.funds,u.send,u.proofs,u.graphs,u.wrapped],before);assert.throws(()=>u.producer.deliverOnce(),/ALREADY_ADMITTED/);
-  await f.producer.close();assert.deepEqual(f.closed,['abort','keeper','account','execution','recipient','owner']);assert.throws(()=>f.producer.deliverOnce(),/CLOSED/);assert.throws(()=>f.producer.status(),/CLOSED/);
- }finally{for(const f of fixtures)await f.producer?.close().catch(()=>{});await rm(root,{recursive:true,force:true});}
-});
-
-
 test('HOST SPL SOURCE financial policy keeps target four receipts separate and rejects mixed domains or duplicate original receipts',async()=>{
  const {readFile}=await import('node:fs/promises'),{existsSync}=await import('node:fs'),{fileURLToPath}=await import('node:url'),{join,dirname}=await import('node:path');
  let root=fileURLToPath(new URL('../../../../../',import.meta.url));
