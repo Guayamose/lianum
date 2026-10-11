@@ -105,7 +105,18 @@ def source_files(config):
             target = runtime_relative(relative, config)
             if target is None and path.suffix == ".md":
                 continue
-            if target is None or target in result:
+            # New host tests run against their workspace interfaces. They do
+            # not need a legacy execution copy or a new translation rule.
+            # Retained tests with an explicit mapping are still reproduced;
+            # unmapped production modules continue to fail closed below.
+            parts = Path(relative).parts
+            if (target is None and len(parts) >= 4
+                    and parts[0] in {"apps", "packages"} and parts[2] == "tests"
+                    and path.name.endswith(".test.mjs")):
+                continue
+            if target is None:
+                raise RuntimeError(f"No compatibility mapping for execution source: {relative}")
+            if target in result:
                 raise RuntimeError(f"Ambiguous runtime path: {relative}")
             content = path.read_bytes()
             source_hash = hashlib.sha256(content).hexdigest()

@@ -100,6 +100,21 @@ class WorkspaceExecutionTests(unittest.TestCase):
         self.assertFalse((self.runtime / "app/extra.mjs").exists())
         self.assertEqual(self.run_entry(), "1")
 
+    def test_new_interface_tests_do_not_require_generated_execution_copies(self):
+        test = self.root / 'apps/wallet/tests/transport/closed-entry.test.mjs'
+        test.parent.mkdir(parents=True)
+        test.write_text('import test from "node:test"; test("current interface", () => {});\n')
+        workspace.build(quiet=True)
+        sources = {row['source'] for row in workspace.source_files(workspace.layout()).values()}
+        self.assertNotIn(str(test.relative_to(self.root)), sources)
+        self.assertEqual(self.run_entry(), '1')
+        # A similarly unmapped application module is not silently omitted.
+        execution = self.root / 'apps/wallet/src/unknown/entry.mjs'
+        execution.parent.mkdir(parents=True)
+        execution.write_text('throw Error("HOST_UNMAPPED_EXECUTION");\n')
+        with self.assertRaisesRegex(RuntimeError, 'No compatibility mapping for execution source'):
+            workspace.build(quiet=True)
+
 
 if __name__ == "__main__":
     unittest.main()
