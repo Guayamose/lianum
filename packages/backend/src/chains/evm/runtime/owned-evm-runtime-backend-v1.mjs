@@ -1,3 +1,4 @@
+import {dispatchOriginalEvmClaimV1} from './original-claim-dispatch-v1.mjs';
 import {reemitRetainedRecoveryWireV1} from './recovery-reorg-wire-v1.mjs';
 import {signExternalNoteAfterGuardV1} from './external-note-signing-v1.mjs';
 /** An isolated EVM runtime family. All process, custody, observation and
@@ -1132,130 +1133,23 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
      */
     // Only the two fixed wrappers below select the private clock branch.
     // Both retain the same original preparation, final authority and wire path.
-    const dispatchOriginal = async (scopedRequest, observedClaim) => {
-      assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');
-      assert.equal(observedClock&&!observedEconomicV2,observedClaim,'LOCAL_EVM_FIXED_DISPATCH_CLOCK');
-      // The fixed composition loads the original gate before preparation.
-      // It completes before preparation; no import/RPC is inserted after the
-      // final beforeSign check and the actual sign-only RPC.
-      const { assertOwnedEvmDispatchRequest, isOwnedClaimEvmDispatchRequest, assertOwnedClaimEvmDispatchRequest, isWrapped, openWrapped } = await dispatchContract.claim();
-
-      if (observedClaim) assert.ok(isOwnedClaimEvmDispatchRequest(scopedRequest),
-        'LOCAL_OBSERVED_RECEIVER_ORIGINAL_CLAIM_REQUIRED');
-      const claimV4 = isOwnedClaimEvmDispatchRequest(scopedRequest) || isWrapped(scopedRequest);
-      const scope = observedClaim ? assertOwnedClaimEvmDispatchRequest(scopedRequest, runtime)
-        : isWrapped(scopedRequest) ? openWrapped(scopedRequest, runtime) : isOwnedClaimEvmDispatchRequest(scopedRequest)
-          ? assertOwnedClaimEvmDispatchRequest(scopedRequest, runtime)
-          : assertOwnedEvmDispatchRequest(scopedRequest, runtime);
-      assert.deepEqual(Object.keys(scope).sort(), ['beforeSign', ...(claimV4 ? ['consumeBeforeKey'] : []), 'onSigned', 'transaction'], 'EVM_SCOPED_FIELDS');
-      if (claimV4) assert.equal(typeof scope.consumeBeforeKey, 'function', 'EVM_ORIGINAL_KEY_CONSUMER_V4');
-      assert.equal(typeof scope.beforeSign, 'function', 'EVM_FINAL_GUARD');
-      assert.equal(typeof scope.onSigned, 'function', 'EVM_DURABLE_CALLBACK');
-      // Copy exact values and callback identities before the first await.
-      const beforeSign = scope.beforeSign, onSigned = scope.onSigned;
-      assert.deepEqual(Object.keys(scope.transaction).sort(), ['data', 'from', 'gas', 'to', 'value'], 'EVM_DISPATCH_TRANSACTION_FIELDS');
-      const tx = cloned(request(scope.transaction, true));
-      assert.equal(tx.value, '0x0', 'EVM_DISPATCH_ZERO_NATIVE_VALUE');
-      assert.ok(tx.to && tx.data?.length >= 10 && tx.data.length <= 262_146, 'EVM_DISPATCH_CONTRACT_CALL');
-      assert.ok(!usedDispatches.has(scopedRequest), 'EVM_DISPATCH_ALREADY_USED_NO_RESEND');
-      return mutate(async () => {
-        usedDispatches.add(scopedRequest);
-        let keyUsePossible = false, outcomeKnown = false, entry, localSigningLease=null;
-        try {
-          const head = await block();
-          assert.equal(BigInt(head.timestamp), lastTimestamp, 'LOCAL_EVM_UNCONTROLLED_TIME');
-          const pending = quantity(await rpc('eth_getTransactionCount', [tx.from, 'pending']));
-          const confirmed = quantity(await rpc('eth_getTransactionCount', [tx.from, 'latest']));
-          assert.equal(pending, confirmed, 'EVM_PENDING_NONCE_NOT_EXCLUSIVE');
-          const gasPrice = 1_000_000_000n;
-          assert.ok(BigInt(head.baseFeePerGas) <= gasPrice, 'EVM_FIXED_GAS_PRICE_TOO_LOW');
-          const txExact = { chainId: '31337', from: tx.from, to: tx.to, nonce: BigInt(pending).toString(),
-            gasPrice: gasPrice.toString(), gas: BigInt(tx.gas).toString(), value: '0', data: tx.data };
-          const signingRequest = Object.freeze({ ...tx, nonce: pending, chainId: '0x7a69', gasPrice: hex(gasPrice), type: '0x0' });
-          const targetCode = bytes(await rpc('eth_getCode', [tx.to, head.number]));
-          assert.notEqual(targetCode, '0x', 'EVM_DISPATCH_TARGET_NO_CODE');
-          const balanceWei = BigInt(quantity(await rpc('eth_getBalance', [tx.from, head.number])));
-          assert.ok(balanceWei >= BigInt(tx.gas) * gasPrice, 'EVM_DISPATCH_GAS_FUNDS');
-          const estimate = BigInt(quantity(await rpc('eth_estimateGas', [signingRequest, head.number])));
-          assert.ok(estimate > 0n && estimate <= BigInt(tx.gas), 'EVM_DISPATCH_GAS_ESTIMATE');
-          const prepared = cloned({ genesis: genesisHash,
-            head: { number: head.number, hash: head.hash, timestamp: head.timestamp }, transaction: txExact,
-            unsignedWire: encodeCanonicalEvmUnsignedTransaction(txExact),
-            funds: { balanceWei: balanceWei.toString(), estimatedGas: estimate.toString(),
-              targetCodeHash: '0x' + keccak(Buffer.from(targetCode.slice(2), 'hex')).toString('hex') } });
-          entry = { label: 'gated EVM vault delivery', request: tx, senderNonce: pending,
-            prepared, phase: 'prepared-before-final-guard' };
-          transactions.push(entry);
-          if(economicV2)localSigningLease=await prepareNativeEconomicCustodySigningV2(localCustody,prepared);
-          // V4 returns a genuine one-use authority, consumed only after the
-          // final complete native observation of this exact preparation.
-          const keyAuthorityV4 = claimV4 ? await beforeSign(prepared) : null;
-          const nativeAuditStarted = performance.now();
-          assert.deepEqual(await block(), head, 'EVM_PREPARED_HEAD_CHANGED');
-          for (const tag of ['latest', 'pending'])
-            assert.equal(await rpc('eth_getTransactionCount', [tx.from, tag]), pending, 'EVM_PREPARED_NONCE_CHANGED');
-          assert.equal(await rpc('eth_getCode', [tx.to, 'latest']), targetCode, 'EVM_PREPARED_CODE_CHANGED');
-          assert.equal(BigInt(await rpc('eth_getBalance', [tx.from, 'latest'])), balanceWei, 'EVM_PREPARED_BALANCE_CHANGED');
-          assert.equal(BigInt(await rpc('eth_estimateGas', [signingRequest, 'latest'])), estimate, 'EVM_PREPARED_ESTIMATE_CHANGED');
-          assert.deepEqual(await block(), head, 'EVM_PREPARED_HEAD_CHANGED');
-          if (claimV4) {
-            const authorityAuditStarted = scope.consumeBeforeKey(keyAuthorityV4, prepared);
-            const terminalNow = performance.now(), elapsed = terminalNow - nativeAuditStarted;
-            const authorityElapsed = terminalNow - authorityAuditStarted;
-            assert.ok(Number.isFinite(authorityElapsed) && authorityElapsed >= 0 && authorityElapsed < 30_000, 'EVM_KEY_ORIGINAL_AUTHORITY_TOO_OLD');
-            assert.ok(Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 30_000, 'EVM_KEY_NATIVE_OBSERVATION_TOO_OLD');
-          } else assert.equal(await beforeSign(prepared), undefined, 'EVM_FINAL_GUARD_ASSERT_ONLY');
-          // Immediately following the guard: no preparation, observation, file
-          // I/O or other callback intervenes before actual backend key use.
-          if(economicV2)assertAlive();
-          keyUsePossible = true; entry.phase = 'signing-outcome-unknown';
-          const raw = economicV2?consumeNativeEconomicCustodySigningV2(localCustody,localSigningLease,prepared).nativeWire:await rpc('eth_signTransaction', [signingRequest]);
-          const verified = assertSignedEvmTransaction(raw, prepared.transaction);
-          assert.equal(verified.unsignedWire, prepared.unsignedWire, 'EVM_SIGNED_UNSIGNED_WIRE_CHANGED');
-          entry.signed = cloned({ nativeWire: verified.nativeWire, nativeId: verified.nativeId,
-            transactionSHA256: verified.transactionSHA256 });
-          entry.transactionHash = verified.nativeId; entry.phase = 'signed-not-yet-durable';
-          await persistSigned(entry); entry.phase = 'native-signed-durable';
-          // The original scoped gate persists raw/GID, creates and verifies the
-          // provider signature, then durably retains that EXACT signature.
-          assert.equal(await onSigned(entry.signed), undefined, 'EVM_ON_SIGNED_ASSERT_ONLY');
-          entry.phase = 'provider-signature-durable';
-          entry.phase = 'broadcast-result-unknown';
-          const hash = await rpc('eth_sendRawTransaction', [entry.signed.nativeWire]);
-          assert.equal(hash, entry.transactionHash, 'EVM_BROADCAST_HASH_CHANGED');
-          entry.phase = 'broadcast';
-          const includedSecond=observedClaim||observedEconomicV2?await nextObservedSecond():lastTimestamp+1n;
-          if(observedEconomicV2)entry.originalObservedInclusionSecond=includedSecond.toString();
-          await mineAt(includedSecond);
-          const mined = await receipt(entry.transactionHash);
-          assert.ok(mined, 'LOCAL_EVM_RECEIPT_MISSING_AFTER_MINE');
-          const header = await assertCanonical(mined);
-          assert.deepEqual(header.transactions, [entry.transactionHash], 'EVM_DISPATCH_ONE_TRANSACTION_BLOCK');
-          entry.receipt = mined; entry.gasUsed = BigInt(mined.gasUsed).toString();
-          entry.phase = mined.status === '0x1' ? 'mined' : 'mined-reverted'; receipts.push(entry); outcomeKnown = true;
-          assert.equal(mined.status, '0x1', 'EVM_DISPATCH_REVERTED');
-          return cloned({ nativeId: entry.transactionHash, transactionSHA256: entry.signed.transactionSHA256 });
-        } catch (error) {
-          if (keyUsePossible && !outcomeKnown) {
-            uncertainMutation = true;
-            // Only a lost reply to the sole durable raw broadcast can be
-            // reconciled here. Signing/persistence/mining/time uncertainty is
-            // a different cause and must keep the global mutation fence.
-            uncertainSignedHash = entry?.signed && entry.phase === 'broadcast-result-unknown' ? entry.transactionHash : null;
-            if (entry) { entry.uncertaintyCause = uncertainSignedHash ? 'original-signed-broadcast' : 'unrecoverable-signing-or-mining';
-              entry.phase = 'uncertain-no-resend'; }
-          }
-          else if (!keyUsePossible && entry) entry.phase = 'pre-sign-rejected';
-          // Do not attach the mutable internal entry to caller-visible errors.
-          if (entry && error instanceof Error && Object.isExtensible(error)) {
-            try { Object.defineProperty(error, 'transactionRecord', { value: cloned(entry), enumerable: true }); } catch {}
-          }
-          // Preserve even a frozen/primitive callback exception exactly: the
-          // gate uses its identity to establish rejection before key use.
-          throw error;
-        } finally {if(localSigningLease)revokeNativeEconomicCustodySigningV2(localSigningLease);}
-      });
-    };
+    const dispatchOriginal = (scopedRequest, observedClaim) => dispatchOriginalEvmClaimV1(scopedRequest, observedClaim, {
+      profile: {observedClock, observedEconomicV2, economicV2, runtime, genesisHash},
+      lifetime: {
+        assertMutable(){assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');},
+        assertAlive, mutate,
+      },
+      requests: {loadGate:dispatchContract.claim, prepare:transaction=>request(transaction,true),
+        used:value=>usedDispatches.has(value), consume:value=>{usedDispatches.add(value);}},
+      chain: {block,rpc,receipt,assertCanonical},
+      clock: {current:()=>lastTimestamp,monotonic:()=>performance.now(),nextObservedSecond,mineAt},
+      custody: {prepare:prepared=>prepareNativeEconomicCustodySigningV2(localCustody,prepared),
+        consume:(lease,prepared)=>consumeNativeEconomicCustodySigningV2(localCustody,lease,prepared),
+        revoke:revokeNativeEconomicCustodySigningV2},
+      records: {append:entry=>{transactions.push(entry);},receipt:entry=>{receipts.push(entry);},persistSigned,
+        markUncertain(hash){uncertainMutation=true;uncertainSignedHash=hash;}},
+      wire: {encodeUnsigned:encodeCanonicalEvmUnsignedTransaction,verify:assertSignedEvmTransaction,keccak},
+    });
 
     const dispatchOriginalPagedNativeV3=async scopedRequest=>{
       assertOwnedLocalPagedNativeEvmV3(runtime);assert.equal(economicRecoveryFence,null);assert.equal(sourceDurableV1,false);assert.equal(economicV2,false);assert.equal(observedClock,false);
