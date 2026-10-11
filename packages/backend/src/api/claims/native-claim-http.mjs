@@ -3,6 +3,7 @@
 import { createServer } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { types } from 'node:util';
+import { finishOriginalDeviceRootBtcPayoutV3 } from '../../claims/operations/original-btc-payout-completion-v3.mjs';
 import { createDeviceRootSplOriginalSourceExecutionV4 } from '../../operations/recovery/device-root-spl-source-execution-v4.mjs';
 import { assertNativeClaimSession, nativeClaimApiErrorCode, createNativeClaimSession, createOriginalNativeSplClaimMobileSessionV1, createPairedOriginalNativeClaimReaderV1, createPairedOriginalNativeClaimSpendingReaderV1, assertPairedOriginalNativeClaimReaderV1 } from './native-claim-session.mjs';
 
@@ -388,21 +389,6 @@ async function rootClaimHttpBody(request){
   try{for await(const part of request){parts.push(part);count+=part.length;if(count>Number(n)||count>131072)deviceHttpFail();}
     if(count!==Number(n))deviceHttpFail();bytes=Buffer.concat(parts);return JSON.parse(bytes.toString('utf8'));
   }finally{bytes?.fill(0);parts.forEach(p=>p.fill(0));}
-}
-/** Same admitted local BTC payout. Regtest confirmation mines the original
- * once-sent wire; the second controller call observes that exact reservation
- * before completing CO42/discharge. It cannot authorize a second transfer. */
-async function finishOriginalDeviceRootBtcPayoutV3(original,ticketId,result){
-  if(original.descriptor.claim.nativeFamily!=='1'||result.status==='DISCHARGED')return result;
-  const receipt=await original.controller.privateNativeReceipt({operationId:ticketId});
-  assert.equal(receipt.family,'1','CLAIM_DEVICE_ROOT_BTC_PAYOUT_FAMILY');
-  assert.equal(receipt.broadcastAttempts,1,'CLAIM_DEVICE_ROOT_ORIGINAL_SEND_REQUIRED');
-  await original.claims.nativeRuntimes[original.poolIndex].confirm(receipt.nativeId);
-  const after=await original.controller.privateNativeReceipt({operationId:ticketId});
-  assert.equal(after.nativeId,receipt.nativeId,'CLAIM_DEVICE_ROOT_PAYOUT_WIRE_CHANGED');
-  assert.equal(after.transactionSHA256,receipt.transactionSHA256,'CLAIM_DEVICE_ROOT_PAYOUT_WIRE_CHANGED');
-  assert.equal(after.broadcastAttempts,1,'CLAIM_DEVICE_ROOT_ORIGINAL_SEND_REQUIRED');
-  return original.controller.payout({ticketId});
 }
 export async function startOriginalDeviceRootClaimTlsV2(input){
   if(arguments.length!==1)deviceHttpFail();deviceHttpExact(input,['intake','economicState','tls','host']);deviceHttpExact(input.tls,['certificate','privateKey']);
