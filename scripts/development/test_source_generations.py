@@ -1,7 +1,10 @@
 """Development preparation: source identity, reuse, tampering and publication boundary."""
 import copy
+from contextlib import redirect_stdout, redirect_stderr
+from io import StringIO
 import json
 from pathlib import Path
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -224,6 +227,74 @@ class SourceGenerationsTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "differ from the candidate"):
                     generations.adopt_generation(digest)
             self.assertEqual(record.read_bytes(), before)
+
+    def test_prepare_adopt_selects_only_the_verified_candidate_and_stays_idempotent(self):
+        source = self.write("packages/source.mjs", b"export const version=1;\n")
+        (generations.ROOT / "scripts/development").mkdir(parents=True)
+
+        def current():
+            value = source.read_bytes()
+            return self.report(value), SimpleNamespace(objects={generations.sha(value): value})
+
+        def invoke():
+            output = StringIO()
+            with patch.object(sys, "argv", ["sources", "prepare", "--adopt", "--json"]), redirect_stdout(output):
+                self.assertEqual(generations.main(), 0)
+            return json.loads(output.getvalue())
+
+        with patch.object(generations, "workspace_build"), \
+             patch.object(generations, "inventory", side_effect=current), \
+             patch.object(generations, "check_current_pins", return_value={"status": "CURRENT"}), \
+             patch.object(generations, "inspect_candidate", return_value=self.inspection()):
+            result = invoke()
+            record = generations.ROOT / "scripts/development/adopted-generation.json"
+            selected = json.loads(record.read_bytes())
+            self.assertEqual(selected["generation"], Path(result["generation"]).name)
+            self.assertEqual(result["adoption"]["verification"], "READBACK_VERIFIED")
+            self.assertFalse(result["adoption"]["financialAcceptance"])
+            before = record.read_bytes()
+            self.assertEqual(invoke()["adoption"]["written"], [])
+            self.assertEqual(record.read_bytes(), before)
+
+    def test_prepare_adopt_rejects_a_source_change_before_updating_the_selection(self):
+        source = self.write("packages/source.mjs", b"export const version=1;\n")
+        record = self.write("scripts/development/adopted-generation.json", b"retained prior selection\n")
+        before = record.read_bytes()
+        original_adopt = generations.adopt_generation
+
+        def current():
+            value = source.read_bytes()
+            return self.report(value), SimpleNamespace(objects={generations.sha(value): value})
+
+        def changed(digest):
+            source.write_bytes(b"export const version=2;\n")
+            return original_adopt(digest)
+
+        with patch.object(generations, "workspace_build"), \
+             patch.object(generations, "inventory", side_effect=current), \
+             patch.object(generations, "check_current_pins", return_value={"status": "CURRENT"}), \
+             patch.object(generations, "inspect_candidate", return_value=self.inspection()), \
+             patch.object(generations, "adopt_generation", side_effect=changed), \
+             patch.object(sys, "argv", ["sources", "prepare", "--adopt", "--json"]), redirect_stdout(StringIO()):
+            with self.assertRaisesRegex(ValueError, "differ from the candidate"):
+                generations.main()
+        self.assertEqual(record.read_bytes(), before)
+
+    def test_prepare_adopt_never_selects_a_blocked_candidate_or_accepts_other_actions(self):
+        report = self.report()
+        capture = SimpleNamespace(objects={report["groups"][0]["files"][0]["sha256"]: b"export const version = 2;"})
+        with patch.object(generations, "workspace_build"), \
+             patch.object(generations, "inventory", return_value=(report, capture)), \
+             patch.object(generations, "check_current_pins", return_value={"status": "CURRENT"}), \
+             patch.object(generations, "inspect_candidate", return_value={"status": "BLOCKED", "code": "ORIGINAL_PIN_CHANGED"}), \
+             patch.object(sys, "argv", ["sources", "prepare", "--adopt", "--json"]), redirect_stdout(StringIO()):
+            self.assertEqual(generations.main(), 2)
+        self.assertFalse((generations.ROOT / "scripts/development/adopted-generation.json").exists())
+        for action in ("status", "check", "verify", "adopt"):
+            with patch.object(sys, "argv", ["sources", action, "--adopt"]), redirect_stderr(StringIO()):
+                with self.assertRaises(SystemExit) as error:
+                    generations.main()
+                self.assertEqual(error.exception.code, 2)
 
     def test_retained_compiler_bodies_are_cached_as_original_evidence_and_tamper_rejected(self):
         value = b"export const version=1;\n"

@@ -37,6 +37,12 @@ Los resultados viven en `.local/generations/`, fuera del código versionado:
 
 `adopt --generation <huella>` hace esa misma verificación y escribe el registro versionado `scripts/development/adopted-generation.json`. El registro fija el digest del candidato y el cierre actual de fuentes. Los catálogos paginados y el cargador de despliegue nativo V5 comprueban ese registro y los bytes actuales antes de consumir los artefactos originales. Cambiar una fuente invalida la adopción: hay que preparar y adoptar la generación nueva. El comando no compila, despliega ni declara aceptada una operación económica.
 
+Tras revisar los cambios de código, puedes preparar y adoptar esa misma generación
+en una sola invocación: `./dev sources prepare --adopt`. El comando calcula la
+huella y vuelve a verificar el candidato antes de escribir la selección; rechaza
+originales alterados y cambios concurrentes. No tienes que copiar el digest a mano.
+La preparación ordinaria conserva su comportamiento de revisión sin adopción.
+
 Repetir la preparación con las mismas fuentes reutiliza la generación y los objetos existentes. No crea otra copia del repositorio, herramientas, redes, custodia o compilaciones. Una modificación del objeto guardado se detecta y detiene la preparación.
 
 Las fuentes retiradas de los tres recolectores y siete fachadas tienen una

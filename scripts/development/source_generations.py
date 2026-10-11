@@ -1194,7 +1194,11 @@ def main():
     parser.add_argument("action", nargs="?", choices=("status", "check", "prepare", "verify", "adopt"), default="status")
     parser.add_argument("--json", action="store_true", help="Return machine-readable details")
     parser.add_argument("--generation", help="Exact digest for a read-only candidate verification")
+    parser.add_argument("--adopt", dest="adopt_prepared", action="store_true",
+                        help="After preparation, verify and adopt this exact current host candidate")
     args = parser.parse_args()
+    if args.adopt_prepared and args.action != "prepare":
+        parser.error("--adopt is only valid with sources prepare")
     if args.action in {"prepare", "verify", "adopt"}:
         # The native producer already depends on these mobile packages. Do not
         # require the separate Cloud installation or approve hashes implicitly.
@@ -1221,14 +1225,17 @@ def main():
         return 0
     if args.generation is not None:
         raise ValueError("--generation is only valid with sources verify/adopt")
-    report, capture = inventory()
     if args.action == "prepare":
         # Explicit preparation is the only action that updates compatibility
         # copies. The content-aware builder never compiles circuits or starts a
         # laboratory, and status/check remain entirely read-only.
         workspace_build(quiet=True)
-        report, capture = inventory()
+    report, capture = inventory()
     result = prepare(report, capture) if args.action == "prepare" else report
+    if args.adopt_prepared and result["inspection"] == "VALIDATED_CANDIDATE":
+        # Adoption rechecks the exact prepared digest and atomically writes only
+        # the host selection. Concurrent changes still fail before that write.
+        result["adoption"] = adopt_generation(Path(result["generation"]).name)
     if args.json:
         print(json.dumps(result, indent=2))
     else:
@@ -1237,6 +1244,9 @@ def main():
             print(f"Generation: {result['generation']} ({result['newSourceObjects']} new source objects)")
             print(f"Artifact reuse inspection: {result['inspection']}" + (f" — {result['code']}" if result['code'] else ""))
             print("Prepared for review; the published release and financial acceptance are unchanged.")
+            if args.adopt_prepared and "adoption" in result:
+                adopted = result["adoption"]
+                print(adopted["sourceAcceptance"] + ": " + adopted["generation"])
     if args.action == "check":
         return int(any(row["status"] != "UNCHANGED" or row.get("runtimeMatchesSource") is False
                        for group in report["groups"] + report["artifacts"] for row in group["files"]))

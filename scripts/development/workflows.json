@@ -333,6 +333,10 @@
       "description": "Inspeccionar, preparar, verificar o adoptar por digest una generaci\u00f3n de fuentes"
     },
     {
+      "usage": "./dev sources prepare --adopt",
+      "description": "Preparar y adoptar las fuentes actuales verificadas sin copiar hashes a mano"
+    },
+    {
       "usage": "./dev bundle [build|verify|run]",
       "description": "Empaquetar fuentes y recursos declarados en un candidato trasladable"
     },

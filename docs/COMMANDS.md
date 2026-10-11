@@ -16,6 +16,7 @@ Generado desde `scripts/development/workflows.json`; `./dev help` usa el mismo c
 ./dev workflows                         Entradas vigentes y alcance de cada comprobación
 ./dev boundaries                        Comprobar dependencias y exports entre módulos
 ./dev sources [status|prepare|check|verify|adopt] Inspeccionar, preparar, verificar o adoptar por digest una generación de fuentes
+./dev sources prepare --adopt           Preparar y adoptar las fuentes actuales verificadas sin copiar hashes a mano
 ./dev bundle [build|verify|run]         Empaquetar fuentes y recursos declarados en un candidato trasladable
 ./dev pins [check|update] [--profile NOMBRE] Revisar o actualizar hashes actuales; conserva publicaciones históricas
 ./dev resources [status|check]          Espacio por función y rutas locales sin clasificar
