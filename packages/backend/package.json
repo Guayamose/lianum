@@ -19,7 +19,8 @@
     "./defi/generation-withdrawal": "./src/defi/withdrawals/generation-private-vault-exit.mjs",
     "./encoding/statements": "./src/execution/encoding/statements.mjs",
     "./encoding/commitments": "./src/execution/encoding/commitments.mjs",
-    "./storage/records": "./src/claims/storage/segmented-record-store.mjs"
+    "./storage/records": "./src/claims/storage/segmented-record-store.mjs",
+    "./accounts/durable-keeper": "./src/accounts/storage/durable-generic-account-keeper.mjs"
   },
   "lianum": {
     "status": "active"

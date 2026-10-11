@@ -228,7 +228,7 @@ async function nativeGraphSession(input, recovery) {
     'FLAT_ACCOUNT_NATIVE_GRAPH_ONLY_REQUIRED');
   need(!nativeAccounts.has(account), 'FLAT_ACCOUNT_MANUAL_GRAPH_SESSION_ALREADY_CREATED');
   nativeAccounts.add(account); // uncertain creation never grants a second journal
-  const { createDurableGenericAccountKeeperV1, reopenDurableGenericAccountKeeperV1 } = await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const { createDurableGenericAccountKeeperV1, reopenDurableGenericAccountKeeperV1 } = await import('../../accounts/storage/durable-generic-account-keeper.mjs');
   const { createFlatAccountSession } = await import('./flat-account-session.mjs');
   const keeper = recovery
     ? await reopenDurableGenericAccountKeeperV1({ config: account.config, journal, authority: account.authority }, recovery.keeper)
@@ -306,7 +306,7 @@ async function wrappedGraphSession(input,recovery){
   const journal = Object.freeze({ path: input.journal.path, password: input.journal.password });
   assertOwnedWrappedWalletPortfolioV1(runtime, portfolio);
   claimWrappedWalletPortfolioJournalV1(runtime, portfolio); // one attempt, including uncertain/failed creation
-  const {createDurableGenericAccountKeeperV1,reopenDurableGenericAccountKeeperV1}=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const {createDurableGenericAccountKeeperV1,reopenDurableGenericAccountKeeperV1}=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
   const { createFlatAccountSession } = await import('./flat-account-session.mjs');
   const lifetimeRegistry=await import('../../claims/wrapped/recovery/wrapped-private-lifetime-registry-v1.mjs'),lifetimeIdentity={profile:'WRAPPED_GRAPH_KEEPER_LIFETIME_V1',config:portfolio.config};let lifetimeHandle;
   if(recovery){const original=await lifetimeRegistry.readWrappedPrivateLifetimePartV1(runtime,'wallet-graph-keeper',lifetimeIdentity);assert.deepEqual(original.privateState,{config:portfolio.config,journal,checkpoint:recovery.keeper.checkpoint,pendingCheckpoint:recovery.keeper.pendingCheckpoint,parentCheckpoint:recovery.keeper.parentCheckpoint},'WRAPPED_GRAPH_REGISTRY_CHECKPOINT_CHANGED');lifetimeHandle=original.handle;}
@@ -416,7 +416,7 @@ export function flatManualWrappedGraphActionTarget(session, action, input) {
 export async function captureWrappedWalletGraphSessionV1(session){
  const state=sessions.get(session);need(state?.wrappedPortfolio&&state.durableKeeper&&!state.captured,'WALLET_ACCOUNT_ORIGINAL_SESSION_REQUIRED');if(!state.recoveryFence)fenceWrappedWalletGraphSessionV1(session);state.captured=true;
  const drained=await Promise.allSettled([state.recoveryFence,state.economicCapture??Promise.resolve(null)]);for(const outcome of drained)if(outcome.status==='rejected')throw outcome.reason;
- const {captureDurableGenericAccountKeeperV1}=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+ const {captureDurableGenericAccountKeeperV1}=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
  try{const economicState=await capturedSessionEconomicState(state);return {schema:economicState?'WRAPPED_ORIGINAL_GRAPH_SESSION_ECONOMIC_RECOVERY_V1':'WRAPPED_ORIGINAL_GRAPH_SESSION_RECOVERY_V1',keeper:await captureDurableGenericAccountKeeperV1(state.durableKeeper),
    reviews:state.recoveryReviews,...(economicState?{economicState}: {})};}
  catch(error){try{await state.durableKeeper.close();}catch(cleanup){throw new AggregateError([error,cleanup],'WRAPPED_GRAPH_CAPTURE_CLEANUP_FAILED',{cause:error});}throw error;}
@@ -470,7 +470,7 @@ export function captureOriginalNativeSessionEconomicRecoveryV1(session, token) {
     const drained=await Promise.allSettled([state.nativeFence,state.economicCapture??Promise.resolve(null)]);for(const outcome of drained)if(outcome.status==='rejected')throw outcome.reason;
     const originalSnapshot = drained[0].value;
     need(!originalSnapshot.busy && originalSnapshot.queued === 0, 'NATIVE_SESSION_ORIGINAL_IDLE_REQUIRED');
-    const { captureDurableGenericAccountKeeperV1 } = await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    const { captureDurableGenericAccountKeeperV1 } = await import('../../accounts/storage/durable-generic-account-keeper.mjs');
     state.nativeKeeperCaptureStarted = true;
     const keeper = await captureDurableGenericAccountKeeperV1(state.durableKeeper); // closes actual worker/IPC before returning
     state.nativeStopped = true;
@@ -567,7 +567,7 @@ async function updateSourceSession(state,confirmed,ownedProcesses,candidate) {
 }
 export async function prepareOriginalNativeSessionKeeperSourceCheckpointV1(session,keeper) {
   need(arguments.length===2,'NATIVE_SOURCE_SESSION_ARGUMENTS');const state=originalSourceSessionState(session,keeper);
-  const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const module=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
   const candidate=await module.readOriginalNativeSourceSessionKeeperCandidateV1(keeper,session);
   exactRecord(candidate,['revision','stateSHA256']);need(Number.isSafeInteger(candidate.revision)&&candidate.revision>=0&&/^[0-9a-f]{64}$/.test(candidate.stateSHA256),'NATIVE_SOURCE_ORIGINAL_CHECKPOINT');
   await updateSourceSession(state,state.nativeSource.section.confirmed,state.nativeSource.section.ownedProcesses,
@@ -575,7 +575,7 @@ export async function prepareOriginalNativeSessionKeeperSourceCheckpointV1(sessi
 }
 export async function confirmOriginalNativeSessionKeeperSourceCheckpointV1(session,keeper) {
   need(arguments.length===2,'NATIVE_SOURCE_SESSION_ARGUMENTS');const state=originalSourceSessionState(session,keeper);
-  const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+  const module=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
   const snapshot=await module.readOriginalNativeSourceSessionKeeperV1(keeper,session);
   // The keeper itself supplies this exact snapshot from its original parent
   // readback; the caller still must hold both of the original references.
@@ -593,7 +593,7 @@ async function originalSourceSessionWork(session,work) {
   const source=state.nativeSource;originalSourceSessionState(session);need(!source.busy&&!source.fault,'NATIVE_SOURCE_SESSION_UNAVAILABLE');source.busy=true;
   try {
     await updateSourceSession(state,source.section.confirmed,source.section.ownedProcesses,{kind:'ADMITTED_KEEPER_OPERATION'});
-    const value=await work(),module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    const value=await work(),module=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
     const snapshot=await module.readOriginalNativeSourceSessionKeeperV1(state.durableKeeper,session);
     await updateSourceSession(state,sourceSessionPayload(state,snapshot),await sourceOwnedCoordinatorProcesses(state,snapshot),null);return value;
   }catch(error){source.fault=true;throw error;}finally{source.busy=false;}
@@ -616,7 +616,7 @@ export async function createOriginalNativeSourceGraphAccountSessionV1(token,inpu
   const {owner,...original}=input,joined=await nativeGraphSession(original,null),state=sessions.get(joined.session);
   state.nativeSource={identity,owner,token,session:joined.session,handle:null,section:null,busy:false,fault:false};
   try {
-    const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    const module=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
     const snapshot=await module.readOriginalNativeSourceSessionKeeperV1(state.durableKeeper,joined.session);
     const section={schema:'ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1',sourceSHA256:identity.sourceSHA256,
       ownedProcesses:await sourceOwnedCoordinatorProcesses(state,snapshot),confirmed:sourceSessionPayload(state,snapshot),candidate:null};
@@ -642,7 +642,7 @@ export async function reopenOriginalNativeSessionSourceV1(token,contexts) {
     {...retained,source:true,owner:contexts.owner}),state=sessions.get(joined.session);
   state.nativeSource={identity,owner:contexts.owner,token,session:joined.session,handle,section:structuredClone(section),busy:false,fault:false};
   try {
-    const module=await import('../../../../engine/src/execution/accounts/generic-account-keeper.mjs');
+    const module=await import('../../accounts/storage/durable-generic-account-keeper.mjs');
     const snapshot=await module.bindOriginalNativeSourceSessionKeeperV1(state.durableKeeper,joined.session);
     await updateSourceSession(state,sourceSessionPayload(state,snapshot),await sourceOwnedCoordinatorProcesses(state,snapshot),null);
     await reopenOriginalSessionWalletEconomicStateAfterCrashV1(joined.session);return originalSourceJoinedSession(joined);
