@@ -12,14 +12,14 @@ import {performance} from 'node:perf_hooks';
 let root=dirname(fileURLToPath(import.meta.url));while(root!==parse(root).root&&!existsSync(join(root,'scripts/layout.json')))root=dirname(root);
 assert.notEqual(root,parse(root).root);root=realpathSync(root);
 const [vault,privacy,inputs,encoding,publicCrypto,signing,wire,profile]=await Promise.all([
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-product/src/vault.mjs')).href),
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-product/src/privacy.mjs')).href),
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/readiness-inputs.mjs')).href),
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/commitments.mjs')).href),
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-product/src/private-cohort-public-native.mjs')).href),
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/native-economic-local-signing-v2.mjs')).href),
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs')).href),
- import(pathToFileURL(join(root,'.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/owned-evm-native-value-profile.mjs')).href)]);
+ import('../../packages/engine/src/crypto/vault.mjs'),
+ import('../../packages/engine/src/crypto/privacy.mjs'),
+ import('../../packages/components/src/plain-input.mjs'),
+ import('../../packages/components/src/encoding/commitments.mjs'),
+ import('../../packages/engine/src/cohorts/private-cohort-public-native.mjs'),
+ import('../../packages/backend/src/chains/evm/runtime/native-economic-local-signing-v2.mjs'),
+ import('../../packages/backend/src/chains/evm/contracts/transaction-wire-codec.mjs'),
+ import('../../packages/backend/src/chains/evm/transfers/owned-evm-native-value-profile.mjs')]);
 const source=await readFile(new URL('./owned-base-native-value-dispatch-v1.mjs',import.meta.url),'utf8');
 function host(options={}){
  const pairs=new WeakMap(),requests=new WeakMap(),identities=new WeakMap(),calls=[];let sends=0,keys=0,feeReads=0,included=null,currentPrepared=null,lastSigned=null;

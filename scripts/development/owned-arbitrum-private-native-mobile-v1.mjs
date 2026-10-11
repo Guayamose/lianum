@@ -7,13 +7,12 @@ import {randomBytes,createHash,X509Certificate,createPrivateKey,createPublicKey}
 import {constants} from 'node:fs';
 import {mkdir,mkdtemp,lstat,realpath,open} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
-import {fileURLToPath,pathToFileURL} from 'node:url';
+import {fileURLToPath} from 'node:url';
 import {isIP} from 'node:net';
-import {normalizeOriginalNativeDeviceLocalConfigurationV1} from '../../.internal/runtime/omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-device-local-restart-v1.mjs';
+import {normalizeOriginalNativeDeviceLocalConfigurationV1} from '../../packages/backend/src/operations/recovery/native-device-local-restart-v1.mjs';
 import {createOriginalArbitrumNativeMobileSourceV1,assertOriginalOwnedRollupSourceProfileV1,readOriginalOwnedRollupSourceProfileV1,closeOriginalOwnedRollupSourceProfileV1} from './owned-rollup-original-source-profile-v1.mjs';
 import {createOwnedArbitrumNitroNativeValueClusterV1,assertOwnedArbitrumNitroNativeValueLiveV1,readOwnedArbitrumNitroNativeValueIdentityV1} from './owned-arbitrum-nitro-v1.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..'),local=join(root,'.local/original-arbitrum-mobile-v1');
-const runtimeRoot=join(root,'.internal/runtime/omnichain-flat-profile/flat-wallet'),modules=join(runtimeRoot,'wallet-platform/modules');
 const fresh=()=>randomBytes(32).toString('hex');
 const fields=['dev','ino','mode','uid','gid','nlink','size','mtimeMs','ctimeMs'];
 async function privateDirectory(path){const s=await lstat(path);assert(s.isDirectory()&&!s.isSymbolicLink()&&s.uid===process.getuid()&&(s.mode&0o777)===0o700&&await realpath(path)===path,'NITRO_MOBILE_PRIVATE_DIRECTORY');}
@@ -22,7 +21,6 @@ async function privateJSON(path,maximum){await privateDirectory(dirname(path));c
  bytes=Buffer.alloc(before.size+1);let offset=0;while(offset<bytes.length){const read=await fd.read(bytes,offset,bytes.length-offset,offset);if(!read.bytesRead)break;offset+=read.bytesRead;}
  assert.equal(offset,before.size);for(const after of [await fd.stat(),await lstat(path)])for(const k of fields)assert.equal(after[k],before[k],'NITRO_MOBILE_PRIVATE_FILE_CHANGED');
  return JSON.parse(bytes.subarray(0,offset).toString('utf8'));}finally{bytes?.fill(0);await fd.close();}}
-async function load(path){return import(pathToFileURL(join(modules,path)).href);}
 export function originalOwnedArbitrumMobileConfigurationPathV1(){assert.equal(arguments.length,0);return join(local,'operator.json');}
 function configuration(raw){const selected=normalizeOriginalNativeDeviceLocalConfigurationV1(raw);
  const cert=new X509Certificate(selected.tls.certificate),key=createPrivateKey(selected.tls.privateKey),pub=createPublicKey(key);assert.equal(pub.asymmetricKeyType,cert.publicKey.asymmetricKeyType,'NITRO_MOBILE_TLS_KEY');
@@ -36,12 +34,12 @@ async function retainedRecipient(s){assertOriginalOwnedRollupSourceProfileV1(s.s
  assert.equal(count,before.size);for(const after of [await fd.stat(),await lstat(fixture)])for(const k of fields)assert.equal(after[k],before[k],'NITRO_MOBILE_ORIGINAL_FIXTURE_CHANGED');
  assert.equal(createHash('sha256').update(bytes.subarray(0,count)).digest('hex'),'0af22a05583b70cda4d3b985ac710203a235d76c82513637fde96b68abeec412','NITRO_MOBILE_ORIGINAL_FIXTURE_CHANGED');
  }finally{bytes?.fill(0);await fd.close();}
- const {nativeEconomicLocalAddressV2}=await load('chain-adapters/native-economic-local-signing-v2.mjs'),alice=createHash('sha256').update('user_alice','utf8').digest(),bob=createHash('sha256').update('user_bob','utf8').digest();
+ const {nativeEconomicLocalAddressV2}=await import('../../packages/backend/src/chains/evm/runtime/native-economic-local-signing-v2.mjs'),alice=createHash('sha256').update('user_alice','utf8').digest(),bob=createHash('sha256').update('user_bob','utf8').digest();
  try{const sender=await nativeEconomicLocalAddressV2(alice),recipient=await nativeEconomicLocalAddressV2(bob);assert.equal(sender,s.nativeRuntime.accounts[0],'NITRO_MOBILE_ORIGINAL_CUSTODY_SENDER');assert.notEqual(sender,recipient);
  assertOriginalOwnedRollupSourceProfileV1(s.source);assertOwnedArbitrumNitroNativeValueLiveV1(s.nativeRuntime);assert.deepEqual(await readOwnedArbitrumNitroNativeValueIdentityV1(s.nativeRuntime),identity,'NITRO_MOBILE_ORIGINAL_IDENTITY_CHANGED');return recipient;
  }finally{alice.fill(0);bob.fill(0);}}
-async function provider(s){const {createOwnedNativeValueProviderCustody}=await load('solvers/native-value-provider-v2.mjs');const {profileCommitment}=await load('chain-adapters/generic-native-value-v2.mjs');
- const paeg=join(root,'.internal/runtime/omnichain-product/src/paeg'),recipientApi=await import(pathToFileURL(join(paeg,'native-recipient-process.mjs')).href),recipientProtocol=await import(pathToFileURL(join(paeg,'native-recipient-custody.mjs')).href),preparationApi=await import(pathToFileURL(join(paeg,'generic-balance-native-preparation.mjs')).href),admission=await import(pathToFileURL(join(paeg,'native-admission.mjs')).href);
+async function provider(s){const {createOwnedNativeValueProviderCustody}=await import('../../packages/backend/src/providers/native-value-provider-v2.mjs');const {profileCommitment}=await import('../../packages/backend/src/chains/shared/transfers/generic-native-value-v2.mjs');
+ const recipientApi=await import('../../packages/backend/src/execution/native/recipients/native-recipient-process.mjs'),recipientProtocol=await import('../../packages/engine/src/execution/native/recipients/native-recipient-custody.mjs'),preparationApi=await import('../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs'),admission=await import('../../packages/engine/src/execution/native/dispatch/native-admission.mjs');
  const domain=s.system.pools[0].domain,now=await s.runtime.time(),cutoff=now+28800n,operationId=fresh(),directory=join(s.nativeRuntime.metadata.scratchDirectory,'original-device-product-provider');await mkdir(directory,{mode:0o700});await privateDirectory(directory);
  const recipientEndpoint=await retainedRecipient(s);s.providerCustody=await createOwnedNativeValueProviderCustody({runtime:s.runtime,system:s.system,poolIndex:0,nativeRuntime:s.nativeRuntime,bootstrap:s.bootstrap,profileCommitment:profileCommitment(s.system.adapterProfiles[0].profile),recipientEndpoint,
  terms:{scope:domain.scope,policy:domain.policy,asset:domain.asset,amount:'1000000',executionFrom:String(now),executionUntil:String(cutoff-60n),settleBefore:String(cutoff)},acceptedLossClause:admission.NATIVE_ADMISSION_LOSS_CLAUSE,directory,password:fresh()});
@@ -69,7 +67,7 @@ export async function createOriginalOwnedArbitrumPrivateNativeMobileV1(raw){asse
  if(s.runtime)await stop('receiver',()=>s.runtime.close({removeScratch:false}),v=>v.stopped);if(s.source)await stop('source',()=>closeOriginalOwnedRollupSourceProfileV1(s.source),v=>v.closed);
  selected.tls=null;if(errors.length)throw new AggregateError(errors,'NITRO_MOBILE_ORIGINAL_CLOSE_UNCONFIRMED');return Object.freeze({closed:true,originalResourcesStopped:true,retainedEncryptedJournals:true,stopped:Object.freeze(stopped)});})();return s.closeWork;}
  try{s.source=createOriginalArbitrumNativeMobileSourceV1();assertOriginalOwnedRollupSourceProfileV1(s.source);
- const receiverApi=await load('chain-adapters/owned-evm-v2-runtime.mjs'),bootstrapApi=await load('ops/native-value-local-operator-bootstrap-v4.mjs'),systemApi=await load('ops/native-value-system-v2.mjs'),artifacts=await load('ops/native-value-deployment-artifacts-v2.mjs'),ownerApi=await import(pathToFileURL(join(runtimeRoot,'mobile-core/native-value-owner-process-v2.mjs')).href),executionApi=await load('paeg/native-value-execution-v2.mjs'),accountApi=await load('global-state/native-value-account-authority-v2.mjs'),sessionApi=await load('api/flat-manual-graph-session.mjs'),installer=await load('ops/native-device-local-operator-v1.mjs'),vaultApi=await import(pathToFileURL(join(root,'.internal/runtime/omnichain-product/src/vault.mjs')).href);
+ const receiverApi=await import('../../packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),bootstrapApi=await import('../../packages/backend/src/operations/operators/native-value/native-value-local-operator-bootstrap-v4.mjs'),systemApi=await import('../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs'),artifacts=await import('../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs'),ownerApi=await import('../../packages/backend/src/custody/processes/native-value-owner-process-v2.mjs'),executionApi=await import('../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs'),accountApi=await import('../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs'),sessionApi=await import('../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs'),installer=await import('../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs'),vaultApi=await import('@lianum/engine/crypto/vault');
  await artifacts.loadNativeValueDevDeploymentArtifactsV5();assertOriginalOwnedRollupSourceProfileV1(s.source);
  s.nativeRuntime=await createOwnedArbitrumNitroNativeValueClusterV1();assertOwnedArbitrumNitroNativeValueLiveV1(s.nativeRuntime);assertOriginalOwnedRollupSourceProfileV1(s.source);
  s.runtime=await receiverApi.createOwnedNativeEconomicObservedReceiverV2();s.bootstrap=await bootstrapApi.createOwnedLocalNativeValueOperatorBootstrap({nativeRuntimes:[s.nativeRuntime]});
