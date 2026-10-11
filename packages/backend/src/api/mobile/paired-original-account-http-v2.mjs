@@ -1,5 +1,5 @@
-import {isOriginalNativePrivateReservationBridgeV2} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {isOriginalNativePrivateExecutionBridgeV2} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {isOriginalNativePrivateReservationBridgeV2} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {isOriginalNativePrivateExecutionBridgeV2} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 /** Direct transport for exactly one retained same-realm actor. The HTTP factory
  * remains loopback-only; an operator may install the same dispatcher with TLS.
  * No public platform adoption or new economic capabilities are issued.
@@ -12,11 +12,11 @@ import { types } from 'node:util';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2, nativePairedActorEconomicSourceV1, assertNativeActorSessionAccountMembershipV1 }
   from './paired-original-account-actor-v2.mjs';
 import { assertNativeEconomicRecoveryCaptureV1 } from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
-import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBindingsV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import { deviceOwnerReservationBridgeActorV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {deviceOwnerExecutionBridgeActorV1,assertDeviceOwnerExecutionTransportBindingsV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {wipeDeviceExitWitnessV1} from '@lianum/mobile-protocol/device-exit-consent-v1';
 import { wipeDeviceReservationWitnessV1 } from '@lianum/mobile-protocol/device-reservation-consent-v1';
-import { deviceOwnerDepositBridgeActorV1,isOriginalNativePrivateDepositBridgeV2 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { deviceOwnerDepositBridgeActorV1,isOriginalNativePrivateDepositBridgeV2 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { assertOriginalDeviceDurableDispatchBindingsV1, runOriginalDeviceDurableDispatchV1 }
   from './original-device-durable-dispatch-v1.mjs';
 const listeners = new WeakSet(), ownedTransports = new WeakMap(), depositContinuations = new WeakMap();

@@ -22802,7 +22802,10 @@
     "packages/backend/src/claims/wrapped/recovery/wrapped-system-composition-v1.mjs": "packages/backend/src/claims/wrapped/recovery/wrapped-system-recovery-backend-v1.mjs",
     "packages/backend/src/operations/recovery/external-defi-bootstrap-recovery-v1.mjs": "packages/backend/src/claims/wrapped/recovery/external-bootstrap-recovery-backend-v1.mjs",
     "packages/backend/tests/support/authority-source-host.mjs": "packages/backend/tests/support/native-source-host.mjs",
-    "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": "packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs"
+    "packages/backend/src/operations/recovery/native-original-source-observed-clock-v1.mjs": "packages/backend/src/operations/recovery/native-original-source-clock-backend-v1.mjs",
+    "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-deposit-bridge-backend-v1.mjs",
+    "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-reservation-bridge-backend-v1.mjs",
+    "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-execution-bridge-backend-v1.mjs"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [
@@ -22810,5 +22813,10 @@
       "@lianum/proofs/toolchain/paged-artifacts-v3",
       "@lianum/proofs/toolchain/paged-proof-client-v3"
     ]
+  },
+  "retiredRuntimeSources": {
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs"
   }
 }

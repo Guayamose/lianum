@@ -477,19 +477,55 @@ test('HOST private Native W39 SDK binds deposited/change/recovery openings to or
  const make=(ready,noteRole)=>{const c={version:2,profile:P.DEVICE_NATIVE_PRIVATE_EXIT_V2,action:'PROVE_W39',origin,pairingId,devicePublicKey,challengeId:h('native-w39-challenge-'+noteRole),nonce:h('native-w39-nonce-'+noteRole),expiresAt:Date.now()+15000,binding,poolTerms:{scope,policy,codeHash:h('code'),assetIdentity:h('asset'),domainCommitment:h('domain')},parentJobId:h('native-w39-parent-'+noteRole),nativeBindingSHA256:h('native-w39-parent-receipt-'+noteRole),quoteId:h('native-w39-quote-'+noteRole),jobId:h('native-w39-job-'+noteRole),rootId:h('native-w39-root'),noteRevision:1,noteRole,statement:{scope,policy,epoch:'10',root:member.root,nullifier:nf,amount:'20',recipient,commitment:cm},witnessSHA256,proofSHA256:null,publicInputsSHA256:null,observed:{blockNumber:'1',blockHash:h('head'),timestamp:'6000'},openingDisclosure:'ENCRYPTED_W39_OPENING_TO_ORIGINAL_NATIVE_RECIPIENT',privateProof:{profile:P.DEVICE_NATIVE_PRIVATE_EXIT_PROOF_V2,recipient:ready,path:member,transcriptSHA256:'1'.repeat(64)}};c.privateProof.transcriptSHA256=h(P.nativePrivateExitTranscriptBytesV2(c));return P.normalizeNativePrivateExitConsentV2(c);};
  const sign=c=>signature(device,P.deviceExitConsentEitherMessageV2(c)).toString('hex'),access={version:2,profile:'LIANUM_ORIGINAL_ACCOUNT_ACCESS_V2',origin,pairingId,devicePublicKey,challengeId:h('native-w39-access'),nonce:h('native-w39-access-nonce'),expiresAt:Date.now()+15000,action:'read'};
  let posts=0;
- // Execute the exact production factories/installer bodies. All Native
+ // Execute the real isolated bridge family. All Native
  // deployment/process/proof ports below are explicitly inert; no fake economic
  // result is produced. The producer is required to reach source review, and
  // the private bridge must install both profiles before the TLS port opens.
- const bridgeURL=physical('../../../backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs','../wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs'),operatorURL=physical('../../../backend/src/operations/recovery/native-device-local-operator-v1.mjs','../wallet-platform/modules/ops/native-device-local-operator-v1.mjs');
+ const operatorURL=physical('../../../backend/src/operations/recovery/native-device-local-operator-v1.mjs','../wallet-platform/modules/ops/native-device-local-operator-v1.mjs');
  const {createPublicKey}=await import('node:crypto'),{types}=await import('node:util'),{exactRecord}=await import(physical('@lianum/components/encoding/commitments','../wallet-platform/modules/paeg/commitments.mjs'));
- const source=readFileSync(bridgeURL,'utf8'),begin=source.indexOf('export function createDeviceOwnerExecutionBridgeV1(input)'),end=source.indexOf('/** Verifies only an existing original native/W39 challenge');assert.ok(begin>0&&end>begin);
  let hostNow=Date.now(),standbyMs=0,clientCloses=0,sequence=0;const order=[],runtime=Object.freeze({}),system=Object.freeze({}),nativeExecution=Object.freeze({}),reservationBridge=Object.freeze({}),custody=Object.freeze({}),sourceAccount=Object.freeze({config:{registry:[{codeHash:h('code')}]}}),hostOwner=Object.freeze({});
  const descriptor={origin,pairingId,devicePublicKey},actor=Object.freeze({deviceDepositSignedReadBindingV1:async()=>binding}),view={domain:{scope,policy,asset:h('asset')},domainCommitment:h('domain'),head:{number:'1',hash:h('head'),timestamp:'6000'}},terms={parentJobId:h('host-constructor-parent'),nativeBindingSHA256:h('host-constructor-deposit-receipt'),rootId:h('host-constructor-root'),noteRevision:1,noteRole:'deposit',nullifierSpent:false,statement:{scope,policy,epoch:'10',root:member.root,nullifier:nf,amount:'20',recipient,commitment:cm},path:member,poolTerms:{scope,policy,codeHash:h('code'),assetIdentity:h('asset'),domainCommitment:h('domain')},observed:{blockNumber:'1',blockHash:h('head'),timestamp:'6000'}};
  const sameAccount=(value,refs)=>{assert.equal(value,sourceAccount);assert.equal(refs.runtime,runtime);assert.equal(refs.system,system);assert.equal(refs.poolIndex,0);},sameExecution=(value,refs)=>{assert.equal(value,nativeExecution);assert.equal(refs.runtime,runtime);assert.equal(refs.system,system);assert.equal(refs.poolIndex,0);};
  const {originalAccountAccessMessageV2}=await import(physical('../../../mobile-protocol/src/original-account-review-v2.mjs','../../../mobile-protocol/src/original-account-review-v2.mjs'));
  const ports={assert,types,createPublicKey,exactRecord,originalAccountAccessMessageV2,bridges:new WeakMap(),admissions:new WeakMap(),sha:h,nonce:()=>h('host-native-exit-nonce-'+(++sequence)),cloneInput:structuredClone,PrivateExit:P,exitNormalize:P.normalizeDeviceExitConsentEitherV2,exitFresh:P.validateDeviceExitConsentEitherFreshV2,exitMessage:P.deviceExitConsentEitherMessageV2,Date:{now:()=>hostNow},assertOwnedNativeValueAccountAuthority:sameAccount,assertOwnedNativeValueExecution:sameExecution,assertDeviceOwnerReservationBridgeV1:(value,account)=>{assert.equal(value,reservationBridge);assert.equal(account,sourceAccount);return descriptor;},deviceOwnerReservationBridgeActorV1:value=>{assert.equal(value,reservationBridge);return actor;},assertOwnedNativeValueProviderCustody:(value,refs)=>{assert.equal(value,custody);assert.equal(refs.runtime,runtime);assert.equal(refs.system,system);assert.equal(refs.poolIndex,0);},createNativeValueSystemStateReader:async refs=>{assert.equal(refs.runtime,runtime);assert.equal(refs.system,system);return{read:async()=>view,assertCurrent:async value=>assert.equal(value,view)};},installDeviceOwnerExecutionV1:async(account,bridge)=>{assert.equal(account,sourceAccount);order.push('execution');assert.equal(typeof bridge.prepareExit,'function');},installOriginalNativePrivateExitV2:async(account,bridge)=>{assert.equal(account,sourceAccount);assert.equal(typeof bridge.proveExit,'function');order.push('privateW39');},prepareDeviceOwnerExitV1:async(account,bridge)=>{assert.equal(account,sourceAccount);assert.equal(typeof bridge.prepareExit,'function');return structuredClone(terms);},createOriginalNativePrivateExitProofClientV2:()=>{const own=createPrivateProofRecipientV1({relation:'withdraw_balance',role:'owner',jobId:'host-original-private-constructor-'+(++sequence)});return{prepare:async expected=>{assert.equal(expected.length,39);hostNow+=standbyMs;return readPrivateProofRecipientV1(own);},close:async()=>{clientCloses++;closePrivateProofRecipientV1(own);return{closed:true,inFlight:0};}};}};
- const bridgeFactories=new Function(...Object.keys(ports),source.slice(begin,end).replace(/^export /gm,'')+';return{createDeviceOwnerExecutionBridgeV1,createOriginalNativePrivateExecutionBridgeV2,isOriginalNativePrivateExecutionBridgeV2};')(...Object.values(ports)),bridgeInput={account:sourceAccount,reservationBridge,nativeExecution,providers:[{slot:0,custody,deliveryRiskSalt:h('risk')}],runtime,system,poolIndex:0};
+ // Run the actual isolated family. The proof-client boundary and clock are
+ // controlled HOST ports; bridge maps, consent validation and deadlines are real.
+ const proofClientURL = new URL('../../src/jobs/native-device-private-exit-client-v2.mjs', import.meta.url);
+ t.mock.module(proofClientURL.href, {namedExports:{
+   createOriginalNativePrivateExitProofClientV2:ports.createOriginalNativePrivateExitProofClientV2,
+   createOriginalNativePrivateExitProofClientV3:ports.createOriginalNativePrivateExitProofClientV2,
+ }});
+ t.mock.method(Date, 'now', () => hostNow);
+ const {buildDeviceExecutionBridgeBackendV1} = await import('../../../backend/src/accounts/authority/device-execution-bridge-backend-v1.mjs');
+ const forbidden = () => assert.fail('HOST_UNUSED_BRIDGE_OPERATION');
+ const bridgeFactories = buildDeviceExecutionBridgeBackendV1({
+  executor:{
+    assertOwnedNativeValueExecution: ports.assertOwnedNativeValueExecution ?? forbidden,
+  },
+  providers:{
+    assertOwnedNativeValueProviderCustody: ports.assertOwnedNativeValueProviderCustody ?? forbidden,
+  },
+  reservation:{
+    assertDeviceOwnerReservationBridgeV1: ports.assertDeviceOwnerReservationBridgeV1 ?? forbidden,
+    deviceOwnerReservationBridgeActorV1: ports.deviceOwnerReservationBridgeActorV1 ?? forbidden,
+  },
+  account:{
+    installDeviceOwnerExecutionV1: ports.installDeviceOwnerExecutionV1 ?? forbidden,
+    readDeviceOwnerExecutionStatusV1: ports.readDeviceOwnerExecutionStatusV1 ?? forbidden,
+    runDeviceOwnerExecutionAuthorizationV1: ports.runDeviceOwnerExecutionAuthorizationV1 ?? forbidden,
+    installOriginalNativePrivateExitV2: ports.installOriginalNativePrivateExitV2 ?? forbidden,
+    assertOwnedNativeValueAccountAuthority: ports.assertOwnedNativeValueAccountAuthority ?? forbidden,
+    prepareDeviceOwnerExitV1: ports.prepareDeviceOwnerExitV1 ?? forbidden,
+    readDeviceOwnerExitStatusV1: ports.readDeviceOwnerExitStatusV1 ?? forbidden,
+    runDeviceOwnerExitAuthorizationV1: ports.runDeviceOwnerExitAuthorizationV1 ?? forbidden,
+    readDeviceOwnerOutputBalanceV1: ports.readDeviceOwnerOutputBalanceV1 ?? forbidden,
+    readDeviceOwnerRecoveryArmTermsV1: ports.readDeviceOwnerRecoveryArmTermsV1 ?? forbidden,
+    runDeviceOwnerRecoveryArmAuthorizationV1: ports.runDeviceOwnerRecoveryArmAuthorizationV1 ?? forbidden,
+  },
+  observation:{
+    createNativeValueSystemStateReader: ports.createNativeValueSystemStateReader ?? forbidden,
+  },
+ }),bridgeInput={account:sourceAccount,reservationBridge,nativeExecution,providers:[{slot:0,custody,deliveryRiskSalt:h('risk')}],runtime,system,poolIndex:0};
  const actualPrivateBridge=await bridgeFactories.createOriginalNativePrivateExecutionBridgeV2(bridgeInput);assert.equal(bridgeFactories.isOriginalNativePrivateExecutionBridgeV2(actualPrivateBridge),true);assert.deepEqual(order,['execution','privateW39']);assert.throws(()=>bridgeFactories.createOriginalNativePrivateExecutionBridgeV2(bridgeInput,false));
  const old=await bridgeFactories.createDeviceOwnerExecutionBridgeV1(bridgeInput);assert.equal(bridgeFactories.isOriginalNativePrivateExecutionBridgeV2(old),false);assert.equal(old.close().closed,true);
  for(const expire of ['access','quote']){hostNow=Date.now();standbyMs=0;const quoteAccess={...access,expiresAt:hostNow+1000},q=await actualPrivateBridge.prepareExit({access:quoteAccess,signature:'11'.repeat(64),parentJobId:terms.parentJobId,noteRole:'deposit',rootId:terms.rootId,noteRevision:1,nullifier:nf,recipient});const proofAccess={...access,expiresAt:hostNow+(expire==='access'?500:15000)},before=clientCloses;standbyMs=expire==='access'?501:1001;await assert.rejects(actualPrivateBridge.challengeExitJob({access:proofAccess,signature:'11'.repeat(64),quoteId:q.quote.quoteId,jobId:h('host-expire-'+expire),witnessSHA256}),/DEVICE_EXIT_ORIGINAL_AUTHORIZATION_EXPIRED/);assert.equal(clientCloses,before+1);}

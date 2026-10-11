@@ -6,7 +6,7 @@ import {createHash} from 'node:crypto';
 import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';
 import {deviceExecutionConsentMessageV1} from '@lianum/mobile-protocol/device-execution-consent-v1';
 import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '@lianum/mobile-protocol/device-exit-consent-v1';
-import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {runNativeDeviceEconomicOriginalContinuationV1} from './native-device-economic-original-continuation-v1.mjs';

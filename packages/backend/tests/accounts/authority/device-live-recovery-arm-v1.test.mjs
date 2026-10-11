@@ -304,7 +304,7 @@ test('HOST SOURCE reopened original note admits only next original steps and ret
    localClock=await import('../../../src/operations/recovery/native-device-local-observed-clock-v1.mjs'),
    system=await import('../../../src/operations/deployments/native-value/native-value-system-v2.mjs'),
    originalExecution=await import('../../../src/execution/native-value/execution/native-value-execution-v2.mjs'),
-   originalReservation=await import('../../../src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
+   originalReservation=await import('../../../src/accounts/authority/native-value-account-authority-v2.mjs');
   ctx.originalRecovery=Object.freeze({
    refreshOriginalNativeSourceObservedClockV1:ctx.refreshOriginalNativeSourceObservedClockV1,
    assertOriginalNativeSourceObservedClockV1:sourceClock.assertOriginalNativeSourceObservedClockV1,

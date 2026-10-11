@@ -360,8 +360,8 @@ test('original D26 TLS handoff preserves its actor only for the genuine U/S succ
   const actor = await createPairedOriginalAccountActorV2({ session: f.session, approval: f.approval,
     owner: f.world.owner, origin: 'https://localhost:' + reservation.port, devicePublicKey: f.device.publicKey });
   const descriptor = pairedOriginalAccountActorDescriptorV2(actor);
-  const {createDeviceOwnerDepositBridgeV1} = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
-  const {createDeviceOwnerReservationBridgeV1} = await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
+  const {createDeviceOwnerDepositBridgeV1} = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
+  const {createDeviceOwnerReservationBridgeV1} = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
   const original = {actor,account:f.account,owner:f.world.owner,runtime:f.world.runtime,system:f.world.system,poolIndex:0};
   const deposit = await createDeviceOwnerDepositBridgeV1(original); await reservation.close();
   const first = await createPairedDeviceDepositTlsServerV1({bridge:deposit,tls:material});

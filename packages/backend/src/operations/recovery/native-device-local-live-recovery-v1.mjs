@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {exactRecord} from '@lianum/components/encoding/commitments';
 import {assertOwnedNativeValueAccountAuthority,createDeviceOwnerLiveRecoveryLeaseV1,createOriginalNativeSourceLiveRecoveryLeaseV1,
  tickDeviceOwnerLiveRecoveryLeaseV1,closeDeviceOwnerLiveRecoveryLeaseV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
-import {assertDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {assertDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {assertOriginalNativeDeviceLocalObservedClockV1} from './native-device-local-observed-clock-v1.mjs';
 const producers=new WeakMap();
 export function assertOriginalNativeDeviceLiveRecoveryProducerV1(producer,input){

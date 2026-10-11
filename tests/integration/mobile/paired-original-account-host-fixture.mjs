@@ -19,18 +19,19 @@ const owned = runtime => { const world = worlds.get(runtime); assert.ok(world, '
 // function except the explicit synthetic ports below.
 async function deniedNativeFunctions(path, code) {
   const source = await readFile(new URL(path, import.meta.url), 'utf8');
-  return Object.fromEntries([...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(/g)]
-    .map(([, name]) => [name, () => { throw Error(code); }]));
+  const names=[...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(/g)].map(([,name])=>name);
+  // Factory-owned public APIs use destructured exports; deny those too without
+  // loading a transitive backend owner before all lower HOST ports are installed.
+  for(const [,list] of source.matchAll(/export\s+const\s*\{([^}]+)\}/g))
+    for(const name of list.split(',').map(value=>value.trim()).filter(Boolean))names.push(name);
+  return Object.fromEntries(names.map(name=>[name,()=>{throw Error(code);}]));
 }
-mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: {
+mock.module('../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs', { exports: {
   assertLocalEvm: async runtime => owned(runtime),
   assertLocalEvmDeploymentProfile() { throw Error('HOST_DEPLOYMENT_FORBIDDEN'); },
 } });
-mock.module('../ops/native-value-wallet-binding-v2.mjs', { exports: {
-  assertOwnedNativeValueWalletSystem(runtime, system) { assert.equal(systems.get(system), owned(runtime), 'SYNTHETIC_SYSTEM_ORIGINAL'); },
-} });
-mock.module('../../../mobile-core/native-value-owner-process-v2.mjs', { exports: {
-  ...await deniedNativeFunctions('../../../mobile-core/native-value-owner-process-v2.mjs', 'HOST_NATIVE_OWNER_PROCESS_FORBIDDEN'),
+mock.module('../../../packages/backend/src/custody/processes/native-value-owner-process-v2.mjs', { exports: {
+  ...await deniedNativeFunctions('../../../packages/backend/src/custody/processes/native-value-owner-process-v2.mjs', 'HOST_NATIVE_OWNER_PROCESS_FORBIDDEN'),
   createNativeValueOwnerProcess() { throw Error('HOST_NATIVE_OWNER_PROCESS_FORBIDDEN'); },
   nativeValueOwnerEconomicIdentityV1(owner, expected) {
     const world = owners.get(owner); assert.ok(world && !world.closed, 'SYNTHETIC_OWNER_ORIGINAL');
@@ -42,7 +43,7 @@ mock.module('../../../mobile-core/native-value-owner-process-v2.mjs', { exports:
     if (expected) for (const key of Object.keys(expected)) assert.equal(world[key], expected[key]);
   },
 } });
-mock.module('../../../mobile-core/native-value-owner-observer-v2.mjs', { exports: {
+mock.module('../../../packages/backend/src/custody/observers/native-value-owner-observer-v2.mjs', { exports: {
   async createNativeValueOwnerObserver({ runtime, system, poolIndex }) {
     const world = owned(runtime); assert.equal(world.system, system); assert.equal(poolIndex, 0);
     const observer = Object.freeze({ identity: world.identity,
@@ -58,7 +59,7 @@ mock.module('../../../mobile-core/native-value-owner-observer-v2.mjs', { exports
     const world = observers.get(observer); assert.equal(world, owned(runtime)); assert.equal(world.system, system); assert.equal(poolIndex, 0);
   },
 } });
-mock.module('../paeg/native-value-system-state-v2.mjs', { exports: {
+mock.module('../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs', { exports: {
   ...Object.fromEntries(['assertNativeValueCurrentView', 'decodeFlatWords', 'decodeFlatPoolObservation', 'decodeFlatFieldTree',
     'decodeFlatHubState', 'decodeFlatOverflow', 'decodeFlatEvidenceHistory'].map(name => [name, () => { throw Error('HOST_NATIVE_BALANCE_OBSERVATION_FORBIDDEN'); }])),
   async createNativeValueSystemStateReader() { return Object.freeze({
@@ -66,13 +67,13 @@ mock.module('../paeg/native-value-system-state-v2.mjs', { exports: {
     assertCurrent() { throw Error('HOST_NATIVE_BALANCE_OBSERVATION_FORBIDDEN'); },
   }); },
 } });
-mock.module('../chain-adapters/owned-pool-asset.mjs', { exports: {
+mock.module('../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs', { exports: {
   createOwnedPoolAsset() { throw Error('HOST_NATIVE_ASSET_CREATION_FORBIDDEN'); },
   createNativePoolAsset() { throw Error('HOST_NATIVE_ASSET_CREATION_FORBIDDEN'); },
   assertOwnedPoolAsset(runtime, asset) { assert.equal(assets.get(asset), owned(runtime)); },
 } });
-mock.module('../../../../../omnichain-product/src/paeg/proof-process.mjs', { exports: {
-  ...await deniedNativeFunctions('../../../../../omnichain-product/src/paeg/proof-process.mjs', 'HOST_NATIVE_NOTE_PROOF_PROCESS_FORBIDDEN'),
+mock.module('../../../packages/proofs/src/execution/proof-process.mjs', { exports: {
+  ...await deniedNativeFunctions('../../../packages/proofs/src/execution/proof-process.mjs', 'HOST_NATIVE_NOTE_PROOF_PROCESS_FORBIDDEN'),
   createNativeEconomicNoteProofProcessV1() { throw Error('HOST_NATIVE_NOTE_PROOF_PROCESS_FORBIDDEN'); },
   createProofProcess() { return Object.freeze({
     async prove(_mode, _inputs, publicInputs) { return { proof: 'ab'.repeat(32), publicInputs: [...publicInputs], metrics: { acceptedResult: true, SYNTHETIC_HOST_ONLY: true } }; },
@@ -82,17 +83,18 @@ mock.module('../../../../../omnichain-product/src/paeg/proof-process.mjs', { exp
 // Only the recovery issuer/source ports are inert here. Their WeakMaps are
 // test-owned, not economic authority; original account/session/actor and AEAD
 // journals below are exercised. The real issuer/new-process test is separate.
-const actualSystem = await import('../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs');
-mock.module('../ops/native-value-system-v2.mjs', { exports: { ...actualSystem,
+const actualSystem = await deniedNativeFunctions('../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs','HOST_NATIVE_SYSTEM_FORBIDDEN');
+mock.module('../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs', { exports: { ...actualSystem,
+  assertOwnedNativeValueWalletSystem(runtime, system) { assert.equal(systems.get(system), owned(runtime), 'SYNTHETIC_SYSTEM_ORIGINAL'); },
   nativeValueOriginalRecoverySourceV1(runtime, system) {
     assert.equal(systems.get(system), owned(runtime), 'SYNTHETIC_SYSTEM_ORIGINAL'); return h('economic source');
   },
 } });
-const actualRecovery = await import('../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+const actualRecovery = await deniedNativeFunctions('../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs','HOST_NATIVE_RECOVERY_FORBIDDEN');
 const hostAuthorities = new WeakMap(), hostTokens = new WeakMap();
 const hostIdentity = Object.freeze({ profile: 'NATIVE_VALUE_ECONOMIC_RECOVERY_V1', directory: '/HOST_ONLY',
   runId: '00000000-0000-4000-8000-000000000001', sourceSHA256: h('economic source'), deadlineMs: 1234567890000 });
-mock.module('../native-claims/wrapped-recovery-authority-v1.mjs', { exports: { ...actualRecovery,
+mock.module('../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs', { exports: { ...actualRecovery,
   assertNativeEconomicRecoveryCaptureV1(authority) { assert.equal(hostAuthorities.get(authority), hostIdentity, 'HOST_ORIGINAL_ISSUER_REQUIRED'); return hostIdentity; },
   nativeEconomicRecoverySectionIdentityV1(token, section) { const row = hostTokens.get(token); assert.equal(row?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED'); return hostIdentity; },
   consumeNativeEconomicRecoverySectionV1(token, section) { const row = hostTokens.get(token); assert.equal(row?.section, section, 'HOST_ORIGINAL_SECTION_REQUIRED');

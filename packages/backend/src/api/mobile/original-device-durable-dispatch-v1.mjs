@@ -8,10 +8,10 @@ import { createHmac, createPublicKey, verify } from 'node:crypto';
 import { cloneInput } from '@lianum/components/plain-input';
 import { assertPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from './paired-original-account-actor-v2.mjs';
-import { deviceOwnerDepositBridgeActorV1, isOriginalNativePrivateDepositBridgeV2, assertDeviceOwnerDepositDurableRequestV1 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import { deviceOwnerReservationBridgeActorV1, assertDeviceOwnerReservationDurableRequestV1 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
+import { deviceOwnerDepositBridgeActorV1, isOriginalNativePrivateDepositBridgeV2, assertDeviceOwnerDepositDurableRequestV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import { deviceOwnerReservationBridgeActorV1, assertDeviceOwnerReservationDurableRequestV1 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { deviceOwnerExecutionBridgeActorV1, isOriginalNativePrivateExecutionBridgeV2, assertDeviceOwnerExecutionTransportBindingsV1, assertDeviceOwnerExecutionDurableRequestV1 }
-  from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+  from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { normalizeOriginalAccountSignatureV2 } from '@lianum/mobile-protocol/original-account-v2';
 import { validateDeviceDepositConsentFreshV1, deviceDepositConsentMessageV1 }
   from '@lianum/mobile-protocol/device-deposit-consent-v1';

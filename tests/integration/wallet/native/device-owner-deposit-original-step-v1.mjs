@@ -1,6 +1,6 @@
-import{isOriginalNativePrivateWorkerDepositBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import{isOriginalNativePrivateWorkerExecutionBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
-import{isOriginalNativePrivateReservationBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs';
+import{isOriginalNativePrivateWorkerDepositBridgeV3}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import{isOriginalNativePrivateWorkerExecutionBridgeV3}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import{isOriginalNativePrivateReservationBridgeV2}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 /** One original D26 job and funding wire, driven by the real mobile API and
  * Noble note signature. This fixed private step shares the existing bootstrap,
  * journals and cleanup; it never adopts the Linux owner note. */
@@ -13,7 +13,7 @@ import { mkdirSync, readFileSync, lstatSync, realpathSync, rmSync, existsSync, c
 import { join } from 'node:path';
 import { writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { normalizeOriginalNativePrivateDepositFailureV2 } from '@lianum/proofs/jobs/native-device-private-deposit-client-v2';
-import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1, awaitDeviceOwnerDepositOriginalObservationV1 } from '../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
+import { createDeviceOwnerDepositBridgeV1, awaitDeviceOwnerDepositOriginalProofV1, awaitDeviceOwnerDepositOriginalFundingV1, awaitDeviceOwnerDepositOriginalObservationV1 } from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 }
   from '../../../../packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs';
 import { createPairedDeviceDepositTlsServerV1, handoffPairedDeviceDepositTlsServerV1 } from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';

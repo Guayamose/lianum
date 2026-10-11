@@ -19,9 +19,9 @@ import { createNativeValueExecution, assertOwnedNativeValueExecution } from '../
 import { createNativeEconomicNoteAccountAuthorityV1,createNativeLiveArmedNoteAccountAuthorityV1, assertOwnedNativeValueAccountAuthority,isOriginalNativePrivateDepositAccountV2,isOriginalNativePrivateExitAccountV2,isOriginalNativePrivateReservationAccountV2,isOriginalNativePrivateWorkerAccountV3 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { createNativeValueManualGraphAccountSession, createOriginalSessionWalletEconomicStateV1 } from '../../api/accounts/flat-manual-graph-session.mjs';
 import { createPairedOriginalAccountActorV2, pairedOriginalAccountActorDescriptorV2 } from '../../api/mobile/paired-original-account-actor-v2.mjs';
-import { createDeviceOwnerDepositBridgeV1,createOriginalNativePrivateDepositBridgeV2,createOriginalNativePrivateWorkerDepositBridgeV3 } from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import { createDeviceOwnerReservationBridgeV1,createOriginalNativePrivateReservationBridgeV2 } from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {createDeviceOwnerExecutionBridgeV1,createOriginalNativePrivateExecutionBridgeV2,createOriginalNativePrivateWorkerExecutionBridgeV3} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import { createDeviceOwnerDepositBridgeV1,createOriginalNativePrivateDepositBridgeV2,createOriginalNativePrivateWorkerDepositBridgeV3 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import { createDeviceOwnerReservationBridgeV1,createOriginalNativePrivateReservationBridgeV2 } from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {createDeviceOwnerExecutionBridgeV1,createOriginalNativePrivateExecutionBridgeV2,createOriginalNativePrivateWorkerExecutionBridgeV3} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import { assertOwnedNativeValueProviderCustody } from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { createPairedDeviceAccountTlsServerV1, createPairedDurableDeviceAccountTlsServerV1 } from '../../api/mobile/paired-original-account-http-v2.mjs';
 import { createOriginalDeviceDurableDispatchV1 } from '../../api/mobile/original-device-durable-dispatch-v1.mjs';

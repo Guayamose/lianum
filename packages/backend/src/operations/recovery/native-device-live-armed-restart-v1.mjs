@@ -18,9 +18,9 @@ import {normalizeOriginalNativeDeviceLocalConfigurationV1} from './native-device
 import {reopenOriginalNativeDeviceLiveArmedObservedClocksV1} from './native-device-local-observed-clock-v1.mjs';
 import {createOriginalNativeDeviceLiveRecoveryProducerV1} from './native-device-local-live-recovery-v1.mjs';
 import {assertPairedOriginalAccountActorAccountV2} from '../../api/mobile/paired-original-account-actor-v2.mjs';
-import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createPairedDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';
 import {readOriginalSessionWalletEconomicStateV1} from '../../api/accounts/flat-manual-graph-session.mjs';
 const local=join(ROOT,'.local/original-device-live-armed-operator-v1'),locatorPath=join(local,'armed-checkpoint.json'),prepared=new WeakMap();

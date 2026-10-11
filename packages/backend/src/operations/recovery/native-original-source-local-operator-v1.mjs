@@ -18,9 +18,9 @@ import {createNativeValueOwnerProcess} from '../../custody/processes/native-valu
 import {createNativeValueExecution} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import {readOriginalSessionWalletEconomicStateV1} from '../../api/accounts/flat-manual-graph-session.mjs';
 import {createPairedOriginalAccountActorV2,pairedOriginalAccountActorDescriptorV2} from '../../api/mobile/paired-original-account-actor-v2.mjs';
-import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {createDeviceOwnerDepositBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {createDeviceOwnerReservationBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
+import {createDeviceOwnerExecutionBridgeV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {takeOriginalNativeProviderRecoveredLeaseV1} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import {retainOriginalNativeDeviceSourceInstallationV1,consumeOriginalNativeDeviceSourceInstallationV1,readDeviceOwnerLiveArmedOriginalOwnerSnapshotV1} from '../../accounts/authority/native-value-account-authority-v2.mjs';
 import {createPairedDeviceAccountTlsServerV1} from '../../api/mobile/paired-original-account-http-v2.mjs';

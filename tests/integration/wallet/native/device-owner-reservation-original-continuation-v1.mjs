@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {createDeviceOwnerReservationBridgeV1,awaitDeviceOwnerReservationOriginalWorkV1}
- from '../../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import {createDeviceOwnerExecutionBridgeV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
+ from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import {createDeviceOwnerExecutionBridgeV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import {runDeviceOwnerExecutionContinuationV1} from './device-owner-execution-original-continuation-v1.mjs';
 import {createPairedDeviceAccountTlsServerV1,createPairedDeviceExecutionTlsServerV1,createPairedDeviceReservationTlsServerV1} from '../../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs';
 import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-account-v2';

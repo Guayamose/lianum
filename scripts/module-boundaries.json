@@ -405,6 +405,7 @@
         "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
         "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
       ],
       "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs": [
@@ -418,6 +419,7 @@
         "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
         "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
+        "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
         "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs",
         "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
         "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"
@@ -1631,6 +1633,28 @@
           "packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs"
         ],
         "reason": "SOURCE clock factory and guards now belong to the existing lifecycle composition, with an isolated clock backend and unchanged canonical authority. The old circular clock owner is removed; the original live-recovery consumer calls the same guard."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs",
+          "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs",
+          "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs"
+        ],
+        "reason": "The original device bridge factory and guards now belong to the existing account composition. The three bridge implementations own separate private instance maps in their backends; unchanged mobile consumers call the same canonical APIs. No new authority or dependency family."
+      },
+      {
+        "from": [
+          "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs",
+          "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs"
+        ],
+        "to": [
+          "packages/backend/src/api/mobile/paired-original-account-http-v2.mjs",
+          "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs"
+        ],
+        "reason": "The original device bridge factory and guards now belong to the existing account composition. The three bridge implementations own separate private instance maps in their backends; unchanged mobile consumers call the same canonical APIs. No new authority or dependency family."
       }
     ],
     "ownershipReview": {

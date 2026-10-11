@@ -68,9 +68,9 @@ mock.module('../chain-adapters/native-value-dispatch-owner-v2.mjs', { exports: {
 const { fixture, createActorModule, hostEconomicRecovery } = await import('./paired-original-account-host-fixture.mjs');
 const { createPairedOriginalAccountActorV2, assertPairedOriginalAccountActorV2,
   pairedOriginalAccountActorDescriptorV2 } = await createActorModule();
-const { createDeviceOwnerDepositBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
-const { createDeviceOwnerReservationBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs');
-const { createDeviceOwnerExecutionBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs');
+const { createDeviceOwnerDepositBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
+const { createDeviceOwnerReservationBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
+const { createDeviceOwnerExecutionBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const {createPairedDeviceDepositTlsServerV1,createPairedDeviceAccountTlsServerV1,handoffPairedDeviceDepositTlsServerV1}=await import('../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
 const { installOriginalNativeDeviceLocalServiceV1, installOriginalNativeDeviceDurableLocalServiceV1 } = await import('../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs');
 const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
@@ -240,7 +240,7 @@ test('native recovery privately retires the composed TLS listener before actor c
   const actors = await createActorModule();
   actors.fenceOriginalNativeActorEconomicRecoveryV1(c.actor, issuer.authority);
   assert.throws(() => assertPairedOriginalAccountActorV2(c.actor), /ACTOR_CLOSED/);
-  const deposits = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
+  const deposits = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
   assert.throws(() => deposits.isOriginalNativePrivateDepositBridgeV2(c.input.depositBridge), /ACTOR_CLOSED/);
   const closed = await api.stopCapturedNativeDeviceTransportRecoveryV1(transport, issuer.authority);
   assert.equal(closed.closed, true); assert.equal(closed.listenerClosed, true); assert.equal(closed.ownedSocketsRemaining, 0);

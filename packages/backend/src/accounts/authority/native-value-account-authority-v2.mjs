@@ -1,3 +1,8 @@
+import {buildDeviceDepositBridgeBackendV1} from './device-deposit-bridge-backend-v1.mjs';
+import {buildDeviceReservationBridgeBackendV1} from './device-reservation-bridge-backend-v1.mjs';
+import {buildDeviceExecutionBridgeBackendV1} from './device-execution-bridge-backend-v1.mjs';
+import * as originalDeviceActor from '../../api/mobile/paired-original-account-actor-v2.mjs';
+import {assertOwnedNativeValueProviderCustody as originalDeviceProviderGuard} from '../../chains/shared/dispatch/native-value-dispatch-owner-v2.mjs';
 import { decodeNativeValueTerminalCalldata } from '../../execution/encoding/terminal-calldata-codec.mjs';
 import {reconcileOriginalDeviceNativeRecoveryV1} from '../../execution/native-value/execution/native-value-execution-v2.mjs';
 import {refreshOriginalNativeDeviceLocalObservedClockV1} from '../../operations/recovery/native-device-local-observed-clock-v1.mjs';
@@ -5,8 +10,6 @@ import {refreshOriginalNativeSourceObservedClockV1} from '../../operations/recov
 import {assertOwnedFlatPortfolioAccount} from './flat-portfolio-authority.mjs';
 import {assertOwnedFlatManualPortfolioKeeper} from '../portfolio/flat-manual-portfolio-keeper.mjs';
 import {assertOwnedFlatManualAccountKeeper} from '../storage/flat-manual-account-keeper.mjs';
-import {isOriginalNativePrivateWorkerExecutionBridgeV3} from './device-owner-execution-bridge-v1.mjs';
-import {isOriginalNativePrivateWorkerDepositBridgeV3} from './device-owner-deposit-bridge-v1.mjs';
 import {createRecoveredDeviceInstallations} from './native-value/recovered-device-installations.mjs';
 import {createLiveRecoveryLeaseFamily} from './native-value/live-recovery-leases.mjs';
 import {reconcileNativeSourceAccountCheckpointDataV1} from '../../operations/recovery/source-journal/checkpoint-reconciliation-v1.mjs';
@@ -131,24 +134,128 @@ export function assertNativeValueAccountManualGraphExecution(capability) {
   manualGraphs.get(capability).checkRoute();
 }
 import { validateNativeValueManualReview } from '@lianum/custody/preparation/native-value-owner-manual-binding-v1';
-import { consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1,isOriginalNativePrivateDepositBridgeV2 }
-  from './device-owner-deposit-bridge-v1.mjs';
 import { decodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 
 import { createHash } from 'node:crypto';
 
-import { consumeDeviceOwnerReservationAuthorizationV1,assertDeviceOwnerReservationBridgeV1,readDeviceOwnerReservationOriginalPreparationV1 } from './device-owner-reservation-bridge-v1.mjs';
 
 import { validateGenericBalanceNativePreparation } from '@lianum/engine/execution/balances/generic-balance-native-preparation';
 
-import {isOriginalNativePrivateReservationBridgeV2} from './device-owner-reservation-bridge-v1.mjs';
 
-import {consumeDeviceOwnerExecutionInstallationV1,isOriginalNativePrivateExecutionBridgeV2,consumeDeviceOwnerExecutionAuthorizationV1,assertDeviceOwnerExecutionBridgeV1}
-  from './device-owner-execution-bridge-v1.mjs';
 
 import { restoreNativeDeviceOriginalW39MetricsFrameV1 } from './native-device-original-w39-metrics-frame-v1.mjs';
 
 import { assertOriginalNativeDeviceLocalObservedClockV1, assertOriginalNativeDeviceLiveArmedObservedClockV1, captureOriginalNativeDeviceLiveArmedClockCheckpointV1 } from '../../operations/recovery/native-device-local-observed-clock-v1.mjs';
+
+const originalDeviceDepositBridge = buildDeviceDepositBridgeBackendV1(Object.freeze({
+  account:Object.freeze({
+    assertOwnedNativeValueAccountAuthority: assertOwnedNativeValueAccountAuthority,
+    runDeviceOwnerDepositAuthorizationV1: runDeviceOwnerDepositAuthorizationV1,
+    readDeviceOwnerDepositStatusV1: readDeviceOwnerDepositStatusV1,
+    installOriginalNativePrivateDepositV2: installOriginalNativePrivateDepositV2,
+  }),
+  actor:Object.freeze({
+    assertPairedOriginalAccountActorV2: originalDeviceActor.assertPairedOriginalAccountActorV2,
+    assertPairedOriginalAccountActorAccountV2: originalDeviceActor.assertPairedOriginalAccountActorAccountV2,
+    pairedOriginalAccountActorDescriptorV2: originalDeviceActor.pairedOriginalAccountActorDescriptorV2,
+  }),
+  system:Object.freeze({
+    assertOwnedNativeValueWalletSystem: nativeSystem,
+  }),
+  observation:Object.freeze({
+    createNativeValueSystemStateReader: nativeReader,
+  }),
+}));
+export const {
+  createDeviceOwnerDepositBridgeV1,
+  createOriginalNativePrivateDepositBridgeV2,
+  isOriginalNativePrivateDepositBridgeV2,
+  createOriginalNativePrivateWorkerDepositBridgeV3,
+  isOriginalNativePrivateWorkerDepositBridgeV3,
+  assertDeviceOwnerDepositDurableRequestV1,
+  awaitDeviceOwnerDepositOriginalProofV1,
+  awaitDeviceOwnerDepositOriginalFundingV1,
+  awaitDeviceOwnerDepositOriginalObservationV1,
+  deviceOwnerDepositBridgeActorV1,
+  assertDeviceOwnerDepositBridgeV1,
+  consumeDeviceOwnerDepositAuthorizationV1
+} = originalDeviceDepositBridge;
+
+const originalDeviceReservationBridge = buildDeviceReservationBridgeBackendV1(Object.freeze({
+  account:Object.freeze({
+    assertOwnedNativeValueAccountAuthority: assertOwnedNativeValueAccountAuthority,
+    runDeviceOwnerReservationAuthorizationV1: runDeviceOwnerReservationAuthorizationV1,
+    readDeviceOwnerReservationStatusV1: readDeviceOwnerReservationStatusV1,
+    installOriginalNativePrivateReservationV2: installOriginalNativePrivateReservationV2,
+    readOriginalNativePrivateReservationContextV2: readOriginalNativePrivateReservationContextV2,
+  }),
+  actor:Object.freeze({
+    assertPairedOriginalAccountActorV2: originalDeviceActor.assertPairedOriginalAccountActorV2,
+    assertPairedOriginalAccountActorAccountV2: originalDeviceActor.assertPairedOriginalAccountActorAccountV2,
+    pairedOriginalAccountActorDescriptorV2: originalDeviceActor.pairedOriginalAccountActorDescriptorV2,
+  }),
+  system:Object.freeze({
+    assertOwnedNativeValueWalletSystem: nativeSystem,
+  }),
+  observation:Object.freeze({
+    createNativeValueSystemStateReader: nativeReader,
+  }),
+}));
+export const {
+  createDeviceOwnerReservationBridgeV1,
+  createOriginalNativePrivateReservationBridgeV2,
+  assertDeviceOwnerReservationDurableRequestV1,
+  assertDeviceOwnerReservationBridgeV1,
+  deviceOwnerReservationBridgeActorV1,
+  consumeDeviceOwnerReservationAuthorizationV1,
+  awaitDeviceOwnerReservationOriginalWorkV1,
+  readDeviceOwnerReservationOriginalPreparationV1,
+  isOriginalNativePrivateReservationBridgeV2
+} = originalDeviceReservationBridge;
+
+const originalDeviceExecutionBridge = buildDeviceExecutionBridgeBackendV1(Object.freeze({
+  executor:Object.freeze({
+    assertOwnedNativeValueExecution: nativeExecutionAssert,
+  }),
+  providers:Object.freeze({
+    assertOwnedNativeValueProviderCustody: originalDeviceProviderGuard,
+  }),
+  reservation:Object.freeze({
+    assertDeviceOwnerReservationBridgeV1: assertDeviceOwnerReservationBridgeV1,
+    deviceOwnerReservationBridgeActorV1: deviceOwnerReservationBridgeActorV1,
+  }),
+  account:Object.freeze({
+    installDeviceOwnerExecutionV1: installDeviceOwnerExecutionV1,
+    readDeviceOwnerExecutionStatusV1: readDeviceOwnerExecutionStatusV1,
+    runDeviceOwnerExecutionAuthorizationV1: runDeviceOwnerExecutionAuthorizationV1,
+    installOriginalNativePrivateExitV2: installOriginalNativePrivateExitV2,
+    assertOwnedNativeValueAccountAuthority: assertOwnedNativeValueAccountAuthority,
+    prepareDeviceOwnerExitV1: prepareDeviceOwnerExitV1,
+    readDeviceOwnerExitStatusV1: readDeviceOwnerExitStatusV1,
+    runDeviceOwnerExitAuthorizationV1: runDeviceOwnerExitAuthorizationV1,
+    readDeviceOwnerOutputBalanceV1: readDeviceOwnerOutputBalanceV1,
+    readDeviceOwnerRecoveryArmTermsV1: readDeviceOwnerRecoveryArmTermsV1,
+    runDeviceOwnerRecoveryArmAuthorizationV1: runDeviceOwnerRecoveryArmAuthorizationV1,
+  }),
+  observation:Object.freeze({
+    createNativeValueSystemStateReader: nativeReader,
+  }),
+}));
+export const {
+  createDeviceOwnerExecutionBridgeV1,
+  createOriginalNativePrivateExecutionBridgeV2,
+  isOriginalNativePrivateExecutionBridgeV2,
+  createOriginalNativePrivateWorkerExecutionBridgeV3,
+  isOriginalNativePrivateWorkerExecutionBridgeV3,
+  assertDeviceOwnerExecutionDurableRequestV1,
+  assertDeviceOwnerExecutionBridgeV1,
+  consumeDeviceOwnerExecutionInstallationV1,
+  deviceOwnerExecutionBridgeActorV1,
+  assertDeviceOwnerExecutionTransportBindingsV1,
+  consumeDeviceOwnerExecutionAuthorizationV1,
+  awaitDeviceOwnerExecutionOriginalWorkV1
+} = originalDeviceExecutionBridge;
+
 const liveRecoveryLeaseFamily=createLiveRecoveryLeaseFamily({
  assertAccount:assertOwnedNativeValueAccountAuthority,readAccount:account=>owned.get(account),
  assertBridge:assertDeviceOwnerExecutionBridgeV1,

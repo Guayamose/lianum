@@ -1,8 +1,8 @@
-import{isOriginalNativePrivateWorkerDepositBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import{isOriginalNativePrivateWorkerExecutionBridgeV3}from'../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
-import{isOriginalNativePrivateReservationBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs';
-import{isOriginalNativePrivateDepositBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs';
-import{isOriginalNativePrivateExecutionBridgeV2}from'../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
+import{isOriginalNativePrivateWorkerDepositBridgeV3}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import{isOriginalNativePrivateWorkerExecutionBridgeV3}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import{isOriginalNativePrivateReservationBridgeV2}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import{isOriginalNativePrivateDepositBridgeV2}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
+import{isOriginalNativePrivateExecutionBridgeV2}from'../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 /** Fixed causal successor of the ORIGINAL planned F recovery profile.
  * Only bounded private control IPC (OPEN/WAIT/AUDIT/CLOSE). Economic requests
  * use existing signed HTTPS routes. No device root/key enters this worker. */
@@ -17,7 +17,7 @@ import {privateNativeEconomicSuccessorFirstErrorV1} from './native-device-econom
 import {writeFixturePrivate} from '../../fixtures/runners/owned-flat-fixture.mjs';
 import {reopenOriginalNativeValueEconomicSuccessorV1,reopenOriginalNativeValueEconomicNoteSuccessorV1} from '../../../../packages/backend/src/operations/recovery/native-value-economic-successor-v1.mjs';
 import {reinstallOriginalNativeDeviceEconomicServiceV1,reinstallOriginalNativeDeviceDurableEconomicServiceV1} from '../../../../packages/backend/src/operations/recovery/native-device-economic-service-v1.mjs';
-import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs';
+import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import {auditNativeDeviceEconomicSuccessorV1} from './native-device-economic-successor-audit-v1.mjs';
 import {reopenNativeDeviceDurableAcceptanceInfrastructureV1} from './native-device-economic-note-source-pins-v1.mjs';
 import {assertOriginalDeviceDurableRecoveryInfrastructureV1} from '../../../../packages/backend/src/api/mobile/original-device-durable-dispatch-v1.mjs';

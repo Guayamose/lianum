@@ -10,7 +10,7 @@ import { normalizeDeviceDepositConsentV1, deviceDepositConsentMessageV1, normali
 const { createPairedOriginalAccountActorV2 } = await createActorModule();
 const { createDeviceOwnerDepositBridgeV1, consumeDeviceOwnerDepositAuthorizationV1, assertDeviceOwnerDepositBridgeV1,
   assertDeviceOwnerDepositDurableRequestV1 }
-  = await import('../../../packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs');
+  = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const { runDeviceOwnerDepositAuthorizationV1 } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const origin = 'https://device-deposit.example';
 async function setup(t) {
