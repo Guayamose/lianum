@@ -1,8 +1,12 @@
+import * as originalNet from 'node:net';
+import * as originalDgram from 'node:dgram';
+import * as originalHarness from '@lianum/engine/chains/shared/runtime-harness';
+import { resourcePath, sourceURL } from '@lianum/environment';
 /** Synthetic host-only facade tests. Mocked process, filesystem provenance,
  * sockets and RPC exercise the actual factory, key handling, codecs, journals
  * and brands. No validator, network, proof backend or compiler is started.
  * Run: node --experimental-test-module-mocks --test <this file> */
-import test, { mock } from 'node:test';
+import test, { mock, after } from 'node:test';
 import assert from 'node:assert/strict';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
@@ -13,11 +17,13 @@ import { Readable } from 'node:stream';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { MEMO_PROGRAM } from '@lianum/engine/native/native-receipt-binding';
-const memoBytes = fs.readFileSync(new URL('../../../../../solana-candidate-20261005-0720/.local/agave-linux-bounded-build/derived/'
-  + 'agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url));
+const memoBytes = fs.readFileSync(resourcePath('engine', '.local/test-programs/spl_memo-3.0.0.so'));
 const copy = value => structuredClone(value), h = value => crypto.createHash('sha256').update(value).digest('hex');
+const hostProject = await fsp.mkdtemp(join(tmpdir(), 'lianum-solana-host-'));
+await fsp.mkdir(join(hostProject, '.local/integrations'), { recursive: true, mode: 0o700 });
+after(() => fsp.rm(hostProject, { recursive: true, force: true }));
 const system = '11111111111111111111111111111111', executableFixture = Buffer.from('HOST_ONLY_PINNED_EXECUTABLE_STUB');
-const adapterSource = fs.readFileSync(new URL('./owned-solana-runtime.mjs', import.meta.url), 'utf8');
+const adapterSource = fs.readFileSync(sourceURL('packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs'), 'utf8');
 const selectedPinName = /const selectedValidatorPin = boundedLedger \? ([A-Za-z0-9_]+) :/.exec(adapterSource)[1];
 const pin = new RegExp("export const " + selectedPinName + " = Object.freeze\\(\\['[^']+', '([0-9a-f]{64})'").exec(adapterSource)[1];
 const genesisBytes = Buffer.from('HOST_ONLY_FRESH_GENESIS'), identity = Buffer.from(h('host identity'), 'hex');
@@ -36,7 +42,7 @@ mock.module('node:fs', { exports: { ...named(fs), createReadStream(path) {
 } } });
 const ports = () => [control.rpcPort, control.rpcPort + 1, control.faucetPort];
 mock.module('node:fs/promises', { exports: { ...named(fsp),
-  async realpath(path) { return String(path).startsWith('/host-only-project/') ? path : fsp.realpath(path); },
+  async realpath(path) { return String(path).startsWith(join(hostProject, '.local/linux-runtimes')) ? path : fsp.realpath(path); },
   async readFile(path, ...args) {
     const name = String(path);
     if (name.endsWith('/ledger/genesis.bin')) return Buffer.from(genesisBytes);
@@ -63,8 +69,8 @@ mock.module('node:fs/promises', { exports: { ...named(fsp),
   },
 } });
 function socket() { const result = new EventEmitter(); result.unref = () => {}; result.close = callback => callback?.(); return result; }
-mock.module('node:net', { exports: { createServer() { const result = socket(); result.listen = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; } } });
-mock.module('node:dgram', { exports: { createSocket() { const result = socket(); result.bind = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; } } });
+mock.module('node:net', { exports: { ...named(originalNet), createServer() { const result = socket(); result.listen = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; } } });
+mock.module('node:dgram', { exports: { ...named(originalDgram), createSocket() { const result = socket(); result.bind = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; } } });
 mock.module('node:child_process', { exports: { ...named(childProcess),
   execFile() { throw new Error('HOST_FIXTURE_FORBIDDEN_EXEC'); }, spawn(binary, args, options) {
   assert.match(binary, /solana-test-validator$/); control.spawns++; control.args = [...args];
@@ -80,9 +86,9 @@ mock.module('node:child_process', { exports: { ...named(childProcess),
 } } });
 const contextual = value => ({ context: { slot: control.slot }, value: copy(value) });
 const account = lamports => ({ owner: system, executable: false, lamports, data: ['', 'base64'] });
-mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness.mjs', import.meta.url).href, { exports: {
-  projectRoot: '/host-only-project',
-  async scratchDirectory() { control.directory = await fsp.mkdtemp(join(tmpdir(), 'combined-sol-host-')); return control.directory; },
+mock.module('@lianum/engine/chains/shared/runtime-harness', { exports: { ...originalHarness,
+  projectRoot: hostProject,
+  async scratchDirectory(prefix) { control.directory = await fsp.mkdtemp(join(hostProject, '.local/integrations', prefix)); return control.directory; },
   async removeOwnScratch(path) { assert.equal(path, control.directory); control.removes++; await fsp.rm(path, { recursive: true }); },
   async stopOwnProcess(handle) { control.stops++; handle.child.exitCode = 0; return { stopped: true, forced: false }; },
   async sleep() { throw new Error('HOST_FIXTURE_UNEXPECTED_POLL'); },
@@ -107,6 +113,7 @@ mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness
       case 'getBlockHeight': return c.slot;
       case 'isBlockhashValid': return contextual(true);
       case 'getSlot': return c.slot;
+      case 'minimumLedgerSlot': case 'getFirstAvailableBlock': return 0;
       case 'getSignatureStatuses': return contextual(params[0].map(signature => c.observations.has(signature)
         ? { slot: c.observations.get(signature).slot, err: null, confirmationStatus: 'finalized', confirmations: null } : null));
       case 'getTransaction': return copy(c.observations.get(params[0]) ?? null);
@@ -117,12 +124,12 @@ mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness
     }
   },
 } });
-mock.module(new URL('./owned-solana-send.mjs', import.meta.url).href, { exports: {
+mock.module(sourceURL('packages/backend/src/chains/solana/transfers/owned-solana-send.mjs').href, { exports: {
   async sendOwnedSolanaTransaction(endpoint, wire) {
     assert.equal(endpoint, `http://127.0.0.1:${control.rpcPort}`); control.sends++;
     const bytes = Buffer.from(wire, 'base64'), nativeId = bytes.subarray(1, 65).toString('hex');
     let record;
-    for (const name of ['nonce-bootstrap', 'signed-native', 'signed-graph']) {
+    for (const name of ['nonce-bootstrap/depositor', 'nonce-bootstrap/escrow', 'signed-native', 'signed-graph']) {
       try { record = JSON.parse(await fsp.readFile(join(control.directory, name, nativeId + '.json'), 'utf8')); break; }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
@@ -285,7 +292,7 @@ test('fixed combined factory creates separate genuine facades on one node and cl
     for (const view of [custody, graph]) { assertOwnedSolanaRuntime(view); assert.ok(Object.isFrozen(view)); }
     assert.throws(() => assertOwnedSolanaRuntime({ ...graph }), /OWNED_RUNTIME_CAPABILITY/);
     assert.throws(() => assertOwnedSolanaRuntime(pair), /OWNED_RUNTIME_CAPABILITY/);
-    assert.equal(control.spawns, 1); assert.equal(control.sends, 1); assert.equal(custody.genesis, graph.genesis);
+    assert.equal(control.spawns, 1); assert.equal(control.sends, 2); assert.equal(custody.genesis, graph.genesis);
     assert.equal(custody.close, graph.close); assert.equal(custody.metadata.processId, graph.metadata.processId);
     assert.equal(custody.metadata.classification, SOLANA_CUSTODY_PROFILE);
     assert.equal(graph.metadata.classification, 'OWNED_FLAT_SOLANA_RECEIPT_BINDING_RUNTIME_V1');
@@ -304,8 +311,9 @@ test('fixed combined factory creates separate genuine facades on one node and cl
     }
     assert.equal(/privateKey|keypair|seed/.test(JSON.stringify(Object.keys(graph))), false);
     assert.equal(custody.transfers.length, 0); assert.equal(graph.transfers.length, 0);
-    const first = graph.close(), second = custody.close(); assert.equal(first, second);
-    assert.deepEqual(await first, { ownedProcessStopped: true, forced: false, syntheticKeysAndLedgerRemoved: true });
+    const first = graph.close(), second = custody.close();
+    const firstOutcome = await first; assert.equal(firstOutcome, await second);
+    assert.deepEqual(firstOutcome, { ownedProcessStopped: true, forced: false, nativeOrderlyExit: false, nativeStopFailure: null, syntheticKeysAndLedgerRemoved: true, retainedForRecovery: false });
     assert.equal(control.stops, 1); assert.equal(control.removes, 1);
     assert.ok(control.seeds.every(seed => seed.every(byte => byte === 0)));
     await assert.rejects(custody.inventory(), /RUNTIME_CLOSED/); await assert.rejects(graph.balance(), /RUNTIME_CLOSED/);
@@ -378,65 +386,62 @@ test('standalone cohort and custody factories preserve their original accounts a
   const custody = await fixture(createOwnedSolanaCustodyRuntime);
   try {
     assertOwnedSolanaRuntime(custody); assert.equal(custody.metadata.classification, SOLANA_CUSTODY_PROFILE);
-    assert.equal(control.seeds.length, 6); assert.equal(control.accounts.size, 5); assert.equal(control.sends, 1);
+    assert.equal(control.seeds.length, 8); assert.equal(control.accounts.size, 7); assert.equal(control.sends, 2);
     assert.equal(custody.metadata.graphLiquidity, undefined); assert.equal(custody.solver, undefined);
     custody.adapter({ asset, route: 'deposit' }); assert.throws(() => custody.adapter({ asset, recipientIndex: 0 }));
     assert.equal((await custody.inventory()).accounts.length, 3);
   } finally { await custody.close(); }
 });
 
-test('combined custody retains nonce v2 first-send gate and excludes concurrent graph signing', async () => {
+test('combined custody rejects missing payout key authority and resumes the original ingress once', async () => {
   const { custody, graph } = await fixture();
   try {
-    const refund = custody.adapter({ asset, route: 'refund' }), graph0 = graph.adapter({ asset, recipientIndex: 0 });
-    await assert.rejects(refund.transfer(request('missing gate'), callbacks(refund)));
-    assert.equal(custody.transfers.length, 0); assert.equal(control.sends, 1);
+    const refund = custody.adapter({ asset, route: 'refund' });
+    const deposit = custody.adapter({ asset, route: 'deposit' });
+    const graph0 = graph.adapter({ asset, recipientIndex: 0 });
+    await assert.rejects(refund.transfer(request('missing key authority'), {
+      async beforeSign(prepared) { await refund.assertPrepared(prepared); },
+      async onSigned() { assert.fail('missing original key authority must stop before signing'); },
+      async beforeBroadcast() { assert.fail('missing original key authority must stop before broadcasting'); },
+    }), /CLAIM_ORIGINAL_KEY_AUTHORITY_V4_REQUIRED/);
+    assert.equal(custody.transfers.length, 0); assert.equal(control.sends, 2);
     const refused = Error('HOST_FIXTURE_RETAIN_RESERVATION');
-    await assert.rejects(refund.transfer(request('nonce payout K'), {
-      async beforeSign(prepared) {
-        assert.equal(prepared.intent.sourcePublicKey, custody.roles.escrow.endpoint);
-        assert.equal(prepared.intent.nonceAccountPublicKey, custody.nonceInfrastructure.nonceAccountPublicKey);
-        assert.equal(Object.hasOwn(prepared.funds, 'lastValidBlockHeight'), false);
-        await refund.assertPrepared(prepared);
+    await assert.rejects(deposit.transfer(request('original ingress'), {
+      ...callbacks(deposit), async beforeBroadcast(prepared) {
+        await deposit.assertPrepared(prepared); await custody.inventory(); throw refused;
       },
-      async onSigned(payload) { assert.equal(Buffer.from(payload.nativeWire, 'base64').length, 395); },
-      async beforeBroadcast(prepared) {
-        await refund.assertPrepared(prepared); await custody.inventory(); throw refused;
-      },
-      async beforeSend() { assert.fail('reserved prebroadcast rejection must not reach final send'); },
-      assertBeforeSend() { assert.fail('reserved prebroadcast rejection must not reach final send'); },
     }), error => error === refused);
     const retained = custody.transfers[0];
     assert.equal(retained.phase, 'SIGNED_NOT_BROADCAST'); assert.equal(retained.broadcastAttempts, 0);
-    assert.equal(control.sends, 1); assert.equal(graph.transfers.length, 0);
+    assert.equal(control.sends, 2); assert.equal(graph.transfers.length, 0);
     await assert.rejects(graph0.transfer(request('while reserved'), callbacks(graph0)), /PRIOR_TRANSFER_UNRESOLVED/);
     await assert.rejects(graph.factReader({ asset }).observe({ family: '2', recipientIndex: '0', nativeId: retained.nativeId }), /UNKNOWN_SIGNED_IDENTITY/);
     let original, finalReady = false, consumed = false;
     const assertOriginalFinalSend = prepared => {
       assert.equal(prepared, original); assert.deepEqual(prepared.intent, retained.intent);
       const current = custody.transfers.find(record => record.nativeId === retained.nativeId);
-      assert.equal(current.route, 'refund'); assert.equal(current.phase, 'BROADCAST_UNKNOWN');
-      assert.equal(current.broadcastAttempts, 1);
+      assert.equal(current.route, 'deposit'); assert.equal(current.phase, 'BROADCAST_UNKNOWN'); assert.equal(current.broadcastAttempts, 1);
       for (const field of ['nativeWire', 'nativeId', 'transactionSHA256']) assert.equal(current[field], retained[field]);
       assert.equal(Buffer.from(current.nativeWire, 'base64').subarray(65).toString('hex'), prepared.unsignedWire);
     };
-    await refund.resumeReservedPayout({ nativeId: retained.nativeId }, { async beforeBroadcast(prepared) {
-      original = prepared;
-      assert.deepEqual(prepared.intent, retained.intent); await refund.assertPrepared(prepared);
+    const resumed = { async beforeBroadcast(prepared) {
+      original = prepared; await deposit.assertPrepared(prepared);
       await assert.rejects(graph0.transfer(request('while gate runs'), callbacks(graph0)), /BUSY/);
     }, async beforeSend(prepared) {
       assert.equal(finalReady, false); assertOriginalFinalSend(prepared); finalReady = true;
     }, assertBeforeSend(prepared) {
       assert.ok(finalReady && !consumed); consumed = true; assertOriginalFinalSend(prepared);
-    } });
-    assert.equal(control.sends, 2);
+    } };
+    await deposit.resumeReservedIngress({ nativeId: retained.nativeId }, resumed);
+    assert.equal(control.sends, 3);
     const replayForbidden = () => assert.fail('consumed original must reject before every callback');
-    await assert.rejects(refund.resumeReservedPayout({ nativeId: retained.nativeId }, {
+    await assert.rejects(deposit.resumeReservedIngress({ nativeId: retained.nativeId }, {
       beforeBroadcast: replayForbidden, beforeSend: replayForbidden, assertBeforeSend: replayForbidden,
-    }), /FIRST_SEND_ONLY/);
+    }), /EXTERNAL_SUBMISSION_FENCED|ORIGINAL_HISTORY_UNAVAILABLE_OR_OBSERVED/);
     assert.equal((await custody.observe(retained.nativeId, { timeoutMs: 0 })).status, 'observed');
-    const inventory = await custody.inventory(); assert.equal(inventory.feeAudit.escrowActualFees, '5000');
-    const payment = await graph0.transfer(request('after payout'), callbacks(graph0));
+    const inventory = await custody.inventory(); assert.equal(inventory.feeAudit.escrowActualFees, '0');
+    assert.equal(inventory.feeAudit.actualFees, '5000');
+    const payment = await graph0.transfer(request('after ingress'), callbacks(graph0));
     assert.equal(Buffer.from(graph.transfers[0].nativeWire, 'base64').length, 321);
     assert.equal((await graph.observe(payment.nativeId, { timeoutMs: 0 })).status, 'observed');
     assert.deepEqual((await custody.inventory()).feeAudit, inventory.feeAudit);

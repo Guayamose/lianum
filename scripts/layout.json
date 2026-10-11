@@ -7312,13 +7312,6 @@
       "source": "packages/backend/src/chains/bitcoin/observations/bitcoin-observation-adapter.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/claim-key-runtime-v4.fixture.mjs",
-      "sha256": "6632ab515692fc89f4825508211936ca7ee5be3609969cad4e4d9c8f3482f4e8",
-      "bytes": 13133,
-      "mode": "0644",
-      "source": "packages/backend/tests/fixtures/chains/shared/runtime/claim-key-runtime-v4.fixture.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/erc20-observation-adapter.mjs",
       "bytes": 5799,
       "sha256": "0c8052cb0353257c409b9a1104071a1a990068aa18a81fbb7530c801b130c309",
@@ -17545,7 +17538,7 @@
     },
     "packages/backend/tests/claims/authorization/claim-key-authority-v4.test.mjs": {
       "../../fixtures/claims/authorization/claim-key-authority-v4.fixture.mjs": "./claim-key-authority-v4.fixture.mjs",
-      "../../fixtures/chains/shared/runtime/claim-key-runtime-v4.fixture.mjs": "../chain-adapters/claim-key-runtime-v4.fixture.mjs"
+      "../../fixtures/chains/solana/runtime/solana-payout-authority-runtime.fixture.mjs": "../chain-adapters/solana-payout-authority-runtime.fixture.mjs"
     },
     "packages/backend/tests/claims/authorization/original-authorization-validation.test.mjs": {
       "../../../../engine/src/claims/framing.mjs": "./framing.mjs",
@@ -17728,7 +17721,7 @@
       "../../../../src/claims/controller/controller.mjs": "./controller.mjs",
       "../../../../src/claims/payouts/payout-controller-dispatch-v1.mjs": "./payout-controller-dispatch-v1.mjs",
       "../../../../src/claims/wrapped/controller/wrapped-controller-v1.mjs": "./wrapped-controller-v1.mjs",
-      "../../../fixtures/chains/shared/runtime/claim-key-runtime-v4.fixture.mjs": "../chain-adapters/claim-key-runtime-v4.fixture.mjs"
+      "../../../fixtures/chains/solana/runtime/solana-payout-authority-runtime.fixture.mjs": "../chain-adapters/solana-payout-authority-runtime.fixture.mjs"
     },
     "packages/backend/tests/claims/wrapped/payouts/wrapped-bitcoin-payout-authority-v4.test.mjs": {
       "../../../../../engine/src/claims/framing.mjs": "./framing.mjs",
@@ -22697,7 +22690,8 @@
     "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs": "archive/source-evidence/retired-facades/4da41e61f276fbb95e00534353979b4fdc57fb0c431a4caa32cc6f3b48096fab.source",
     "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs": "archive/source-evidence/retired-facades/e1428a1e63400687e6b8125f9561812d68397b7cc9a53bf42329439cde918a50.source",
     "packages/backend/src/claims/protocol/evm-dispatch-gate.mjs": "archive/source-evidence/retired-facades/516a84942b43682bb7e0828f261b3f10f349a76ab92ad02ee5d53a9eb73ac167.source",
-    "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs": "archive/source-evidence/retired-facades/7590c51110e8f4fa2954498af5d1f59e752fa3c9bcbbeab13d383baafa8d8a44.source"
+    "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs": "archive/source-evidence/retired-facades/7590c51110e8f4fa2954498af5d1f59e752fa3c9bcbbeab13d383baafa8d8a44.source",
+    "packages/backend/tests/fixtures/chains/shared/runtime/claim-key-runtime-v4.fixture.mjs": "archive/source-evidence/retired-facades/6632ab515692fc89f4825508211936ca7ee5be3609969cad4e4d9c8f3482f4e8.source"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [
@@ -22759,7 +22753,8 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/funded-paged-native-gate-v3.mjs": "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/native-original-source-capsule-v1.mjs": "packages/backend/src/operations/recovery/native-original-source-capsule-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/evm-dispatch-gate.mjs": "packages/backend/src/claims/protocol/evm-dispatch-gate.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-evm-dispatch-gate-v1.mjs": "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/native-claims/wrapped-evm-dispatch-gate-v1.mjs": "packages/backend/src/claims/wrapped/protocol/wrapped-evm-dispatch-gate-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/claim-key-runtime-v4.fixture.mjs": "packages/backend/tests/fixtures/chains/shared/runtime/claim-key-runtime-v4.fixture.mjs"
   },
   "canonicalRuntimeSources": {
     "omnichain-flat-profile/flat-wallet/proof-workers/wallet-note-private-prover-v4.mjs": "packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs",
@@ -22803,6 +22798,7 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/original-facts-retention-v2.mjs": "packages/backend/src/operations/operators/claims/original-facts-retention-v2.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/defi-adapters/vault-preparation.mjs": "packages/backend/src/defi/vaults/vault-preparation.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/solana-transfers.mjs": "packages/backend/src/chains/solana/transfers/solana-transfers.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/nonce-first-send-state.mjs": "packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/nonce-first-send-state.mjs": "packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs",
+    "omnichain-flat-profile/flat-wallet/integration/solana-host-send-checks.mjs": "tests/integration/chains/solana/host-send-checks.mjs"
   }
 }

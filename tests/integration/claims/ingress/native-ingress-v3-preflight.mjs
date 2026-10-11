@@ -1,3 +1,4 @@
+import { prepareNonceRoutes } from '../../chains/solana/host-send-checks.mjs';
 /** Inactive integration preparation. Starts no runtime and creates no owner,
  * controller, proof, native signature or economic transfer. A future fixed
  * supervised worker supplies the original fresh V3 fixture after setup.
@@ -100,39 +101,10 @@ async function probe({ fixture }, productionBoundary) {
     assert.equal(audit.nativePrincipalAvailable, '0', 'V3_PREFLIGHT_NO_USER_PRINCIPAL');
     beforeInventories.push(inventory);
   }
-  const preparedRoutes = [], preparedByRoute = {};
-  for (const route of routes) {
-    const adapter = solana.adapter({ asset: config.nativeAsset, route }), roles = ownedCustodyRoute(route);
-    const nonce = nonceForRoute(route, solana.nonceInfrastructureByAuthority, solana.roles);
-    const stop = Object.freeze(new Error('V3_PREFLIGHT_STOP_BEFORE_NATIVE_KEY'));
-    let reached = false, result;
-    const unreachable = () => assert.fail('V3_PREFLIGHT_CROSSED_NATIVE_KEY_BOUNDARY');
-    const wireKeyCommitment = hash(route), callbacks = {
-      async beforeSign(prepared) {
-        assert.equal(reached, false); reached = true;
-        assert.equal(prepared.genesis, config.nativeGenesis);
-        assert.equal(prepared.intent.sourcePublicKey, solana.roles[roles.sourceRole].endpoint);
-        assert.equal(prepared.intent.recipientPublicKey, solana.roles[roles.destinationRole].endpoint);
-        assert.equal(prepared.intent.nonceAccountPublicKey, nonce.nonceAccountPublicKey);
-        assert.equal(prepared.funds.nonceAccount.authorityPublicKey, nonce.authorityPublicKey);
-        assert.equal(prepared.funds.nonceAccount.durableNonce, prepared.intent.durableNonce);
-        assert.equal(prepared.intent.lamports, '1000000'); assert.equal(prepared.intent.wireKeyCommitment, wireKeyCommitment);
-        assert.equal(prepared.unsignedWire, encodeSolanaNonceBindingMessage(prepared.intent));
-        assert.ok(BigInt(prepared.funds.feeLamports) > 0n && BigInt(prepared.funds.feeLamports) <= BigInt(config.refundMaxFee));
-        await adapter.assertPrepared(prepared);
-        result = copy(prepared);
-        throw stop;
-      }, onSigned: unreachable, beforeBroadcast: unreachable,
-      ...(route === 'deposit' ? { beforeSend: unreachable, assertBeforeSend: unreachable } : {}),
-    };
-    let rejected;
-    try { await adapter.transfer({ amount: '1000000', wireKeyCommitment }, callbacks); }
-    catch (error) { rejected = error; }
-    assert.equal(rejected, stop, 'V3_PREFLIGHT_EXACT_PRESIGN_REJECTION'); assert.equal(reached, true);
-    noEffects(); assert.deepEqual(runtime.ingressSendState, epoch, 'V3_PREFLIGHT_EVM_MUTATED');
-    preparedByRoute[route] = result;
-    preparedRoutes.push({ route, unsignedPreparationRevalidated: true, stoppedBeforeNativeKey: true });
-  }
+  const { preparedRoutes, preparedByRoute } = await prepareNonceRoutes({
+    routes, solana, config, ownedCustodyRoute, nonceForRoute, hash,
+    encodeSolanaNonceBindingMessage, copy, noEffects, runtime, epoch,
+  });
   // This negative check reaches the new branded method, but no signed original
   // or canonical owner intent exists. It must stop at the original-binding gate.
   let negative;

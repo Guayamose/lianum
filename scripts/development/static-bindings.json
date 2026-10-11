@@ -12,6 +12,7 @@
     "packages/backend/src/accounts/authority/native-value/native-value-authority-journals.mjs",
     "packages/backend/src/accounts/authority/native-value-account-backend-v2.mjs",
     "packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs",
-    "packages/backend/src/chains/solana/transfers/solana-transfers.mjs"
+    "packages/backend/src/chains/solana/transfers/solana-transfers.mjs",
+    "tests/integration/chains/solana/host-send-checks.mjs"
   ]
 }

@@ -44,6 +44,10 @@ DEFAULT_TESTS = [
     'packages/backend/tests/operations/validation/graph-facts-original-validation.test.mjs',
     'packages/backend/tests/defi/vaults/owned-backed-vault-idempotency.test.mjs',
     'packages/components/tests/plain-input.test.mjs',
+    'packages/backend/tests/chains/solana/runtime/solana-payout-authority-runtime.test.mjs',
+    'packages/backend/tests/chains/solana/transfers/owned-solana-payout-final-send.test.mjs',
+    'packages/backend/tests/chains/solana/runtime/owned-solana-runtime.test.mjs',
+    'packages/backend/tests/chains/solana/runtime/owned-solana-runtime.combined.test.mjs',
 ]
 
 

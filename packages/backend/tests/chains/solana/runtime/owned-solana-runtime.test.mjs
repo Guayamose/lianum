@@ -1,3 +1,4 @@
+import { resourcePath } from '@lianum/environment';
 /** Changed-boundary host tests only. Synthetic keys/raw RPC-shaped data and
  * official bundled Memo ELF bytes; no runtime constructor, node or network.
  */
@@ -18,8 +19,7 @@ import { encodeSolanaNonceBindingMessage, validateSolanaNonceBindingTransaction,
 const h = text => createHash('sha256').update(text).digest('hex');
 const copy = value => structuredClone(value), encoded = text => base58Encode(Buffer.from(h(text), 'hex'));
 const zero = '0'.repeat(64), system = '11111111111111111111111111111111';
-const memoBytes = readFileSync(new URL('../../../../../omnichain-product/.local/agave-linux-bounded-build/derived/'
-  + 'agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url));
+const memoBytes = readFileSync(resourcePath('engine', '.local/test-programs/spl_memo-3.0.0.so'));
 
 test('bootstrap waits only for a well-formed zero fee and retains all funding checks', () => {
   assert.equal(solanaNonceBootstrapFundingReady(1447680, 0, '10000000'), false);
@@ -274,9 +274,10 @@ test('nonce first-send state accepts only the retained never-sent payout and can
     intent: expected.intent, unsignedWire: encodeSolanaNonceBindingMessage(expected.intent) };
   assert.equal(assertSolanaNonceFirstSendState(state), undefined);
   assert.equal(assertSolanaNonceFirstSendState({ ...state, route: 'refund' }), undefined);
+  assert.equal(assertSolanaNonceFirstSendState({ ...state, route: 'deposit' }), undefined);
   for (const change of [
     { broadcastAttempts: 1 }, { phase: 'BROADCAST_UNKNOWN' }, { phase: 'BROADCAST' },
-    { phase: 'OBSERVED_FINALIZED' }, { phase: 'OBSERVED_ADVERSE' }, { route: 'deposit' },
+    { phase: 'OBSERVED_FINALIZED' }, { phase: 'OBSERVED_ADVERSE' }, { route: 'unknown' },
     { signingUnresolved: true }, { nativeId: '01'.repeat(64) }, { transactionSHA256: h('wrong signed wire') },
     { unsignedWire: state.unsignedWire.slice(2) }, { intent: { ...state.intent, durableNonce: h('replacement nonce') } },
   ]) assert.throws(() => assertSolanaNonceFirstSendState({ ...state, ...change }));

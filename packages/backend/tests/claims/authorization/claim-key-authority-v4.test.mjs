@@ -8,7 +8,7 @@ import {fixture, installRetainedNoncePayout, addLifecycleMethod, lifecycleRoute,
   poisonedOperators, poisonedQuorums, hash, zero, ownedClaimControllerJournal,
   consumeNativeClaimOriginalKeyAuthorityV4 as consume, openNativeClaimSolanaPayoutAuthority as open}
   from '../../fixtures/claims/authorization/claim-key-authority-v4.fixture.mjs';
-import {createRuntimeFixture} from '../../fixtures/chains/shared/runtime/claim-key-runtime-v4.fixture.mjs';
+import {createRuntimeFixture} from '../../fixtures/chains/solana/runtime/solana-payout-authority-runtime.fixture.mjs';
 
 async function unsigned(f) {
   const n=await installRetainedNoncePayout(f),native=f.options.claims.nativeRuntimes[0];
