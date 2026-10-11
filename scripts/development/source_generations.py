@@ -513,8 +513,8 @@ def unique_object(pairs):
 
 
 def retained_source_evidence(path):
-    """A retired collector's exact bytes; never an executable replacement."""
-    return re.fullmatch(r"archive/source-evidence/retired-source-collectors/[0-9a-f]{64}\.source", path) is not None
+    """Retired collector/facade bytes; never an executable replacement."""
+    return re.fullmatch(r"archive/source-evidence/(retired-source-collectors|retired-facades)/[0-9a-f]{64}\.source", path) is not None
 
 
 def source_relocations(definition):
@@ -533,7 +533,7 @@ def source_relocations(definition):
             relative(name)
             if name == new and retained_source_evidence(name):
                 if sha(read(name)) != Path(name).stem:
-                    raise ValueError("Retired source collector evidence was modified: " + name)
+                    raise ValueError("Retired source evidence was modified: " + name)
                 continue
             if (name.split("/", 1)[0] not in {"packages", "apps", "scripts", "tests", "experiments", "contracts"}
                     or any(part.startswith(".") or part in {"node_modules", "secrets"} for part in name.split("/"))

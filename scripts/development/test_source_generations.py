@@ -429,20 +429,22 @@ class SourceGenerationsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "hide an existing source"):
             capture.observe(old)
 
-    def test_retired_collector_evidence_is_hash_authenticated_and_not_executed(self):
+    def test_retired_collector_and_facade_evidence_is_hash_authenticated_and_not_executed(self):
         old = "packages/a/src/old.mjs"
         raw = b"import './removed-legacy-worker.mjs';\n"
-        target = "archive/source-evidence/retired-source-collectors/" + generations.sha(raw) + ".source"
-        archive = self.write(target, raw)
-        report, capture = self.closure_fixture([old], {old: target})
-        contract = generations.current_source_contract(report, capture)
-        row = next(row for row in contract["files"] if row["source"] == target)
-        self.assertEqual(row["sourceSHA256"], generations.sha(raw))
-        self.assertEqual(row["sourceDisposition"], "RETAINED_SOURCE_EVIDENCE")
-        self.assertFalse(any("removed-legacy-worker" in row["path"] for row in contract["files"]))
-        archive.write_bytes(raw + b"// altered\n")
-        with self.assertRaisesRegex(ValueError, "evidence was modified"):
-            generations.Capture()
+        for family in ['retired-source-collectors', 'retired-facades']:
+            with self.subTest(family=family):
+                target = "archive/source-evidence/" + family + "/" + generations.sha(raw) + ".source"
+                archive = self.write(target, raw)
+                report, capture = self.closure_fixture([old], {old: target})
+                contract = generations.current_source_contract(report, capture)
+                row = next(row for row in contract["files"] if row["source"] == target)
+                self.assertEqual(row["sourceSHA256"], generations.sha(raw))
+                self.assertEqual(row["sourceDisposition"], "RETAINED_SOURCE_EVIDENCE")
+                self.assertFalse(any("removed-legacy-worker" in row["path"] for row in contract["files"]))
+                archive.write_bytes(raw + b"// altered\n")
+                with self.assertRaisesRegex(ValueError, "evidence was modified"):
+                    generations.Capture()
 
     def test_duplicate_relocation_key_is_not_silently_overridden(self):
         self.write("scripts/layout.json", b'{"sourceRelocations":{"packages/a/old.mjs":"packages/b/one.mjs",'

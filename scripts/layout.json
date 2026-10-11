@@ -7263,25 +7263,11 @@
       "source": "packages/backend/tests/api/wallet/wallet-application-client.transport.test.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/wrapped-claim-session-v1.mjs",
-      "sha256": "76a43e94f9d8c7a404239f77d9ee3c1ffe3dc1315c3dbf4a8d5e32dbef2cd5e6",
-      "bytes": 164,
-      "mode": "0644",
-      "source": "packages/backend/src/api/claims/wrapped/wrapped-claim-session-v1.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/wrapped-claim-session.test.mjs",
       "sha256": "e85525256053d07aa72fab92e2da18ad0e5729e74c25a6c96dd19b8419c9ce47",
       "bytes": 8767,
       "mode": "0644",
       "source": "packages/backend/tests/api/claims/wrapped/wrapped-claim-session.test.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/wrapped-wallet-session-v1.mjs",
-      "sha256": "cac5fa44ea9133140cf7ca3cfc3b1376fe60e714f352956c371083d559618d61",
-      "bytes": 291,
-      "mode": "0644",
-      "source": "packages/backend/src/api/wallet/wrapped-wallet-session-v1.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/wrapped-withdrawal-admission-read-v1.mjs",
@@ -8437,13 +8423,6 @@
       "bytes": 94083,
       "mode": "0644",
       "source": "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/wrapped-wallet-account-authority-v1.mjs",
-      "sha256": "d9cc4383277baa03849bb5e9a7d3e2d38299c95fba4e28fe82d44b08b4258028",
-      "bytes": 644,
-      "mode": "0644",
-      "source": "packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/wrapped-wallet-portfolio-v1.mjs",
@@ -9902,13 +9881,6 @@
       "source": "packages/backend/src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs"
     },
     {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/wrapped-wallet-execution-v1.mjs",
-      "sha256": "2552e914c5408bb7af281f56d86ae117ef6db5da8ab421a4bb31d31035682dc7",
-      "bytes": 547,
-      "mode": "0644",
-      "source": "packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs"
-    },
-    {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/wrapped-wallet-graph-admission-v1.mjs",
       "sha256": "f098623cf53522d4324677ef29f9dbab46bc7e35abb31b4484dd430fbad570c1",
       "bytes": 15455,
@@ -9921,13 +9893,6 @@
       "bytes": 2244,
       "mode": "0644",
       "source": "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs"
-    },
-    {
-      "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/wrapped-wallet-terminal-v1.mjs",
-      "sha256": "2612b020b6303cfa16926c0e91cb743467c542a622acada9bea5f7dcee5f8740",
-      "bytes": 217,
-      "mode": "0644",
-      "source": "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-terminal-v1.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/solvers/evm-vault-provider.mjs",
@@ -22744,7 +22709,13 @@
     "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-deposit-bridge-backend-v1.mjs",
     "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-reservation-bridge-backend-v1.mjs",
     "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-execution-bridge-backend-v1.mjs",
-    "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs": "packages/backend/src/api/mobile/paired-original-account-actor-backend-v2.mjs"
+    "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs": "packages/backend/src/api/mobile/paired-original-account-actor-backend-v2.mjs",
+    "packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs": "archive/source-evidence/retired-facades/d9cc4383277baa03849bb5e9a7d3e2d38299c95fba4e28fe82d44b08b4258028.source",
+    "packages/backend/src/api/claims/wrapped/wrapped-claim-session-v1.mjs": "archive/source-evidence/retired-facades/c69ab5739ec34ef47da2d8f9a8c0b1a7409ef0afb3e2602b86826717027128aa.source",
+    "packages/backend/src/api/wallet/wrapped-wallet-session-v1.mjs": "archive/source-evidence/retired-facades/4ecbb8162faa7d9e884d21ccc8f8c0aa48e86e35f3fcc671e54de20c4e5410b7.source",
+    "packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs": "archive/source-evidence/retired-facades/08cb9958b629039cbe990711379de0c2a931a6974d517fa40de3acc996c2f4b0.source",
+    "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-terminal-v1.mjs": "archive/source-evidence/retired-facades/72340ec970f20ba90382dd327df7d991c76f7a1cbd81dcaa6064f146d4c086f3.source",
+    "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs": "archive/source-evidence/retired-facades/4da41e61f276fbb95e00534353979b4fdc57fb0c431a4caa32cc6f3b48096fab.source"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [
@@ -22797,7 +22768,13 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-deposit-bridge-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-reservation-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-reservation-bridge-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/device-owner-execution-bridge-v1.mjs": "packages/backend/src/accounts/authority/device-owner-execution-bridge-v1.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/paired-original-account-actor-v2.mjs": "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/paired-original-account-actor-v2.mjs": "packages/backend/src/api/mobile/paired-original-account-actor-v2.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/wrapped-wallet-account-authority-v1.mjs": "packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/wrapped-claim-session-v1.mjs": "packages/backend/src/api/claims/wrapped/wrapped-claim-session-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/wrapped-wallet-session-v1.mjs": "packages/backend/src/api/wallet/wrapped-wallet-session-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/wrapped-wallet-execution-v1.mjs": "packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/paeg/wrapped-wallet-terminal-v1.mjs": "packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-terminal-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/funded-paged-native-gate-v3.mjs": "packages/backend/src/chains/evm/dispatch/funded-paged-native-gate-v3.mjs"
   },
   "canonicalRuntimeSources": {
     "omnichain-flat-profile/flat-wallet/proof-workers/wallet-note-private-prover-v4.mjs": "packages/proofs/src/jobs/wallet-note-private-prover-v4.mjs",
