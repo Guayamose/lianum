@@ -35,8 +35,8 @@ const READS = { evm: new Set(['eth_chainId', 'eth_getBlockByNumber', 'eth_blockN
 
 async function reviewedSource(solana) {
   check(solana.metadata.sourceCommit === '5466f4592b1983adb13ba0a5d53f41ea2de69fba' && solana.metadata.officialSourceVersion === '2.3.13', 'PC24_CAPTURE_GENESIS_SOURCE');
-  const sol = await readFile(new URL('./chains/solana-runtime.mjs', import.meta.url), 'utf8');
-  const native = await readFile(new URL('./chains/native-runtime.mjs', import.meta.url), 'utf8');
+  const sol = await readFile(new URL('../chains/solana/solana-runtime.mjs', import.meta.url), 'utf8');
+  const native = await readFile(new URL('../chains/shared/native-runtime.mjs', import.meta.url), 'utf8');
   check(sol.includes('lamports: 10000000000') && sol.includes("'--account', keys.solver.address, solverAccount") && sol.includes("'--faucet-sol', '0'") && sol.includes("faucetUsed: false"), 'PC24_CAPTURE_GENESIS_SOURCE');
   check(native.includes("'--balance', '10'") && native.includes("btc('generatetoaddress', [101, miningAddress])"), 'PC24_CAPTURE_GENESIS_SOURCE');
   return {
