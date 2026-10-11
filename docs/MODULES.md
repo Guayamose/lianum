@@ -138,6 +138,18 @@ Las guardas usan snapshots separados de los objetos del llamador durante sus
 lecturas asíncronas. La implementación grande de GRAPH sigue recibiendo muchos
 contratos; esta separación no acredita que toda su cohesión o tipado estén cerrados.
 
+La implementación `native-value-account-backend-v2.mjs` también está fuera
+del SCC. La entrada canónica conserva los 103 miembros públicos y los siete
+loaders originales; el comprobador estático sigue la binding congelada concreta
+hasta su import literal. La regresión usa almacenamiento cifrado real y rechaza
+handles copiados y de otras familias, sin recursos ni pruebas financieras.
+
+El lector acotado de archivos, la cola física GRAPH y la lectura de portfolio
+tienen cuerpos completos bajo tipado estricto. No poseen claves ni autoridad de
+cuenta: el almacén conserva AEAD/CAS, el bootstrap selecciona las entradas físicas
+originales y la autoridad de portfolio conserva su bloqueo y sus hijos registrados.
+Las pruebas importan estos propietarios completos, sin extraer sus funciones.
+
 El grupo restante reúne cinco familias principales: recuperación wrapped
 (`wrapped-recovery-authority-v1.mjs`), composición SOURCE
 (`native-original-source-lifecycle-v1.mjs`), autoridad nativa
@@ -146,7 +158,7 @@ El grupo restante reúne cinco familias principales: recuperación wrapped
 DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
 siguen visibles; no son cinco componentes independientes ni deuda resuelta.
 
-La selección estricta tiene **94 entradas explícitas**. Se comprueban los cuerpos
+La selección estricta tiene **97 entradas explícitas**. Se comprueban los cuerpos
 completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
 de los mecanismos de journal, recuperación, observación y formatos extraídos.
 El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos
