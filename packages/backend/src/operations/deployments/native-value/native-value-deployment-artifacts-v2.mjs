@@ -379,13 +379,28 @@ export async function inspectReviewedRetainedNativeValueArtifactsForDevV5() {
     compilationSourceClosureSHA256: loaded.retained.sourceClosureSHA256,
     toolchain: loaded.retained.toolchain, crs: loaded.retained.crs });
 }
+/** Exact historical publication metadata for V6 preparation only. This fixed
+ * canonical digest authenticates the entire retained V5 publication, including
+ * its original public-package table digest, source rows and artifact descriptors.
+ * It was reviewed against the unchanged literal at 7999fe2660a366c048a48cf3d2c24fc18954994a.
+ * No caller pin, replacement descriptor, filesystem access or bundle is accepted. */
+export function validateRetainedNativeValuePublicationV6(input) {
+  assert.equal(arguments.length, 1, 'NATIVE_VALUE_DEV_V6_RETAINED_PUBLICATION_ARITY');
+  const publication = cloneInput(input);
+  assert.equal(nativeValueDevDigestV5(publication),
+    'e27b012669b958377a917f7660f2d2b0c75e0f287f09e6481544281271823174',
+    'NATIVE_VALUE_DEV_V6_RETAINED_PUBLICATION_CHANGED');
+  return frozenInput(publication);
+}
 /** V6 preparation data only: authenticate retained artifacts for a new source
  * generation. No bundle WeakSet insertion or financial consumer is exposed. */
 export async function inspectRetainedNativeValueReuseForPreparationV6() {
   assert.equal(arguments.length, 0, 'NATIVE_VALUE_DEV_REUSE_INSPECTION_NO_OPTIONS');
   assert.ok(NATIVE_VALUE_DEV_RELEASE_V5 !== null, 'NATIVE_VALUE_DEV_REUSE_PUBLICATION_REQUIRED');
-  validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5);
+  const publication = validateRetainedNativeValuePublicationV6(NATIVE_VALUE_DEV_RELEASE_V5);
   const loaded = await inspectFixedRetainedNativeValueArtifactsV5(false, true);
+  assert.deepEqual(validateRetainedNativeValuePublicationV6(NATIVE_VALUE_DEV_RELEASE_V5), publication,
+    'NATIVE_VALUE_DEV_V6_RETAINED_PUBLICATION_CHANGED');
   return frozenInput({ historicalReleaseSHA256: NATIVE_VALUE_DEV_HISTORICAL_RELEASE_SHA256_V5,
     retainedMetadataSHA256: NATIVE_VALUE_DEV_RETAINED_SHA256_V5,
     producedLedger: loaded.producedLedger, producedW39: loaded.producedW39.descriptor,

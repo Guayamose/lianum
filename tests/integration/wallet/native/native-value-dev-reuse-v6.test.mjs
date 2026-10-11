@@ -5,13 +5,49 @@ import { createHash } from 'node:crypto';
 import { validatePublishedW39ReuseCapsuleV6, inspectPublishedW39ReuseArtifactsV6 }
   from '../../../../packages/backend/src/operations/deployments/native-value/native-value-dev-w39-reused-artifacts-v6.mjs';
 import { w39DevDigestV5 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-w39-contract-v5.mjs';
-import { assertNativeValueArtifactBundle } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
+import { assertNativeValueArtifactBundle, validateRetainedNativeValuePublicationV6 }
+  from '../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs';
+import { NATIVE_VALUE_DEV_RELEASE_V5 } from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-release-v5.mjs';
+import { validateNativeValueDevReleaseV5, nativeValueDevDigestV5 }
+  from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-release-contract-v5.mjs';
+import { NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 }
+  from '../../../../packages/backend/src/operations/releases/native-value/native-value-dev-mobile-package-pins-v5.mjs';
 import { resolveDevelopmentWorkspaceExportV1, isDevelopmentWorkspacePackageLabelV1 }
   from '../../../../packages/backend/src/operations/releases/native-value/workspace-package-source-v1.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const rows = [{ path: 'development-tooling/dev', sha256: '01'.repeat(32) },
   { path: 'scripts/prepare-development-native-value-w39-v5.mjs', sha256: '02'.repeat(32) }];
 const bytes = Buffer.from(JSON.stringify(rows)), digest = w39DevDigestV5(rows);
+test('V6 authenticates the complete original publication as immutable metadata without issuing a capability', () => {
+  const retained = validateRetainedNativeValuePublicationV6(NATIVE_VALUE_DEV_RELEASE_V5);
+  assert.deepEqual(retained, NATIVE_VALUE_DEV_RELEASE_V5);
+  assert.notEqual(retained, NATIVE_VALUE_DEV_RELEASE_V5);
+  assert.ok(Object.isFrozen(retained.sourceFiles[0]));
+  assert.throws(() => assertNativeValueArtifactBundle(retained), /FIXED_ARTIFACT_BUNDLE_REQUIRED/);
+  assert.throws(() => validateRetainedNativeValuePublicationV6(retained, {}), /ARITY/);
+});
+test('V6 refuses altered historical descriptors, source closures and public-package identity', () => {
+  for (const mutate of [
+    row => { row.producedLedger.compiled.sha256 = '05'.repeat(32); },
+    row => { row.producedW39.kind = 'REPLACEMENT_DESCRIPTOR'; },
+    row => { row.sourceFiles[0].sha256 = '06'.repeat(32); row.hostSourceClosureSHA256 = nativeValueDevDigestV5(row.sourceFiles); },
+    row => { row.publicMobilePackagesSHA256 = NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5; },
+    row => { row.scope.proofAcceptanceEstablished = true; },
+  ]) {
+    const changed = structuredClone(NATIVE_VALUE_DEV_RELEASE_V5); mutate(changed);
+    assert.throws(() => validateRetainedNativeValuePublicationV6(changed), /RETAINED_PUBLICATION_CHANGED/);
+  }
+});
+test('current V5 validation still rejects the old publication; a new metadata candidate must bind current public packages', () => {
+  assert.throws(() => validateNativeValueDevReleaseV5(NATIVE_VALUE_DEV_RELEASE_V5), /PUBLIC_MOBILE_PACKAGES/);
+  const retained = validateRetainedNativeValuePublicationV6(NATIVE_VALUE_DEV_RELEASE_V5);
+  const candidate = validateNativeValueDevReleaseV5({ ...retained,
+    publicMobilePackagesSHA256: NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 });
+  assert.equal(candidate.publicMobilePackagesSHA256, NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5);
+  assert.deepEqual(candidate.producedLedger, retained.producedLedger);
+  assert.deepEqual(candidate.producedW39, retained.producedW39);
+  assert.throws(() => assertNativeValueArtifactBundle(candidate), /FIXED_ARTIFACT_BUNDLE_REQUIRED/);
+});
 test('retained build keeps authentic original provenance without claiming current launchers built it', () => {
   const result = validatePublishedW39ReuseCapsuleV6(bytes, digest, sha(bytes));
   assert.equal(result.recordedFiles, 2);
