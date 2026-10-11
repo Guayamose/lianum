@@ -128,6 +128,16 @@ también está fuera del SCC; su composición canónica sigue dentro. Sus mapas 
 privados por instancia. La composición fija dieciséis loaders diferidos y diez
 dependencias originales; los 185 miembros públicos conservan sus firmas y guardas.
 
+Las implementaciones `wrapped-recovery-backend-v1.mjs`,
+`external-defi-catalogue-recovery-backend-v1.mjs` y
+`device-external-flat-source-graph-backend-v1.mjs` también están fuera del SCC.
+Sus composiciones conservan los propietarios originales y los registros privados
+por instancia. Las partes/checkpoints GRAPH, términos de preparación y nacimiento
+retenido Aave/Uniswap tienen contratos inferiores completos bajo tipado estricto.
+Las guardas usan snapshots separados de los objetos del llamador durante sus
+lecturas asíncronas. La implementación grande de GRAPH sigue recibiendo muchos
+contratos; esta separación no acredita que toda su cohesión o tipado estén cerrados.
+
 El grupo restante reúne cinco familias principales: recuperación wrapped
 (`wrapped-recovery-authority-v1.mjs`), composición SOURCE
 (`native-original-source-lifecycle-v1.mjs`), autoridad nativa
@@ -136,7 +146,7 @@ El grupo restante reúne cinco familias principales: recuperación wrapped
 DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
 siguen visibles; no son cinco componentes independientes ni deuda resuelta.
 
-La selección estricta tiene **90 entradas explícitas**. Se comprueban los cuerpos
+La selección estricta tiene **94 entradas explícitas**. Se comprueban los cuerpos
 completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
 de los mecanismos de journal, recuperación, observación y formatos extraídos.
 El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos

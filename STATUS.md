@@ -34,13 +34,13 @@ La reorganización actual deja estos resultados comprobados:
 
 - **Paquetes y consumidores:** cero ciclos entre paquetes, cero imports privados
   activos entre paquetes y cero enlaces activos hacia pruebas/experimentos.
-  La comprobación inspecciona 960 fuentes y 1.755 imports públicos. Los trece
+  La comprobación inspecciona 968 fuentes y 1.765 imports públicos. Los trece
   enlaces de soporte de `protocol` son históricos y permanecen separados.
 - **Familias privadas:** mecánica EVM, reloj SOURCE, tres bridges, actor móvil y
   sesión nativa tienen propietarios por instancia y contratos concretos. La
   composición original conserva las funciones públicas y los validadores no
   aceptan marcas de otro builder. Se mantienen AEAD, CAS y tokens de un uso.
-- **Tipado:** la comprobación estricta tiene 90 entradas explícitas, frente a
+- **Tipado:** la comprobación estricta tiene 94 entradas explícitas, frente a
   las 27 anteriores. Comprueba los cuerpos completos del actor y sesión nativa,
   depósitos y ejecución de cuenta, además de los mecanismos extraídos de
   journal, recuperación, observación, DeFi y formatos móviles. Incluye también
@@ -73,8 +73,8 @@ La reorganización actual deja estos resultados comprobados:
   generales, módulos variables, campos sobrantes y acceso general a escritura.
 
 La adopción actual es
-`87b3db848e796660f45175830ea2b79ab5604031aadcb3da521dde2470f825a7`, con
-**1.467 fuentes y cero aliases de ejecución** en su contrato. Preparación y
+`a32dec9fb840549091d0dd2cbb0db677fe439a8d8b831eb86cf7f5d47debb6b6`, con
+**1.475 fuentes y cero aliases de ejecución** en su contrato. Preparación y
 adopción autentican los doce roles nativos y los cinco paginados, los originales
 W39/N32, programas, claves, compiler inputs y recibos. Los catálogos anteriores
 quedan archivados por sus bytes exactos; no se ejecutan ni se reescriben.
@@ -90,8 +90,8 @@ Node autorizado a leer únicamente dentro del paquete. Sus lectores reales
 aceptan las fuentes adoptadas y rechazan una clave paginada original alterada.
 Para I84 rechazan alteraciones de clave, programa, recibo de verificación y
 cápsula. Lleva 2.235 recursos públicos (276.564.901 bytes); el paquete completo
-ocupó 320.479.240 bytes, unos 305 MiB, y fue eliminado después. La última
-comprobación sobre la adopción actual terminó en 12,9 segundos. No usa el
+ocupó 320.662.959 bytes, unos 305 MiB, y fue eliminado después. La última
+comprobación sobre la adopción actual terminó en 14,5 segundos. No usa el
 checkout, laboratorio ni `.internal/runtime` de la máquina original.
 
 I84 autentica una publicación inmutable del resultado del lector original y
@@ -160,6 +160,28 @@ recursos. La recuperación tras salida física, publicación, OPENING y CAS pasa
 La composición canónica permanece en el SCC de 133 archivos: este corte separa
 la implementación, no elimina ese ciclo.
 
+La recuperación wrapped y la del catálogo DeFi tienen ahora implementaciones
+privadas fuera del SCC, con composiciones canónicas que conservan 148 y doce
+miembros públicos respectivamente. Wrapped mantiene 36 cargas diferidas originales;
+el catálogo conserva once. Pasan el rechazo de familias/copies, almacenamiento
+cifrado, tokens de un uso y recuperación D26 en otro proceso. El catálogo conserva
+el EXIT original tras respuesta perdida con un envío y sin nueva admisión.
+
+GRAPH separa su composición de la implementación de sus 35 miembros. Sus partes
+de recuperación, términos de preparación y guardas de nacimiento Aave/Uniswap
+son propietarios completos bajo tipado estricto. Mantienen checkpoint original,
+rechazo de CAS pendiente, tokens de un uso, quota exacta y ledgers vacíos antes de
+financiar. Las guardas conservan el snapshot separado de campos durante lecturas
+asíncronas; una regresión comprueba la mutación del objeto del llamador. Las pruebas
+migradas usan Vault/CAS y el propietario de journal completo, sin extraer sus
+cuerpos por texto. Los recorridos de preparación con dos/cuatro targets y rechazo
+de quota, provider copiado y slot duplicado también pasan.
+
+La selección diaria incluye los nuevos contratos cortos: 267 casos pasan en
+10,9 segundos. No incluye campañas económicas largas. Las nuevas implementaciones
+compartidas tienen 33 bindings canónicos en total y no generan copias adicionales;
+las veintitrés copias retiradas siguen fuera del generador.
+
 **Deuda que permanece:** el SCC interno pasó de 154 archivos/845 imports a
 **133 archivos/756 imports**, pero sigue reuniendo SOURCE, autoridad nativa,
 recuperación wrapped, servicio GRAPH y recuperación del catálogo DeFi. Sus
@@ -173,17 +195,17 @@ Estado concreto de los seis puntos de deuda y cinco de simplificación:
 
 | Punto | Comprobado | Pendiente |
 | --- | --- | --- |
-| Deuda 1: ciclos backend | Cortes privados, checkpoints de datos y consumidores directos; cero ciclos de paquetes. | Separar las cinco composiciones superiores del SCC de 133 archivos. |
+| Deuda 1: ciclos backend | Implementaciones SOURCE/wrapped/catálogo/GRAPH separadas de sus composiciones y checkpoints de datos; cero ciclos de paquetes. | Terminar el corte de autoridad nativa y resolver las relaciones entre las cinco composiciones canónicas; el SCC sigue en 133 archivos. |
 | Deuda 2: adopción económica | Generación actual adoptada; lectura real paginada/nativa/wrapped y rechazo de copia del bundle. | No se cuenta esta lectura como una nueva operación financiera. |
 | Deuda 3: pins actuales | Inventario gestionado de móvil, plataforma, callers y runtime; 200 verificaciones inmutables separadas. | Las ampliaciones futuras deben declarar sus fuentes; no se actualizan hashes históricos. |
 | Deuda 4: disposición y recursos | Fuentes canónicas, bundle wallet, lectores paginado/wrapped/I84, SDK ABI y Solc trasladados; recursos declarados sin fallback. | Portar y aceptar todos los workers y recorridos económicos/DeFi con sus recursos reales. |
-| Deuda 5: tipado del núcleo | 90 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, keeper duradero, sesión general, SOURCE y recuperación GRAPH/DeFi. |
+| Deuda 5: tipado del núcleo | 94 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, keeper duradero, sesión general, SOURCE y recuperación GRAPH/DeFi. |
 | Deuda 6: pruebas por interfaces | Actor, sesión, journal, recuperación y fixtures wrapped usan interfaces completas; autorización e I84 ya no extraen JavaScript. | Migrar las extracciones restantes y aceptar las matrices wrapped completas. |
 | Limpieza 1: histórico separado | Búsquedas, dependencias cotidianas y clones de desarrollo excluyen el histórico; originales conservados. | Nada adicional identificado en este bloque. |
 | Limpieza 2: fachadas | Catorce fachadas wallet y siete backend retiradas; consumidores directos y bytes históricos autenticados fuera de `src`. | Nada adicional identificado entre las fachadas retiradas de este bloque; se conservan las entradas públicas útiles. |
 | Limpieza 3: caminos de ejecución | Veintitrés copias retiradas; los nuevos propietarios compartidos no generan otra copia. | Retirar la compatibilidad que todavía usa el sistema económico completo. |
 | Limpieza 4: herramientas y pruebas | Catálogo de comandos comprobado; campañas largas explícitas y selección diaria acotada. | Pruebas frágiles restantes y validación de las matrices migradas. |
-| Limpieza 5: legibilidad y propietarios | Helpers sustituidos retirados, puertos económicos explícitos y codecs con un propietario. | Descomprimir/separar las composiciones superiores junto con sus contratos y pruebas. |
+| Limpieza 5: legibilidad y propietarios | Helpers sustituidos retirados, puertos económicos explícitos y codecs con un propietario. | Terminar autoridad nativa superior y dividir responsabilidades restantes de las implementaciones grandes. |
 
 Las matrices wrapped de 69 casos de ciclo de vida y 22 de runtime se conservan
 como campañas explícitas. No forman parte de la selección rápida. La revisión de
@@ -203,7 +225,7 @@ una campaña económica nueva. Los 52 archivos protegidos de visión, exclusione
 APK y trabajo retenido conservan sus hashes.
 
 `./dev check` completo pasa: límites entre paquetes, análisis estático, tipado,
-catálogo de comandos, diez casos de source-runtime y 252 comprobaciones HOST.
+catálogo de comandos, diez casos de source-runtime y 267 comprobaciones HOST.
 La prueba de capacidades exactas usa ahora la URL pública del módulo compartido,
 sin restaurar una fachada retirada. El guard EVM reexporta el bloqueo de su
 propietario sin evaluarlo prematuramente durante la carga circular; conserva
