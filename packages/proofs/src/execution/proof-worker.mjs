@@ -6,10 +6,9 @@ import { assertBeginPayoutAuditLegacyJobV1 } from '../jobs/native-flow-proof-sco
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { legacyDataRoot } from '@lianum/environment';
+import { resourceRoot } from '@lianum/environment';
 import { gunzipSync } from 'node:zlib';
 import { filePin, hash, verifyToolchain, verifyCRS, CRS, TOOLCHAIN_AUDIT_SHA256 } from '@lianum/components/resources/wallet-resources';
 import { validateOwnerPin, sourceManifest, sourceTreeHash, assertOwnerArtifact } from '../verification/owner-key.mjs';
@@ -18,8 +17,9 @@ import { assertWalletStatement } from '@lianum/engine/wallet/notes/private-walle
 import { initializePrivateVerifierCRS } from '@lianum/components/resources/private-verifier-crs';
 import { NATIVE_PROFILES, nativePaths, validateNativeKey, renderNativePin } from '../verification/native-key.mjs';
 import { NATIVE_PROOF_PINS } from './native-proof-pins.mjs';
+import { loadOfficialProofLibrariesV1 } from '../toolchain/official-proof-libraries.mjs';
 
-export const PROOF_PROJECT_ROOT = legacyDataRoot('engine');
+export const PROOF_PROJECT_ROOT = resourceRoot('engine');
 export const PROOF_PROTOCOL = 'LIANUM_PRIVATE_PROOF_PROCESS_V1';
 export const PROOF_MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 export const PROOF_DEFAULT_MODES = Object.freeze(['authorization', 'reserve', 'refund', 'deposit_balance', 'withdraw_balance']);
@@ -311,9 +311,7 @@ async function execute(request, phase) {
       else return { verified: (await verifyWallet(request.mode, { ...proof, publicInputs: verifierInputs(proof.publicInputs) }, request.label)).verified, metrics };
     } else {
       await phase('initializing-official-wasm');
-      const require = createRequire(join(experiment, 'package.json'));
-      const { Noir } = await import(pathToFileURL(require.resolve('@noir-lang/noir_js')));
-      const { Barretenberg, BackendType, UltraHonkVerifierBackend, BN254_G1_GENERATOR, deflattenFields } = await import(pathToFileURL(require.resolve('@aztec/bb.js')));
+      const { Noir, Barretenberg, BackendType, UltraHonkVerifierBackend, BN254_G1_GENERATOR, deflattenFields } = await loadOfficialProofLibrariesV1();
       api = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true, memory: { initial: 37, maximum: loaded.maximumPages } });
       await phase(request.operation === 'prove' ? 'initializing-pinned-proving-crs' : 'initializing-pinned-verifier-crs');
       if (request.operation === 'verify') metrics.verifierCRS = await initializePrivateVerifierCRS(api, BN254_G1_GENERATOR, readFileSync(CRS + 'bn254_g2.dat'));

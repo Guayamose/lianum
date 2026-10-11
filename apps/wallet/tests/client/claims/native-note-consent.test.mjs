@@ -18,35 +18,41 @@ const h = text => createHash('sha256').update(text).digest('hex'), a = n => Stri
 const worlds = new WeakMap(), owners = new WeakMap();
 const forbidden = () => { throw Error('SYNTHETIC_LOWER_FACTORY_FORBIDDEN'); };
 const url = p => new URL(p, import.meta.url).href;
-mock.module(url('../wallet-platform/modules/ops/native-value-wallet-binding-v2.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs'), { exports: {
+  // Every other deployment and recovery port remains forbidden in this host fixture.
+  assertOwnedNativeValueSystem: forbidden, nativeValueOperatorResources: forbidden, deployNativeValueSystem: forbidden, deployNativeValueDevSystemV5: forbidden, nativeValueOriginalRecoverySourceV1: forbidden, assertOwnedNativeValueObservationSystemV1: forbidden, captureNativeValueD26ObservationSystemV1: forbidden, stopCapturedNativeValueD26ObservationSystemV1: forbidden, reopenNativeValueD26ObservationSystemV1: forbidden, fenceOriginalNativeSystemEconomicRecoveryV1: forbidden, captureOriginalNativeSystemEconomicRecoveryV1: forbidden, stopCapturedNativeSystemEconomicRecoveryV1: forbidden, abortNativeSystemEconomicRecoveryV1: forbidden, reopenOriginalNativeSystemEconomicRecoveryV1: forbidden, retainOriginalNativeSystemSourceV1: forbidden, reopenOriginalNativeSystemSourceV1: forbidden,
   assertOwnedNativeValueWalletSystem(runtime, system) { assert.equal(worlds.get(runtime)?.system, system, 'SYNTHETIC_NATIVE_SYSTEM'); assert.equal(system.claimsEnabled, false); }
 } });
-mock.module(url('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs'), { exports: { async assertLocalEvm(r) { assert.ok(worlds.has(r)); } } });
-mock.module(url('../wallet-platform/modules/chain-adapters/owned-pool-asset.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs'), { exports: { assertLocalEvmDeploymentProfile: forbidden, async assertLocalEvm(r) { assert.ok(worlds.has(r)); } } });
+mock.module(url('../../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs'), { exports: {
   createOwnedPoolAsset: forbidden, createNativePoolAsset: forbidden, assertOwnedPoolAsset(r, cap) { assert.equal(worlds.get(r)?.poolCapability, cap); }
 } });
-mock.module(url('../mobile-core/native-value-owner-process-v2.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/custody/processes/native-value-owner-process-v2.mjs'), { exports: {
+  nativeValueOwnerEconomicIdentityV1: forbidden,
   createNativeValueOwnerProcess: forbidden, assertOwnedNativeValueOwnerProcess(owner, expected) {
     const w = owners.get(owner); assert.ok(w && w.ownerAvailable, 'SYNTHETIC_ORIGINAL_PROCESS');
     assert.equal(w.runtime, expected.runtime); assert.equal(w.system, expected.system); assert.equal(expected.poolIndex, 0);
   }
 } });
-mock.module(url('../mobile-core/native-value-owner-observer-v2.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/custody/observers/native-value-owner-observer-v2.mjs'), { exports: {
   async createNativeValueOwnerObserver({ runtime }) { return worlds.get(runtime).observer; },
   assertOwnedNativeValueOwnerObserver(o, { runtime }) { assert.equal(o, worlds.get(runtime).observer); }
 } });
-mock.module(url('../wallet-platform/modules/paeg/native-value-system-state-v2.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs'), { exports: {
   ...actualState, async createNativeValueSystemStateReader({ runtime }) { return worlds.get(runtime).reader; }
 } });
-mock.module(url('../wallet-platform/modules/paeg/native-value-execution-v2.mjs'), { exports: {
-  assertOwnedNativeValueExecution: forbidden, ownedNativeValueManualGraphReview: forbidden
+mock.module(url('../../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs'), { exports: {
+  reconcileOriginalDeviceNativeRecoveryV1: forbidden, assertOwnedNativeValueExecution: forbidden, ownedNativeValueManualGraphReview: forbidden
 } });
-mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: {
-  loadFlatABI: forbidden, createFlatProofRunner() { return { async close() {}, async abort() {}, prove: forbidden }; }, withFlatHash: forbidden
+mock.module(url('../../../../../packages/proofs/src/tooling/scoped-proof-tools.mjs'), { exports: {
+  loadFlatABI: forbidden, withFlatHash: forbidden
+} });
+mock.module('@lianum/backend/proving/roles/scoped-proof-runner', { exports: {
+  createFlatProofRunner() { return { async close() {}, async abort() {}, prove: forbidden }; }
 } });
 let proofs = 0;
-mock.module(url('../../../omnichain-product/src/paeg/proof-process.mjs'), { exports: {
-  createProofProcess() { return { async prove(_mode, _inputs, publicInputs) { proofs++; return { proof: 'c0ffee'.padEnd(64, '0'), publicInputs, metrics: { acceptedResult: true } }; }, async close() {} }; }
+mock.module(url('../../../../../packages/proofs/src/execution/proof-process.mjs'), { exports: {
+  createNativeEconomicNoteProofProcessV1: forbidden, createProofProcess() { return { async prove(_mode, _inputs, publicInputs) { proofs++; return { proof: 'c0ffee'.padEnd(64, '0'), publicInputs, metrics: { acceptedResult: true } }; }, async close() {} }; }
 } });
 const { createNativeValueAccountAuthority, nativeValueAccountManualNoteDetails } = await import('../../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const { createNativeValueManualGraphAccountSession } = await import('../../../../../packages/backend/src/api/accounts/flat-manual-graph-session.mjs');

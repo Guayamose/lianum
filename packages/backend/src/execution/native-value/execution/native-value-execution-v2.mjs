@@ -41,7 +41,8 @@ import { flatCompletionWindow } from '../../account/reconciliation/flat-completi
 import { nativeValueFailureDiagnostic } from '../reconciliation/native-value-failure-retention.mjs';
 import { recoveryWitness } from '../../account/preparation/funding-inputs.mjs';
 import { encodeFlatTransaction } from '../../encoding/transaction-codec.mjs';
-import { withFlatHash, loadFlatABI, createFlatProofRunner } from '@lianum/proofs/tooling/scoped-proof-tools';
+import {withFlatHash, loadFlatABI} from '@lianum/proofs/tooling/scoped-proof-tools';
+import {createFlatProofRunner} from '@lianum/backend/proving/roles/scoped-proof-runner';
 
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';
 import { assertOwnedNativeValueQuorum as wrappedQuorum } from '../../../operations/operators/wrapped/wrapped-claim-graph-operators-v1.mjs';

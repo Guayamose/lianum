@@ -2,16 +2,17 @@
  * paths/backends. One private job enters a fresh role; only its public proof is
  * returned. The enclosing owned runtime supervisor owns aggregate resources. */
 import assert from 'node:assert/strict';
-import { assertBeginPayoutAuditRoleLaunchV1 } from './native-flow-proof-scope-v1.mjs';
-import {RESERVATION_NATIVE_THREADS_V1,assertNativeReservationReceiptV1} from './reservation-native-execution-v1.mjs';
-import {NODE_NATIVE_THREADS_V1,assertNativeNodeReceiptV1} from './node-native-execution-v1.mjs';
+import { assertBeginPayoutAuditRoleLaunchV1 } from '@lianum/proofs/jobs/native-flow-proof-scope-v1';
+import {RESERVATION_NATIVE_THREADS_V1,assertNativeReservationReceiptV1} from '@lianum/proofs/jobs/reservation-native-execution-v1';
+import {NODE_NATIVE_THREADS_V1,assertNativeNodeReceiptV1} from '@lianum/proofs/jobs/node-native-execution-v1';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import { ROOT, LOCAL, LIMITS } from '../catalog.mjs';
+import {fileURLToPath} from 'node:url';
+import { ROOT, LOCAL, LIMITS } from '@lianum/proofs/catalog';
 import { relationWithNativeIngressV3 as relation, publicWordsWithNativeIngressV3 as publicWords,
   NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SOURCE_VERSION,
-  NATIVE_INGRESS_V3_KEY_SHA256 } from '../native-ingress/metadata/native-ingress-v3-profile.mjs';
-import { regular, hash, assertID } from '../tooling/tooling.mjs';
+  NATIVE_INGRESS_V3_KEY_SHA256 } from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
+import { regular, hash, assertID } from '@lianum/proofs/tooling/tooling';
 import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 import {encodeStatement} from '@lianum/components/encoding/statements';
 import { exactRecord } from '@lianum/components/encoding/commitments';
@@ -74,8 +75,9 @@ export function createRoleProofClient(role) {
     };
     try {
       assertBeginPayoutAuditRoleLaunchV1(role, spec.name);
-      child = spawn(process.execPath, [join(ROOT, spec === NATIVE_INGRESS_V3_SPEC
-        ? 'proof-workers/native-ingress-v3-role-process.mjs' : 'proof-workers/role-process.mjs'), spec.name],
+      child = spawn(process.execPath, [spec === NATIVE_INGRESS_V3_SPEC
+        ? fileURLToPath(new URL('../native-ingress/runtime/native-ingress-v3-role-process.mjs',import.meta.url))
+        : fileURLToPath(new URL('../../../../proofs/src/jobs/role-process.mjs',import.meta.url)), spec.name],
         { cwd: ROOT, env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' }, serialization: 'json',
           stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
       state.active = { stop };

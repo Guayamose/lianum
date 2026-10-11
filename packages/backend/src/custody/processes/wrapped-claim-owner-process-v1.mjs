@@ -9,7 +9,7 @@ const { openTrustedFlatOwnerCustody, ownerCopy, ownerDigest, FLAT_OWNER_PROFILE 
 const { createWrappedClaimOwnerObserverV1: createFlatOwnerObserver, assertOwnedWrappedClaimOwnerObserverV1: assertOwnedFlatOwnerObserver } = await import('../observers/wrapped-claim-owner-observer-v1.mjs');
 const { exactRecord, FIELD_MODULUS, canonicalField } = await import('@lianum/components/encoding/commitments');
 const { loadPinned, resourceModuleURL } = await import('@lianum/proofs/tooling/tooling');
-const { createRoleProofClient } = await import('@lianum/proofs/client');
+const { createRoleProofClient } = await import('@lianum/backend/proving/roles/role-client');
 const { LIMITS } = await import('@lianum/proofs/catalog');
 if (ORIGINAL_WRAPPED_OWNER_CHILD_V1) inspectWrappedInstallationSourcesV2();
 /** One fixed owner child and surviving private keeper for local fake values.

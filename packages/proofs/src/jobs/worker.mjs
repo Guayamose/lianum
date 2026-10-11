@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {preparePrivateProofJobV1,privateProofBindingSHA256V1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import { constants, closeSync, existsSync, fstatSync, lstatSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 import { ROOT, LOCAL, PROFILE, SETTINGS, LIMITS, MEMORY, DISCLOSURE, operation, pagesFor } from '../catalog.mjs';
@@ -303,7 +302,7 @@ async function prove() {
     keyRecomputed:false,maximumPages:nativeNode||nativeReservation?null:maximumPages,...(nativeNode||nativeReservation?{preparedMaximumPages:maximumPages}:{}) });
   phase('receiving-scoped-job');
   await measured('jobPreparationMilliseconds', async () => {
-    const adapter = await import(pathToFileURL(join(ROOT, 'proof-workers/trusted-jobs.mjs')));
+    const adapter = await import('./trusted-jobs.mjs');
     // Adapter installs one message listener synchronously, then awaits exactly
     // one matching bounded message. No private payload is written to disk.
     assert.equal(typeof adapter.validateJobAgainstABI, 'function', 'PW_TRUSTED_ABI_VALIDATOR');

@@ -301,7 +301,7 @@ async function createFixedClaimMobileLocalOperator(config,index) {
   const {createLocalClaimOperator,createClaimOperatorQuorum}=await import('../../claims/operations/operators.mjs');
   const {createFlatOwnerNativeClaimObserver}=await import('../../custody/observers/flat-owner-native-claim-observer.mjs');
   const {createFlatOwnerProcess}=await import('../../custody/processes/flat-owner-process.mjs');
-  const {createRoleProofClient}=await import('@lianum/proofs/client');
+  const {createRoleProofClient}=await import('@lianum/backend/proving/roles/role-client');
   const {createDurableNativeClaimControllerKeeper,createNativeClaimController}=await import('../../claims/controller/controller.mjs');
   const {claimDomainCommitment}=await import('@lianum/engine/claims/framing');
   const {decodeDepositIntentInputs}=await import('@lianum/engine/execution/inputs/deposit-intent');
@@ -530,7 +530,7 @@ async function createDeviceRootClaimLocalOperator(config,profile){
     const {createNativeClaimBootstrap,createOriginalRecentBlockhashNativeClaimBootstrapV4,preflightOriginalRecentBlockhashNativeClaimV4Artifacts,createNativeSplClaimIngressV1Bootstrap,preflightNativeSplClaimIngressV1Artifacts,deployNativeClaimSystem}=await import('../../operations/deployments/claims/deploy-native-claims.mjs');
     const {createOwnedClaimObserver}=await import('../../claims/operations/owned-state.mjs');
     const {createLocalClaimOperator,createClaimOperatorQuorum}=await import('../../claims/operations/operators.mjs');
-    const {createRoleProofClient}=await import('@lianum/proofs/client');
+    const {createRoleProofClient}=await import('@lianum/backend/proving/roles/role-client');
     const {createDurableNativeClaimControllerKeeper,createNativeClaimController}=await import('../../claims/controller/controller.mjs');
     const {claimDomainCommitment}=await import('@lianum/engine/claims/framing');
     if(profile.endsWith('_EXIT_V3')&&family!=='SPL'){await preflightOriginalRecentBlockhashNativeClaimV4Artifacts();live();}

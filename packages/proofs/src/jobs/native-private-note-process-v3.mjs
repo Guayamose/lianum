@@ -1,5 +1,4 @@
 import{sealPrivateProofJobV1,privateProofAuthorizationBindingV1,wipePrivateProofInputsV1}from'@lianum/engine/crypto/private-proof-transit-v1';
-import{ROOT}from'../catalog.mjs';
 /** Trusted in-process facade for short-lived offline proof workers.
  * Authorization/capsule proving belongs to the owner. Never expose this factory as a
  * coordinator HTTP API accepting graphs. Inputs/results are private capabilities.
@@ -23,12 +22,14 @@ import {
   publicInputsFromWitness, encodePrivateProof, decodePrivateProof, loadProofProfile, wipePrivate, proofRoleAllows, assertProofRole,
 } from '../execution/proof-worker.mjs';
 
-const legacyWorkerFile=join(PROOF_PROJECT_ROOT,'src/paeg/proof-worker.mjs');
-const nativeNoteRunnerFile=join(ROOT,'proof-workers/native-private-note-execution-v3.mjs');
-const nativePinsFile=join(PROOF_PROJECT_ROOT,'src/paeg/native-proof-pins.mjs');
-const nativeValidatorFile=join(PROOF_PROJECT_ROOT,'experiments/private-core-proof/generic-native/pin-key.mjs');
-const proofResourcePolicyFile=join(PROOF_PROJECT_ROOT,'src/paeg/proof-resource-policy.mjs');
-const verifierCRSFile=join(PROOF_PROJECT_ROOT,'src/private-verifier-crs.mjs');
+const legacyWorkerFile=fileURLToPath(new URL('../execution/proof-worker.mjs',import.meta.url));
+const nativeNoteRunnerFile=fileURLToPath(new URL('./native-private-note-execution-v3.mjs',import.meta.url));
+const nativePinsFile=fileURLToPath(new URL('../execution/native-proof-pins.mjs',import.meta.url));
+const nativeValidatorFile=fileURLToPath(new URL('../verification/native-key.mjs',import.meta.url));
+const proofResourcePolicyFile=fileURLToPath(new URL('../execution/proof-resource-policy.mjs',import.meta.url));
+const verifierCRSFile=fileURLToPath(new URL('../../../components/src/resources/private-verifier-crs.mjs',import.meta.url));
+const privateTransitFile=fileURLToPath(new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs',import.meta.url));
+const resourcePolicyFile=fileURLToPath(new URL('../../../components/src/resources/private-resource-policy.mjs',import.meta.url));
 const telemetryDirectory = join(PROOF_PROJECT_ROOT, 'evidence/paeg-proof-attempts');
 const hostLockPath = '/tmp/lianum-paeg-proof-host.lock';
 const operationMilliseconds = 15 * 60 * 1000, killGraceMilliseconds = 5000;
@@ -92,9 +93,9 @@ function createFixedProofProcess(options,nativeNote) {
   const allowed = new Set(modes);
   const bindings = Object.fromEntries(modes.map(mode => [mode, loadProofProfile(mode).publicPins]));
   const codePins = {
-    privateTransit:filePin(join(ROOT,'proof-workers/private-proof-transit-v1.mjs')),worker: filePin(legacyWorkerFile), parent: filePin(fileURLToPath(import.meta.url)),
+    privateTransit:filePin(privateTransitFile),worker: filePin(legacyWorkerFile), parent: filePin(fileURLToPath(import.meta.url)),
     ...(nativeNote?{nativeNoteRunner:filePin(nativeNoteRunnerFile),nativeNoteEntries:Object.fromEntries(Object.entries(NOTE_NATIVE_WORKERS_V1).map(([mode,path])=>[mode,filePin(path)]))}:{}),
-    resourcePolicy: filePin(join(PROOF_PROJECT_ROOT,'src/private-resource-policy.mjs')),
+    resourcePolicy: filePin(resourcePolicyFile),
     proofResourcePolicy: filePin(proofResourcePolicyFile),
     verifierCRS: filePin(verifierCRSFile),
     ...(modes.some(mode => !PROOF_DEFAULT_MODES.includes(mode))
@@ -116,11 +117,11 @@ function createFixedProofProcess(options,nativeNote) {
     const resourcePolicy = selectProofResourcePolicy(mode, loaded.publicPins);
     need(JSON.stringify(loaded.publicPins) === JSON.stringify(bindings[mode]), 'PAEG_PROOF_BOUND_PROFILE_CHANGED');
     const workerFile=nativeNote?NOTE_NATIVE_WORKERS_V1[mode]:legacyWorkerFile;
-    filePin(join(ROOT,'proof-workers/private-proof-transit-v1.mjs'),codePins.privateTransit);
+    filePin(privateTransitFile,codePins.privateTransit);
     filePin(legacyWorkerFile,codePins.worker);
     if(nativeNote){filePin(nativeNoteRunnerFile,codePins.nativeNoteRunner);filePin(workerFile,codePins.nativeNoteEntries[mode]);}
     filePin(fileURLToPath(import.meta.url), codePins.parent);
-    filePin(join(PROOF_PROJECT_ROOT,'src/private-resource-policy.mjs'), codePins.resourcePolicy);
+    filePin(resourcePolicyFile, codePins.resourcePolicy);
     filePin(proofResourcePolicyFile, codePins.proofResourcePolicy);
     filePin(verifierCRSFile, codePins.verifierCRS);
     if (codePins.nativePins) {
@@ -198,7 +199,7 @@ function createFixedProofProcess(options,nativeNote) {
             assertNativeEconomicNoteReceiptV1(mode,report.worker,report);}
           need(report.nativeChildrenGone,'PAEG_PROOF_NOTE_CHILDREN_NOT_CLOSED');
           filePin(nativeNoteRunnerFile,codePins.nativeNoteRunner);filePin(workerFile,codePins.nativeNoteEntries[mode]);
-          filePin(join(ROOT,'proof-workers/private-proof-transit-v1.mjs'),codePins.privateTransit);
+          filePin(privateTransitFile,codePins.privateTransit);
           filePin(legacyWorkerFile,codePins.worker);filePin(fileURLToPath(import.meta.url),codePins.parent);
         }catch(error){failure??=proofError('PAEG_PROOF_NOTE_CLOSURE');report.phase='failed';report.acceptedResult=false;report.failureCode=failure.code;}
       }

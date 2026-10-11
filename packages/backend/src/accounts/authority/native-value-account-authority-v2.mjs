@@ -41,7 +41,7 @@ import { decodeStatement } from '@lianum/components/encoding/statements';
 
 import { assertOwnedNativeValueOwnerProcess as nativeOwner } from '../../custody/processes/native-value-owner-process-v2.mjs';
 import { createNativeValueOwnerObserver as nativeObserver, assertOwnedNativeValueOwnerObserver as nativeObserverAssert } from '../../custody/observers/native-value-owner-observer-v2.mjs';
-import { createFlatProofRunner } from '@lianum/proofs/tooling/scoped-proof-tools';
+import {createFlatProofRunner} from '@lianum/backend/proving/roles/scoped-proof-runner';
 import { flatAccountAsset, flatAccountGraphBinding } from './flat-account-validation.mjs';
 
 import { assertOwnedWrappedClaimWalletSystemV1 } from '../../operations/deployments/wrapped/wrapped-claim-system-v1.mjs';

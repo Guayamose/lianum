@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { readFileSync, statfsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-import { legacyDataRoot } from '@lianum/environment';
+import { resourceRoot } from '@lianum/environment';
 import { PRIVATE_RESOURCE_FLOORS, PRIVATE_RESOURCE_POLICY, PRIVATE_PROOF_WORKER_RSS_LIMIT } from '@lianum/components/resources/private-resource-policy';
 import { canonical } from '@lianum/engine/crypto/privacy';
 import { ASSEMBLY_PUBLIC_WORDS, ASSEMBLY_RECURSIVE_MODES } from '@lianum/engine/assembly/private-assembly-encoding';
@@ -16,7 +16,7 @@ const recursive = mode => ASSEMBLY_RECURSIVE_MODES.includes(mode);
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const need = (condition, code = 'PC18_ACTOR_INPUT') => { if (!condition) fail(code); };
 const safeCode = error => /^(PC18|PC23|WALLET_CUSTODY)_[A-Z0-9_]+$/.test(error?.code ?? error?.message ?? '') ? error.code ?? error.message : 'PC18_REQUEST_REJECTED';
-const processOptions = () => ({cwd:legacyDataRoot('engine'),stdio:['pipe','pipe','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8'}});
+const processOptions = () => ({cwd:resourceRoot('engine'),stdio:['pipe','pipe','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8'}});
 export function launchRecipientWithdrawalProofWorker() {
   need(arguments.length === 0, 'PC18_WITHDRAW_WORKER_ARITY');
   return spawn(process.execPath, [fileURLToPath(new URL('./note-proof-worker.mjs', import.meta.url))], processOptions());
@@ -55,7 +55,7 @@ function archiveAssemblyWorkerResourceAbort(mode, operation, child, snapshot, vi
   if (Number.isSafeInteger(child.pid) && child.pid > 0) {
     try { const match = /VmRSS:\s+(\d+)/.exec(readFileSync(`/proc/${child.pid}/status`, 'utf8')); if (match) childRSS = Number(match[1]) * 1024; } catch {}
   }
-  const directory = join(legacyDataRoot('engine'), 'evidence/m18-worker-resource-aborts/');
+  const directory = join(resourceRoot('engine'), 'evidence/m18-worker-resource-aborts/');
   const at = new Date().toISOString();
   const record = { classification: 'EXACT_EXTERNAL_WORKER_RESOURCE_FLOOR_SAMPLE', at, mode, operation, resourcePolicy:PRIVATE_RESOURCE_POLICY, floorBytes: ASSEMBLY_WORKER_RESOURCE_FLOORS, observedBytes: snapshot, violated: violations, actorRSS: process.memoryUsage().rss, childRSS, noWitnessOrNativeIdentifiers: true };
   mkdirSync(directory, { recursive: true });

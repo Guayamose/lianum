@@ -24,7 +24,7 @@ import { assertOwnedLocalEvmV2, refreshNativeValueReceiverClock, nativeValueRece
 import { assertOwnedClaimObserver, ownedClaimObserverBindings } from '../operations/owned-state.mjs';
 import { assertOwnedClaimOperator, assertOwnedClaimOperatorQuorum } from '../operations/operators.mjs';
 import * as claimOperators from '../operations/operators.mjs';
-import {assertRoleProofClient,createRoleProofClient,readOriginalDeviceRootClaimDerivationV2} from '@lianum/proofs/client';
+import {assertRoleProofClient,createRoleProofClient,readOriginalDeviceRootClaimDerivationV2} from '@lianum/backend/proving/roles/role-client';
 import * as DeviceClaim from '@lianum/mobile-protocol/device/native-claim-v1';
 import {originalNativeClaimAssetUnitsV1} from '../operations/native-claim-asset-units-v1.mjs';
 import { loadPinned, resourceModuleURL } from '@lianum/proofs/tooling/tooling';

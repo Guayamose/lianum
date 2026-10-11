@@ -3,7 +3,7 @@
  * bounded integration supervisor after durable merged-source checkpointing. */
 import assert from 'node:assert/strict';
 import { loadPinned,resourceModuleURL } from '@lianum/proofs/tooling/tooling';
-import { createRoleProofClient } from '@lianum/proofs/client';
+import { createRoleProofClient } from '@lianum/backend/proving/roles/role-client';
 import { loadNativeClaimIngressV3ProofArtifacts } from '../../../../packages/backend/src/operations/deployments/claims/native-claim-ingress-v3-artifacts.mjs';
 import { loadNativeClaimArtifacts } from '../../../../packages/backend/src/operations/deployments/claims/native-claim-artifacts.mjs';
 import { FIELD_MODULUS } from '@lianum/components/encoding/statements';

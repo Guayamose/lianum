@@ -24,7 +24,8 @@ import { encodeFlatTransaction } from '../../execution/encoding/transaction-code
 import { privateFailureDiagnostic } from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { assertOwnedFlatOwnerProcess } from '../../custody/processes/flat-owner-process.mjs';
 import { createFlatOwnerObserver, assertOwnedFlatOwnerObserver } from '../../custody/observers/flat-owner-observer.mjs';
-import { createFlatProofRunner, withFlatHash } from '@lianum/proofs/tooling/scoped-proof-tools';
+import {withFlatHash} from '@lianum/proofs/tooling/scoped-proof-tools';
+import {createFlatProofRunner} from '@lianum/backend/proving/roles/scoped-proof-runner';
 import { flatAccountAsset, flatAccountGraphBinding, flatAccountCalldataHash, validateFlatAccountOwnerObservation, validateFlatManualGraphAdmissionTime }
   from './flat-account-validation.mjs';
 

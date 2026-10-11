@@ -51,10 +51,14 @@ mock.module(url('../wallet-platform/modules/global-state/flat-pool-admission-pol
     assert.equal(expected.accounts[0].account, w.account);
   }
 } });
-mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: {
+const hostScopedProofTools = {
   loadFlatABI: forbidden, createFlatProofRunner() { return { async close() {}, async abort() {}, async prove() { throw Error('PROOF_WORK_FORBIDDEN'); } }; },
   withFlatHash() { throw Error('HASH_BACKEND_FORBIDDEN'); }
-} });
+};
+mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: hostScopedProofTools });
+mock.module(import.meta.resolve('@lianum/backend/proving/roles/scoped-proof-runner'), {exports: {
+  createFlatProofRunner: hostScopedProofTools.createFlatProofRunner,
+}});
 const { createFlatAccountAuthority, flatAccountManualGraphDetails } = await import('../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs');
 const { createFlatPortfolioAuthority } = await import('../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs');
 const { createFlatJournalGeneration, createFlatJournalCatalogue } = await import('../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs');

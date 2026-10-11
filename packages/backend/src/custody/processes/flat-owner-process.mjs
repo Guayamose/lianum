@@ -11,7 +11,7 @@ import { openTrustedFlatOwnerCustody, ownerCopy, ownerDigest, FLAT_OWNER_PROFILE
 import { createFlatOwnerObserver, assertOwnedFlatOwnerObserver } from '../observers/flat-owner-observer.mjs';
 import { exactRecord, FIELD_MODULUS, canonicalField } from '@lianum/components/encoding/commitments';
 import { loadPinned, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
-import { createRoleProofClient } from '@lianum/proofs/client';
+import { createRoleProofClient } from '@lianum/backend/proving/roles/role-client';
 import { LIMITS } from '@lianum/proofs/catalog';
 import {claimReceiptSecret,claimRefundSalt} from '@lianum/engine/claims/framing';
 import {buildClaimIngressInputs} from '@lianum/engine/claims/inputs';

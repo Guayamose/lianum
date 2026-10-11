@@ -151,7 +151,7 @@ async function supervise(spec, mode, runId, privatePayload = null) {
       report.runtimePinsSHA256 = hash(jsonBytes(runtimePins));
       const remaining = LIMITS.phaseTimeoutMilliseconds - (performance.now() - began);
       assert.ok(remaining > 0, 'PW_PREFLIGHT_TIMEOUT');
-      const args = [join(ROOT, 'proof-workers/worker.mjs'), spec.name, mode, runId];
+      const args = [fileURLToPath(new URL('./worker.mjs', import.meta.url)), spec.name, mode, runId];
       report.childExecutable = process.execPath; report.childArguments = args; report.phase = 'starting'; save();
       completion = new Promise(resolve => { resolveClosed = resolve; });
       child = spawn(process.execPath, args, { cwd: ROOT, env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8' },

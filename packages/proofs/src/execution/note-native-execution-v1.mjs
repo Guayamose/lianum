@@ -6,14 +6,14 @@ import {createRequire} from 'node:module';
 import {Socket} from 'node:net';
 import {accessSync,constants,closeSync,fstatSync,lstatSync,openSync,readFileSync,readlinkSync,readdirSync,realpathSync,statSync,unlinkSync} from 'node:fs';
 import {join} from 'node:path';
-import {GOLDEN,EXPERIMENT,LIMITS,MEMORY} from '../catalog.mjs';
+import {EXPERIMENT,LIMITS,MEMORY} from '../catalog.mjs';
 import {loadProofProfile,assertExpectedInputs,wipePrivate,PROOF_PROTOCOL,encodeProofMessage,decodeProofMessage,
  exactObject,assertProofRole,normalizePublicInputs,normalizeProofWitness,publicInputsFromWitness,encodePrivateProof,decodePrivateProof,need,proofError} from './proof-worker.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {initializePrivateVerifierCRS} from '@lianum/components/resources/private-verifier-crs';
 import {CRS,verifyToolchain,verifyCRS} from '@lianum/components/resources/wallet-resources';
 import {gunzipSync} from 'node:zlib';
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {regular,hash,resources} from '../tooling/tooling.mjs';
 import {nativeProcStatV1} from '@lianum/proofs/host/process-files';
 import {nativeOwnedRSSV1} from '@lianum/proofs/host/process-rss';
@@ -30,8 +30,8 @@ export const NOTE_NATIVE_PINS_V1=Object.freeze([
   ['@aztec/bb.js/dest/node-cjs/bb_backends/node/platform.js','e78e62ceda7a577fbdeb7a82c0efa6729920aa8460d2667266210efa5d5e8e2f'],
 ].map(row=>Object.freeze(row)));
 export const NOTE_NATIVE_WORKERS_V1=Object.freeze({
- deposit_balance:join(GOLDEN,'src/paeg/note-deposit-native-worker-v1.mjs'),
- withdraw_balance:join(GOLDEN,'src/paeg/note-withdraw-native-worker-v1.mjs'),
+ deposit_balance:fileURLToPath(new URL('./note-deposit-native-worker-v1.mjs',import.meta.url)),
+ withdraw_balance:fileURLToPath(new URL('./note-withdraw-native-worker-v1.mjs',import.meta.url)),
 });
 export const NOTE_NATIVE_LINEAGE_V1=Object.freeze({
  deposit_balance:Object.freeze({mode:'deposit_balance',target:'evm',statementWords:26,

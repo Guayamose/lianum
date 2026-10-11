@@ -132,13 +132,15 @@ mockModule(new URL('../../../../src/execution/account/preparation/readiness-inpu
   async buildDependencyInputs(input) { return {statement: readyStatement(input, 'dependency')}; },
   async buildReadyInputs(input) { return {statement: readyStatement(input, 'ready'), admissionOpening: {fixture: true}}; },
 });
-mockModule(new URL('../../../../../proofs/src/tooling/scoped-proof-tools.mjs', import.meta.url), {
+const hostScopedProofTools = {
   withFlatHash: work => work(testHash), loadFlatABI: async name => ({synthetic: name}),
   createFlatProofRunner() { return {async prove(name, job) {
     fFor(job.statement.domainCommitment).proofs.push(name);
     return {proof: '11'.repeat(32), publicInputs: [...encodeStatement(name, job.statement)]};
   }, async abort() {}, async close() {}}; },
-});
+};
+mockModule(new URL('../../../../../proofs/src/tooling/scoped-proof-tools.mjs', import.meta.url), hostScopedProofTools);
+mockModule(import.meta.resolve('@lianum/backend/proving/roles/scoped-proof-runner'), {createFlatProofRunner:hostScopedProofTools.createFlatProofRunner});
 // Recovery issuer is a private inert HOST port. Its token brands are not a
 // chain/new-process grant. Actual keeper state, codecs and terminal-first
 // reconciliation below remain production code, over the explicit mocks above.

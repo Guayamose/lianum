@@ -7,7 +7,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSy
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { types } from 'node:util';
-import { ENVIRONMENT_MODULE_URL } from '@lianum/environment';
+import { ENVIRONMENT_MODULE_URL, projectRoot } from '@lianum/environment';
 import { WALLET_RESOURCES_MODULE_URL } from '@lianum/components/resources/wallet-resources';
 import { PRIVATE_VERIFIER_CRS_MODULE_URL } from '@lianum/components/resources/private-verifier-crs';
 import { ROOT, FLAT, CANDIDATE, GOLDEN, EXPERIMENT, LOCAL, PROFILE, LIMITS, SETTINGS,
@@ -21,6 +21,28 @@ export const verifierCRSModuleURL = new URL('../../../components/src/resources/p
 assert.equal(WALLET_RESOURCES_MODULE_URL, resourceModuleURL.href, 'RESOURCE_MODULE_IDENTITY');
 assert.equal(PRIVATE_VERIFIER_CRS_MODULE_URL, verifierCRSModuleURL.href, 'VERIFIER_CRS_MODULE_IDENTITY');
 assert.equal(ENVIRONMENT_MODULE_URL, new URL('../../../environment/src/paths.mjs', import.meta.url).href, 'RESOURCE_ENVIRONMENT_IDENTITY');
+// Current process entries are source modules; ROOT remains public artifacts/job state.
+const boundedEntry = fileURLToPath(new URL('../jobs/run-bounded.mjs', import.meta.url));
+const workerEntry = fileURLToPath(new URL('../jobs/worker.mjs', import.meta.url));
+const roleEntry = fileURLToPath(new URL('../jobs/role-process.mjs', import.meta.url));
+const currentJobSources = Object.freeze({
+  'proof-workers/trusted-jobs.mjs': fileURLToPath(new URL('../jobs/trusted-jobs.mjs', import.meta.url)),
+  'wallet-platform/modules/paeg/statements.mjs': fileURLToPath(new URL('../../../components/src/encoding/statements.mjs', import.meta.url)),
+  'proof-workers/role-process.mjs': roleEntry,
+});
+const currentFixedSources = Object.freeze([
+  fileURLToPath(new URL('../catalog.mjs', import.meta.url)), fileURLToPath(import.meta.url), workerEntry, boundedEntry,
+  currentJobSources['wallet-platform/modules/paeg/statements.mjs'],
+  fileURLToPath(resourceModuleURL), fileURLToPath(verifierCRSModuleURL),
+  fileURLToPath(new URL('../../../components/src/resources/private-resource-policy.mjs', import.meta.url)),
+]);
+const currentScopeSources = Object.freeze([
+  fileURLToPath(new URL('../jobs/native-flow-proof-scope-v1.mjs', import.meta.url)),
+  fileURLToPath(new URL('../host/process-files.mjs', import.meta.url)),
+  fileURLToPath(new URL('../jobs/begin-payout-audit-policy-v1.mjs', import.meta.url)),
+  fileURLToPath(new URL('../../../components/src/encoding/commitments.mjs', import.meta.url)),
+]);
+const currentObservedSources = new Set([...currentFixedSources,...currentScopeSources,...Object.values(currentJobSources)]);
 const requirePinned = createRequire(join(EXPERIMENT, 'package.json'));
 const VENDOR = join(CANDIDATE, 'vendor/poseidon');
 const VENDOR_COMMIT = 'e105cdd5c79c222860d53c5dfdb8fa8012b291c0';
@@ -215,11 +237,11 @@ export function authenticateSupervisor(spec, mode, runId) {
     assert.equal(typeof process.send, 'function', 'PW_PRIVATE_IPC_REQUIRED');
   } else {
     assert.equal(args.length, 4, 'PW_EXACT_PARENT_ARGUMENTS');
-    assert.equal(script, join(ROOT, 'proof-workers/run-bounded.mjs'), 'PW_EXACT_PARENT_SCRIPT');
+    assert.equal(script, boundedEntry, 'PW_EXACT_PARENT_SCRIPT');
     assert.deepEqual(args.slice(2), [spec.name, mode], 'PW_EXACT_PARENT_RELATION_MODE');
   }
   assert.equal(realpathSync(script), script, 'PW_PARENT_SCRIPT_SYMLINK');
-  assert.equal(process.argv[1], join(ROOT, 'proof-workers/worker.mjs'), 'PW_EXACT_WORKER_SCRIPT');
+  assert.equal(process.argv[1], workerEntry, 'PW_EXACT_WORKER_SCRIPT');
   const lock = JSON.parse(regular(join(LOCAL, 'active.lock')));
   assert.equal(lock.pid, process.ppid, 'PW_PARENT_LOCK_PID');
   assert.equal(lock.runId, runId, 'PW_PARENT_LOCK_RUN');
@@ -230,14 +252,16 @@ export function authenticateSupervisor(spec, mode, runId) {
 export function trustedParent(spec) {
   const configured = TRUSTED_PARENTS[spec.name];
   assert.ok(configured && typeof configured.script === 'string' && Array.isArray(configured.arguments), 'PW_TRUSTED_PARENT_NOT_CONFIGURED');
-  const script = resolve(ROOT, configured.script);
-  assert.ok(script.startsWith(ROOT + sep) && TRUSTED_JOB_SOURCES[spec.name].includes(configured.script), 'PW_PARENT_SOURCE_MUST_BE_PINNED');
+  assert.equal(configured.script, 'proof-workers/role-process.mjs', 'PW_PARENT_SOURCE_MUST_BE_PINNED');
+  assert.ok(TRUSTED_JOB_SOURCES[spec.name].includes(configured.script), 'PW_PARENT_SOURCE_MUST_BE_PINNED');
+  const script = roleEntry;
   regular(script);
   assert.ok(configured.arguments.every(value => typeof value === 'string'), 'PW_FIXED_PARENT_ARGUMENTS');
   return { script, arguments: configured.arguments };
 }
 function record(path) {
   const bytes = regular(path);
+  if (currentObservedSources.has(path)) return {root:'active-source',path:relative(projectRoot,path).split(sep).join('/'),bytes:bytes.length,sha256:hash(bytes)};
   const base = path.startsWith(ROOT + sep) ? ROOT : path.startsWith(FLAT + sep) ? FLAT : GOLDEN;
   assert.ok(path.startsWith(base + sep), 'PW_SOURCE_LOCATION');
   return { root: base === ROOT ? 'wallet' : base === FLAT ? 'flat' : 'golden',
@@ -316,28 +340,15 @@ export function activeResourceSourceRecords() {
 }
 
 export function executionSources(spec, mode) {
-  const fixed = ['catalog.mjs', 'tooling.mjs', 'worker.mjs', 'run-bounded.mjs'].map(name => join(ROOT, 'proof-workers', name));
-  fixed.push(join(ROOT, 'wallet-platform/modules/paeg/statements.mjs'),
-    join(EXPERIMENT, 'wallet-notes/resources.mjs'), join(GOLDEN, 'src/private-resource-policy.mjs'),
-    join(GOLDEN, 'src/private-verifier-crs.mjs'), join(CANDIDATE, 'src/component-tooling.mjs'));
+  const fixed = [...currentFixedSources, join(CANDIDATE, 'src/component-tooling.mjs')];
   if (operation(mode) === 'prove') {
-    // The original role entry now imports this reviewed host-lifetime guard.
-    // Pin its exact local dependency closure as fixed host code; do not widen
-    // the trusted private-job adapter grammar or builtin import allowlist.
-    fixed.push(...['proof-workers/native-flow-proof-scope-v1.mjs',
-      'integration/native-flow-owned-files-v1.mjs',
-      'wallet-platform/modules/native-claims/begin-payout-audit-policy-v1.mjs',
-      'wallet-platform/modules/paeg/commitments.mjs'].map(path => join(ROOT, path)));
+    // The adapter grammar remains closed. Map its three historical labels to
+    // their executing owners; no arbitrary package import is admitted.
+    fixed.push(...currentScopeSources);
     const jobPaths = TRUSTED_JOB_SOURCES[spec.name];
-    assert.ok(jobPaths.length > 0 && jobPaths[0] === 'proof-workers/trusted-jobs.mjs', 'PW_TRUSTED_JOB_SOURCES_NOT_CONFIGURED');
-    const allowed = new Set([...fixed, ...jobPaths.map(path => {
-      assert.ok(typeof path === 'string' && !path.startsWith('/') && !path.includes('\\'), 'PW_JOB_SOURCE_PATH');
-      const absolute = resolve(ROOT, path);
-      assert.ok(absolute.startsWith(ROOT + sep) || absolute.startsWith(join(CANDIDATE, 'src') + sep)
-        || absolute === join(FLAT, 'src/framing.mjs'), 'PW_EXACT_JOB_SOURCE_LOCATION');
-      return absolute;
-    })]);
-    for (const path of jobPaths.map(path => resolve(ROOT, path))) {
+    assert.deepEqual(jobPaths, Object.keys(currentJobSources), 'PW_TRUSTED_JOB_SOURCES_NOT_CONFIGURED');
+    const allowed = new Set([...fixed, ...Object.values(currentJobSources)]);
+    for (const path of jobPaths.map(path => currentJobSources[path])) {
       const text = regular(path).toString('utf8');
       // Deliberately narrow module grammar. No computed import/require, process
       // spawning, networking or direct package resolution in a trusted adapter.
@@ -347,7 +358,10 @@ export function executionSources(spec, mode) {
         imports.filter(match => /import\s*\(/.test(match[0])).length, 'PW_JOB_COMPUTED_IMPORT');
       for (const [, , name] of imports) {
         if (['node:assert/strict', 'node:crypto', 'node:buffer', 'node:util'].includes(name)) continue;
-        assert.ok(name.startsWith('.') && allowed.has(resolve(dirname(path), name)), 'PW_JOB_IMPORT_CLOSURE');
+        const target = name === '@lianum/components/encoding/statements'
+          ? currentJobSources['wallet-platform/modules/paeg/statements.mjs']
+          : name.startsWith('.') ? resolve(dirname(path), name) : null;
+        assert.ok(allowed.has(target), 'PW_JOB_IMPORT_CLOSURE');
       }
       fixed.push(path);
     }

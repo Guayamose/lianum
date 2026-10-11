@@ -4,14 +4,18 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ROOT, GOLDEN } from '../catalog.mjs';
+import { ROOT } from '../catalog.mjs';
+import {projectRoot,isCompatibilityModule} from '@lianum/environment';
 import { nativeProcStatV1, readNativeFlowRegularV1 } from '../host/process-files.mjs';
 import { CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, assertBeginPayoutAuditReleaseV1 }
   from './begin-payout-audit-policy-v1.mjs';
-const ENTRY = join(ROOT, 'integration/run-native-claim-begin-payout-audit-v1.mjs');
-const WORKER = join(ROOT, 'integration/native-claim-flow.mjs');
-const OWNER = join(ROOT, 'mobile-core/flat-owner-process.mjs');
-const LEGACY = join(GOLDEN, 'src/paeg/proof-worker.mjs');
+// These are process identity labels, not module loads. Historical supervisors
+// keep their original layout; source/candidate launches use current owners.
+const executionPath=(source,legacy)=>isCompatibilityModule(import.meta.url)?join(ROOT,legacy):join(projectRoot,source);
+const ENTRY = executionPath('tests/integration/claims/payouts/run-native-claim-begin-payout-audit-v1.mjs','integration/run-native-claim-begin-payout-audit-v1.mjs');
+const WORKER = executionPath('tests/integration/claims/lifecycle/native-claim-flow.mjs','integration/native-claim-flow.mjs');
+const OWNER = executionPath('packages/backend/src/custody/processes/flat-owner-process.mjs','mobile-core/flat-owner-process.mjs');
+const LEGACY = executionPath('packages/proofs/src/execution/proof-worker.mjs','../../omnichain-product/src/paeg/proof-worker.mjs');
 const LOCAL = join(ROOT, '.local/native-claim-begin-payout-audit-v1'), LOCK = join(LOCAL, 'active.lock');
 const PREFIX = Object.freeze(['deposit_intent', 'native_claim_ingress_v3', 'withdraw_balance']);
 const STAGES = Object.freeze(['preposition-owner-native-claim-1', 'prove-and-issue-original-native-claim-1',
@@ -88,7 +92,7 @@ export function assertBeginPayoutAuditRoleProcessV1(relation) {
   assert.equal(arguments.length, 1, 'CLAIM_BEGIN_PROOF_NO_OPTIONS'); const scope = originalScope(); if (!scope) return false;
   const index = relation === PREFIX[0] ? 0 : relation === PREFIX[1] ? 1 : -1;
   assert.ok(index >= 0, 'CLAIM_BEGIN_PROOF_FORBIDDEN_RELATION'); originalPrefix(scope, index);
-  assert.equal(scope.current.script, join(ROOT, index === 0 ? 'proof-workers/role-process.mjs' : 'proof-workers/native-ingress-v3-role-process.mjs'));
+  assert.equal(scope.current.script, index === 0 ? executionPath('packages/proofs/src/jobs/role-process.mjs','proof-workers/role-process.mjs') : executionPath('packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-role-process.mjs','proof-workers/native-ingress-v3-role-process.mjs'));
   assert.deepEqual(scope.current.argv.slice(2), [relation]);
   if (index === 0) {
     const parent = scope.parent;
@@ -126,15 +130,15 @@ const label = relation => PREFIX.includes(relation) ? relation : relation === 'n
 export function classifyBeginPayoutAuditProofProcessV1(argv) {
   const script = argv[1], value = (role, proofWorker, relation, good) => ({ role, proofWorker,
     proofRelation: good ? label(relation) : 'FORBIDDEN', proofOperation: good ? 'prove' : 'FORBIDDEN' });
-  if (script === join(ROOT, 'proof-workers/role-process.mjs')) return value('flat-proof-role', false, argv[2], argv.length === 3);
-  if (script === join(ROOT, 'proof-workers/worker.mjs')) return value('flat-proof-worker', true, argv[2], argv.length === 5 && argv[3] === 'prove');
-  if (script === join(ROOT, 'proof-workers/native-ingress-v3-role-process.mjs'))
+  if (script === executionPath('packages/proofs/src/jobs/role-process.mjs','proof-workers/role-process.mjs')) return value('flat-proof-role', false, argv[2], argv.length === 3);
+  if (script === executionPath('packages/proofs/src/jobs/worker.mjs','proof-workers/worker.mjs')) return value('flat-proof-worker', true, argv[2], argv.length === 5 && argv[3] === 'prove');
+  if (script === executionPath('packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-role-process.mjs','proof-workers/native-ingress-v3-role-process.mjs'))
     return value('native-ingress-v3-proof-role', false, argv[2], argv.length === 3 && argv[2] === PREFIX[1]);
-  if (script === join(ROOT, 'proof-workers/native-ingress-v3-worker.mjs'))
+  if (script === executionPath('packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-worker.mjs','proof-workers/native-ingress-v3-worker.mjs'))
     return value('native-ingress-v3-proof-worker', true, PREFIX[1], argv.length === 4);
   if (script === LEGACY) return value('golden-note-proof-worker', true, argv[2], argv.length === 3 && argv[2] === PREFIX[2]);
   if (argv.length === 4 && argv[1] === '--max-old-space-size=384'
-    && argv[2] === join(ROOT, 'wallet-platform/modules/native-claims/record-store-process.mjs') && argv[3] === '--claim-record-worker')
+    && argv[2] === executionPath('packages/backend/src/claims/storage/record-store-process.mjs','wallet-platform/modules/native-claims/record-store-process.mjs') && argv[3] === '--claim-record-worker')
     return { role: 'claim-record-keeper', proofWorker: false };
   return null;
 }

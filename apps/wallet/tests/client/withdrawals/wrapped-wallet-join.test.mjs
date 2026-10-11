@@ -16,43 +16,65 @@ const h = s => createHash('sha256').update(s).digest('hex'), address = n => n.to
 const clone = structuredClone, worlds = new WeakMap(), owners = new WeakMap(), executors = new WeakMap();
 const forbidden = () => { throw Error('SYNTHETIC_NO_HEAVY_OR_NATIVE_WORK'); };
 const url = p => new URL(p, import.meta.url).href;
-mock.module(url('../wallet-platform/modules/ops/wrapped-wallet-release-v1.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/operations/releases/wrapped/wrapped-wallet-release-v1.mjs'), { exports: {
   assertWrappedWalletAccountReleasedV1() {}, WRAPPED_WALLET_ACCOUNT_RELEASE_V1: null, WRAPPED_WALLET_ACCOUNT_HOST_SOURCE_PINS_V1: null,
 } });
-mock.module(url('../wallet-platform/modules/ops/wrapped-claim-wallet-binding-v1.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs'), { exports: {
+  // Every other deployment and recovery port remains forbidden in this host fixture.
+  originalWrappedDeploymentFailureDataV1: forbidden, originalWrappedDeploymentFailurePrivateDataV1: forbidden, assertOwnedWrappedClaimGraphSystem: forbidden, wrappedClaimGraphOperatorResources: forbidden, assertOwnedWrappedClaimSystem: forbidden, deployWrappedClaimGraphSystemV1: forbidden, captureWrappedClaimGraphSystemRecoveryV1: forbidden, assertCapturedWrappedClaimSystemUnchangedV1: forbidden, reopenWrappedClaimGraphSystemRecoveryV1: forbidden,
   assertOwnedWrappedClaimWalletSystemV1(runtime, system) { assert.equal(worlds.get(runtime)?.system, system); assert.equal(system.claimsEnabled, true); }
 } });
-mock.module(url('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs'), { exports: { async assertLocalEvm(runtime) { assert.ok(worlds.has(runtime)); } } });
-mock.module(url('../wallet-platform/modules/chain-adapters/owned-pool-asset.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs'), { exports: { assertLocalEvmDeploymentProfile: forbidden, async assertLocalEvm(runtime) { assert.ok(worlds.has(runtime)); } } });
+mock.module(url('../../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs'), { exports: {
   createOwnedPoolAsset: forbidden, createNativePoolAsset: forbidden,
   assertOwnedPoolAsset(runtime, capability) { assert.ok(worlds.get(runtime)?.rows.some(row => row.capability === capability)); }
 } });
-mock.module(url('../mobile-core/wrapped-claim-owner-process-v1.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/custody/processes/wrapped-claim-owner-process-v1.mjs'), { exports: {
   createWrappedClaimOwnerProcessV1: forbidden, assertOwnedWrappedClaimIngressHandoffV1: forbidden,
   assertOwnedWrappedClaimOwnerProcessV1(owner, expected) { const row = owners.get(owner); assert.ok(row && !row.closed);
     for (const key of ['runtime', 'system', 'poolIndex']) assert.equal(row[key], expected[key]); }
 } });
-mock.module(url('../mobile-core/wrapped-claim-owner-observer-v1.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/custody/observers/wrapped-claim-owner-observer-v1.mjs'), { exports: {
   async createWrappedClaimOwnerObserverV1({ runtime, poolIndex }) { return worlds.get(runtime).rows[poolIndex].observer; },
   assertOwnedWrappedClaimOwnerObserverV1(observer, { runtime, poolIndex }) { assert.equal(observer, worlds.get(runtime).rows[poolIndex].observer); }
 } });
-mock.module(url('../wallet-platform/modules/paeg/wrapped-wallet-state-v1.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/execution/wrapped/reconciliation/wrapped-wallet-state-v1.mjs'), { exports: {
   async createWrappedWalletStateReaderV1({ runtime, poolIndex }) { return worlds.get(runtime).rows[poolIndex].reader; }
 } });
-mock.module(url('../wallet-platform/modules/paeg/wrapped-wallet-execution-v1.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/execution/wrapped/execution/wrapped-wallet-execution-v1.mjs'), { exports: {
   createWrappedWalletExecutionV1: forbidden, WRAPPED_WALLET_EXECUTION_PROFILE_V1: 'SYNTHETIC_LOWER_EXECUTOR',
   assertOwnedWrappedWalletExecutionV1(executor, expected) { const row = executors.get(executor); assert.ok(row);
     for (const key of ['runtime', 'system', 'poolIndex']) assert.equal(row[key], expected[key]); },
   ownedWrappedWalletManualGraphReviewV1(executor, ref, expected) { const row = executors.get(executor); assert.equal(row.ref, ref);
     assert.equal(row.runtime, expected.runtime); assert.ok(!row.routeChanged); return clone(row.route); }
 } });
-mock.module(url('../wallet-platform/modules/native-claims/operational-registration-v2.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/claims/ingress/operational-registration-v2.mjs'), { exports: {
   validateWrappedClaimOperationalRegistration(value) { return value; },
   WRAPPED_CLAIM_OPERATIONAL_PROFILE: 'SYNTHETIC_LOWER_REGISTRY',
 } });
-mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: {
+mock.module(url('../../../../../packages/proofs/src/tooling/scoped-proof-tools.mjs'), { exports: {
   loadFlatABI: forbidden, withFlatHash: forbidden,
+} });
+mock.module('@lianum/backend/proving/roles/scoped-proof-runner', { exports: {
   createFlatProofRunner() { return { prove: forbidden, async close() {}, async abort() {} }; }
+} });
+// Isolated synthetic lifetime storage is a lower port of this wallet host test.
+// Actual canonical registry issuance and persistence are tested by wrapped-lifetime-owner.
+const lifetimeURL = url('../../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
+const lifetime = await import(lifetimeURL), lifetimeParts = new WeakMap();
+mock.module(lifetimeURL, { namedExports: {
+  ...lifetime,
+  async retainWrappedPrivateLifetimePartV1(runtime, name, identity, privateState) {
+    assert.ok(worlds.has(runtime), 'SYNTHETIC_ORIGINAL_RUNTIME');
+    const handle = Object.freeze({});
+    lifetimeParts.set(handle, { runtime, name, identity: clone(identity), privateState: clone(privateState) });
+    return handle;
+  },
+  async updateWrappedPrivateLifetimePartV1(handle, privateState) {
+    const row = lifetimeParts.get(handle);
+    assert.ok(row, 'SYNTHETIC_ORIGINAL_LIFETIME_HANDLE');
+    row.privateState = clone(privateState);
+  }
 } });
 const { createWrappedWalletAccountAuthorityV1, wrappedWalletAccountManualGraphDetailsV1 } = await import('../../../../../packages/backend/src/accounts/authority/wrapped-wallet-account-authority-v1.mjs');
 const { assertOwnedNativeValueAccountAuthority, nativeValueAccountManualGraphDetails } = await import('../../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');

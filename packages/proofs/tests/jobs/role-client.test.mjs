@@ -1,6 +1,7 @@
+import {fileURLToPath} from 'node:url';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { proofMetricsForTransport } from '../../src/jobs/role-client.mjs';
+import { proofMetricsForTransport } from '../../../backend/src/proving/roles/role-client.mjs';
 import { ownerCopy } from '@lianum/custody/owner';
 import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,sealPrivateProofJobV1,
   openPrivateProofJobV1,closePrivateProofRecipientV1,privateProofBindingSHA256V1,
@@ -12,15 +13,15 @@ import {createHash} from 'node:crypto';
 test('HOST original private CI51 client relays one ciphertext and validates the same original public result', {timeout:5000}, async t=>{
  // Actual client, public-word/manifest validators and AEAD. Process/artifact
  // ports are explicitly inert, with no proof, PID or economic acceptance.
- const physical=(a,b)=>{const u=new URL(a,import.meta.url);return existsSync(u)?u:new URL(b,import.meta.url);};
- const roleURL=physical('../../src/jobs/role-client.mjs','./role-client.mjs'),transitURL=new URL('./private-proof-transit-v1.mjs',roleURL),toolingURL=physical('../../src/tooling/tooling.mjs','./tooling.mjs'),scopeURL=new URL('./native-flow-proof-scope-v1.mjs',roleURL);
+ const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const u=new URL(a,import.meta.url);return existsSync(u)?u:new URL(b,import.meta.url);};
+ const roleURL=physical('../../../backend/src/proving/roles/role-client.mjs','./role-client.mjs'),transitURL=new URL(import.meta.resolve('@lianum/engine/crypto/private-proof-transit-v1')),toolingURL=physical('../../src/tooling/tooling.mjs','./tooling.mjs'),scopeURL=new URL('../../src/jobs/native-flow-proof-scope-v1.mjs',import.meta.url);
  const catalog=await import(physical('../../src/catalog.mjs','./catalog.mjs')),transit=await import(transitURL),tooling=await import(toolingURL),scope=await import(scopeURL),childProcess=await import('node:child_process'),{EventEmitter}=await import('node:events'),{PassThrough}=await import('node:stream');
  const own=module=>Object.fromEntries(Object.entries(module).filter(([k])=>k!=='default')),digest=b=>createHash('sha256').update(b).digest('hex');
  const jobId='33333333-3333-4333-8333-333333333333',runId='44444444-4444-4444-8444-444444444444',words=Array(51).fill('0'),binding={kind:'SCOPED_JOB_V1',jobId,consentSHA256:'11'.repeat(32),witnessSHA256:'22'.repeat(32)};let current;
  t.mock.module(scopeURL.href,{namedExports:{...own(scope),assertBeginPayoutAuditRoleLaunchV1(role,relation){assert.equal(role,'claim_ingress');assert.equal(relation,'native_claim_ingress');return false;}}});
  t.mock.module(toolingURL.href,{namedExports:{...own(tooling),regular(path){const prefix=catalog.LOCAL+'/attempts/'+runId+'/';assert.ok(path.startsWith(prefix));const name=path.slice(prefix.length);assert.ok(Object.hasOwn(current.files,name));return Buffer.from(current.files[name]);}}});
  t.mock.module('node:child_process',{namedExports:{...own(childProcess),spawn(binary,args,options){
-  assert.equal(binary,process.execPath);assert.deepEqual(args,[catalog.ROOT+'/proof-workers/role-process.mjs','native_claim_ingress']);assert.equal(options.serialization,'json');const f=current;assert.equal(f.spawned,false);f.spawned=true;
+  assert.equal(binary,process.execPath);assert.deepEqual(args,[fileURLToPath(new URL('../../src/jobs/role-process.mjs',import.meta.url)),'native_claim_ingress']);assert.equal(options.serialization,'json');const f=current;assert.equal(f.spawned,false);f.spawned=true;
   const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();child.stdio=[null,child.stdout,child.stderr];f.recipient=transit.createPrivateProofRecipientV1({relation:'native_claim_ingress',role:'claim_ingress',jobId});
   child.send=(packet,ack)=>{let opened;try{
    f.posts++;assert.equal(JSON.stringify(packet).includes('HOST_PRIVATE_CI51_OPENING'),false);opened=transit.openPrivateProofJobV1(f.recipient,packet);assert.deepEqual(opened.authorization,binding);assert.deepEqual(opened.expectedPublicInputs,words);assert.equal(opened.inputs.note_opening.note_secret,'HOST_PRIVATE_CI51_OPENING');
@@ -43,7 +44,7 @@ test('HOST private U SDK binds original preparation and ciphertext recipient; on
   // Actual SDK, PoP, funded signatures, envelope builder and recipient crypto.
   // Expo AES and SHA-based field hash are explicit HOST ports, not Poseidon2,
   // a proof producer, an original account or financial acceptance.
-  const physical=(a,b)=>{const p=new URL(a,import.meta.url);return existsSync(p)?p:new URL(b,import.meta.url);};
+  const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const p=new URL(a,import.meta.url);return existsSync(p)?p:new URL(b,import.meta.url);};
   const sdkURL=physical('../../../../apps/mobile/src/api/device-external-flat-graph-api-v1.mjs','../../../../../apps/mobile/src/api/device-external-flat-graph-api-v1.mjs');
   const cryptoURL=new URL('./device-private-graph-proof-transit-v2.mjs',sdkURL),deriveURL=physical('../../src/jobs/private-device-authorization-input-v2.mjs','./private-device-authorization-input-v2.mjs');
   const {registerHooks}=await import('node:module');
@@ -102,7 +103,7 @@ test('HOST private U SDK binds original preparation and ciphertext recipient; on
 test('HOST original PC23 second encrypted IPC preserves binding, burns corruption and drains disconnect', {timeout:20000}, async()=>{
  // Two real fresh IPC children use the production crypto/request validator.
  // Only a witness digest returns: no Noir/proof/acceptedResult is manufactured.
- const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+ const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
  const transit=physical('../../../engine/src/crypto/private-proof-transit-v1.mjs','./private-proof-transit-v1.mjs'),work=physical('../../src/jobs/wallet-note-private-prover-v4.mjs','./wallet-note-private-prover-v4.mjs');
  const encoding=physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs');
  const {ORIGINAL_WALLET_PRIVATE_PROVER_V4,readOriginalWalletNoteProverRequestV4}=await import(work);
@@ -285,13 +286,13 @@ test('original private proof transit encrypts two actual IPC hops and burns corr
   // continues untouched, and the production senders have no clear fallback.
   const sourceCanonical=new URL('../../src/jobs/proving-execution.mjs',import.meta.url);
   const sourceURL=existsSync(sourceCanonical)?sourceCanonical:new URL('./proving-execution.mjs',import.meta.url);
-  assert.equal(readFileSync(sourceURL,'utf8').includes("'proof-workers/private-proof-transit-v1.mjs'"),true);
+  assert.equal(readFileSync(sourceURL,'utf8').includes("new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs',import.meta.url)"),true);
 });
 
 test('HOST private D27 SDK sends only recipient ciphertext and original recipient validates signed witness and CM/NF', {timeout:20000}, async t => {
   // Actual SDK/protocol/X25519/HKDF/recipient/derivation, with an explicit
   // Node AES oracle for Expo. This response fixture issues no economic proof.
-  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+  const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
   const sdkURL=physical('../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs','../../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs'),cryptoURL=new URL('./device-private-proof-transit-v2.mjs',sdkURL);
   const {registerHooks}=await import('node:module');
   const oracle=`import{createHash,randomBytes,createCipheriv}from'node:crypto';
@@ -363,7 +364,7 @@ test('HOST private D27 SDK sends only recipient ciphertext and original recipien
 test('HOST private original26/39 SDK hides openings and same recipient validates original PC23 tuple/path/signatures', {timeout:20000}, async t=>{
  // Original mobile transport/crypto/PC23 derivation. Response rows below are
  // explicit inert ports; this case creates no proof, pool credit or payment.
-  const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+  const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
   const sdkURL=physical('../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs','../../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs'),cryptoURL=new URL('./device-private-proof-transit-v2.mjs',sdkURL);
   const graphSdkURL=new URL('./device-external-flat-graph-api-v1.mjs',sdkURL);
   const {registerHooks}=await import('node:module');
@@ -419,7 +420,7 @@ test('HOST private original26/39 SDK hides openings and same recipient validates
 test('HOST private Native D26 SDK encrypts original opening for same recipient and preserves native proof route', {timeout:20000}, async t=>{
  // Actual SDK/AEAD/PoP/PC23 derivation. Public binding/HTTP result are explicit
  // HOST ports, with no Native proof, pool credit, receipt or payment.
- const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+ const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
  const sdkURL=physical('../../../../apps/mobile/src/api/original-account-api-v2.mjs','../../../../../apps/mobile/src/api/original-account-api-v2.mjs'),cryptoURL=new URL('./native-private-deposit-transit-v2.mjs',sdkURL),cryptoProviderURL=new URL('./native-private-crypto-provider-v2.ts',sdkURL);
  const {registerHooks}=await import('node:module');
  const oracle=`import{createHash,randomBytes,createCipheriv}from'node:crypto';export const getRandomBytesAsync=async n=>new Uint8Array(randomBytes(n));
@@ -459,7 +460,7 @@ test('HOST private Native D26 SDK encrypts original opening for same recipient a
 test('HOST private Native W39 SDK binds deposited/change/recovery openings to original recipient and public39', {timeout:20000}, async t=>{
  // Actual SDK/AEAD/PoP/PC23 W39 derivation; HTTP/binding are explicit ports.
  // This case spawns no Native worker and produces no financial proof/receipt.
- const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+ const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
  const sdkURL=physical('../../../../apps/mobile/src/api/original-account-api-v2.mjs','../../../../../apps/mobile/src/api/original-account-api-v2.mjs'),cryptoURL=new URL('./native-private-exit-transit-v2.mjs',sdkURL),cryptoProviderURL=new URL('./native-private-crypto-provider-v2.ts',sdkURL);
  const {registerHooks}=await import('node:module');
  const oracle=`import{randomBytes,createCipheriv}from'node:crypto';export const getRandomBytesAsync=async n=>new Uint8Array(randomBytes(n));export const AESEncryptionKey={import:async b=>({bytes:new Uint8Array(b)})};export const aesEncryptAsync=async(b,k,o)=>{const c=createCipheriv('aes-256-gcm',k.bytes,o.nonce.bytes);c.setAAD(o.additionalData);const e=Buffer.concat([c.update(b),c.final()]),all=Buffer.concat([Buffer.from(o.nonce.bytes),e,c.getAuthTag()]);k.bytes.fill(0);e.fill(0);return{combined:async f=>{const s=all.toString(f);all.fill(0);return s;}};};`;
@@ -493,10 +494,13 @@ test('HOST private Native W39 SDK binds deposited/change/recovery openings to or
  const old=await bridgeFactories.createDeviceOwnerExecutionBridgeV1(bridgeInput);assert.equal(bridgeFactories.isOriginalNativePrivateExecutionBridgeV2(old),false);assert.equal(old.close().closed,true);
  for(const expire of ['access','quote']){hostNow=Date.now();standbyMs=0;const quoteAccess={...access,expiresAt:hostNow+1000},q=await actualPrivateBridge.prepareExit({access:quoteAccess,signature:'11'.repeat(64),parentJobId:terms.parentJobId,noteRole:'deposit',rootId:terms.rootId,noteRevision:1,nullifier:nf,recipient});const proofAccess={...access,expiresAt:hostNow+(expire==='access'?500:15000)},before=clientCloses;standbyMs=expire==='access'?501:1001;await assert.rejects(actualPrivateBridge.challengeExitJob({access:proofAccess,signature:'11'.repeat(64),quoteId:q.quote.quoteId,jobId:h('host-expire-'+expire),witnessSHA256}),/DEVICE_EXIT_ORIGINAL_AUTHORIZATION_EXPIRED/);assert.equal(clientCloses,before+1);}
  hostNow=Date.now();standbyMs=0;const safeAccess={...access,expiresAt:hostNow+1000},safeQuote=await actualPrivateBridge.prepareExit({access:safeAccess,signature:'11'.repeat(64),parentJobId:terms.parentJobId,noteRole:'deposit',rootId:terms.rootId,noteRevision:1,nullifier:nf,recipient}),freshAccess={...access,expiresAt:hostNow+800},safeConsent=await actualPrivateBridge.challengeExitJob({access:freshAccess,signature:'11'.repeat(64),quoteId:safeQuote.quote.quoteId,jobId:h('host-safe-deadline'),witnessSHA256});assert.equal(safeConsent.expiresAt,freshAccess.expiresAt);assert.equal((await actualPrivateBridge.close()).closed,true);
- const operatorSource=readFileSync(operatorURL,'utf8'),factoryStart=operatorSource.indexOf('export function createOriginalNativeDeviceLocalOperatorV1(input)'),installStart=operatorSource.indexOf('export async function installOriginalNativeDeviceLocalServiceV1(input)'),installEnd=operatorSource.indexOf('/** V5 authenticates these backend consumers.');assert.ok(factoryStart>0&&installStart>0&&installEnd>installStart);
+ const operatorSource=readFileSync(operatorURL,'utf8'),factoryStart=operatorSource.indexOf('export function createOriginalNativeDeviceLocalOperatorV1(input)'),installStart=operatorSource.indexOf('export async function installOriginalNativeDeviceLocalServiceV1(input)'),installEnd=operatorSource.indexOf('/** Fixed original NativeNote constructor, before any D26 admission.');assert.ok(factoryStart>0&&installStart>0&&installEnd>installStart);
  const stopped=Object.assign(Error('HOST_NATIVE_PRODUCT_SOURCE_REVIEW_PORT'),{code:'HOST_NATIVE_PRODUCT_SOURCE_REVIEW_PORT'});let reviewed=0;const productFactories=new Function('assert','configuration','assertOriginalNativeDeviceLocalSourceReviewV1',operatorSource.slice(factoryStart).replace(/^export /gm,'')+';return{createOriginalPrivateNativeNoteOperatorV2,createOriginalPrivateNativeDeviceLocalOperatorV2};')(assert,structuredClone,async()=>{reviewed++;throw stopped;});
  await assert.rejects(productFactories.createOriginalPrivateNativeNoteOperatorV2({origin,devicePublicKey,tls:{certificate:'HOST_INERT',privateKey:'HOST_INERT'}}),e=>e===stopped);assert.equal(reviewed,1);await assert.rejects(productFactories.createOriginalPrivateNativeDeviceLocalOperatorV2({}),e=>e===stopped);assert.equal(reviewed,2);assert.throws(()=>productFactories.createOriginalPrivateNativeNoteOperatorV2({},{}));
- const installOrder=[],installPorts={assert,exactRecord,configuration:structuredClone,assertOwnedNativeValueAccountAuthority:sameAccount,assertOwnedNativeValueExecution:sameExecution,assertOwnedNativeValueProviderCustody:ports.assertOwnedNativeValueProviderCustody,createPairedOriginalAccountActorV2:async input=>{assert.equal(input.owner,hostOwner);installOrder.push('actor');return actor;},pairedOriginalAccountActorDescriptorV2:value=>{assert.equal(value,actor);return descriptor;},createOriginalNativePrivateDepositBridgeV2:async original=>{assert.equal(original.account,sourceAccount);installOrder.push('privateD26');return Object.freeze({close:async()=>({closed:true})});},createDeviceOwnerReservationBridgeV1:async original=>{assert.equal(original.account,sourceAccount);assert.equal(original.actor,actor);installOrder.push('reservation');return reservationBridge;},createOriginalNativePrivateExecutionBridgeV2:async input=>{installOrder.push('privateW39');return bridgeFactories.createOriginalNativePrivateExecutionBridgeV2(input);},createPairedDeviceAccountTlsServerV1:async refs=>{assert.deepEqual(installOrder,['actor','privateD26','reservation','privateW39']);assert.equal(bridgeFactories.isOriginalNativePrivateExecutionBridgeV2(refs.executionBridge),true);installOrder.push('tls');return Object.freeze({url:origin,close:async()=>({closed:true})});}};
+ // The installer uses the same explicitly inert account port as the guard above.
+ const isOriginalNativePrivateWorkerAccountV3=value=>{assert.equal(value,sourceAccount);return false;},
+ isOriginalNativePrivateReservationAccountV2=value=>{assert.equal(value,sourceAccount);return false;};
+ const installOrder=[],installPorts={isOriginalNativePrivateWorkerAccountV3,isOriginalNativePrivateReservationAccountV2,assert,exactRecord,configuration:structuredClone,assertOwnedNativeValueAccountAuthority:sameAccount,assertOwnedNativeValueExecution:sameExecution,assertOwnedNativeValueProviderCustody:ports.assertOwnedNativeValueProviderCustody,createPairedOriginalAccountActorV2:async input=>{assert.equal(input.owner,hostOwner);installOrder.push('actor');return actor;},pairedOriginalAccountActorDescriptorV2:value=>{assert.equal(value,actor);return descriptor;},createOriginalNativePrivateDepositBridgeV2:async original=>{assert.equal(original.account,sourceAccount);installOrder.push('privateD26');return Object.freeze({close:async()=>({closed:true})});},createDeviceOwnerReservationBridgeV1:async original=>{assert.equal(original.account,sourceAccount);assert.equal(original.actor,actor);installOrder.push('reservation');return reservationBridge;},createOriginalNativePrivateExecutionBridgeV2:async input=>{installOrder.push('privateW39');return bridgeFactories.createOriginalNativePrivateExecutionBridgeV2(input);},createPairedDeviceAccountTlsServerV1:async refs=>{assert.deepEqual(installOrder,['actor','privateD26','reservation','privateW39']);assert.equal(bridgeFactories.isOriginalNativePrivateExecutionBridgeV2(refs.executionBridge),true);installOrder.push('tls');return Object.freeze({url:origin,close:async()=>({closed:true})});}};
  const installer=new Function(...Object.keys(installPorts),operatorSource.slice(installStart,installEnd).replace(/^export /gm,'')+';return{installOriginalPrivateNativeNoteServiceV2};')(...Object.values(installPorts)),service=await installer.installOriginalPrivateNativeNoteServiceV2({runtime,system,owner:hostOwner,account:sourceAccount,nativeExecution,session:Object.freeze({}),approval:Object.freeze({}),provider:{nativePreparation:Object.freeze({}),invoiceSignatures:[],custody,recipient:Object.freeze({}),deliveryRiskSalt:h('risk')},configuration:{origin,devicePublicKey,tls:{certificate:'HOST_INERT',privateKey:'HOST_INERT'}}});assert.deepEqual(installOrder,['actor','privateD26','reservation','privateW39','tls']);assert.equal((await service.executionBridge.close()).closed,true);
  try{for(const noteRole of ['deposit','change','recovery']){const original=createPrivateProofRecipientV1({relation:'withdraw_balance',role:'owner',jobId:'host-native-w39-'+noteRole}),consent=make(readPrivateProofRecipientV1(original),noteRole);let derived,packet;
   const response=v=>new Response(JSON.stringify(v),{status:200,headers:{'content-type':'application/json'}}),client=createOriginalAccountApiV2({descriptor:{origin,pairingId,devicePublicKey},fetchImpl:async(url,init)=>{const request=JSON.parse(init.body);if(url.endsWith('/job-reviews'))return response(consent);assert.equal(url,origin+'/v1/mobile/device-exit/private-jobs');posts++;assert.ok(Buffer.byteLength(init.body)<=32768);for(const k of ['"rho"','"key_x"','"secret"','"siblings":[['])assert.equal(init.body.includes(k),false);assert.equal(init.body.includes(note.secret.toString('hex')),false);packet=structuredClone(request.witness);const opened=openPrivateProofJobV1(original,request.witness);try{derived=deriveOriginalNativePrivateExitV2(opened);assert.deepEqual(opened.inputs,witness);assert.deepEqual(opened.expectedPublicInputs,P.nativePrivateExitPublicInputsV2(consent));assert.equal(opened.expectedPublicInputs.length,39);}finally{wipePrivateProofInputsV1(opened.inputs);}return response({jobId:consent.jobId,stage:'PROVED',hostNativeProofProduced:false});}});
@@ -513,7 +517,7 @@ test('HOST private Native U SDK binds original journal terms and encrypted recip
   // Actual SDK, PoP, funded signatures, envelope builder and recipient crypto.
   // Expo AES and SHA-based field hash are explicit HOST ports, not Poseidon2,
   // a proof producer, an original account or financial acceptance.
-  const physical=(a,b)=>{const p=new URL(a,import.meta.url);return existsSync(p)?p:new URL(b,import.meta.url);};
+  const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const p=new URL(a,import.meta.url);return existsSync(p)?p:new URL(b,import.meta.url);};
   const sdkURL=physical('../../../../apps/mobile/src/api/original-account-api-v2.mjs','../../../../../apps/mobile/src/api/original-account-api-v2.mjs');
   const cryptoURL=new URL('./native-private-reservation-transit-v2.mjs',sdkURL),deriveURL=physical('../../src/jobs/private-native-device-authorization-input-v2.mjs','./private-native-device-authorization-input-v2.mjs');
   const {registerHooks}=await import('node:module');
@@ -571,7 +575,7 @@ test('HOST private Native U SDK binds original journal terms and encrypted recip
 test('HOST original Native note encrypted worker IPC preserves binding, burns corruption and drains disconnect', {timeout:20000}, async()=>{
  // Two real fresh IPC children use the production crypto/request validator.
  // Only a witness digest returns: no Noir/proof/acceptedResult is manufactured.
- const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+ const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
  const transit=physical('../../../engine/src/crypto/private-proof-transit-v1.mjs','./private-proof-transit-v1.mjs'),work=physical('../../src/jobs/native-private-note-execution-v3.mjs','./native-private-note-execution-v3.mjs');
  const encoding=physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs');
  const {readOriginalNativePrivateNoteProverRequestV3}=await import(work);
@@ -622,8 +626,8 @@ test('HOST Native V3 facade hands its original consent to the actual encrypted c
  // The production facade runs unchanged. A fixed real IPC child stops after
  // authenticated ABI intake; filesystem/resource ports are explicitly inert.
  // No Native/BB/proof/receipt/effect is produced and no physical proof lock is used.
- const physical=(a,b)=>{const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
- const facadeURL=physical('../../src/jobs/native-private-note-process-v3.mjs','./native-private-note-process-v3.mjs'),nativeURL=new URL('./native-private-note-execution-v3.mjs',facadeURL),transitURL=new URL('./private-proof-transit-v1.mjs',facadeURL);
+ const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const first=new URL(a,import.meta.url);return existsSync(first)?first:new URL(b,import.meta.url);};
+ const facadeURL=physical('../../src/jobs/native-private-note-process-v3.mjs','./native-private-note-process-v3.mjs'),nativeURL=new URL('./native-private-note-execution-v3.mjs',facadeURL),transitURL=new URL(import.meta.resolve('@lianum/engine/crypto/private-proof-transit-v1'));
  const actualFS=await import('node:fs'),actualChild=await import('node:child_process'),native=await import(nativeURL),proof=await import(physical('../../src/execution/proof-worker.mjs','../../../omnichain-product/src/paeg/proof-worker.mjs'));
  const {walletInputPublicWords,walletDepositInput}=await import(physical('../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs','../../../omnichain-product/src/private-wallet-note-encoding.mjs'));
  const {freshKey}=await import(physical('../../../engine/src/notes/private-note-encoding.mjs','../../../omnichain-product/src/private-note-encoding.mjs'));
@@ -640,7 +644,7 @@ test('HOST Native V3 facade hands its original consent to the actual encrypted c
   writeFileSync(path,value,...args){if(path===virtualFD||typeof path==='string'&&(path.startsWith(proof.PROOF_PROJECT_ROOT+'/evidence/paeg-proof-attempts/')||path.startsWith('/tmp/lianum-paeg-proof-abort-'))){virtual.set(path,value);return;}return actualFS.writeFileSync(path,value,...args);},
  }});
  t.mock.module(nativeURL.href,{namedExports:{...exportsOf(native),nativePrivateEconomicNoteResourcesV3(){return{availableRAM:8*1024**3,freeDisk:16*1024**3,workerRSS:0,nativeChildIdentities:[],memoryScope:'EXPLICIT_INERT_HOST_NO_NATIVE_CHILD'};}}});
- const script=`import assert from'node:assert/strict';import{preparePrivateProofJobV1,wipePrivateProofInputsV1}from${JSON.stringify(transitURL.href)};import{readOriginalNativePrivateNoteProverRequestV3}from${JSON.stringify(nativeURL.href)};import{encodeProofMessage}from${JSON.stringify(proof.PROOF_PROJECT_ROOT+'/src/paeg/proof-worker.mjs')};
+ const script=`import assert from'node:assert/strict';import{preparePrivateProofJobV1,wipePrivateProofInputsV1}from${JSON.stringify(transitURL.href)};import{readOriginalNativePrivateNoteProverRequestV3}from${JSON.stringify(nativeURL.href)};import{encodeProofMessage}from${JSON.stringify(new URL('../../src/execution/proof-worker.mjs',import.meta.url).href)};
   let opened,admitted;try{opened=await preparePrivateProofJobV1({relation:'deposit_balance',role:'owner',jobId:'host-native-v3-facade-consumer'});admitted=readOriginalNativePrivateNoteProverRequestV3(opened,'deposit_balance');assert.deepEqual(admitted.binding,${JSON.stringify(binding)});assert.deepEqual(admitted.expected,${JSON.stringify(expected)});process.stdout.write('HOST_NATIVE_PRIVATE_FACADE_CONSUMER_BOUND\\n');const bytes=encodeProofMessage({event:'failure',code:'PAEG_PROOF_HOST_TEST_NO_PROOF'});await new Promise(resolve=>process.send(bytes,()=>{bytes.fill(0);resolve();}));}catch{process.exitCode=2;}finally{wipePrivateProofInputsV1(admitted?.input);wipePrivateProofInputsV1(opened?.inputs);if(process.connected)process.disconnect();}process.exit(process.exitCode??1);`;
  t.mock.module('node:child_process',{namedExports:{...exportsOf(actualChild),fork(path,args,options){
   assert.equal(path,native.PRIVATE_NOTE_NATIVE_WORKERS_V1.deposit_balance);assert.deepEqual(args,[]);assert.equal(options.serialization,'advanced');assert.deepEqual(options.execArgv,[]);
@@ -659,9 +663,9 @@ test('HOST private U client releases its retained role packets on failure or dra
  // Actual client, recipient AEAD, schema/public-word validators and WeakMaps.
  // The one-job process and artifact reads are explicit inert lower ports: no
  // process PID, proof producer, filesystem receipt or economic acceptance.
- const physical=(a,b)=>{const p=new URL(a,import.meta.url);return existsSync(p)?p:new URL(b,import.meta.url);};
- const roleURL=physical('../../src/jobs/role-client.mjs','./role-client.mjs'),transitURL=new URL('./private-proof-transit-v1.mjs',roleURL);
- const toolingURL=physical('../../src/tooling/tooling.mjs','./tooling.mjs'),scopeURL=new URL('./native-flow-proof-scope-v1.mjs',roleURL);
+ const physical=(a,b)=>{if(a.startsWith('@lianum/'))return new URL(import.meta.resolve(a));const p=new URL(a,import.meta.url);return existsSync(p)?p:new URL(b,import.meta.url);};
+ const roleURL=physical('../../../backend/src/proving/roles/role-client.mjs','./role-client.mjs'),transitURL=new URL(import.meta.resolve('@lianum/engine/crypto/private-proof-transit-v1'));
+ const toolingURL=physical('../../src/tooling/tooling.mjs','./tooling.mjs'),scopeURL=new URL('../../src/jobs/native-flow-proof-scope-v1.mjs',import.meta.url);
  const catalog=await import(physical('../../src/catalog.mjs','./catalog.mjs')),actualTransit=await import(transitURL),actualTooling=await import(toolingURL),actualScope=await import(scopeURL),actualChild=await import('node:child_process');
  const {EventEmitter}=await import('node:events'),{PassThrough}=await import('node:stream');
  const {encodeStatement}=await import(physical('@lianum/components/encoding/statements','../wallet-platform/modules/paeg/statements.mjs'));
@@ -680,7 +684,7 @@ test('HOST private U client releases its retained role packets on failure or dra
    const name=path.slice(prefix.length);assert.ok(Object.hasOwn(current.files,name),'HOST_PRIVATE_U_ARTIFACT_PORT');return Buffer.from(current.files[name]);
  }}});
  t.mock.module('node:child_process',{namedExports:{...ownExports(actualChild),spawn(binary,args,options){
-   assert.equal(binary,process.execPath);assert.deepEqual(args,[catalog.ROOT+'/proof-workers/role-process.mjs','authorization']);assert.equal(options.serialization,'json');
+   assert.equal(binary,process.execPath);assert.deepEqual(args,[fileURLToPath(new URL('../../src/jobs/role-process.mjs',import.meta.url)),'authorization']);assert.equal(options.serialization,'json');
    const fixture=current;assert.ok(fixture&&!fixture.spawned,'HOST_PRIVATE_U_ONE_PORT');fixture.spawned=true;
    const child=new EventEmitter();child.stdout=new PassThrough();child.stderr=new PassThrough();child.stdio=[null,child.stdout,child.stderr];
    const recipient=actualTransit.createPrivateProofRecipientV1({relation:'authorization',role:'owner',jobId:processJobId});fixture.recipient=recipient;

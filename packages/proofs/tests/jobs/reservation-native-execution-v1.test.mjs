@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** HOST framing/orchestration only. These fixtures create no native process,
  * proof, account, key provenance or financial acceptance. */
 import test from 'node:test';
@@ -14,7 +15,7 @@ import {limitsForMode,PROVING_LIMITS,RESERVATION_NATIVE_PROVING_LIMITS_V1} from 
 import {nativeProofProcessResources,nativeResourceFailure,nativeWalletUnfundedProcessFailure,NATIVE_FLOW_LIMITS}
   from '../../../../tests/integration/native/native-flow-supervisor.mjs';
 const runId='01234567-89ab-4def-8abc-0123456789ab';
-const argv=[process.execPath,join(ROOT,'proof-workers/worker.mjs'),'reservation','prove',runId],parent={pid:42,argv};
+const argv=[process.execPath,fileURLToPath(new URL('../../src/jobs/worker.mjs',import.meta.url)),'reservation','prove',runId],parent={pid:42,argv};
 const bbargv=[RESERVATION_NATIVE_BINARY_V1,'msgpack','run','--input','/tmp/bb-42-0-0.sock'];
 function receipts(){
  const execution={profile:RESERVATION_NATIVE_PROFILE_V1,backend:'NativeUnixSocket',threads:12,bbVersion:'5.2.0',binarySHA256:RESERVATION_NATIVE_BINARY_SHA256_V1,
@@ -76,7 +77,7 @@ test('S coordinator and BB share one 3GiB slot; independent verification keeps t
 });
 test('the actual S verification continuation awaits native close and never opens Wasm on a close refusal',async()=>{
  const canonicalWorker=new URL('../../src/jobs/worker.mjs',import.meta.url);
- const source=readFileSync(existsSync(canonicalWorker)?canonicalWorker:join(ROOT,'proof-workers/worker.mjs'),'utf8');
+ const source=readFileSync(existsSync(canonicalWorker)?canonicalWorker:fileURLToPath(new URL('../../src/jobs/worker.mjs',import.meta.url)),'utf8');
  const begin=source.indexOf('async function verifyNativeReservationIndependently('),end=source.indexOf('async function verifyNativeNodeIndependently(',begin);
  assert.ok(begin>=0&&end>begin);const original=source.slice(begin,end).trim();
  function fixture(close){

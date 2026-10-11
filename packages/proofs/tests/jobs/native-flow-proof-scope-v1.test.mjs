@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Actual guard source with synthetic /proc/lock/result ports. No filesystem
  * state, proof process, native runtime, key, compiler or network is created. */
 import test from 'node:test';
@@ -7,26 +8,27 @@ import { join, resolve } from 'node:path';
 import vm from 'node:vm';
 import { classifyBeginPayoutAuditProofProcessV1, beginPayoutAuditProcessFailureV1 } from '../../src/jobs/native-flow-proof-scope-v1.mjs';
 import { ROOT, GOLDEN } from '../../src/catalog.mjs';
+import {projectRoot} from '@lianum/environment';
 const source = readFileSync(new URL('../../src/jobs/native-flow-proof-scope-v1.mjs', import.meta.url), 'utf8');
 const body = source.slice(source.indexOf('const ENTRY =')).replaceAll('export ', '');
 const profile = 'SOLANA_LOADED_BEGIN_PAYOUT_BACKING_AUDIT_STOP_V1', runId = '11111111-1111-4111-8111-111111111111';
 const STAGES = ['preposition-owner-native-claim-1', 'prove-and-issue-original-native-claim-1', 'exit-original-claim-note-and-redeem-native-1'];
 const PREFIX = ['deposit_intent', 'native_claim_ingress_v3', 'withdraw_balance'];
 function fixture(index = 0, actor = index === 0 ? 'owner' : 'main') {
-  const entry = join(ROOT, 'integration/run-native-claim-begin-payout-audit-v1.mjs');
+  const entry = join(projectRoot, 'tests/integration/claims/payouts/run-native-claim-begin-payout-audit-v1.mjs');
   const local = join(ROOT, '.local/native-claim-begin-payout-audit-v1');
   const attempt = join(local, 'attempt-' + runId), calls = [];
   const stat = (pid, ppid, group = 20) => ({ pid, ppid, pgrp: group, session: group, state: 'S', startTimeTicks: String(pid * 10) });
   const rows = new Map([[1, { ...stat(1, 0, 1), argv: ['/init'], cwd: '/' }],
-    [10, { ...stat(10, 1, 10), argv: ['/node', 'integration/run-native-claim-begin-payout-audit-v1.mjs'], cwd: ROOT }],
-    [20, { ...stat(20, 10), argv: ['/node', join(ROOT, 'integration/native-claim-flow.mjs')], cwd: ROOT }],
-    [30, { ...stat(30, 20), argv: ['/node', join(ROOT, 'mobile-core/flat-owner-process.mjs'), '--flat-owner-child'], cwd: join(attempt, 'private-audit/owner-asset-1') }],
-    [40, { ...stat(40, 20), argv: ['/node', join(GOLDEN, 'src/paeg/proof-worker.mjs'), 'withdraw_balance'], cwd: GOLDEN }]]);
+    [10, { ...stat(10, 1, 10), argv: ['/node', 'tests/integration/claims/payouts/run-native-claim-begin-payout-audit-v1.mjs'], cwd: projectRoot }],
+    [20, { ...stat(20, 10), argv: ['/node', join(projectRoot, 'tests/integration/claims/lifecycle/native-claim-flow.mjs')], cwd: ROOT }],
+    [30, { ...stat(30, 20), argv: ['/node', join(projectRoot, 'packages/backend/src/custody/processes/flat-owner-process.mjs'), '--flat-owner-child'], cwd: join(attempt, 'private-audit/owner-asset-1') }],
+    [40, { ...stat(40, 20), argv: ['/node', join(projectRoot, 'packages/proofs/src/execution/proof-worker.mjs'), 'withdraw_balance'], cwd: GOLDEN }]]);
   const c = { active: true, released: true, rows, calls, result: { format: 'LIANUM_SOL_BEGIN_PAYOUT_BACKING_AUDIT_RESULT_V1',
     profile, runId, success: false, supervisor: { supervisorPID: 10, workerPID: 20 }, phase: STAGES[index],
     proofs: PREFIX.slice(0, index).map(relation => ({ relation })) }, lock: { format: 'LIANUM_SOL_BEGIN_PAYOUT_AUDIT_LOCK_V1',
     pid: 10, supervisorStartTimeTicks: '100', runId, attempt: '.local/native-claim-begin-payout-audit-v1/attempt-' + runId } };
-  const env = { assert, join, resolve, ROOT, GOLDEN, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1: profile,
+  const env = { assert, join, resolve, ROOT, GOLDEN, projectRoot, executionPath:source=>join(projectRoot,source), CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1: profile,
     process: { platform: 'linux', pid: actor === 'owner' ? 30 : actor === 'child' ? 40 : 20, execPath: '/node' },
     existsSync: path => { assert.equal(path, join(local, 'active.lock')); return c.active; },
     nativeProcStatV1: pid => { const row = rows.get(pid); return row && { ...row }; },
@@ -91,17 +93,17 @@ test('golden worker descriptive relation must match its actual private IPC job a
   const c = fixture(2, 'child'); c.api.assertBeginPayoutAuditLegacyJobV1('owner', 'prove', 'withdraw_balance');
   assert.throws(() => c.api.assertBeginPayoutAuditLegacyJobV1('owner', 'prove', 'authorization'), /FORBIDDEN_RELATION/);
   assert.throws(() => c.api.assertBeginPayoutAuditLegacyJobV1('owner', 'verify', 'withdraw_balance'), /FORBIDDEN_OPERATION/);
-  c.rows.get(40).argv = ['/node', join(GOLDEN, 'src/paeg/proof-worker.mjs')];
+  c.rows.get(40).argv = ['/node', join(projectRoot, 'packages/proofs/src/execution/proof-worker.mjs')];
   assert.throws(() => c.api.assertBeginPayoutAuditLegacyJobV1('owner', 'prove', 'withdraw_balance'));
 });
 
 function processes() {
   const argv = [
-    ['/node', join(ROOT, 'proof-workers/role-process.mjs'), 'deposit_intent'],
-    ['/node', join(ROOT, 'proof-workers/worker.mjs'), 'deposit_intent', 'prove', 'run'],
-    ['/node', join(ROOT, 'proof-workers/native-ingress-v3-role-process.mjs'), 'native_claim_ingress_v3'],
-    ['/node', join(ROOT, 'proof-workers/native-ingress-v3-worker.mjs'), 'run', 'job'],
-    ['/node', join(GOLDEN, 'src/paeg/proof-worker.mjs'), 'withdraw_balance'],
+    ['/node', fileURLToPath(new URL('../../src/jobs/role-process.mjs',import.meta.url)), 'deposit_intent'],
+    ['/node', fileURLToPath(new URL('../../src/jobs/worker.mjs',import.meta.url)), 'deposit_intent', 'prove', 'run'],
+    ['/node', join(projectRoot, 'packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-role-process.mjs'), 'native_claim_ingress_v3'],
+    ['/node', join(projectRoot, 'packages/backend/src/proving/native-ingress/runtime/native-ingress-v3-worker.mjs'), 'run', 'job'],
+    ['/node', join(projectRoot, 'packages/proofs/src/execution/proof-worker.mjs'), 'withdraw_balance'],
   ];
   return argv.map((args, i) => ({ pid: i + 100, startTimeTicks: String(i + 1), ...classifyBeginPayoutAuditProofProcessV1(args) }));
 }
@@ -110,9 +112,9 @@ test('supervisor retains bounded relation labels and rejects unexpected/missing/
   assert.equal(beginPayoutAuditProcessFailureV1(p.slice(0, 2)), null);
   assert.match(beginPayoutAuditProcessFailureV1(p.slice(0, 2), true), /PREFIX_INCOMPLETE/);
   assert.match(beginPayoutAuditProcessFailureV1([...p, { ...p[0], pid: 999 }]), /REPEATED_PROCESS/);
-  for (const argv of [['/node', join(ROOT, 'proof-workers/role-process.mjs'), 'native_claim_discharge'],
-    ['/node', join(ROOT, 'proof-workers/worker.mjs'), 'deposit_intent', 'prepare-key', 'run'],
-    ['/node', join(GOLDEN, 'src/paeg/proof-worker.mjs')], ['/node', join(ROOT, 'proof-workers/role-process.mjs'), 'private unexpected string']]) {
+  for (const argv of [['/node', fileURLToPath(new URL('../../src/jobs/role-process.mjs',import.meta.url)), 'native_claim_discharge'],
+    ['/node', fileURLToPath(new URL('../../src/jobs/worker.mjs',import.meta.url)), 'deposit_intent', 'prepare-key', 'run'],
+    ['/node', join(projectRoot, 'packages/proofs/src/execution/proof-worker.mjs')], ['/node', fileURLToPath(new URL('../../src/jobs/role-process.mjs',import.meta.url)), 'private unexpected string']]) {
     const bad = classifyBeginPayoutAuditProofProcessV1(argv);
     assert.match(beginPayoutAuditProcessFailureV1([...p, { ...bad, pid: 900, startTimeTicks: '9' }]), /FORBIDDEN_PROCESS/);
     assert.ok(!JSON.stringify(bad).includes('private unexpected string'));
@@ -120,7 +122,7 @@ test('supervisor retains bounded relation labels and rejects unexpected/missing/
 });
 
 test('the real launch sites call guard before spawn/fork and the child guard before execute; supervisor checks live and terminal histories', () => {
-  const role = readFileSync(new URL('../../src/jobs/role-client.mjs', import.meta.url), 'utf8');
+  const role = readFileSync(new URL('../../../backend/src/proving/roles/role-client.mjs', import.meta.url), 'utf8');
   assert.ok(role.indexOf('assertBeginPayoutAuditRoleLaunchV1(role, spec.name);') < role.indexOf('child = spawn(process.execPath'));
   const legacy = readFileSync(new URL('../../src/execution/proof-process.mjs', import.meta.url), 'utf8');
   assert.ok(legacy.indexOf('assertBeginPayoutAuditLegacyLaunchV1(purpose, operation, mode)') < legacy.indexOf('child = fork(workerFile'));
@@ -162,7 +164,7 @@ test('shared original supervisor still enforces one heavy backend and unchanged 
 test('fixed native U coordinator and its authentic BB child consume one heavy slot and one combined 3GiB budget',async()=>{
   const {classifyAuthorizationNativeProcessV1,AUTHORIZATION_NATIVE_BINARY_V1}=await import('../../src/jobs/authorization-native-execution-v1.mjs');
   const {nativeProofProcessResources,nativeResourceFailure,nativeWalletUnfundedProcessFailure}=await import('../../../../tests/integration/native/native-flow-supervisor.mjs');
-  const argv=[process.execPath,join(ROOT,'proof-workers/worker.mjs'),'authorization','prove',runId];
+  const argv=[process.execPath,fileURLToPath(new URL('../../src/jobs/worker.mjs',import.meta.url)),'authorization','prove',runId];
   const parent={pid:202,argv},childArgv=[AUTHORIZATION_NATIVE_BINARY_V1,'msgpack','run','--input','/tmp/bb-202-0-0.sock'];
   const coordinator={pid:202,ppid:101,state:'S',rssBytes:128,...classifyAuthorizationNativeProcessV1(argv,process.execPath,null)};
   const backend={pid:303,ppid:202,state:'S',rssBytes:3221225472-128,...classifyAuthorizationNativeProcessV1(childArgv,AUTHORIZATION_NATIVE_BINARY_V1,parent)};

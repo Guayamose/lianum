@@ -20,7 +20,7 @@ import { DEVICE_RESERVATION_CONSENT_V1,DEVICE_RESERVATION_DISCLOSURE_V1,normaliz
   normalizeDeviceReservationCustodyV1,normalizeDeviceReservationWitnessV1,deviceReservationWitnessBytesV1,
   wipeDeviceReservationWitnessV1 } from '@lianum/mobile-protocol/device-reservation-consent-v1';
 import * as PrivateU from '@lianum/mobile-protocol/device/native-reservation-v2';
-import {createRoleProofClient} from '@lianum/proofs/client';
+import {createRoleProofClient} from '@lianum/backend/proving/roles/role-client';
 const reservationFresh=PrivateU.validateDeviceReservationConsentEitherFreshV2,reservationMessage=PrivateU.deviceReservationConsentEitherMessageV2;
 const bridges=new WeakMap(),admissions=new WeakMap();
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),nonce=()=>randomBytes(32).toString('hex');

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
+import {projectRoot} from '@lianum/environment';
 import { ROOT, FLAT, GOLDEN, LOCAL, LIMITS } from '@lianum/proofs/catalog';
 import { regular, hash, verifyAPI, verifyVendor, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_SOURCE_VERSION,
@@ -10,8 +12,8 @@ import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SPEC, NATIVE_INGRESS_V3_SOUR
 import { exactRecord } from '@lianum/components/encoding/commitments';
 import { cloneInput } from '@lianum/components/plain-input';
 export const GLOBAL_PROOF_LOCK = join(LOCAL,'active.lock');
-export const V3_WORKER = join(ROOT,'proof-workers/native-ingress-v3-worker.mjs');
-export const V3_ROLE_PROCESS = join(ROOT,'proof-workers/native-ingress-v3-role-process.mjs');
+export const V3_WORKER = fileURLToPath(new URL('../runtime/native-ingress-v3-worker.mjs',import.meta.url));
+export const V3_ROLE_PROCESS = fileURLToPath(new URL('../runtime/native-ingress-v3-role-process.mjs',import.meta.url));
 export const json=value=>JSON.stringify(value,null,2)+'\n';
 export const readJSON=path=>JSON.parse(regular(path));
 export function outputDirectory(path){
@@ -23,14 +25,16 @@ function assertOutput(path){assert.ok(resolve(path).startsWith(NATIVE_INGRESS_V3
 export function writeNew(path,value){assertOutput(path);writeFileSync(path,typeof value==='string'||value instanceof Uint8Array?value:json(value),{flag:'wx',mode:0o600});}
 export function replace(path,value){assertOutput(path);if(existsSync(path))regular(path);const temp=path+'.tmp';writeNew(temp,value);renameSync(temp,path);}
 export async function runtimePins(){
- const files=new Map();function visit(path){path=resolve(path);if(files.has(path))return;assert.ok([ROOT,FLAT,GOLDEN].some(r=>path.startsWith(r+sep)),'V3_JOB_SOURCE_LOCATION');
-  const bytes=regular(path);files.set(path,{path:relative(ROOT,path).split(sep).join('/'),bytes:bytes.length,sha256:hash(bytes)});
-  for(const match of bytes.toString('utf8').matchAll(/(?:\bfrom\s+|^\s*import\s+)(['"])([^'"]+)\1/gm)){if(match[2].startsWith('node:'))continue;assert.ok(match[2].startsWith('.'),'V3_JOB_LOCAL_SOURCE');visit(resolve(dirname(path),match[2]));}}
- for(const name of ['role-client.mjs','native-ingress-v3-role-process.mjs','native-ingress-v3-run-bounded.mjs','native-ingress-v3-worker.mjs','native-ingress-v3-tooling.mjs'])visit(join(ROOT,'proof-workers',name));
- visit(fileURLToPath(resourceModuleURL));
+ const adopted=assertAdoptedSourceGeneration(),sourceFiles=new Map(adopted.sourceFiles.map(row=>[row.source,row.sourceSHA256]));
+ const entries=[new URL('../../roles/role-client.mjs',import.meta.url),new URL('../runtime/native-ingress-v3-role-process.mjs',import.meta.url),
+  new URL('./native-ingress-v3-run-bounded.mjs',import.meta.url),new URL('../runtime/native-ingress-v3-worker.mjs',import.meta.url),
+  new URL('./native-ingress-v3-tooling.mjs',import.meta.url),resourceModuleURL];
+ for(const url of entries){const path=fileURLToPath(url),source=relative(projectRoot,path).split(sep).join('/');
+  assert.ok(sourceFiles.has(source),'V3_JOB_CURRENT_SOURCE_MEMBER');assert.equal(hash(regular(path)),sourceFiles.get(source),'V3_JOB_CURRENT_SOURCE_CHANGED');}
  const helpers=await import(resourceModuleURL);
  return{profile:'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',sourceVersion:NATIVE_INGRESS_V3_SOURCE_VERSION,keySHA256:NATIVE_INGRESS_V3_KEY_SHA256,
-  local:[...files.values()].sort((a,b)=>a.path.localeCompare(b.path)),api:verifyAPI(),vendor:verifyVendor(),toolchain:helpers.verifyToolchain(),crs:helpers.verifyCRS()};
+  sourceGeneration:adopted.generation,currentSourceSHA256:adopted.sourceSHA256,
+  local:adopted.sourceFiles.map(row=>({path:row.source,sha256:row.sourceSHA256})),api:verifyAPI(),vendor:verifyVendor(),toolchain:helpers.verifyToolchain(),crs:helpers.verifyCRS()};
 }
 let receivedOnce=false;
 export function receiveNativeIngressV3Job(jobId,abi=null){

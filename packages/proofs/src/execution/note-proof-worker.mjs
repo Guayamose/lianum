@@ -1,11 +1,11 @@
 import {join} from 'node:path';
-import {legacyDataRoot} from '@lianum/environment';
+import {resourceRoot} from '@lianum/environment';
 import {PRIVATE_RESOURCE_FLOORS,PRIVATE_RESOURCE_POLICY,PRIVATE_PROOF_WORKER_RSS_LIMIT} from '@lianum/components/resources/private-resource-policy';
 /** PC18 actor-owned short-lived worker for unchanged PC15 reserve/withdraw.
  * Private note witnesses remain on this actor->child pipe, never in evidence.
  */
 import {writeSync,readFileSync,statfsSync,mkdirSync,writeFileSync} from 'node:fs';import {createNoteProver} from '../toolchain/note-prover.mjs';import {sha256} from '@lianum/engine/notes/private-note-encoding';
-const root=join(legacyDataRoot('engine'),'experiments/private-core-proof/owner-independent/'),chunks=[];let size=0,prover,report,path;
+const root=join(resourceRoot('engine'),'experiments/private-core-proof/owner-independent/'),chunks=[];let size=0,prover,report,path;
 const save=()=>{if(path)writeFileSync(path,JSON.stringify(report,null,2)+'\n');};
 const check=()=>{const d=statfsSync(root),ram=Number(/MemAvailable:\s+(\d+)/.exec(readFileSync('/proc/meminfo','utf8'))[1])*1024;if(ram<PRIVATE_RESOURCE_FLOORS.availableRAM||d.bavail*d.bsize<PRIVATE_RESOURCE_FLOORS.freeDisk)throw Error('PC18_RESOURCE_FLOOR');};
 const stop=code=>{if(report){report.phase='bounded-abort';report.failure={code};save();}process.exit(2);};let monitor,timer;

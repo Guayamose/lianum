@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed standard proof monitor. Missing leader VmRSS never establishes
  * closure: original shared-thread RSS/statm observations remain required.
  * The original ChildProcess close event still owns completion and signalling.
@@ -5,8 +6,6 @@
 import assert from 'node:assert/strict';
 import {ChildProcess} from 'node:child_process';
 import {readFileSync,readdirSync,readlinkSync} from 'node:fs';
-import {join} from 'node:path';
-import {ROOT} from '../catalog.mjs';
 import {resources} from '../tooling/tooling.mjs';
 import {parseNativeProcStat,nativeProcStatV1} from '../host/process-files.mjs';
 import {observeNativeOwnedRSSV1} from '../host/process-rss.mjs';
@@ -70,7 +69,7 @@ export function standardProofResourcesV1(child){
     assert.equal(before.pgrp,parent.pgrp,'PW_STANDARD_WORKER_GROUP_CHANGED');
     assert.equal(before.session,parent.session,'PW_STANDARD_WORKER_SESSION_CHANGED');
     assert.equal(child.spawnargs[0],process.execPath,'PW_STANDARD_WORKER_EXECUTABLE_CHANGED');
-    assert.equal(child.spawnargs[1],join(ROOT,'proof-workers/worker.mjs'),'PW_STANDARD_WORKER_ENTRY_CHANGED');
+    assert.equal(child.spawnargs[1],fileURLToPath(new URL('./worker.mjs',import.meta.url)),'PW_STANDARD_WORKER_ENTRY_CHANGED');
     assert.equal(readlinkSync(`/proc/${child.pid}/exe`),process.execPath,'PW_STANDARD_WORKER_EXECUTABLE_CHANGED');
     assert.deepEqual(readFileSync(`/proc/${child.pid}/cmdline`,'utf8').split('\0').filter(Boolean),child.spawnargs,
       'PW_STANDARD_WORKER_ARGUMENTS_CHANGED');

@@ -9,7 +9,7 @@ import { validateFlatAccountOwnerObservation, flatAccountGraphBinding, flatAccou
 import { decodeStatement, encodeStatement } from "@lianum/components/encoding/statements";
 import { randomBytes } from "node:crypto";
 import { isOriginalNativePrivateReservationBridgeV2 } from "../device-owner-reservation-bridge-v1.mjs";
-import { readOriginalNativeDeviceAuthorizationDerivationV2, createRoleProofClient } from "@lianum/proofs/client";
+import { readOriginalNativeDeviceAuthorizationDerivationV2, createRoleProofClient } from "@lianum/backend/proving/roles/role-client";
 import { compileFundedGraph, attachFundedSignatures, ownerAuthorizationMessage } from "@lianum/engine/execution/graph/funded-graph";
 import { withFlatHash } from "@lianum/proofs/tooling/scoped-proof-tools";
 import { buildAuthorizedEnvelope } from "@lianum/custody/signing/authorized-envelope";

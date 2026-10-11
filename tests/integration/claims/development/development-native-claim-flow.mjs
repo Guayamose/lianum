@@ -19,7 +19,7 @@ import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, as
 import { ROOT, LOCAL, GOLDEN } from '@lianum/proofs/catalog';
 import { hash } from '@lianum/proofs/tooling/tooling';
 import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
-import { createRoleProofClient } from '@lianum/proofs/client';
+import { createRoleProofClient } from '@lianum/backend/proving/roles/role-client';
 import { NATIVE_INGRESS_V3_LOCAL, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
   from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 import { createOwnedNativeClaimGraphV3Fixture,createOwnedNativeSplClaimGraphFixtureV1 } from '../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs';

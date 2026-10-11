@@ -34,7 +34,8 @@ import { flatCompletionWindow } from '../reconciliation/flat-completion-window.m
 import { privateFailureDiagnostic } from '../reconciliation/failure-diagnostics.mjs';
 import { recoveryWitness } from '../preparation/funding-inputs.mjs';
 import { encodeFlatTransaction } from '../../encoding/transaction-codec.mjs';
-import { withFlatHash, loadFlatABI, createFlatProofRunner } from '@lianum/proofs/tooling/scoped-proof-tools';
+import {withFlatHash, loadFlatABI} from '@lianum/proofs/tooling/scoped-proof-tools';
+import {createFlatProofRunner} from '@lianum/backend/proving/roles/scoped-proof-runner';
 
 export const FLAT_EXECUTION_PROFILE = 'OWNED_FLAT_EXECUTION_KEEPER_V1';
 const owners = new WeakMap(), ZERO = '0'.repeat(64), MAX_OPERATIONS = 8;

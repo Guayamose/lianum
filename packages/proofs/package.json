@@ -5,7 +5,6 @@
   "type": "module",
   "description": "Producci\u00f3n y verificaci\u00f3n de pruebas criptogr\u00e1ficas",
   "exports": {
-    "./client": "./src/jobs/role-client.mjs",
     "./catalog": "./src/catalog.mjs",
     "./verification": "./src/verification/pinned-verifier.mjs",
     "./host/process-files": "./src/host/process-files.mjs",
@@ -43,7 +42,9 @@
     "./execution/private-assembly-actor-process": "./src/execution/private-assembly-actor-process.mjs",
     "./execution/private-assembly-owner-process": "./src/execution/private-assembly-owner-process.mjs",
     "./execution/private-wallet-signer-process": "./src/execution/private-wallet-signer-process.mjs",
-    "./tooling/retained-node-artifacts-v1": "./src/tooling/retained-node-artifacts-v1.mjs"
+    "./tooling/retained-node-artifacts-v1": "./src/tooling/retained-node-artifacts-v1.mjs",
+    "./jobs/node-native-execution-v1": "./src/jobs/node-native-execution-v1.mjs",
+    "./jobs/reservation-native-execution-v1": "./src/jobs/reservation-native-execution-v1.mjs"
   },
   "lianum": {
     "status": "active"

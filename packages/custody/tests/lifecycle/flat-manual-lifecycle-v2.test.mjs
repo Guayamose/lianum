@@ -33,10 +33,14 @@ mock.module(url('../wallet-platform/modules/paeg/flat-system-state.mjs'), { expo
   async createFlatSystemStateReader({ runtime }) { return worlds.get(runtime).reader; }
 } });
 mock.module(url('../wallet-platform/modules/paeg/flat-native-execution.mjs'), { exports: { assertOwnedFlatNativeExecution() { throw Error('no native executor in synthetic fixture'); }, ownedFlatManualEvmGraphReview() { throw Error('no graph review in this fixture'); } } });
-mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: {
+const hostScopedProofTools = {
   createFlatProofRunner() { return { async close() {}, async abort() {} }; },
   withFlatHash() { throw Error('no proof/hash work in synthetic fixture'); }
-} });
+};
+mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: hostScopedProofTools });
+mock.module(import.meta.resolve('@lianum/backend/proving/roles/scoped-proof-runner'), {exports: {
+  createFlatProofRunner: hostScopedProofTools.createFlatProofRunner,
+}});
 mock.module(url('../wallet-platform/modules/paeg/flat-terminal-observer.mjs'), { exports: {
   createFlatTerminalObserver() { throw Error('no terminal observation'); }, decodeFlatTerminalCalldata() { throw Error('no terminal decode'); }
 } });

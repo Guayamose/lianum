@@ -159,7 +159,7 @@ mock.module(mod('./completion-inputs.mjs'), { exports: {
       completionCommitments: [0, 1, 2, 3].map(slot => field('completion-' + slot)), validFrom: input.validFrom, validUntil: input.validUntil }) };
   },
 } });
-mock.module(mod('../../../proof-workers/scoped-proof-tools.mjs'), { exports: {
+const hostScopedProofTools = {
   withFlatHash: work => work(testHash), loadFlatABI: async name => ({ synthetic: name }),
   createFlatProofRunner() { return Object.freeze({ async prove(name, job) {
     const f = fFor(job.statement.domainCommitment); f.proofs.push(name);
@@ -169,7 +169,11 @@ mock.module(mod('../../../proof-workers/scoped-proof-tools.mjs'), { exports: {
     }
     return { proof: '11'.repeat(32), publicInputs: [...encodeStatement(name, job.statement)] };
   }, async abort() {}, async close() {} }); },
-} });
+};
+mock.module(mod('../../../proof-workers/scoped-proof-tools.mjs'), { exports: hostScopedProofTools });
+mock.module(import.meta.resolve('@lianum/backend/proving/roles/scoped-proof-runner'), {exports: {
+  createFlatProofRunner: hostScopedProofTools.createFlatProofRunner,
+}});
 const { createFlatNativeExecution } = await import('../../../../src/execution/account/execution/flat-native-execution.mjs');
 
 async function preparedFixture(families) {

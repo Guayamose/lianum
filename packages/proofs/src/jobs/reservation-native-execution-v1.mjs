@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 /** Fixed official BB5.2 S transport. No caller backend/path/PID or authority. */
 import assert from 'node:assert/strict';
 import {ChildProcess} from 'node:child_process';
@@ -5,7 +6,7 @@ import {createRequire} from 'node:module';
 import {Socket} from 'node:net';
 import {accessSync,constants,closeSync,fstatSync,lstatSync,openSync,readFileSync,readlinkSync,readdirSync,realpathSync,statSync,unlinkSync} from 'node:fs';
 import {join} from 'node:path';
-import {ROOT,EXPERIMENT,LIMITS,MEMORY,operation} from '../catalog.mjs';
+import {EXPERIMENT,LIMITS,MEMORY,operation} from '../catalog.mjs';
 import {regular,hash,resources,authenticateSupervisor,argumentsFor} from '../tooling/tooling.mjs';
 import {nativeProcStatV1} from '../host/process-files.mjs';
 import {nativeOwnedRSSV1} from '../host/process-rss.mjs';
@@ -44,7 +45,7 @@ const same=(a,b)=>a&&b&&a.pid===b.pid&&a.startTimeTicks===b.startTimeTicks&&a.pp
 const identity=stat=>Object.fromEntries(['pid','ppid','pgrp','session','startTimeTicks'].map(name=>[name,stat[name]]));
 const fileIdentity=stat=>['dev','ino','uid','size','mode','nlink','mtimeNs','ctimeNs'].map(name=>[name,stat[name].toString()]);
 const argvFor=pid=>readFileSync(`/proc/${pid}/cmdline`,'utf8').split('\0').filter(Boolean);
-function originalSWorker(argv){return argv.length===5&&argv[0]===process.execPath&&argv[1]===join(ROOT,'proof-workers/worker.mjs')
+function originalSWorker(argv){return argv.length===5&&argv[0]===process.execPath&&argv[1]===fileURLToPath(new URL('./worker.mjs',import.meta.url))
   &&argv[2]==='reservation'&&['prove','prove-dyadic21'].includes(argv[3])
   &&/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(argv[4]);}
 export function classifyReservationNativeProcessV1(argv,executable,parent=null){

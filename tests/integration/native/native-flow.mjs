@@ -28,7 +28,7 @@ import { buildAdmissionInputs } from '../../../packages/backend/src/execution/ac
 import { buildNodeInputs, buildSettlementInputs } from '../../../packages/backend/src/execution/account/reconciliation/completion-inputs.mjs';
 import { joinReadiness, joinAdmission, joinSettlement, FIELD_MODULUS } from '@lianum/components/encoding/statements';
 import { encodeFlatTransaction } from '../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
-import { createRoleProofClient } from '@lianum/proofs/client';
+import { createRoleProofClient } from '@lianum/backend/proving/roles/role-client';
 import { ROOT, relation } from '@lianum/proofs/catalog';
 import { loadPinned, resourceModuleURL, circuitIdentity, versionDirectory, loadCompiled, hash, regular } from '@lianum/proofs/tooling/tooling';
 import { nativeFlowSourcePins } from '../runners/source-pins.mjs';

@@ -4,6 +4,8 @@ import {usesNativeReservationV1,RESERVATION_NATIVE_PINS_V1,assertNativeReservati
 import {usesNativeNodeV1,NODE_NATIVE_PINS_V1,assertNativeNodeReceiptV1} from './node-native-execution-v1.mjs';
 import { usesNativeAuthorizationV1, AUTHORIZATION_NATIVE_PINS_V1, assertNativeAuthorizationReceiptV1 } from './authorization-native-execution-v1.mjs';
 import { join, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { projectRoot } from '@lianum/environment';
 import { ROOT, GOLDEN, EXPERIMENT, PROFILE, LIMITS, operation } from '../catalog.mjs';
 import { executionSources as originalExecutionSources, assertSuccessfulAttempt,
   attemptPath, regular, hash } from '../tooling/tooling.mjs';
@@ -39,8 +41,22 @@ const WASM_THREAD_RUNTIME_PINS = [
   ['@aztec/bb.js/dest/node-cjs/barretenberg_wasm/barretenberg_wasm_thread/factory/node/thread.worker.js', '7b3b5f627b6f7ba98e0ef2902d5aedafe0e190942ef39c10ab177d4c986c473e'],
   ['comlink/dist/umd/comlink.js', '3febbaebdf9b9e2f9ef322eab194c3a35e0068d53a01022dedc99115ff620814'],
  ];
+const currentSources = Object.freeze([
+  fileURLToPath(new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs',import.meta.url)),
+  fileURLToPath(new URL('./private-device-proof-input-v2.mjs',import.meta.url)),
+  fileURLToPath(new URL('./private-device-authorization-input-v2.mjs',import.meta.url)),
+  fileURLToPath(new URL('./private-native-device-authorization-input-v2.mjs',import.meta.url)),
+  fileURLToPath(import.meta.url),
+  fileURLToPath(new URL('./authorization-native-execution-v1.mjs',import.meta.url)),
+  fileURLToPath(new URL('./node-native-execution-v1.mjs',import.meta.url)),
+  fileURLToPath(new URL('./reservation-native-execution-v1.mjs',import.meta.url)),
+  fileURLToPath(new URL('./standard-proof-resources-v1.mjs',import.meta.url)),
+  fileURLToPath(new URL('../host/process-files.mjs',import.meta.url)),
+  fileURLToPath(new URL('../host/process-rss.mjs',import.meta.url)),
+]);
 function executionRecord(path) {
   const bytes = regular(path), base = path.startsWith(ROOT + sep) ? ROOT : GOLDEN;
+  if (currentSources.includes(path)) return {root:'active-source',path:relative(projectRoot,path).split(sep).join('/'),bytes:bytes.length,sha256:hash(bytes)};
   assert.ok(path.startsWith(base + sep), 'PW_THREAD_EXECUTION_SOURCE_LOCATION');
   return { root: base === ROOT ? 'wallet' : 'golden',
     path: relative(base, path).split(sep).join('/'), bytes: bytes.length, sha256: hash(bytes) };
@@ -48,10 +64,7 @@ function executionRecord(path) {
 export function executionSources(spec, mode) {
   const original = originalExecutionSources(spec, mode);
   // The imported policy itself is captured by the original before/after checks.
-  const extra = ['proof-workers/private-proof-transit-v1.mjs','proof-workers/private-device-proof-input-v2.mjs','proof-workers/private-device-authorization-input-v2.mjs','proof-workers/proving-execution.mjs','proof-workers/authorization-native-execution-v1.mjs',
-    'proof-workers/node-native-execution-v1.mjs','proof-workers/reservation-native-execution-v1.mjs',
-    'proof-workers/standard-proof-resources-v1.mjs',
-    'integration/native-flow-owned-files-v1.mjs','integration/native-flow-owned-rss-v1.mjs'].map(path=>executionRecord(join(ROOT,path)));
+  const extra = currentSources.map(executionRecord);
   if (usesNativeAuthorizationV1(spec,mode)||usesNativeNodeV1(spec,mode)||usesNativeReservationV1(spec,mode)) {
     for (const [path,expected] of usesNativeReservationV1(spec,mode)?RESERVATION_NATIVE_PINS_V1:usesNativeNodeV1(spec,mode)?NODE_NATIVE_PINS_V1:AUTHORIZATION_NATIVE_PINS_V1) {
       const record=executionRecord(join(EXPERIMENT,'node_modules',path));

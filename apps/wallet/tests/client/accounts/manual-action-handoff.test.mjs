@@ -19,41 +19,44 @@ const h = text => createHash('sha256').update(text).digest('hex'), a = n => Stri
 const worlds = new WeakMap(), owners = new WeakMap(), executors = new WeakMap(), policies = new WeakMap();
 const forbidden = () => { throw Error('SYNTHETIC_LOWER_FACTORY_FORBIDDEN'); };
 const url = p => new URL(p, import.meta.url).href;
-mock.module(url('../wallet-platform/modules/ops/deploy-system.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/operations/deployments/system/deploy-system.mjs'), { exports: {
   deployFlatSystem: forbidden, assertOwnedFlatSystem(runtime, system) { assert.equal(worlds.get(runtime)?.system, system); }
 } });
-mock.module(url('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs'), { exports: {
-  async assertLocalEvm(runtime) { assert.ok(worlds.has(runtime)); }
+mock.module(url('../../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs'), { exports: {
+  assertLocalEvmDeploymentProfile: forbidden, async assertLocalEvm(runtime) { assert.ok(worlds.has(runtime)); }
 } });
-mock.module(url('../wallet-platform/modules/chain-adapters/owned-pool-asset.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/chains/shared/contracts/owned-pool-asset.mjs'), { exports: {
   createOwnedPoolAsset: forbidden, createNativePoolAsset: forbidden, assertOwnedPoolAsset(runtime, value) { assert.equal(worlds.get(runtime)?.poolCapability, value); }
 } });
-mock.module(url('../mobile-core/flat-owner-process.mjs'), { exports: {
-  createFlatOwnerProcess: forbidden, assertOwnedNativeClaimIngressHandoff: forbidden, assertOwnedFlatOwnerProcess(owner, expected) { assert.equal(owners.get(owner)?.runtime, expected.runtime); }
+mock.module(url('../../../../../packages/backend/src/custody/processes/flat-owner-process.mjs'), { exports: {
+  createFlatOwnerProcess: forbidden, assertOwnedPrivateNativeClaimIngressHandoffV2: forbidden, assertOwnedNativeClaimIngressHandoff: forbidden, assertOwnedFlatOwnerProcess(owner, expected) { assert.equal(owners.get(owner)?.runtime, expected.runtime); }
 } });
-mock.module(url('../mobile-core/flat-owner-observer.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/custody/observers/flat-owner-observer.mjs'), { exports: {
   async createFlatOwnerObserver({ runtime }) { return worlds.get(runtime).observer; },
   assertOwnedFlatOwnerObserver(observer, { runtime }) { assert.equal(observer, worlds.get(runtime).observer); }
 } });
-mock.module(url('../wallet-platform/modules/paeg/flat-system-state.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs'), { exports: {
   ...actualSystemState, async createFlatSystemStateReader({ runtime }) { return worlds.get(runtime).reader; }
 } });
-mock.module(url('../wallet-platform/modules/paeg/flat-native-execution.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs'), { exports: {
   FLAT_EXECUTION_PROFILE: 'OWNED_FLAT_EXECUTION_KEEPER_V1', createFlatNativeExecution: forbidden, validateFlatExecutionPreparation: forbidden, assertOwnedFlatNativeExecution(executor, expected) { assert.equal(executors.get(executor)?.runtime, expected.runtime); },
   ownedFlatManualEvmGraphReview(executor, ref, expected) {
     const w = executors.get(executor); assert.equal(w?.runtime, expected.runtime); assert.equal(ref, w.ref);
     assert.ok(!w.routeChanged, 'SYNTHETIC_ORIGINAL_ROUTE_CHANGED'); return structuredClone(w.route);
   }
 } });
-mock.module(url('../wallet-platform/modules/global-state/flat-pool-admission-policy.mjs'), { exports: {
+mock.module(url('../../../../../packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs'), { exports: {
   createFlatPoolAdmissionPolicy: forbidden, assertOwnedFlatPoolAdmissionPolicy(policy, expected) {
     const w = policies.get(policy); assert.equal(w?.runtime, expected.runtime); assert.equal(w.system, expected.system);
     assert.equal(expected.accounts[0].account, w.account);
   }
 } });
-mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: {
-  loadFlatABI: forbidden, createFlatProofRunner() { return { async close() {}, async abort() {}, async prove() { throw Error('PROOF_WORK_FORBIDDEN'); } }; },
+mock.module(url('../../../../../packages/proofs/src/tooling/scoped-proof-tools.mjs'), { exports: {
+  loadFlatABI: forbidden,
   withFlatHash() { throw Error('HASH_BACKEND_FORBIDDEN'); }
+} });
+mock.module('@lianum/backend/proving/roles/scoped-proof-runner', { exports: {
+  createFlatProofRunner() { return { async close() {}, async abort() {}, async prove() { throw Error('PROOF_WORK_FORBIDDEN'); } }; }
 } });
 const { createFlatAccountAuthority, flatAccountManualGraphDetails } = await import('../../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs');
 const { createFlatPortfolioAuthority } = await import('../../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs');

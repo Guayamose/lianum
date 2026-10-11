@@ -11,7 +11,7 @@ import {types,isDeepStrictEqual} from 'node:util';
 import {mkdtemp,lstat,realpath,chmod} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
 import {Vault} from '@lianum/engine/crypto/vault';
-import {createRoleProofClient,readOriginalDeviceDepositIntentDerivationV2} from '@lianum/proofs/client';
+import {createRoleProofClient,readOriginalDeviceDepositIntentDerivationV2} from '@lianum/backend/proving/roles/role-client';
 import {depositIntentWitness,decodeDepositIntentInputs} from '@lianum/engine/execution/inputs/deposit-intent';
 import {assertOwnedEvmGraphDeliveryObserverV1,assertOwnedEvmGraphDeliveryDescriptorV1} from '../../chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs';
 import {decodeEvmGraphDeliveryCallV1,evmGraphDeliveryTermsV1} from '../../chains/evm/dispatch/evm-graph-delivery-codec-v1.mjs';

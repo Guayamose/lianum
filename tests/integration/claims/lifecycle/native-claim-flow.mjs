@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT, LOCAL } from '@lianum/proofs/catalog';
 import { hash } from '@lianum/proofs/tooling/tooling';
-import { createRoleProofClient } from '@lianum/proofs/client';
+import { createRoleProofClient } from '@lianum/backend/proving/roles/role-client';
 import { createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   createNativeClaimController, createNativeClaimBeginPayoutAuditControllerV1, isNativeClaimBeginPayoutAuditStopV1, consumeNativeClaimBeginPayoutAuditStopV1 } from '../../../../packages/backend/src/claims/controller/controller.mjs';
 import { claimDomainCommitment } from '@lianum/engine/claims/framing';

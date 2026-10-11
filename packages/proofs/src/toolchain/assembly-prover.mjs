@@ -7,12 +7,12 @@ import {PRIVATE_RESOURCE_FLOORS,PRIVATE_RESOURCE_POLICY,PRIVATE_PROOF_WORKER_RSS
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync,statfsSync} from 'node:fs';
 import {join} from 'node:path';
-import {legacyDataRoot} from '@lianum/environment';
+import {resourceRoot} from '@lianum/environment';
 import {loadOfficialProofLibrariesV1} from './official-proof-libraries.mjs';
 import {initializePrivateVerifierCRS} from '@lianum/components/resources/private-verifier-crs';
 import {sha256} from '@lianum/engine/notes/private-note-encoding';
 import {ASSEMBLY_PUBLIC_WORDS,ASSEMBLY_RECURSIVE_MODES,assertAssemblyStatement} from '@lianum/engine/assembly/private-assembly-encoding';
-const root=join(legacyDataRoot('engine'),'experiments/private-core-proof/owner-independent/');
+const root=join(resourceRoot('engine'),'experiments/private-core-proof/owner-independent/');
 const digest=b=>sha256(b).toString('hex');
 const resources=()=>{const s=statfsSync(root);return{availableRAM:Number(/MemAvailable:\s+(\d+)/.exec(readFileSync('/proc/meminfo','utf8'))[1])*1024,freeDisk:s.bavail*s.bsize,rss:process.memoryUsage().rss};};
 function guard(){const r=resources();assert.ok(r.availableRAM>=PRIVATE_RESOURCE_FLOORS.availableRAM,'PC18_AVAILABLE_RAM_FLOOR');assert.ok(r.freeDisk>=PRIVATE_RESOURCE_FLOORS.freeDisk,'PC18_DISK_FLOOR');return r;}

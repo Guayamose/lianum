@@ -18,9 +18,9 @@ import {sealPrivateProofJobV1,readOriginalPrivateProofRecipientV1,privateProofAu
 export const ORIGINAL_WALLET_PRIVATE_PROVER_V4='ORIGINAL_PC23_TWO_PRIVATE_IPC_V4';
 const worker=fileURLToPath(new URL('./wallet-note-private-worker-v4.mjs',import.meta.url));
 const telemetryDirectory=join(PROOF_PROJECT_ROOT,'evidence/paeg-proof-attempts'),hostLock='/tmp/lianum-paeg-proof-host.lock';
-const codePaths=Object.freeze({worker,parent:fileURLToPath(import.meta.url),originalWorker:join(PROOF_PROJECT_ROOT,'src/paeg/proof-worker.mjs'),
- privateTransit:fileURLToPath(new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs',import.meta.url)),resourcePolicy:join(PROOF_PROJECT_ROOT,'src/private-resource-policy.mjs'),
- originalProver:join(PROOF_PROJECT_ROOT,'experiments/private-core-proof/wallet-notes/prover.mjs')});
+const codePaths=Object.freeze({worker,parent:fileURLToPath(import.meta.url),originalWorker:fileURLToPath(new URL('../execution/proof-worker.mjs',import.meta.url)),
+ privateTransit:fileURLToPath(new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs',import.meta.url)),resourcePolicy:fileURLToPath(new URL('../../../components/src/resources/private-resource-policy.mjs',import.meta.url)),
+ originalProver:fileURLToPath(new URL('../toolchain/wallet-prover.mjs',import.meta.url))});
 const stages=new Set(['checking-pins','legacy-proof-and-self-verification']);
 const modes=new Set(['deposit_balance','withdraw_balance']),digest=b=>createHash('sha256').update(b).digest('hex');
 let active=null;

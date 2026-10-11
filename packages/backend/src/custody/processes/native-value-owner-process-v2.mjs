@@ -20,7 +20,7 @@ import { createNativeValueOwnerObserver, assertOwnedNativeValueOwnerObserver } f
 import { assertOwnedNativeValueWalletSystem } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { exactRecord, FIELD_MODULUS, canonicalField } from '@lianum/components/encoding/commitments';
 import { loadPinned, resourceModuleURL } from '@lianum/proofs/tooling/tooling';
-import { createRoleProofClient } from '@lianum/proofs/client';
+import { createRoleProofClient } from '@lianum/backend/proving/roles/role-client';
 import { LIMITS } from '@lianum/proofs/catalog';
 
 const FILE = fileURLToPath(import.meta.url), PROTOCOL = 'NATIVE_VALUE_OWNER_PRIVATE_IPC_V2', LIMIT = 2 * 1024 * 1024;

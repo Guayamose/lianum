@@ -6772,7 +6772,7 @@
       "sha256": "4ff7957b1d6ac5b339d868600078e76b4bd7836f0e25dd03dbd904e9afccaf44",
       "bytes": 9327,
       "mode": "0644",
-      "source": "packages/proofs/src/jobs/role-client.mjs"
+      "source": "packages/backend/src/proving/roles/role-client.mjs"
     },
     {
       "path": "omnichain-flat-profile/flat-wallet/proof-workers/role-client.test.mjs",
@@ -22804,7 +22804,8 @@
     "packages/engine/src/crypto/private-resource-policy.mjs": "packages/components/src/resources/private-resource-policy.mjs",
     "packages/engine/src/crypto/private-verifier-crs.mjs": "packages/components/src/resources/private-verifier-crs.mjs",
     "packages/proofs/src/toolchain/wallet-resources.mjs": "packages/components/src/resources/wallet-resources.mjs",
-    "apps/mobile/src/custody/poseidon2-bn254-v1.mjs": "packages/crypto/src/portable/poseidon2-bn254-v1.mjs"
+    "apps/mobile/src/custody/poseidon2-bn254-v1.mjs": "packages/crypto/src/portable/poseidon2-bn254-v1.mjs",
+    "packages/proofs/src/jobs/role-client.mjs": "packages/backend/src/proving/roles/role-client.mjs"
   },
   "canonicalImports": {
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [
