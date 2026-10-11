@@ -1,3 +1,4 @@
+import {retainDevelopmentNativeClaimFailure} from './development-native-claim-failure.mjs';
 import {DEVELOPMENT_BTC_SPL_GRAPH_PROFILE,DEVELOPMENT_BTC_SPL_GRAPH_RESULT} from './development-btc-spl-jupiter-policy-v1.mjs';
 import {developmentBtcSplJupiterSourcePinsV1} from './development-btc-spl-jupiter-source-pins-v1.mjs';
 import {createOriginalPrivateJupiterSplSourceCreditV2,readOriginalJupiterSplSourceCreditV1} from '../../../../packages/backend/src/operations/local/jupiter-original-private-source-credit-v1.mjs';
@@ -248,18 +249,6 @@ export async function runDevelopmentNativeClaimAcceptance() {
       snapshot.claim.push(row); snapshot.graph.push(graph);
     }
     return snapshot;
-  }
-  function retainPrepositionFailureMetrics() {
-    if (!btcToSpl || !fixture?.operators || !controller
-      || !['original-native-ingress-and-private-issuance-0', 'original-native-ingress-and-private-issuance-1'].includes(result.failedStage)) return;
-    // Getter-only copies of already retained private samples. Never reenter
-    // current/audit/RPC/journal reads or replace the original operation error.
-    try {
-      const snapshot = loadedSolanaSnapshot();
-      const finalAudit = nativeClaimControllerPrivateFinalAuditTimingV1(controller);
-      writeFixturePrivate(join(privateDirectory, 'claim-preposition-private-metrics-v1.json'), {
-        schema: 'DEVELOPMENT_CLAIM_PREPOSITION_PRIVATE_METRICS_V1', snapshot, finalAudit });
-    } catch { /* Diagnostic loss never changes outcome or prevents cleanup. */ }
   }
   function retainLoadedSolanaMetrics(postIdle, requestId) {
     if (!loadedSolanaMetrics || loadedSolanaMetrics.after !== null) return;
@@ -540,12 +529,11 @@ export async function runDevelopmentNativeClaimAcceptance() {
       eachBroadcastOnce: [...fixture.bitcoin.transfers, ...fixture.solana.transfers, ...(withGraph ? fixture.graphSolana.transfers : [])].every(row => row.broadcastAttempts === 1) };
     result.checks.allOriginalLiabilitiesClosed = true; await audit(); result.phase = 'completed'; result.success = true;
   } catch (error) {
-    result.failedStage = result.phase; result.phase = 'failed'; result.success = false; result.errorCode = code(error);
-    if (error.fixtureCleanup) Object.assign(result.cleanup, error.fixtureCleanup);
-    retainPrepositionFailureMetrics();
-    writeFixturePrivate(join(privateDirectory, 'error-private.json'), { message: String(error.message), stack: String(error.stack),
-      cause: error.cause ? String(error.cause.stack ?? error.cause.message) : null,
-      privateDiagnostic: privateFailureDiagnostic(error, 'NATIVE_CLAIM_OPERATION_FAILED') }); await audit().catch(() => {});
+    await retainDevelopmentNativeClaimFailure(error, {
+      result, btcToSpl, fixture, controller, privateDirectory,
+      loadedSolanaSnapshot, writeFixturePrivate, audit, code,
+      finalAudit: () => nativeClaimControllerPrivateFinalAuditTimingV1(controller),
+    });
   } finally {
     await cleanup(); process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
     if (result.cleanup.errors.length || !['closedEvm', 'closedBitcoin', 'closedSolana', 'closedController', 'closedKeeper'].every(name => result.cleanup[name] === true)) {

@@ -1,3 +1,4 @@
+import {assertOriginalNativeAuditBudgetV4,runOriginalNativeAuditV4} from './original-audit-round-v4.mjs';
 /** Fixed-purpose owned V2 operators. One private key and one atomic CAS journal
  * per signer, complete typed inventory, no raw signer/audit callback/verified
  * boolean. Shares only an authenticated immutable receiver head with siblings.
@@ -88,11 +89,7 @@ async function drained(work) {
   const failed = results.find(result => result.status === 'rejected'); if (failed) throw failed.reason;
   return results.map(result => result.value);
 }
-function budget(started) {
-  assert.ok(typeof started === 'number' && Number.isFinite(started), 'NATIVE_VALUE_PRIVATE_ROUND_TIME');
-  const elapsed = performance.now() - started;
-  assert.ok(elapsed >= 0 && elapsed < 30_000, 'NATIVE_VALUE_COMPLETE_AUDIT_DEADLINE');
-}
+const budget = started => assertOriginalNativeAuditBudgetV4(started, performance.now());
 /** Creates only a dedicated synthetic same-host attester. Cannot import/export
  * a private key, bind a V1 system, or sign before authenticated private bootstrap. */
 export function createLocalNativeValueOperator(raw) {
@@ -252,25 +249,24 @@ function createNativeOperator(raw,recovery=null) {
     if(report.blockers.length!==0)throw inventoryFailure(report.blockers); return report;
   }
   async function serial(poolIndex, work, shared = null) {
-    owned(); assert.ok(Object.isFrozen(bound.system), 'NATIVE_VALUE_OPERATOR_FROZEN_DEPLOYMENT'); pool(poolIndex); assert.ok(!busy, 'NATIVE_VALUE_OPERATOR_BUSY');
-    assert.ok(reservation === null || shared?.token === reservation, 'NATIVE_VALUE_OPERATOR_QUORUM_RESERVED');
-    busy = true; keyUsed = false;
-    try {
-      const preflightStarted=performance.now();await unchanged(); if (shared !== null) assert.ok(rounds.has(shared), 'NATIVE_VALUE_PRIVATE_ROUND_REQUIRED');
-      const started = shared?.started ?? performance.now();
-      const view = shared?.view ?? await bound.readers[poolIndex].read();
-      const timing=shared===null?newOriginalAuditTimingV4():roundAuditTimings.get(shared)?.get(operator);
-      assert.ok(timing,'NATIVE_VALUE_ORIGINAL_AUDIT_ROUND_REQUIRED');
-      if(shared!==null){timing.storeLoads++;timing.storeMilliseconds+=performance.now()-preflightStarted;}
-      timing.operation='audit';timing.phase='initial';active={view,started,shared,timing};
-      assert.equal(view.poolIndex, poolIndex); await current();
-      const result = await work(view); await current(); await unchanged(); await current(); return result;
-    } catch (cause) {
-      if (active) retainNativeValueOriginalAuditTimingV1(cause, { ...active.timing,
-        elapsedMilliseconds: Math.floor(performance.now() - active.started), limitMilliseconds: 30_000 });
-      if (keyUsed) { poison(); throw new Error('NATIVE_VALUE_POST_KEY_UNCERTAIN', { cause }); }
-      throw cause;
-    } finally { busy = false; active = undefined; keyUsed = false; }
+    return runOriginalNativeAuditV4(poolIndex, work, shared, {
+      admit(index, round) {
+        owned();
+        assert.ok(Object.isFrozen(bound.system), 'NATIVE_VALUE_OPERATOR_FROZEN_DEPLOYMENT');
+        pool(index);
+        assert.ok(!busy, 'NATIVE_VALUE_OPERATOR_BUSY');
+        assert.ok(reservation === null || round?.token === reservation, 'NATIVE_VALUE_OPERATOR_QUORUM_RESERVED');
+      },
+      begin() { busy = true; keyUsed = false; },
+      finish() { busy = false; active = undefined; keyUsed = false; },
+      now: () => performance.now(), unchanged, current,
+      assertRound: round => assert.ok(rounds.has(round), 'NATIVE_VALUE_PRIVATE_ROUND_REQUIRED'),
+      read: index => bound.readers[index].read(),
+      timing: round => round === null ? newOriginalAuditTimingV4() : roundAuditTimings.get(round)?.get(operator),
+      activate: state => { active = state; },
+      active: () => active, keyUsed: () => keyUsed, poison,
+      retain: retainNativeValueOriginalAuditTimingV1,
+    });
   }
   function keySign(bytes) { owned(); assert.ok(Object.isFrozen(bound.system), 'NATIVE_VALUE_OPERATOR_FROZEN_DEPLOYMENT'); budget(active.started); keyUsed = true; uses++; return sign(key, bytes).toString('hex'); }
   async function recover(signature, digest) {
