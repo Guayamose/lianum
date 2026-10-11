@@ -128,6 +128,8 @@ def prepare(quiet=False):
                 env = dict(os.environ, PATH=str(NODE_DIRECTORY) + os.pathsep + os.environ.get('PATH', ''))
                 env.pop('NODE_OPTIONS', None)
                 env.pop('NODE_PATH', None)
+                env.pop('NPM_CONFIG_CACHE', None)
+                env['npm_config_cache'] = str(ROOT / '.local/cache/npm')
                 subprocess.run([str(NODE), str(NPM), 'ci', '--ignore-scripts', '--include=dev',
                                 '--no-audit', '--no-fund'], cwd=ROOT, env=env, check=True)
                 after = installation_inputs()

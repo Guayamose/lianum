@@ -13,6 +13,8 @@ import subprocess
 import tarfile
 from datetime import datetime, timezone
 
+from local_resources import cache_paths
+
 ROOT = Path(__file__).resolve().parents[2]
 HISTORY = ROOT / '.local/history'
 KEEP_DRAFTS = (
@@ -116,7 +118,9 @@ def canonical_staging_is_redundant():
     return True
 
 
-def plan():
+def plan(scope="all"):
+    if scope not in {"all", "caches", "history"}:
+        raise ValueError("Unknown cleanup scope")
     versioned = tracked()
     keep = references(versioned) | versioned | {ROOT / p for p in KEEP_DRAFTS}
     reports = ROOT / '.internal/dev/reports'
@@ -140,16 +144,19 @@ def plan():
         remove.extend(dev.glob(pattern))
     for name in ('component-organization-backup', 'cloud-install-smoke', 'browser-rehearsal'):
         remove.append(dev / name)
-    for name in ('.local/mobile/gradle-user-home/caches',
-                 '.local/dependencies/bsc-posav1/tools/go-build-cache',
-                 '.local/mobile/gradle-user-home/.tmp'):
-        remove.append(ROOT / name)
+    remove.extend(cache_paths(ROOT))
     # Incomplete V3 builds are temporary; .bsc-build-* keeps the required venv.
     remove.extend((ROOT / '.local/dependencies/bsc-posav1').glob('.native-v3-build-*'))
     staging = dev / 'i84-public-staging'
     if staging.exists() and canonical_staging_is_redundant():
         remove.append(staging)
     remove = sorted({p for p in remove if p.exists()})
+    if scope == "caches":
+        archives = {name: [] for name in GROUPS}
+        allowed = set(cache_paths(ROOT))
+        remove = [path for path in remove if path in allowed]
+    elif scope == "history":
+        remove = []
     versioned_names = sorted(str(path) for path in versioned)
     for p in remove + [p for values in archives.values() for p in values]:
         physical(p)
@@ -377,12 +384,16 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--apply', action='store_true', help='Back up history, then remove selected local data')
     mode.add_argument('--restore', choices=GROUPS, help='Restore the selected group from the latest backup')
+    parser.add_argument("--scope", choices=("all", "caches", "history"), default="all",
+                        help="Select disposable caches, archived history, or the full conservative plan")
     args = parser.parse_args()
+    if args.restore and args.scope != "all":
+        parser.error("--scope does not apply to restoration")
     if args.restore:
         restore(args.restore)
         return
-    archives, remove = plan()
-    print(json.dumps({'preview': not args.apply,
+    archives, remove = plan(args.scope)
+    print(json.dumps({'preview': not args.apply, 'scope': args.scope,
                       'compact': {k: {'roots': len(v), 'diskBytes': allocated(v)} for k, v in archives.items()},
                       'rebuildable': {'roots': len(remove), 'diskBytes': allocated(remove)},
                       'retainedDrafts': list(KEEP_DRAFTS)}, ensure_ascii=False), flush=True)

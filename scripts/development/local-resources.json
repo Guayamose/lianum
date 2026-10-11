@@ -1,0 +1,292 @@
+{
+  "schema": "LIANUM_LOCAL_RESOURCES_V1",
+  "roots": [
+    ".internal",
+    ".local",
+    "node_modules",
+    "apps/mobile/node_modules",
+    "apps/platform/node_modules",
+    "apps/mobile/android/build",
+    "apps/mobile/android/app/build",
+    "apps/mobile/android/.gradle"
+  ],
+  "categories": {
+    "tools": "Herramientas instaladas; conservar",
+    "originals": "Artefactos y materiales originales; conservar",
+    "legacy-runtime": "Compatibilidad y estado histórico; conservar",
+    "dependencies": "Dependencias instaladas; preparar por perfil",
+    "private-state": "Estado privado, custodia y redes; conservar",
+    "backups": "Respaldos verificados; conservar",
+    "generations": "Fuentes y candidatos de desarrollo; conservar",
+    "pending": "Trabajo pendiente; conservar",
+    "reports": "Informes; archivar antes de retirar",
+    "configuration": "Configuración local; conservar",
+    "builds": "Salidas de compilación; conservar entregables",
+    "cache": "Caché regenerable; limpieza explícita",
+    "legacy-support": "Ayudantes locales heredados; conservar hasta migrar sus consumidores"
+  },
+  "rules": [
+    {
+      "path": ".internal/dev/toolchains",
+      "category": "tools",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/npm-proof",
+      "category": "tools",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/npm-solc",
+      "category": "tools",
+      "cleanup": false
+    },
+    {
+      "path": ".local/mobile/gradle-user-home",
+      "category": "tools",
+      "cleanup": false
+    },
+    {
+      "path": ".local/dependencies",
+      "category": "tools",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/downloads",
+      "category": "originals",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/public-objects",
+      "category": "originals",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/cache/public-crs",
+      "category": "originals",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/runtime",
+      "category": "legacy-runtime",
+      "cleanup": false
+    },
+    {
+      "path": ".local/owned-*",
+      "category": "private-state",
+      "cleanup": false
+    },
+    {
+      "path": ".local/original-*",
+      "category": "private-state",
+      "cleanup": false
+    },
+    {
+      "path": ".local/platform",
+      "category": "private-state",
+      "cleanup": false
+    },
+    {
+      "path": ".local/device-paged-native-financial-v3",
+      "category": "private-state",
+      "cleanup": false
+    },
+    {
+      "path": "node_modules",
+      "category": "dependencies",
+      "cleanup": false
+    },
+    {
+      "path": "apps/mobile/node_modules",
+      "category": "dependencies",
+      "cleanup": false
+    },
+    {
+      "path": "apps/platform/node_modules",
+      "category": "dependencies",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/docker-public",
+      "category": "dependencies",
+      "cleanup": false
+    },
+    {
+      "path": ".local/history",
+      "category": "backups",
+      "cleanup": false
+    },
+    {
+      "path": ".local/generations",
+      "category": "generations",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/source-snapshots",
+      "category": "generations",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/drafts",
+      "category": "pending",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/reports",
+      "category": "reports",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/smoke",
+      "category": "reports",
+      "cleanup": false
+    },
+    {
+      "path": ".local/development",
+      "category": "configuration",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/npm-config",
+      "category": "configuration",
+      "cleanup": false
+    },
+    {
+      "path": ".local/mobile/artifacts",
+      "category": "builds",
+      "cleanup": false
+    },
+    {
+      "path": "apps/mobile/android/build",
+      "category": "builds",
+      "cleanup": false
+    },
+    {
+      "path": "apps/mobile/android/app/build",
+      "category": "builds",
+      "cleanup": false
+    },
+    {
+      "path": "apps/mobile/android/.gradle",
+      "category": "builds",
+      "cleanup": false
+    },
+    {
+      "path": ".local/cache/npm",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": ".internal/dev/npm-cache",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": ".internal/dev/__pycache__",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": ".local/mobile/gradle-user-home/caches",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": ".local/mobile/gradle-user-home/.tmp",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": ".local/dependencies/bsc-posav1/tools/go-build-cache",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": ".internal/dev/capture-mobile-build-inputs.py",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/export-mobile-archive.mjs",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/native-claims-audit.mjs",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/native-claims-build-common.mjs",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/native-claims-build-worker.mjs",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/native-claims-parent-death.py",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/native-claims-parent-death.test.mjs",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/native-claims-rebuild.mjs",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/run-public-host-ci-f7.py",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/supervisor-f-staged.mjs",
+      "category": "legacy-support",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/*.lock",
+      "category": "configuration",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/browser-*.npmrc",
+      "category": "configuration",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/browser-*-receipt.json",
+      "category": "reports",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/commit-defi-scope.txt",
+      "category": "pending",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/commit-native16.txt",
+      "category": "pending",
+      "cleanup": false
+    },
+    {
+      "path": ".internal/dev/MOBILE-ACCOUNT-BRIDGE-DESIGN.md",
+      "category": "pending",
+      "cleanup": false
+    }
+  ],
+  "migrations": [
+    {
+      "id": "npm-cache",
+      "from": ".internal/dev/npm-cache",
+      "to": ".local/cache/npm"
+    }
+  ]
+}

@@ -26,6 +26,7 @@ criptográficos, bases de datos, compilaciones y ese respaldo.
 | `.internal/dev/reports/` | Informes actuales y evidencias enlazadas por la documentación |
 | `.local/` | Configuraciones privadas, claves, bases de datos, Vaults, journals, estado de laboratorios y cachés |
 | `.local/history/` | Respaldos compactados por la limpieza; no forman parte del código del producto |
+| `.local/cache/npm/` | Caché compartida de npm para host, aplicaciones y perfiles; regenerable |
 | `apps/mobile/node_modules/` y compilaciones Android | Dependencias instaladas y salidas del cliente móvil |
 
 La preparación de `.internal/runtime/` se explica en
@@ -33,18 +34,49 @@ La preparación de `.internal/runtime/` se explica en
 rutas y hashes. La limpieza no elimina esa compatibilidad ni cambia sus
 verificaciones.
 
+La política ejecutable está en
+[`local-resources.json`](../scripts/development/local-resources.json): distingue
+herramientas, originales, dependencias, estado privado, copias, generaciones,
+informes, compilaciones, cachés y ayudantes heredados. Una ruta desconocida se
+señala y se conserva; no se convierte automáticamente en caché.
+
+```sh
+./dev resources status
+./dev resources check
+```
+
+El inventario cuenta bloques de disco, deduplica enlaces duros y no sigue
+enlaces simbólicos ni lee el contenido de claves o bases de datos. `check`
+devuelve código 1 si aparecen recursos sin clasificar. Esta clasificación no
+mueve el estado privado. Los originales bajo `.internal/dev/cache/public-crs/`
+se conservan aunque su ruta histórica contenga la palabra `cache`.
+
+La caché npm tiene una ubicación única. Para trasladar una instalación antigua:
+
+```sh
+./dev resources migrate-caches
+./dev resources migrate-caches --apply
+```
+
+El traslado conserva los archivos mediante rename, rechaza rutas con alias,
+archivos versionados y destinos existentes, y comprueba que no haya procesos
+usando las carpetas. Repetirlo después no mueve nada.
+
 ## Previsualizar y aplicar
 
 Desde la raíz:
 
 ```sh
 ./dev clean
+./dev clean --scope caches
+./dev clean --scope history
 ./dev clean --apply
 ```
 
-El primer comando muestra la selección y su espacio sin modificar archivos.
-El segundo aplica la selección conservadora. Las categorías que puede retirar
-son:
+Sin `--apply`, los comandos muestran la selección y su espacio sin modificar
+archivos. `--scope caches --apply` retira solo las cachés exactas de la política;
+`--scope history --apply` compacta solo el historial seleccionado. El alcance
+predeterminado `all` incluye también las copias temporales elegibles:
 
 - Clones temporales de comprobación y copias de trabajo antiguas.
 - Staging público I84 que ya está materializado y verificado en su destino.

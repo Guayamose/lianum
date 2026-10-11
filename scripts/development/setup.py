@@ -214,7 +214,7 @@ def npm_environment():
             raise RuntimeError("Project npm configuration must remain empty")
     env.update({"NPM_CONFIG_USERCONFIG": str(configs / "user"),
                 "NPM_CONFIG_GLOBALCONFIG": str(configs / "global"),
-                "NPM_CONFIG_CACHE": str(DEV / "npm-cache")})
+                "NPM_CONFIG_CACHE": str(ROOT / ".local/cache/npm")})
     return env
 
 

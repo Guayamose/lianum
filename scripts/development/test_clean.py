@@ -109,6 +109,25 @@ class CleanupTest(unittest.TestCase):
         self.restore()
         self.assertEqual(first.read_bytes(), b'private checkpoint')
 
+    def test_scopes_separate_disposable_cache_from_history_and_retained_artifacts(self):
+        cache = self.write('.local/cache/npm/content')
+        artifact = self.write('.internal/dev/cache/public-crs/retained.dat')
+        history = self.write('.internal/dev/drafts/old/result.json')
+        with patch.object(clean, 'tracked', return_value=set()):
+            archives, remove = clean.plan('caches')
+            self.assertEqual(remove, [cache.parent])
+            self.assertTrue(all(not rows for rows in archives.values()))
+            archives, remove = clean.plan('history')
+            self.assertEqual(remove, [])
+            self.assertEqual(archives['drafts'], [history.parent])
+        self.assertEqual(artifact.read_bytes(), b'private checkpoint')
+
+    def test_named_cache_with_tracked_file_cannot_be_removed(self):
+        source = self.write('.local/cache/npm/keep.mjs')
+        with patch.object(clean, 'tracked', return_value={source}):
+            with self.assertRaisesRegex(RuntimeError, 'versioned files'):
+                clean.plan('caches')
+
 
 if __name__ == '__main__':
     unittest.main()
