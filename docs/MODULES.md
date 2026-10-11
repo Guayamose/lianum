@@ -150,6 +150,18 @@ cuenta: el almacén conserva AEAD/CAS, el bootstrap selecciona las entradas fís
 originales y la autoridad de portfolio conserva su bloqueo y sus hijos registrados.
 Las pruebas importan estos propietarios completos, sin extraer sus funciones.
 
+La retención de certificados (`original-facts-retention-v2.mjs`) conserva las
+comparaciones antes y después de cobertura, pero su emisión y WeakMap siguen en
+el operador. La preparación de vaults (`vault-preparation.mjs`) conserva nonce,
+referencia, quote history y bloqueo de envío; la custodia y el serial lock siguen
+en el adaptador. Sus pruebas importan los cuerpos completos.
+
+Los lectores `inputUint`/`inputPath` están junto a los snapshots en
+`components/plain-input`. Los clientes de datos no necesitan cargar preparación
+de witnesses ni validación de jobs. Las reexports de preparación conservan su
+API. Los consumidores migrados conservan sus algoritmos y la prueba con permisos
+Node permite leer únicamente el componente común.
+
 El grupo restante reúne cinco familias principales: recuperación wrapped
 (`wrapped-recovery-authority-v1.mjs`), composición SOURCE
 (`native-original-source-lifecycle-v1.mjs`), autoridad nativa
@@ -158,7 +170,7 @@ El grupo restante reúne cinco familias principales: recuperación wrapped
 DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
 siguen visibles; no son cinco componentes independientes ni deuda resuelta.
 
-La selección estricta tiene **97 entradas explícitas**. Se comprueban los cuerpos
+La selección estricta tiene **100 entradas explícitas**. Se comprueban los cuerpos
 completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
 de los mecanismos de journal, recuperación, observación y formatos extraídos.
 El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos
@@ -173,7 +185,7 @@ SOURCE conserva la emisión y consumo de sus tokens privados de checkpoint y
 llama directamente al reconciliador de datos del journal. Ya no delega esa
 lectura a la autoridad de cuenta. Las entradas wrapped de cuenta, ejecutor,
 terminal, claims y sesión tienen consumidores directos a sus propietarios.
-Las siete fachadas versionadas retiradas se conservan como `.source` con hash
+Las nueve fachadas privadas retiradas se conservan como `.source` con hash
 en `archive/source-evidence/retired-facades`, fuera de `src` y sin copias de
 ejecución. Los nombres antiguos de sus publicaciones se resuelven como evidencia;
 sus imports históricos no se siguen ni se ejecutan.

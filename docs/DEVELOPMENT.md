@@ -24,6 +24,12 @@ La selección habitual comprueba transporte HTTP, consentimiento y
 reconciliación. No requiere los binarios nativos ni el CRS. Los resultados de
 host utilizan fixtures y no acreditan por sí solos una operación económica.
 
+Cuando cambies fuentes usadas por lectores económicos, prepara y adopta su
+nuevo cierre con `./dev sources prepare --adopt`. El comando verifica los
+originales y la misma generación antes de seleccionar; no hay que escribir su
+hash a mano ni regenerar pruebas. Su alcance está en
+[SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md).
+
 Para verificar expresamente la conservación histórica:
 
 ```sh
