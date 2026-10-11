@@ -1,3 +1,4 @@
+import { createNativeValueAccountJournals } from './native-value/native-value-authority-journals.mjs';
 import { createNativeValueDeposits } from './native-value/native-value-authority-deposits.mjs';
 import { createNativeValueReservations } from './native-value/native-value-authority-reservations.mjs';
 import { createNativeValueExecutionOperations } from './native-value/native-value-authority-execution.mjs';
@@ -493,119 +494,14 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   const recoveredInstallations = recovery?.native ? copy(recovery.record.providerBindings.installations) : [];
   const reboundInstallations = new Set();
   let busy = false, unavailable = false, closed = false, cancelled = false, capturing=false, captureStarted=false, captureProviders=null, captureProviderBindings=null, activeLegacy = null, activeDeviceOwner = null;
-  let idle = Promise.resolve(), releaseIdle, abortPromise, ownerViewTerminalObserver;
+  let idle = Promise.resolve(), releaseIdle, abortPromise;
   let sourceHandle=nativeSourceOriginal?.handle??null,sourceRecord=null,sourceOperation=false;
   if(recovery?.source)recovery.sourceObservationRequired=recovery.record.interruptedOperation===true;
   const manualGraphApprovals = new Map(), nativeProviderSets = new Map(), nativeNoteApprovals = new Map();
   const deviceExecutionInstallations=new Map(),deviceExecutionProviders=new Map();
   // All operations share these live bindings: one lock, one Vault and one capability.
   // Getters retain initialization order and observe every later state replacement.
-  const operationContext = Object.freeze({
-    get abortPromise() { return abortPromise; }, set abortPromise(value) { abortPromise = value; },
-    get accountIdentity() { return accountIdentity; },
-    get accountProfile() { return accountProfile; },
-    get activeDeviceOwner() { return activeDeviceOwner; }, set activeDeviceOwner(value) { activeDeviceOwner = value; },
-    get activeLegacy() { return activeLegacy; }, set activeLegacy(value) { activeLegacy = value; },
-    get assertOwnedNativeValueExecution() { return assertOwnedNativeValueExecution; },
-    get asset() { return asset; },
-    get bare() { return bare; },
-    get busy() { return busy; },
-    get byteSHA() { return byteSHA; },
-    get cancelled() { return cancelled; }, set cancelled(value) { cancelled = value; },
-    get capability() { return capability; },
-    get capturing() { return capturing; },
-    get closed() { return closed; }, set closed(value) { closed = value; },
-    get config() { return config; },
-    get confirmTerminal() { return confirmTerminal; },
-    get continueWork() { return continueWork; },
-    get createNativeValueTerminalObserver() { return createNativeValueTerminalObserver; },
-    get deviceBinding() { return deviceBinding; },
-    get deviceExecutionInstallations() { return deviceExecutionInstallations; },
-    get deviceExecutionOriginal() { return deviceExecutionOriginal; },
-    get deviceExecutionProviders() { return deviceExecutionProviders; },
-    get deviceRow() { return deviceRow; },
-    get deviceRows() { return deviceRows; },
-    get exclusive() { return exclusive; },
-    get executeGraph() { return executeGraph; },
-    get executeNote() { return executeNote; },
-    get exitRows() { return exitRows; },
-    get failure() { return failure; },
-    get healthy() { return healthy; },
-    get identity() { return identity; },
-    get identitySHA256() { return identitySHA256; },
-    get idle() { return idle; },
-    get liveRecovery() { return liveRecovery; },
-    get manualGraphApprovals() { return manualGraphApprovals; },
-    get manualGraphTime() { return manualGraphTime; },
-    get manualGraphs() { return manualGraphs; },
-    get manualKeeper() { return manualKeeper; }, set manualKeeper(value) { manualKeeper = value; },
-    get manualLifecycle() { return manualLifecycle; },
-    get manualNotes() { return manualNotes; },
-    get manualPortfolio() { return manualPortfolio; }, set manualPortfolio(value) { manualPortfolio = value; },
-    get manualReceipts() { return manualReceipts; },
-    get manualStops() { return manualStops; },
-    get nativeAsset() { return nativeAsset; },
-    get nativeExecution() { return nativeExecution; },
-    get nativeNote() { return nativeNote; },
-    get nativeNoteApproval() { return nativeNoteApproval; },
-    get nativeNoteApprovals() { return nativeNoteApprovals; },
-    get nativeProviderSets() { return nativeProviderSets; },
-    get nativeRecoveryManualMode() { return nativeRecoveryManualMode; },
-    get nativeSourceOriginal() { return nativeSourceOriginal; },
-    get observeDevice() { return observeDevice; },
-    get observer() { return observer; },
-    get onPrivateAudit() { return onPrivateAudit; },
-    get onProof() { return onProof; },
-    get onStage() { return onStage; },
-    get operation() { return operation; },
-    get originalQuote() { return originalQuote; },
-    get originalReservationConsent() { return originalReservationConsent; },
-    get originalSourceContinuationInstallation() { return originalSourceContinuationInstallation; },
-    get ownedNativeValueManualGraphReview() { return ownedNativeValueManualGraphReview; },
-    get owner() { return owner; },
-    get ownerViewTerminalObserver() { return ownerViewTerminalObserver; }, set ownerViewTerminalObserver(value) { ownerViewTerminalObserver = value; },
-    get password() { return password; }, set password(value) { password = value; },
-    get pool() { return pool; },
-    get poolIndex() { return poolIndex; },
-    get privateDepositBridge() { return privateDepositBridge; }, set privateDepositBridge(value) { privateDepositBridge = value; },
-    get privateDepositEnabled() { return privateDepositEnabled; },
-    get privateExitBridge() { return privateExitBridge; }, set privateExitBridge(value) { privateExitBridge = value; },
-    get privateOwnerView() { return privateOwnerView; },
-    get privateReservationBridge() { return privateReservationBridge; }, set privateReservationBridge(value) { privateReservationBridge = value; },
-    get privateWorkerEnabled() { return privateWorkerEnabled; },
-    get projectFlatAccountOwnerView() { return projectFlatAccountOwnerView; },
-    get proofRunner() { return proofRunner; },
-    get reader() { return reader; },
-    get reconcileOriginal() { return reconcileOriginal; },
-    get record() { return record; }, set record(value) { record = value; },
-    get recoverOriginal() { return recoverOriginal; },
-    get recovery() { return recovery; },
-    get reference() { return reference; },
-    get refreshLiveOperationClock() { return refreshLiveOperationClock; },
-    get register() { return register; },
-    get reorgAdmission() { return reorgAdmission; }, set reorgAdmission(value) { reorgAdmission = value; },
-    get request() { return request; },
-    get requireFixedManualEpoch() { return requireFixedManualEpoch; },
-    get requireManualEpoch() { return requireManualEpoch; },
-    get reservationBinding() { return reservationBinding; },
-    get reservationObservation() { return reservationObservation; },
-    get reservationRow() { return reservationRow; },
-    get reservationRows() { return reservationRows; },
-    get reservationSubject() { return reservationSubject; },
-    get reservationUpdate() { return reservationUpdate; },
-    get runtime() { return runtime; },
-    get selectOwnerActions() { return selectOwnerActions; },
-    get snapshotFromView() { return snapshotFromView; },
-    get sourceProofReceiptFrame() { return sourceProofReceiptFrame; },
-    get system() { return system; },
-    get tokenFundingReady() { return tokenFundingReady; },
-    get transportProof() { return transportProof; },
-    get unavailable() { return unavailable; },
-    get unresolved() { return unresolved; },
-    get update() { return update; },
-    get wrapped() { return wrapped; },
-    get write() { return write; },
-  });
+
   const proofRunner = createFlatProofRunner({onProof:async event=>{
     if(nativeSourceOriginal&&event.label==='device-reservation-s'){
       const rows=reservationRows();assert.equal(rows.length,1);assert.equal(rows[0].stage,'RESERVING');
@@ -664,7 +560,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
     return {schema:'ORIGINAL_NATIVE_SOURCE_NOTE_ACCOUNT_SEED_V1',sourceSHA256:nativeSourceOriginal.identity.sourceSHA256,
       poolIndex,directory,password,accountId,journalId,checkpointSHA256:sha(record),identitySHA256,accountIdentity:copy(accountIdentity),
       ownerIdentity:copy(nativeValueOwnerEconomicIdentityV1(owner,{runtime,system,poolIndex})),hasNativeExecution:nativeExecution!==null,
-      manualMode:manualKeeper!==null||nativeRecoveryManualMode,
+      manualMode:hasManualKeeper()||nativeRecoveryManualMode,
       interruptedOperation:recovery?.sourceObservationRequired===true,
       providerBindings:{operations:[...nativeProviderSets].map(([reference,providers])=>({reference,providers:providers.map(binding)})),
         installations:sourceInstallationBindings(binding)}};
@@ -712,62 +608,582 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
   }
   const update = (ref, fields) => write(data => ({ ...data, operations: data.operations.map(value =>
     value.ownerOperationRef === ref ? { ...value, ...copy(fields) } : value) }));
+  const journals = createNativeValueAccountJournals({ readRecord: () => record, write });
+  function trackProof(client) { activeLegacy = client; }
+  function releaseProof() { activeLegacy = null; }
+  function trackDeviceOwner(client) { activeDeviceOwner = client; }
+  function releaseDeviceOwner() { activeDeviceOwner = null; }
+  async function abortAccount() {
+    assert.ok(wrapped || !capturing, 'NATIVE_ACCOUNT_CAPTURE_OWNS_LIFETIME');
+    cancelled = true;
+    abortPromise ??= (async () => {
+      activeDeviceOwner?.stop();
+      await Promise.allSettled([activeLegacy?.abort(), proofRunner.abort(), nativeExecution?.abort()]);
+      await idle;
+      return {
+        cancelled: true,
+        retainedEncryptedEvidence: true
+      };
+    })();
+    return abortPromise;
+  }
+  async function closeAccount() {
+    assert.ok(wrapped || !capturing || closed, 'NATIVE_ACCOUNT_CAPTURE_OWNS_LIFETIME');
+    assert.equal(busy, false, 'FLAT_ACCOUNT_BUSY');
+    if (!closed) {
+      await proofRunner.close();
+      closed = true;
+      password = null;
+      record = null;
+      deviceExecutionInstallations.clear();
+      deviceExecutionProviders.clear();
+    }
+    return {
+      closed: true,
+      retainedOwnerCustody: true,
+      retainedRuntimes: true
+    };
+  }
   // Device custody is a separate durable branch in the SAME original Vault.
   // Linux note preparation/owner acknowledgement is never used for this note.
-  let privateDepositBridge=null,privateExitBridge=null,privateReservationBridge=null;
+
+  // Device custody is a separate durable branch in the SAME original Vault.
+  // Linux note preparation/owner acknowledgement is never used for this note.
+
   const {
-    privateReservationEnabled, installPrivateReservation, privateReservationContext, reservationRows,
-    reservationRow, reservationUpdate, reservationPublic, reservationSubject,
-    reservationBinding, originalQuote, originalReservationConsent, reservationObservation,
+    privateReservationEnabled,
+    installPrivateReservation,
+    privateReservationContext,
+    reservationRows,
+    reservationRow,
+    reservationUpdate,
+    reservationPublic,
+    reservationSubject,
+    reservationBinding,
+    originalQuote,
+    originalReservationConsent,
+    reservationObservation,
     deviceReservation
-  } = createNativeValueReservations(operationContext);
+  } = createNativeValueReservations({
+    journal: Object.freeze({
+      append: journals.reservations.append,
+      appendQuote: journals.reservations.appendQuote,
+      installProfile: journals.reservations.installProfile,
+      patch: journals.reservations.patch,
+      profile: journals.reservations.profile,
+      quotes: journals.reservations.quotes,
+      rows: journals.reservations.rows
+    }),
+    lifecycle: Object.freeze({
+      continueWork,
+      exclusive,
+      healthy,
+      isUnavailable: () => unavailable,
+      releaseDeviceOwner,
+      trackDeviceOwner
+    }),
+    profile: Object.freeze({
+      accountIdentity,
+      asset,
+      config,
+      identity,
+      identitySHA256,
+      nativeNote,
+      wrapped
+    }),
+    deposits: Object.freeze({
+      deviceRow: (...args) => deviceRow(...args),
+      deviceRows: (...args) => deviceRows(...args),
+      observeDevice: (...args) => observeDevice(...args),
+      privateDepositEnabled: (...args) => privateDepositEnabled(...args)
+    }),
+    chain: Object.freeze({
+      nativeExecution,
+      observer,
+      pool,
+      reader,
+      runtime,
+      system
+    }),
+    format: Object.freeze({
+      bare,
+      byteSHA: (...args) => byteSHA(...args),
+      reference,
+      sourceProofReceiptFrame,
+      transportProof
+    }),
+    continuity: Object.freeze({
+      nativeSourceOriginal,
+      originalSourceContinuationInstallation,
+      recovery
+    }),
+    exits: Object.freeze({
+      exitRows: (...args) => exitRows(...args)
+    }),
+    execution: Object.freeze({
+      refreshLiveOperationClock: (...args) => refreshLiveOperationClock(...args)
+    }),
+    proofs: Object.freeze({
+      onPrivateAudit,
+      onProof,
+      proofRunner
+    }),
+    approvals: Object.freeze({
+      deviceExecutionProviders
+    }),
+    operations: Object.freeze({
+      snapshotFromView: (...args) => snapshotFromView(...args)
+    })
+  });
 
   const privateWorkerEnabled=()=>record.data.deviceNativePrivateWorkerProfile==='ORIGINAL_NATIVE_NOTE_PRIVATE_WORKER_INPUT_V3';
   const {
-    privateExitEnabled, installPrivateExit, exitRows, exitRow,
-    exitPublic, exitTerms, outputBalance, exitBinding,
+    privateExitEnabled,
+    installPrivateExit,
+    exitRows,
+    exitRow,
+    exitPublic,
+    exitTerms,
+    outputBalance,
+    exitBinding,
     deviceExit
-  } = createNativeValueWithdrawals(operationContext);
+  } = createNativeValueWithdrawals({
+    journal: Object.freeze({
+      append: journals.withdrawals.append,
+      installProfile: journals.withdrawals.installProfile,
+      patch: journals.withdrawals.patch,
+      profile: journals.withdrawals.profile,
+      rows: journals.withdrawals.rows
+    }),
+    reservations: Object.freeze({
+      originalQuote: (...args) => originalQuote(...args),
+      reservationBinding: (...args) => reservationBinding(...args),
+      reservationObservation: (...args) => reservationObservation(...args),
+      reservationRow: (...args) => reservationRow(...args),
+      reservationRows: (...args) => reservationRows(...args),
+      reservationSubject: (...args) => reservationSubject(...args)
+    }),
+    lifecycle: Object.freeze({
+      continueWork,
+      exclusive,
+      healthy,
+      isUnavailable: () => unavailable,
+      releaseProof,
+      trackProof
+    }),
+    profile: Object.freeze({
+      asset,
+      identity,
+      identitySHA256,
+      nativeNote,
+      wrapped
+    }),
+    deposits: Object.freeze({
+      deviceBinding: (...args) => deviceBinding(...args),
+      deviceRow: (...args) => deviceRow(...args),
+      deviceRows: (...args) => deviceRows(...args),
+      observeDevice: (...args) => observeDevice(...args),
+      privateDepositEnabled: (...args) => privateDepositEnabled(...args),
+      privateWorkerEnabled: (...args) => privateWorkerEnabled(...args)
+    }),
+    chain: Object.freeze({
+      nativeExecution,
+      observer,
+      pool,
+      reader,
+      runtime,
+      system
+    }),
+    format: Object.freeze({
+      bare,
+      byteSHA: (...args) => byteSHA(...args),
+      reference,
+      sourceProofReceiptFrame,
+      transportProof
+    }),
+    account: Object.freeze({
+      capability: () => capability
+    }),
+    execution: Object.freeze({
+      deviceExecutionOriginal: (...args) => deviceExecutionOriginal(...args)
+    }),
+    proofs: Object.freeze({
+      onProof
+    }),
+    continuity: Object.freeze({
+      nativeSourceOriginal,
+      recovery
+    }),
+    operations: Object.freeze({
+      snapshotFromView: (...args) => snapshotFromView(...args)
+    })
+  });
 
   const {
-    deviceRows, privateDepositEnabled, installPrivateDeposit, deviceRow,
-    byteSHA, devicePublic, deviceBinding, observeDevice,
+    deviceRows,
+    privateDepositEnabled,
+    installPrivateDeposit,
+    deviceRow,
+    byteSHA,
+    devicePublic,
+    deviceBinding,
+    observeDevice,
     deviceDeposit
-  } = createNativeValueDeposits(operationContext);
+  } = createNativeValueDeposits({
+    journal: Object.freeze({
+      append: journals.deposits.append,
+      installProfile: journals.deposits.installProfile,
+      installWorkerProfile: journals.deposits.installWorkerProfile,
+      patch: journals.deposits.patch,
+      profile: journals.deposits.profile,
+      rows: journals.deposits.rows,
+      workerProfile: journals.deposits.workerProfile
+    }),
+    lifecycle: Object.freeze({
+      continueWork,
+      exclusive,
+      healthy,
+      isUnavailable: () => unavailable,
+      releaseProof,
+      trackProof
+    }),
+    profile: Object.freeze({
+      accountIdentity,
+      asset,
+      config,
+      identity,
+      identitySHA256,
+      nativeAsset,
+      nativeNote,
+      wrapped
+    }),
+    chain: Object.freeze({
+      observer,
+      pool,
+      reader,
+      runtime,
+      system
+    }),
+    deposits: Object.freeze({
+      privateWorkerEnabled: (...args) => privateWorkerEnabled(...args)
+    }),
+    reservations: Object.freeze({
+      reservationRows: (...args) => reservationRows(...args)
+    }),
+    exits: Object.freeze({
+      exitRows: (...args) => exitRows(...args)
+    }),
+    format: Object.freeze({
+      bare,
+      reference,
+      sourceProofReceiptFrame,
+      transportProof
+    }),
+    continuity: Object.freeze({
+      nativeSourceOriginal,
+      recovery
+    }),
+    proofs: Object.freeze({
+      onPrivateAudit,
+      onProof
+    }),
+    operations: Object.freeze({
+      snapshotFromView: (...args) => snapshotFromView(...args),
+      tokenFundingReady: (...args) => tokenFundingReady(...args)
+    })
+  });
+
+  // Device U/S continues the original D26 note. Its source opening is never
+  // written into this Vault or adopted by the Linux owner process.
+
+  // Device U/S continues the original D26 note. Its source opening is never
+  // written into this Vault or adopted by the Linux owner process.
 
   // Device U/S continues the original D26 note. Its source opening is never
   // written into this Vault or adopted by the Linux owner process.
 
   const {
-    deviceExecutionOriginal, deviceExecutionPublic, reorgState, retainReorg,
-    assertReorgPending, requireLiveRecovery, refreshLiveOperationClock, armPublic,
-    armLiveRecovery, liveArmedOwnerSnapshot, tickLiveRecovery, deviceExecution
-  } = createNativeValueExecutionOperations(operationContext);
-
-  let reorgAdmission = null;
+    deviceExecutionOriginal,
+    deviceExecutionPublic,
+    reorgState,
+    retainReorg,
+    assertReorgPending,
+    requireLiveRecovery,
+    refreshLiveOperationClock,
+    armPublic,
+    armLiveRecovery,
+    liveArmedOwnerSnapshot,
+    tickLiveRecovery,
+    deviceExecution
+  } = createNativeValueExecutionOperations({
+    approvals: Object.freeze({
+      deviceExecutionInstallations
+    }),
+    chain: Object.freeze({
+      assertOwnedNativeValueExecution,
+      nativeExecution,
+      owner,
+      pool,
+      poolIndex,
+      reader,
+      runtime,
+      system
+    }),
+    reservations: Object.freeze({
+      originalReservationConsent: (...args) => originalReservationConsent(...args),
+      reservationObservation: (...args) => reservationObservation(...args),
+      reservationRow: (...args) => reservationRow(...args),
+      reservationRows: (...args) => reservationRows(...args),
+      reservationSubject: (...args) => reservationSubject(...args),
+      reservationUpdate: (...args) => reservationUpdate(...args)
+    }),
+    profile: Object.freeze({
+      identity,
+      nativeNote,
+      wrapped
+    }),
+    lifecycle: Object.freeze({
+      continueWork,
+      exclusive,
+      healthy,
+      isBusy: () => busy,
+      isCancelled: () => cancelled,
+      isCapturing: () => capturing,
+      isClosed: () => closed,
+      isUnavailable: () => unavailable,
+      whenIdle: () => idle
+    }),
+    format: Object.freeze({
+      bare,
+      byteSHA: (...args) => byteSHA(...args),
+      reference
+    }),
+    continuity: Object.freeze({
+      lease: () => liveRecovery,
+      nativeSourceOriginal,
+      originalSourceContinuationInstallation,
+      recovery
+    }),
+    operations: Object.freeze({
+      privateOwnerView: (...args) => privateOwnerView(...args)
+    }),
+    account: Object.freeze({
+      capability: () => capability
+    })
+  });
 
   let liveRecovery=null;
 
   const {
-    request, register, snapshotFromView, tokenFundingReady,
-    requireFixedManualEpoch, nativeNoteApproval, executeNote, manualGraphTime,
-    executeGraph, confirmTerminal, reconcileOriginal, recoverOriginal,
-    unresolved, privateOwnerView
-  } = createNativeValueOwnerOperations(operationContext);
-
+    request,
+    register,
+    snapshotFromView,
+    tokenFundingReady,
+    requireFixedManualEpoch,
+    nativeNoteApproval,
+    executeNote,
+    manualGraphTime,
+    executeGraph,
+    confirmTerminal,
+    reconcileOriginal,
+    recoverOriginal,
+    unresolved,
+    privateOwnerView
+  } = createNativeValueOwnerOperations({
+    journal: Object.freeze({
+      append: journals.operations.append,
+      rows: journals.operations.rows
+    }),
+    profile: Object.freeze({
+      accountIdentity,
+      asset,
+      config,
+      identity,
+      identitySHA256,
+      nativeAsset,
+      nativeNote,
+      wrapped
+    }),
+    operations: Object.freeze({
+      operation: (...args) => operation(...args),
+      update: (...args) => update(...args)
+    }),
+    lifecycle: Object.freeze({
+      continueWork,
+      healthy,
+      isUnavailable: () => unavailable,
+      releaseProof,
+      trackProof
+    }),
+    format: Object.freeze({
+      bare,
+      failure,
+      projectFlatAccountOwnerView,
+      reference,
+      transportProof
+    }),
+    chain: Object.freeze({
+      createNativeValueTerminalObserver,
+      nativeExecution,
+      observer,
+      owner,
+      pool,
+      poolIndex,
+      reader,
+      runtime,
+      system
+    }),
+    proofs: Object.freeze({
+      onPrivateAudit,
+      onProof,
+      onStage,
+      proofRunner
+    }),
+    manual: Object.freeze({
+      requireManualEpoch: (...args) => requireManualEpoch(...args)
+    }),
+    approvals: Object.freeze({
+      manualGraphApprovals,
+      manualGraphs,
+      manualNotes,
+      nativeNoteApprovals
+    }),
+    account: Object.freeze({
+      capability: () => capability
+    })
+  });
 
   // Flat-specific lifecycle. No caller error, receipt copy, boolean or callback
   // can create a genuine no-dispatch capability. The marker and receipt brands
   // are local to this exact original authority and are backed by its Vault.
-  let manualKeeper = null, manualPortfolio = null, manualPreparation = null;
-  const manualStops = new WeakMap(), manualReceipts = new WeakMap();
+
+  // Flat-specific lifecycle. No caller error, receipt copy, boolean or callback
+  // can create a genuine no-dispatch capability. The marker and receipt brands
+  // are local to this exact original authority and are backed by its Vault.
+
+  // Flat-specific lifecycle. No caller error, receipt copy, boolean or callback
+  // can create a genuine no-dispatch capability. The marker and receipt brands
+  // are local to this exact original authority and are backed by its Vault.
+
   const {
-    validateManualLifecycle, requireManualEpoch, manualLifecycle
-  } = createNativeValueManualLifecycle(operationContext);
+    validateManualLifecycle,
+    requireManualEpoch,
+    manualLifecycle,
+    hasManualKeeper
+  } = createNativeValueManualLifecycle({
+    journal: Object.freeze({
+      rows: journals.operations.rows
+    }),
+    format: Object.freeze({
+      failure,
+      reference
+    }),
+    chain: Object.freeze({
+      owner,
+      poolIndex,
+      runtime,
+      system
+    }),
+    account: Object.freeze({
+      capability: () => capability
+    }),
+    operations: Object.freeze({
+      confirmTerminal: (...args) => confirmTerminal(...args),
+      executeGraph: (...args) => executeGraph(...args),
+      executeNote: (...args) => executeNote(...args),
+      manualGraphTime: (...args) => manualGraphTime(...args),
+      operation: (...args) => operation(...args),
+      reconcileOriginal: (...args) => reconcileOriginal(...args),
+      recoverOriginal: (...args) => recoverOriginal(...args),
+      request: (...args) => request(...args),
+      requireFixedManualEpoch: (...args) => requireFixedManualEpoch(...args),
+      unresolved: (...args) => unresolved(...args),
+      update: (...args) => update(...args)
+    }),
+    profile: Object.freeze({
+      accountIdentity,
+      asset,
+      identitySHA256
+    }),
+    lifecycle: Object.freeze({
+      exclusive,
+      healthy
+    }),
+    proofs: Object.freeze({
+      onStage
+    })
+  });
 
   const {
     capability
-  } = createNativeValueAccountInterface(operationContext);
+  } = createNativeValueAccountInterface({
+    lifecycle: Object.freeze({
+      abort: abortAccount,
+      close: closeAccount,
+      continueWork,
+      exclusive,
+      healthy
+    }),
+    journal: Object.freeze({
+      rows: journals.operations.rows
+    }),
+    profile: Object.freeze({
+      accountIdentity,
+      accountProfile,
+      asset,
+      config,
+      identity,
+      identitySHA256,
+      nativeRecoveryManualMode,
+      wrapped
+    }),
+    operations: Object.freeze({
+      confirmTerminal: (...args) => confirmTerminal(...args),
+      executeGraph: (...args) => executeGraph(...args),
+      executeNote: (...args) => executeNote(...args),
+      manualGraphTime: (...args) => manualGraphTime(...args),
+      nativeNoteApproval: (...args) => nativeNoteApproval(...args),
+      operation: (...args) => operation(...args),
+      privateOwnerView: (...args) => privateOwnerView(...args),
+      reconcileOriginal: (...args) => reconcileOriginal(...args),
+      recoverOriginal: (...args) => recoverOriginal(...args),
+      register: (...args) => register(...args),
+      request: (...args) => request(...args),
+      requireFixedManualEpoch: (...args) => requireFixedManualEpoch(...args),
+      unresolved: (...args) => unresolved(...args),
+      update: (...args) => update(...args)
+    }),
+    manual: Object.freeze({
+      hasKeeper: hasManualKeeper,
+      manualLifecycle
+    }),
+    proofs: Object.freeze({
+      onStage
+    }),
+    chain: Object.freeze({
+      assertOwnedNativeValueExecution,
+      nativeExecution,
+      ownedNativeValueManualGraphReview,
+      owner,
+      pool,
+      poolIndex,
+      reader,
+      runtime,
+      system
+    }),
+    format: Object.freeze({
+      bare,
+      reference
+    }),
+    selection: Object.freeze({
+      selectOwnerActions
+    }),
+    approvals: Object.freeze({
+      manualGraphApprovals,
+      manualGraphs,
+      nativeProviderSets
+    })
+  });
 
   let recoveredDeviceInstallationIssued=false;
   const privateState={ runtime, system, poolIndex, owner, wrapped, closed: () => closed || cancelled || unavailable || (!wrapped && capturing),
@@ -1006,7 +1422,7 @@ async function createAccountAuthority(input, callbacks, wrapped, recovery=null,n
       nativeCaptureRecord = { schema: liveArmedOriginal?'ORIGINAL_NATIVE_LIVE_ARMED_ACCOUNT_RECOVERY_V1':nativeNote?'ORIGINAL_NATIVE_NOTE_ACCOUNT_ECONOMIC_RECOVERY_V1':'ORIGINAL_NATIVE_ACCOUNT_ECONOMIC_RECOVERY_V1', sourceSHA256: admitted.sourceSHA256,
         poolIndex, directory, password, accountId, journalId, checkpointSHA256: sha(record),
         identitySHA256, accountIdentity: copy(accountIdentity), ownerIdentity: copy(nativeCaptureOwnerIdentity),
-        hasNativeExecution: nativeExecution !== null, manualMode: manualKeeper !== null || nativeRecoveryManualMode,
+        hasNativeExecution: nativeExecution !== null, manualMode: hasManualKeeper() || nativeRecoveryManualMode,
         providerBindings: copy(captureProviderBindings),...(liveArmedOriginal?{observedClockSecond:captureOriginalNativeDeviceLiveArmedClockCheckpointV1(liveArmedOriginal.clock)}:{}) };
       return copy(nativeCaptureRecord);
     },

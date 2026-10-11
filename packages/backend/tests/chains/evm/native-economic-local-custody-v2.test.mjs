@@ -8,6 +8,8 @@ import {join} from 'node:path';
 import {createNativeEconomicLocalCustodyV2,checkNativeEconomicLocalCustodyV2,captureNativeEconomicLocalCustodyV2,reopenNativeEconomicLocalCustodyV2,nativeEconomicLocalCustodyPublicV2,closeNativeEconomicLocalCustodyV2,prepareNativeEconomicCustodySigningV2,consumeNativeEconomicCustodySigningV2,revokeNativeEconomicCustodySigningV2,signNativeEconomicCustodyTransactionV2} from '../../../src/chains/evm/runtime/native-economic-local-custody-v2.mjs';
 import {LOCAL_EVM_PROFILE,assertSignedEvmTransaction} from '../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import {Vault} from '../../../../engine/src/crypto/vault.mjs';
+import {createNativeValueAccountJournals} from '../../../src/accounts/authority/native-value/native-value-authority-journals.mjs';
+import {extractDeclaration as extractAuthorityDeclaration} from '../../support/authority-source-host.mjs';
 function terms(from){return Object.freeze({chainId:'31337',from,to:'0x'+'22'.repeat(20),nonce:'3',gas:'100000',gasPrice:'1000000000',value:'1000',data:'0x1234'});}
 test('HOST original AEAD five-key retention, exact public genesis and sync lease survive custody reopen',async()=>{
  const cwd=await mkdtemp(join(tmpdir(),'lianum-local-native-v2-host-'));let first,second;
@@ -243,14 +245,15 @@ test('HOST original F reorg invalidates both AEAD journals before one exact reta
    const check=compile(checkSource+';return checkRecoveryReorg;',{assert,wrapped:false,exactRecord,decodeNativeValueTerminalCalldata,validateStatement,bindingOf:value=>assert.deepEqual(value,binding),dataHash,pool,prefix:x=>'0x'+x,runtime,
     readAt:async()=>{if(mode==='state')return {...cloned(before),timestamp:'98'};return cloned(before);},reader:{async read(){return {header:cloned(head),ledger:{nullifiers:['0x'+binding.inputNullifier]}};},async assertCurrent(v){assert.deepEqual(v.header,head);}},detached});
    const accountOwned=new WeakMap(),account=Object.freeze({case:++number});let keeper,accountPorts;
-   const accountCore=cut(accountExecutionSource,'  function reorgState(executor, ref) {','  async function retainDeviceTerminal(row,result){');
-   const accountWrite=cut(accountSource,'  async function write(change) {','  function originalSourceAccountRecord()');
-   const accountRow=cut(accountReservationSource,'  const reservationRows=()=>','  const reservationPublic=');
-   const terminalCore=cut(accountExecutionSource,'  async function retainDeviceTerminal(row,result){','  function requireLiveRecovery(bridge)');
-   const wrappers=cut(accountSource,'export function originalDeviceNativeFReorgStateV1','const owned = new WeakMap()').replaceAll('export ','');
-   const makeAccount=compile('return async function(nativeExecution){let record=initial,unavailable=false,busy=true,closed=false,cancelled=false;const wrapped=false,sourceHandle=null;let reorgAdmission={executor:nativeExecution,ref,bridge};const context={get record(){return record},get busy(){return busy},get reorgAdmission(){return reorgAdmission},nativeExecution,runtime,pool,system,bare,continueWork,reference,reservationRow:(...args)=>reservationRow(...args),reservationUpdate:(...args)=>reservationUpdate(...args),write:(...args)=>write(...args)};'+accountCore.replace('  let reorgAdmission = null;','')+accountWrite+accountRow+terminalCore+
+   const declarations=(source,names)=>names.map(name=>extractAuthorityDeclaration(source,name).replace(/^export\s+/, '')).join('\n');
+   const accountCore=declarations(accountExecutionSource,['reorgState','retainReorg','assertReorgPending']);
+   const accountWrite=extractAuthorityDeclaration(accountSource,'write');
+   const accountRow=declarations(accountReservationSource,['reservationRows','reservationRow','reservationUpdate']);
+   const terminalCore=extractAuthorityDeclaration(accountExecutionSource,'retainDeviceTerminal');
+   const wrappers=declarations(accountSource,['originalDeviceNativeFReorgStateV1','retainOriginalDeviceNativeFReorgV1','checkOriginalDeviceNativeFReorgPendingV1','assertOriginalDeviceNativeFReorgPendingV1']);
+   const makeAccount=compile('return async function(nativeExecution){let record=initial,unavailable=false,busy=true,closed=false,cancelled=false;const wrapped=false,sourceHandle=null;let reorgAdmission={executor:nativeExecution,ref,bridge};const chain={nativeExecution,runtime,pool,system},format={bare,reference},lifecycle={continueWork,isBusy:()=>busy};const journal=createNativeValueAccountJournals({readRecord:()=>record,write}).reservations;const reservations={reservationRow:(...args)=>reservationRow(...args),reservationUpdate:(...args)=>reservationUpdate(...args)};'+accountCore+accountWrite+accountRow+terminalCore+
     '\n'+wrappers+'\nconst state={wrapped:false,closed:()=>closed||unavailable,reorgState,retainReorg,assertReorgPending,async checkReorgPending(e,r,id){await healthy();assertReorgPending(e,r,id);}};owned.set(account,state);return{originalDeviceNativeFReorgStateV1,retainOriginalDeviceNativeFReorgV1,assertOriginalDeviceNativeFReorgPendingV1,checkOriginalDeviceNativeFReorgPendingV1,async finish(result){await retainDeviceTerminal(reservationRow(ref),result);},read:()=>copy(record),async healthy(){await healthy();}};};',
-    {assert,initial:accountInitial,ref,bridge,account,owned:accountOwned,copy:cloned,sha,byteSHA:dataHash,reference:x=>assert.match(x,/^[0-9a-f]{64}$/),vault:accountVault,password:'host-account',pool,system:{sender:expected.from},runtime,decodeNativeValueTerminalCalldata,flatAccountCalldataHash:dataHash,bare,
+    {assert,createNativeValueAccountJournals,initial:accountInitial,ref,bridge,account,owned:accountOwned,copy:cloned,sha,byteSHA:dataHash,reference:x=>assert.match(x,/^[0-9a-f]{64}$/),vault:accountVault,password:'host-account',pool,system:{sender:expected.from},runtime,decodeNativeValueTerminalCalldata,flatAccountCalldataHash:dataHash,bare,
      continueWork:()=>assert.equal(closed,false),deviceExecutionOriginal:(b,row)=>{assert.equal(b,bridge);assert.deepEqual(row.nativeBinding,binding);},validateManualLifecycle:()=>assert.fail('HOST_UNUSED_MANUAL'),retainLifetime:()=>assert.fail('HOST_UNUSED_WRAPPED'),
      healthy:async()=>{assert.deepEqual(await accountVault.read('host-account'),accountPorts.read());}});
    const wires=new WeakMap();

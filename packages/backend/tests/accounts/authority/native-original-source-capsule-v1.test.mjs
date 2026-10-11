@@ -1,6 +1,7 @@
 /** HOST actual capsule/Vault/AES/files + real exited child. Native snapshots
  * and part brands are explicit inert ports: no Anvil/proof/key/send acceptance. */
 import test from 'node:test';
+import {extractDeclaration} from '../../support/authority-source-host.mjs';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID,createHash,createHmac,createCipheriv,createDecipheriv} from 'node:crypto';
 import {constants} from 'node:fs';
@@ -131,11 +132,6 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE resumes complete
  const actorRequest=api._hostCheckpointRequest(authority,'actor');assert.throws(()=>actorResolver()({...actorRequest}),/ORIGINAL_CHECKPOINT_REQUEST/);const burned=actorResolver()(actorRequest);assert.equal(burned.candidate,null);
  for(const name of ['accesses','stateAccesses']){assert.equal(burned.confirmed.challenges[name][0].consumed,true);assert.deepEqual(burned.confirmed.challenges[name][0].value,access);assert.equal(burned.confirmed.challenges[name][0].value.expiresAt,1);}assert.throws(()=>actorResolver()(actorRequest),/ORIGINAL_CHECKPOINT_REQUEST/);
  await api._hostUpdate(authority,'actor',actorOriginal);
- const body=(from,to)=>{const a=accountRaw.indexOf(from),b=accountRaw.indexOf(to,a+from.length);assert.ok(a>=0&&b>a);return accountRaw.slice(a,b);};
- const arm=body('  async function armLiveRecovery(original)','  async function liveArmedOwnerSnapshot('),tick=body('  async function tickLiveRecovery(lease)','  async function deviceExecution(original)');let effects=0;
- const lease={},ctx={assert,recovery:{source:true,sourceObservationRequired:true},exclusive:async work=>work(),healthy:async()=>{},continueWork:()=>{},liveRecovery:lease,busy:false,closed:false,cancelled:false,unavailable:false,capturing:false,reservationRows:()=>{effects++;throw Error('effect must not run');}};
- const actual=Function('ctx','const {'+Object.keys(ctx).join(',')+'}=ctx;'+arm+tick+';return{arm:armLiveRecovery,tick:tickLiveRecovery};')(ctx);
- await assert.rejects(actual.arm({action:'ARM_RECOVERY',bridge:{},consent:{}}),/OBSERVE_BEFORE_CONTINUATION/);assert.deepEqual(await actual.tick(lease),{state:'BUSY'});assert.equal(effects,0);
  await api._hostUpdate(authority,'account',original);await api.closeOriginalNativeSourceCapsuleV1(authority);
 });
 
@@ -150,4 +146,18 @@ if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE journal body kee
  const other=join(identity.directory,before.data.path==='source-body-0.aead'?'source-body-1.aead':'source-body-0.aead');assert.ok((await lstat(other)).isFile());
  const fd=await open(path,constants.O_RDWR|constants.O_NOFOLLOW);try{const byte=Buffer.from([original[original.length-1]^1]);await fd.write(byte,0,1,original.length-1);await fd.sync();byte.fill(0);}finally{await fd.close();}
  await assert.rejects(api._hostReadRecord(authority),/NATIVE_SOURCE_JOURNAL_BODY_BYTES/);original.fill(0);await api.closeOriginalNativeSourceCapsuleV1(authority);
+});
+
+// The continuation fence is independent of child-process and AEAD preparation.
+// Test the actual operation bodies quickly with explicitly inert HOST ports.
+if(process.argv[2]!=='--source-capsule-child')test('HOST SOURCE continuation fence rejects arm and pauses tick before any effects',async()=>{
+ const text=await readFile(new URL(generated?'../global-state/native-value/native-value-authority-execution.mjs':'../../../src/accounts/authority/native-value/native-value-authority-execution.mjs',import.meta.url),'utf8');
+ let effects=0;const lease={},ports={assert,
+  continuity:{recovery:{source:true,sourceObservationRequired:true},lease:()=>lease},
+  lifecycle:{exclusive:async work=>work(),healthy:async()=>{},continueWork(){},isBusy:()=>false,isClosed:()=>false,isCancelled:()=>false,isUnavailable:()=>false,isCapturing:()=>false},
+  reservations:{reservationRows:()=>{effects++;throw Error('effect must not run');}}};
+ const body=extractDeclaration(text,'armLiveRecovery')+'\n'+extractDeclaration(text,'tickLiveRecovery');
+ const actual=Function(...Object.keys(ports),body+';return{arm:armLiveRecovery,tick:tickLiveRecovery};')(...Object.values(ports));
+ await assert.rejects(actual.arm({action:'ARM_RECOVERY',bridge:{},consent:{}}),/OBSERVE_BEFORE_CONTINUATION/);
+ assert.deepEqual(await actual.tick(lease),{state:'BUSY'});assert.equal(effects,0);
 });

@@ -1,6 +1,8 @@
 /** HOST control-boundary cases only. Original function bodies run with
  * explicitly inert ledger/executor fixtures; no proof/send/economy is credited. */
 import test from 'node:test';
+import {declarationRange} from '../../support/authority-source-host.mjs';
+import {createNativeValueAccountJournals} from '../../../src/accounts/authority/native-value/native-value-authority-journals.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
@@ -22,11 +24,23 @@ const source=await actualSource();
 const fragments=await Promise.all(['execution','reservations','withdrawals'].map(name=>actualSource('native-value/native-value-authority-'+name+'.mjs')));
 const {PrivateNoteTree,verifyPrivateNotePath}=await import('../../../../engine/src/notes/private-note-tree.mjs');
 function body(start,end){
- const text=[source,...fragments].find(value=>value.includes(start));assert.ok(text,'HOST_ORIGINAL_BODY_REQUIRED: '+start);
- const a=text.indexOf(start);let b=text.indexOf(end,a+start.length);
- // These two operations now end their own factory, instead of the next subsystem.
- if(b<0&&['  async function deviceReservation(original){','  async function deviceExecution(original){'].includes(start))b=text.indexOf('  return Object.freeze({',a);
- assert.ok(b>a,'HOST_ORIGINAL_BODY_END_REQUIRED: '+start);return text.slice(a,b);
+ const name=marker=>marker.trim().replace(/^(export |async |function |const )+/g,'').match(/^\w+/)[0];
+ const first=name(start),next=name(end);
+ for(const text of [source,...fragments]) {
+  if(start.includes("function ") && !new RegExp("\\bfunction\\s+"+first+"\\s*\\(").test(text))continue;
+  try{return declarationRange(text,first,next);}catch(error){if(!error.message.includes('HOST_ORIGINAL_DECLARATION_REQUIRED'))throw error;}
+ }
+ throw Error('HOST_ORIGINAL_BODY_REQUIRED: '+first);
+}
+// These are inert HOST ports, never accepted as an original account. Keep
+// each fixture's live fields and injected failures visible to production bodies.
+function hostPorts(ctx){
+ const lifecycle=Object.create(ctx),continuity=Object.create(ctx);
+ for(const [method,field] of Object.entries({isBusy:'busy',isClosed:'closed',isCancelled:'cancelled',isUnavailable:'unavailable',isCapturing:'capturing',whenIdle:'idle'}))lifecycle[method]=()=>ctx[field];
+ continuity.lease=()=>ctx.liveRecovery;
+ Object.assign(ctx,{profile:ctx,chain:ctx,reservations:ctx,deposits:ctx,exits:ctx,format:ctx,execution:ctx,operations:ctx,approvals:ctx,proofs:ctx,continuity,lifecycle,account:{capability:()=>ctx.capability}});
+ if(ctx.write)ctx.journal=createNativeValueAccountJournals({readRecord:()=>ctx.record,write:ctx.write}).reservations;
+ return ctx;
 }
 test('original output read preserves the included empty-change marker for a full-budget S',async()=>{
  const h=n=>n.toString(16).padStart(64,'0'),rootId=h(1),ref=h(2),scope=h(3),sourceNF=h(4),change=h(5),recovery=h(6),changeNF=h(7),recoveryNF=h(8);
@@ -41,7 +55,7 @@ test('original output read preserves the included empty-change marker for a full
   reader:{read:async()=>{view.ledger.nullifiers=spent?['0x'+sourceNF,'0x'+changeNF]:['0x'+sourceNF];return view;},assertCurrent:async v=>assert.equal(v,view)},
   identity:{pool:'12'.repeat(20),domainCommitment:h(13)},asset:{assetId:h(14),scope,policy:h(15),codeHash:h(16),assetIdentity:h(17)},
   verifyPrivateNotePath,bare:v=>v.startsWith('0x')?v.slice(2):v,sha:v=>createHash('sha256').update(JSON.stringify(v)).digest('hex'),continueWork(){}};
- const read=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(ctx).join(',')+'}=ctx;'+body('  async function outputBalance(bridge,input){','  function exitBinding(consent,bridge){')+';return outputBalance;')(ctx);
+ const read=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(ctx).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+body('  async function outputBalance(bridge,input){','  function exitBinding(consent,bridge){')+';return outputBalance;')(hostPorts(ctx));
  const input={parentJobId:ref,rootId,noteRevision:1,changeNullifier:changeNF,recoveryNullifier:recoveryNF};
  const result=await read({},input);
  assert.equal(result.change.amount,'0');assert.equal(result.change.state,'UNSPENT');assert.equal(result.change.path.leaf,change);
@@ -64,7 +78,7 @@ function fixture(){
      reconcile:async id=>{assert.equal(id,row.jobId);calls.reconcile++;assert.equal(wire,'original-F-hash');return{outcome:'RECOVERED'};}},
    retainDeviceTerminal:async(current,result)=>{assert.equal(current,row);row.nativeOutcome=result.outcome;},
    privateFailureDiagnostic:()=>({code:'HOST_UNKNOWN'}),};
- const tick=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(context).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(context);
+ const tick=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(context).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(hostPorts(context));
  return{row,lease,calls,tick,setHead:value=>{head=value;},loseReply:()=>{lose=true;},setWait:value=>{wait=value;},setReadStarted:value=>{readStarted=value;}};
 }
 test('original live F remains armed before cutoff and does not recover a settled T',async()=>{
@@ -106,7 +120,7 @@ function armFixture(){
   reader:{read:async()=>({head:{timestamp:state.head}})},
   reservationUpdate:async(id,fields)=>{assert.equal(id,row.jobId);calls.writes++;Object.assign(row,structuredClone(fields));},
  };
- const actual=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(context).join(',')+'}=ctx;'+body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){')+';return{arm:armLiveRecovery,refresh:refreshLiveOperationClock};')(context);
+ const actual=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(context).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){')+';return{arm:armLiveRecovery,refresh:refreshLiveOperationClock};')(hostPorts(context));
  function consent(action,nonce){return{action,nonce,settleBefore:'800',execution:{reservation:{jobId:row.jobId},nativeBindingSHA256:current.nativeBindingSHA256,
    executionSnapshotSHA256:current.executionSnapshotSHA256,reservationTransactionHash:current.reservation.observation.transactionHash,lossClause:current.lossClause}};}
  return{row,lease,state,calls,actual,run:(action,nonce)=>actual.arm({bridge,action,consent:consent(action,nonce)})};
@@ -170,8 +184,8 @@ test('HOST original LIVE_ARMED and SOURCE accounts reopen the same durable arm o
   reconcile:async id=>{assert.equal(id,restored.jobId);assert.equal(wire,'same-original-F');calls.reconcile++;return{outcome:'RECOVERED'};}};
  try{
   const installation=body('    nativeDeviceLiveArmedInstallation(descriptor,providerCustody){','    deviceExit,deviceExitTerms');
-  const factory=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(actual).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceLiveArmedInstallation;');
-  const install=factory(actual),prepared=await install(descriptor,Object.freeze({}));assert.equal(prepared.parentJobId,row.jobId);assert.deepEqual(prepared.nativePreparation.config,domain);assert.equal(prepared.armSHA256,hex('d'));assert.equal(prepared.state,'ARMED');
+  const factory=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(actual).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceLiveArmedInstallation;');
+  const install=factory(hostPorts(actual)),prepared=await install(descriptor,Object.freeze({}));assert.equal(prepared.parentJobId,row.jobId);assert.deepEqual(prepared.nativePreparation.config,domain);assert.equal(prepared.armSHA256,hex('d'));assert.equal(prepared.state,'ARMED');
   await assert.rejects(install(descriptor,Object.freeze({})),/INSTALLATION_ONCE/);issued=true;
   const armBody=body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){');
   const disarmed=structuredClone(restored),disarmCalls={permission:0,writes:0},current={nativeBindingSHA256:digest(nativeBinding),executionSnapshotSHA256:hex('0'),reservation:{observation:disarmed.observation},lossClause:disarmed.liveRecoveryArm.lossClause};
@@ -179,7 +193,7 @@ test('HOST original LIVE_ARMED and SOURCE accounts reopen the same durable arm o
    originalReservationConsent:(r,value)=>{assert.equal(r,disarmed);assert.equal(value.jobId,disarmed.jobId);},
    validateDeviceRecoveryArmConsentFreshV1:()=>{disarmCalls.permission++;},deviceRecoveryArmConsentMessageV1:JSON.stringify,
    reservationUpdate:async(id,fields)=>{assert.equal(id,disarmed.jobId);disarmCalls.writes++;Object.assign(disarmed,structuredClone(fields));}};
-  const revoke=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(disarmContext).join(',')+'}=ctx;'+armBody+';return armLiveRecovery;')(disarmContext);
+  const revoke=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(disarmContext).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+armBody+';return armLiveRecovery;')(hostPorts(disarmContext));
   await assert.rejects(revoke({bridge,action:'ARM_RECOVERY',consent:{}}),/NO_REARM_AFTER_RESTART/);assert.equal(disarmCalls.permission,0);
   const disarmConsent={action:'DISARM_RECOVERY',settleBefore:'800',execution:{reservation:{jobId:disarmed.jobId},nativeBindingSHA256:current.nativeBindingSHA256,
    executionSnapshotSHA256:current.executionSnapshotSHA256,reservationTransactionHash:disarmed.observation.transactionHash,lossClause:current.lossClause}};
@@ -195,32 +209,32 @@ test('HOST original LIVE_ARMED and SOURCE accounts reopen the same durable arm o
    recoveredInstallations:actual.recoveredInstallations.map(value=>({...value,preparation:sourcePreparation})),
    sourceInstallationPreparation:value=>{assert.deepEqual(value,sourcePreparation);return structuredClone(value);},
    reservationRows:()=>[sourceRow],reservationRow:()=>sourceRow};
-  const sourceFactory=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(sourceContext).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceSourceInstallation;');
+  const sourceFactory=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(sourceContext).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceSourceInstallation;');
   const sourceOpen=sourceFactory(sourceContext),sameRevocation=await sourceOpen(descriptor,Object.freeze({}));
   assert.equal(sameRevocation.state,'DISARMED');assert.equal(sameRevocation.armSHA256,sourceRow.liveRecoveryArm.armSHA256);
   assert.equal(sameRevocation.settleBefore,'800');assert.equal(sameRevocation.parentJobId,row.jobId);
   await assert.rejects(sourceOpen(descriptor,Object.freeze({})),/INSTALLATION_ONCE/);
-  const sourceTick=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(sourceContext).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(sourceContext);
+  const sourceTick=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(sourceContext).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(hostPorts(sourceContext));
   assert.deepEqual(await sourceTick(lease),{state:'IDLE'});assert.equal(calls.send,0);assert.equal(calls.arm,0);
   sourceRow.nativeRecoveryLatched=true;await assert.rejects(sourceFactory(sourceContext)(descriptor,Object.freeze({})),/DISARM_UNLATCHED/);sourceRow.nativeRecoveryLatched=false;
   // LIVE_ARMED ordered capture still rejects a revoked permission.
   const legacyContext={...sourceContext,recovery:{native:true,liveArmed:true},nativeSourceOriginal:null};
-  const legacyFactory=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(legacyContext).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceLiveArmedInstallation;');
+  const legacyFactory=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(legacyContext).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;let recoveredDeviceInstallationIssued=false;const privateState={'+installation+'};return privateState.nativeDeviceLiveArmedInstallation;');
   await assert.rejects(legacyFactory(legacyContext)(descriptor,Object.freeze({})),/ORIGINAL_PERMISSION_REQUIRED/);
   assert.deepEqual(await sourceVault.read(password),sourceRecord);
   disarmed.liveRecoveryArm.state='ARMED';head='800';await assert.rejects(revoke({bridge,action:'DISARM_RECOVERY',consent:disarmConsent}),/DISARM_BEFORE_CUTOFF/);assert.equal(disarmCalls.writes,1);head='799';
 
-  const tick=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(actual).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(actual);
+  const tick=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(actual).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(hostPorts(actual));
   await tick(lease);assert.equal(calls.recover,0);assert.equal(calls.arm,0);assert.equal(restored.liveRecoveryArm.armSHA256,hex('d'));
   head='800';lost=true;await assert.rejects(tick(lease));assert.equal(restored.liveRecoveryArm.state,'UNKNOWN');assert.equal(restored.nativeRecoveryLatched,true);
   const retained=await new Vault(path).read(password);assert.equal(retained.data.rows[0].liveRecoveryArm.armSHA256,hex('d'));assert.equal(retained.data.rows[0].liveRecoveryArm.state,'UNKNOWN');
   await tick(lease);assert.equal(restored.liveRecoveryArm.state,'RECOVERED');assert.equal(calls.recover,1);assert.equal(calls.reconcile,1);assert.equal(calls.proof,1);assert.equal(calls.send,1);assert.equal(calls.arm,0);
   await tick(lease);assert.equal(calls.recover,1);assert.equal(calls.reconcile,1);
   assert.equal((await new Vault(path).read(password)).data.rows[0].nativeOutcome,'RECOVERED');
-  const recoveredInstall=factory(actual),observation=await recoveredInstall(descriptor,Object.freeze({}));
+  const recoveredInstall=factory(hostPorts(actual)),observation=await recoveredInstall(descriptor,Object.freeze({}));
   assert.equal(observation.state,'RECOVERED');assert.equal(observation.armSHA256,hex('d'));assert.equal(restored.nativeLatched,false);assert.equal(calls.send,1);
   const changed=restored.nativeTerminal;restored.nativeTerminal=null;await assert.rejects(factory(actual)(descriptor,Object.freeze({})),/TERMINAL_LATCHES/);restored.nativeTerminal=changed;
-  const arm=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(actual).join(',')+'}=ctx;'+body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){')+';return armLiveRecovery;')(actual);
+  const arm=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(actual).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){')+';return armLiveRecovery;')(hostPorts(actual));
   await assert.rejects(arm({bridge,action:'ARM_RECOVERY',consent:{}}),/NO_REARM_AFTER_RESTART/);assert.equal(calls.arm,0);
   lease.closed=true;assert.deepEqual(await tick(lease),{state:'CLOSED'});assert.equal(calls.send,1);assert.equal(issued,true);
  }finally{await rm(directory,{recursive:true,force:true});}
@@ -275,8 +289,8 @@ test('HOST SOURCE reopened original note admits only next original steps and ret
   const reservation=body('  async function deviceReservation(original){','  function deviceExecutionOriginal(bridge,row){');
   const execution=body('  async function deviceExecution(original){','  const exitRows=');
   const arm=body('  function requireLiveRecovery(bridge){','  async function tickLiveRecovery(lease){');
-  const factory=Function('ctx','mode','sourceOriginal','"use strict";const context=ctx;const {'+Object.keys(ctx).join(',')+'}=ctx;const recovery=mode,nativeSourceOriginal=sourceOriginal;let reorgAdmission=null;Object.assign(context,{recovery,nativeSourceOriginal,originalSourceContinuationInstallation,refreshLiveOperationClock});'+installer+arm+reservation+execution+';return{reservation:deviceReservation,execution:deviceExecution,arm:armLiveRecovery};');
-  const run=()=>factory(ctx,mode,{clock,nativeRuntime});
+  const factory=Function('ctx','mode','sourceOriginal','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(ctx).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;const recovery=mode,nativeSourceOriginal=sourceOriginal;let reorgAdmission=null;Object.assign(context,{recovery,nativeSourceOriginal,originalSourceContinuationInstallation,refreshLiveOperationClock});'+installer+arm+reservation+execution+';return{reservation:deviceReservation,execution:deviceExecution,arm:armLiveRecovery};');
+  const run=()=>factory(hostPorts(ctx),mode,{clock,nativeRuntime});
   const request={bridge,action:'PREPARE_U',depositJobId:hex(9),rootId:hex(10),descriptor,nativePreparation:preparation,invoiceSignatures:[],binding:{accountIdentitySHA256:digest(ctx.accountIdentity),originalAccountLifetime:ctx.config.lifetime}};
   mode={native:true};await assert.rejects(run().reservation(request),/OBSERVE_ORIGINAL_ONLY/);assert.equal(writes,0);
   mode={native:true,source:true};allowSource=false;await assert.rejects(run().reservation(request),/HOST_ORIGINAL_SOURCE_BRAND/);assert.equal(writes,0);allowSource=true;
@@ -355,7 +369,7 @@ test('HOST original eight-hour cutoff admits one durable F and lost reply reconc
    encodeFlatTransaction,stage:async()=>{},onStage:async()=>{},dataHash:data=>createHash('sha256').update(Buffer.from(data.slice(2),'hex')).digest('hex'),detached:structuredClone,
    terminalObserver,readOriginalNativeRecoveryCheckpointV1:(o,v)=>{assert.equal(o,terminalObserver);assert.ok(observed.has(v));return{HOST:'original-observation-port',transactionHash:v.receipt.transactionHash};},
    HOST_RUNTIME_PROBE:{isOwnedOriginalNativeFReorgReceiverV1:()=>false},originalProbeToken:()=>{throw Error('HOST_REORG_NOT_SELECTED');},originalFReorgProbeTokensV1:new WeakMap(),admissionAdapters:new Map(),receiptPath:()=>{throw Error('HOST_NATIVE_ADMISSION_NOT_SELECTED');}};
-  const keeper=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(ctx).join(',')+'}=ctx;'+sendSource.replace(probe,'HOST_RUNTIME_PROBE')+observationSource+';return {'+recoverSource+reconcileSource+'};')(ctx);
+  const keeper=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(ctx).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+sendSource.replace(probe,'HOST_RUNTIME_PROBE')+observationSource+';return {'+recoverSource+reconcileSource+'};')(hostPorts(ctx));
   const originalReconcile=keeper.reconcile;keeper.reconcile=async id=>{calls.reconcile++;return originalReconcile(id);};
   const lease={closed:false,bridge:Object.freeze({}),clock:Object.freeze({})},accountCtx={assert,nativeSourceOriginal:null,liveRecovery:lease,busy:false,closed:false,cancelled:false,unavailable:false,capturing:false,
    exclusive:async work=>{assert.deepEqual(await accountVault.read(password),accountRecord);return work();},healthy:async()=>{assert.deepEqual(await accountVault.read(password),accountRecord);},reservationRows:()=>[row],reservationRow:id=>{assert.equal(id,ref);return row;},
@@ -363,7 +377,7 @@ test('HOST original eight-hour cutoff admits one durable F and lost reply reconc
    reader:{read:async()=>view(),assertCurrent:async v=>assert.equal(v.head.timestamp,head)},
    reservationUpdate:async(id,fields)=>{assert.equal(id,ref);const next=await accountVault.update(password,accountRecord.revision,()=>({row:{...row,...structuredClone(fields)}}));assert.deepEqual(await accountVault.read(password),next);accountRecord=next;row=structuredClone(next.data.row);calls.accountWrites++;},
    nativeExecution:keeper,retainDeviceTerminal:async(current,value)=>{assert.equal(current,row);row.nativeOutcome=value.outcome;},privateFailureDiagnostic:()=>({code:'HOST_ORIGINAL_F_REPLY_LOST'})};
-  const tick=Function('ctx','"use strict";const context=ctx;const {'+Object.keys(accountCtx).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(accountCtx);
+  const tick=Function('ctx','"use strict";const context=ctx;const {chain,profile,reservations,deposits,exits,format,execution,operations,approvals,proofs,continuity,lifecycle,account,journal}=ctx;const {'+Object.keys(accountCtx).filter(key=>!['chain','profile','reservations','deposits','exits','format','execution','operations','approvals','proofs','continuity','lifecycle','account','journal'].includes(key)).join(',')+'}=ctx;'+tickSource+';return tickLiveRecovery;')(hostPorts(accountCtx));
   await assert.rejects(keeper.recover(ref),/RECOVERY_BEFORE_CUTOFF/);await tick(lease);assert.equal(calls.proof,0);assert.equal(calls.send,0);assert.equal(calls.accountWrites,0);assert.equal(calls.executorWrites,0);
   head=cutoff;
   if(lostReply){await assert.rejects(tick(lease),/HOST_ORIGINAL_F_REPLY_LOST/);assert.equal(row.liveRecoveryArm.state,'UNKNOWN');assert.equal(row.nativeRecoveryLatched,true);assert.equal(entry.recoverySubmission.transactionHash,bare(wire[0].transactionHash));}

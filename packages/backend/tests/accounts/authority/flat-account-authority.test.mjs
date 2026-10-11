@@ -194,7 +194,7 @@ test('W39 binds the retained exit recipient, value, nullifier and exact burn', (
 });
 
 test('source boundaries keep recovery read-only until the owned executor and forbid request injection', async () => {
-  const source = await readFile(new URL('./flat-account-authority.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../../src/accounts/authority/flat-account-authority.mjs', import.meta.url), 'utf8');
   assert.match(source, /exactRecord\(input, \['runtime', 'system', 'poolIndex', 'owner', 'nativeExecution', 'accountId', 'journalId'\]\)/);
   assert.equal((source.match(/runtime\.send\(/g) ?? []).length, 1);
   assert.match(source, /await update\(ref, \{ submission \}\);[\s\S]*?owner\.owner\.bindSubmission/);
@@ -292,8 +292,8 @@ test('token registry cannot substitute a native kind, token or code hash', () =>
 });
 
 test('private owner producer revalidates original history without mutation or native reconciliation', async () => {
-  const source = await readFile(new URL('./flat-account-authority.mjs', import.meta.url), 'utf8');
-  const reader = source.slice(source.indexOf('async function readRetainedOwnerOutcome'), source.indexOf('const authority = Object.freeze'));
+  const source = await readFile(new URL('../../../src/accounts/authority/flat-account-authority.mjs', import.meta.url), 'utf8');
+  const reader = source.slice(source.indexOf('async function readRetainedOwnerOutcome'), source.indexOf('  // Flat-specific lifecycle.'));
   assert.match(reader, /validateOutcome\(entry\.outcome, bound\)/);
   assert.match(reader, /observer\.readTransaction/);
   assert.match(reader, /validateFlatAccountOwnerObservation/);
