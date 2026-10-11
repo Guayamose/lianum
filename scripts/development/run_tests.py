@@ -42,6 +42,7 @@ DEFAULT_TESTS = [
     'packages/backend/tests/api/accounts/flat-account-owner-client.test.mjs',
     'packages/backend/tests/operations/operators/wrapped/wrapped-claim-audit-diagnostics-v1.test.mjs',
     'packages/backend/tests/operations/validation/graph-facts-original-validation.test.mjs',
+    'packages/backend/tests/defi/vaults/owned-backed-vault-idempotency.test.mjs',
 ]
 
 

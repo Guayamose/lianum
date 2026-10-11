@@ -1,3 +1,4 @@
+import {createVaultPreparation} from './vault-preparation.mjs';
 /** Private bootstrap for the original owned, fake-value EVM only. No runtime
  * startup, deployment, proof, root key, external transport or private credit.
  * Supplied-trace parsers below deliberately cannot mint owned capabilities. */
@@ -351,24 +352,11 @@ export async function createOwnedBackedVault(input) {
     }
     return reconcileSubmission(reference, kind);
   }
-  async function prepareOriginal(intent, reference) {
-    const existing = record.data.operations.find(item => item.reference === reference);
-    if (existing) {
-      // The caller's durable idempotency key binds the entire first request.
-      // A new quote, deadline, amount or kind cannot replace that original.
-      for (const key of ['kind', 'amount', 'minimumOutput', 'deadline'])
-        assert.equal(existing.action[key], intent[key], 'OWNED_VAULT_PREPARATION_REBOUND');
-      return result(reference);
-    }
-    assert.ok(record.data.operations.length < MAX_OPERATIONS, 'OWNED_VAULT_OPERATION_CAPACITY');
-    const nonce = fresh(), { view } = await readAt('latest', nonce);
-    const action = prepareVaultAction({ identity: id, ...intent, sender, owner: sender, receiver, nonce, quote: view.snapshot });
-    assert.ok(BigInt(action.amount) <= BigInt(action.kind === 'deposit' ? view.senderAssets : view.senderShares), 'OWNED_VAULT_SPEND_BALANCE');
-    const commitment = vaultActionCommitment(action), calldata = encodeVaultCall(action);
-    await write(old => ({ ...old, operations: [...old.operations, { reference, action, commitment, calldata,
-      phase: 'PREPARED', approval: null, execution: null }] }));
-    return result(reference);
-  }
+  const preparation=createVaultPreparation(Object.freeze({
+    copy,id,sender,receiver,maximumOperations:MAX_OPERATIONS,record:()=>record.data,
+    operation,update,fresh,prepareVaultAction,vaultActionCommitment,encodeVaultCall,
+    readAt,result,write,hex,exclusive,isSendUncertain:()=>sendUncertain,
+  }));
   const adapter = Object.freeze({
     async observe() {
       assert.equal(arguments.length, 0, 'OWNED_VAULT_PUBLIC_ARGUMENTS');
@@ -376,45 +364,14 @@ export async function createOwnedBackedVault(input) {
         const position = observeVaultPosition({ identity: id, owner: sender, shares: view.senderShares, snapshot: view.snapshot });
         return detached({ ...position, balances: view, assurance: 'trusted-owned-local-rpc-not-PAEG-or-public-finality', privateSpendable: false }); });
     },
-    async prepare(request) {
-      assert.equal(arguments.length, 1); exactRecord(request, ['kind', 'amount', 'minimumOutput', 'deadline']);
-      const intent = copy(request);
-      return exclusive(() => prepareOriginal(intent, fresh()));
-    },
+    prepare:preparation.prepare,
     /** Private application seam: retain this reference before invoking. A lost
      * reply can recover the identical action without choosing a second nonce. */
-    async prepareOnce(request) {
-      assert.equal(arguments.length, 1);
-      exactRecord(request, ['reference', 'kind', 'amount', 'minimumOutput', 'deadline']);
-      hex(request.reference); const { reference, ...intent } = copy(request);
-      return exclusive(() => prepareOriginal(intent, reference));
-    },
+    prepareOnce:preparation.prepareOnce,
     /** Explicit manual requote of a never-submitted redemption. Retains the
      * same action nonce/reference and every prior quote. It cannot replace an
      * attempted transaction, an approval, a revert or uncertain send. */
-    async requoteUnsubmitted(request) {
-      assert.equal(arguments.length, 1); exactRecord(request, ['reference', 'minimumOutput', 'deadline']);
-      hex(request.reference); const intent = copy(request);
-      return exclusive(async () => {
-        const entry = operation(intent.reference);
-        assert.equal(entry.action.kind, 'redeem', 'OWNED_VAULT_REQUOTE_REDEEM_ONLY');
-        assert.ok(entry.phase === 'PREPARED' && entry.execution === null && entry.approval === null,
-          'OWNED_VAULT_REQUOTE_NEVER_SUBMITTED_REQUIRED');
-        assert.ok(!record.data.sendBlocked && !sendUncertain, 'OWNED_VAULT_RUNTIME_SEND_BLOCKED');
-        if (entry.action.minimumOutput === intent.minimumOutput && entry.action.deadline === intent.deadline)
-          return result(intent.reference);
-        assert.ok((entry.quoteHistory?.length ?? 0) < 8, 'OWNED_VAULT_REQUOTE_CAPACITY');
-        const { view } = await readAt('latest', entry.action.nonce);
-        assert.equal(view.usedNonce, '0', 'OWNED_VAULT_NONCE_ALREADY_USED');
-        assert.ok(BigInt(view.senderShares) >= BigInt(entry.action.amount), 'OWNED_VAULT_SPEND_BALANCE');
-        const { previewOutput: _previousPreview, ...previous } = entry.action;
-        const action = prepareVaultAction({ ...previous, minimumOutput: intent.minimumOutput,
-          deadline: intent.deadline, quote: view.snapshot });
-        await update(intent.reference, { action, commitment: vaultActionCommitment(action), calldata: encodeVaultCall(action),
-          quoteHistory: [...(entry.quoteHistory ?? []), { action: entry.action, commitment: entry.commitment, calldata: entry.calldata }] });
-        return result(intent.reference);
-      });
-    },
+    requoteUnsubmitted:preparation.requoteUnsubmitted,
     async execute(reference) {
       assert.equal(arguments.length, 1); hex(reference);
       return exclusive(async () => {
