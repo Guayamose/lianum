@@ -9,7 +9,8 @@ import {assertNativeLiveArmedShortRecoverableAnvilV1} from './native-device-live
 const WORKER=join(ROOT,'integration/native-original-source-abrupt-flow-v1.mjs'),CHILD=join(ROOT,'integration/native-original-source-abrupt-backend-v1.mjs');
 const ANVIL=join(GOLDEN,'.local/linux-runtimes/foundry-v1.8.4/anvil');
 const helper=join(resolve(FLAT,'../../..'),'packages/backend/src/operations/recovery/native-original-source-process-v1.mjs');
-const helperSHA='7a57e3472e20b931ad34c9c669e3a263751f0cd8952530ec0102ac12df199ad6';
+// Current guard reviewed at f423dc4; the isolated guardian bytes are unchanged.
+const helperSHA='183b5017598627f4e13f830980aabec7727ba539418ba94c9bd273b35f282f4d';
 function guardianLiteral(){assert.equal(realpathSync(helper),helper);const before=lstatSync(helper);assert.ok(before.isFile()&&!before.isSymbolicLink()&&before.size>0&&before.size<65536);
  const bytes=readFileSync(helper),after=lstatSync(helper);for(const k of ['dev','ino','size','mtimeMs','ctimeMs'])assert.equal(after[k],before[k]);assert.equal(createHash('sha256').update(bytes).digest('hex'),helperSHA);
  const matches=[...bytes.toString('utf8').matchAll(/const guardian=String\.raw`([^`]+)`;/g)];assert.equal(matches.length,1);return matches[0][1];}
