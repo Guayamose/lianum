@@ -22806,6 +22806,8 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/retained-device-vault-graph-birth-v1.mjs": "packages/backend/src/operations/local/retained-device-vault-graph-birth-v1.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/device-graph-preparation-terms-v1.mjs": "packages/backend/src/operations/local/device-graph-preparation-terms-v1.mjs",
     "omnichain-flat-profile/flat-wallet/modules/account/native-value-account-backend-v2.mjs": "packages/backend/src/accounts/authority/native-value-account-backend-v2.mjs",
-    "omnichain-product/src/storage/bounded-file-reader-v1.mjs": "packages/engine/src/storage/bounded-file-reader-v1.mjs"
+    "omnichain-product/src/storage/bounded-file-reader-v1.mjs": "packages/engine/src/storage/bounded-file-reader-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/graph-native-queues-v4.mjs": "packages/backend/src/operations/operators/wrapped/graph-native-queues-v4.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/portfolio-owner-view-v1.mjs": "packages/backend/src/accounts/authority/portfolio-owner-view-v1.mjs"
   }
 }

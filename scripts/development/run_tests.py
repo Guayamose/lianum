@@ -38,6 +38,8 @@ DEFAULT_TESTS = [
     'packages/backend/tests/operations/support/wrapped-recovery-composition.test.mjs',
     'packages/backend/tests/operations/support/device-graph-recovery-contracts.test.mjs',
     'packages/engine/tests/storage/bounded-file-reader-v1.test.mjs',
+    'packages/backend/tests/operations/operators/wrapped/wrapped-graph-native-queue-v4.test.mjs',
+    'packages/backend/tests/api/accounts/flat-account-owner-client.test.mjs',
 ]
 
 
