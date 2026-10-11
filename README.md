@@ -37,7 +37,7 @@ Desde la raíz del proyecto:
 ./dev status    # Ver herramientas y aplicaciones disponibles
 ./dev test      # Selección habitual de pruebas rápidas
 ./dev test --changed --plan  # Ver qué pruebas corresponden a tus cambios
-./dev check     # Revisar contratos entre módulos y pruebas de host
+./dev check     # Fronteras, análisis estático y pruebas de host acotadas
 ./dev help      # Todos los comandos
 ```
 
@@ -46,7 +46,8 @@ comandos propios; arrancar la interfaz no acredita fondos ni una operación.
 La [guía de desarrollo](docs/DEVELOPMENT.md) explica el bootstrap de un clon
 limpio y la selección de pruebas por carpeta.
 
-[Flujo por componente](docs/WORKFLOW.md) · [Interfaces de módulos](docs/MODULES.md).
+[Comandos vigentes](docs/COMMANDS.md) · [Flujo por componente](docs/WORKFLOW.md) ·
+[Interfaces de módulos](docs/MODULES.md).
 `./dev workflows` muestra las entradas actuales, su alcance y sus comprobaciones.
 Los laboratorios y workers que verifican originales históricos usan
 compatibilidad explícita: `./dev build --legacy` y `./dev legacy test …`.

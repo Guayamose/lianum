@@ -46,3 +46,17 @@ V9 sigue siendo la generación del artefacto original. V6 identifica el **nuevo 
 La inspección comprueba los ocho archivos contra sus hashes publicados, el recibo original, la cápsula original de fuentes, los bytes de Noir/Nargo/programa/clave/Solidity, el ABI, ACIR, AST, opciones de compilación, toolchain y CRS. Reutiliza el validador semántico de componentes existente. Los lanzadores actuales se registran en las fuentes actuales; no se presentan como productores de una compilación anterior.
 
 El consumidor financiero V5 conserva sus comprobaciones. El candidato V6 y su recibo son datos para revisión: no emiten la marca interna que autoriza a usar un bundle, no publican un release y no declaran una operación financiera aceptada. La publicación y la adopción de una nueva generación por ese consumidor requieren un cambio explícito con su validación correspondiente.
+
+## Cambios de dependencias locales
+
+Al trasladar contratos o primitivas a paquetes compartidos cambian los
+manifiestos locales. El catálogo actual mantiene fijados sus hashes y los de
+las dependencias públicas instaladas. La preparación V6 autentica la publicación
+retenida completa mediante un digest histórico fijo, y valida el candidato con
+el catálogo actual. No reescribe el catálogo registrado dentro de una publicación
+antigua ni declara que sus fuentes fueran las actuales.
+
+El consumidor financiero V5 conserva sus comprobaciones: rechaza una publicación
+que ya no corresponda al catálogo o código actual. `VALIDATED_CANDIDATE` confirma
+la preparación y procedencia comprobadas; su adopción económica sigue siendo un
+paso distinto. Una prueba HOST no sustituye esa aceptación.

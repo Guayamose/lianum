@@ -15,41 +15,73 @@ Se conservaron originales, custodia, bases de datos, APK y los dos candidatos
 móviles pendientes. [Entorno y restauración](docs/LOCAL-ENVIRONMENT.md).
 Los objetivos y su evaluación funcional conservan el alcance original.
 
-## Flujo de desarrollo del 11 de octubre
+## Ingeniería del 11 de octubre
 
-La reorganización del entorno está implementada. `./dev start`, `node`, `test`
-y `check` ejecutan las fuentes editables; `./dev build` comprueba dependencias
-y prepara nueve paquetes npm locales, sin copiar el código. Comprueba el lock
-y evita reinstalar cuando los manifiestos y dependencias ya están vigentes.
+El código diario se ejecuta desde las fuentes editables. `./dev build` prepara
+los nueve paquetes npm locales; la compatibilidad histórica requiere
+`./dev build --legacy`. Los comandos vigentes están en
+[COMMANDS.md](docs/COMMANDS.md), generado desde el mismo catálogo que `./dev help`.
 
-- **Módulos:** exports y dependencias declarados; comprobación automática de
-  nuevas importaciones privadas. Se han revisado 803 archivos y 42 imports
-  públicos. Quedan 983 imports privados heredados registrados explícitamente:
-  el control impide añadir más; todavía no son módulos totalmente desacoplados.
-- **Generaciones:** `./dev sources prepare` captura dependencias y autentica
-  los artefactos reutilizados. La preparación actual valida 908 fuentes y doce
-  roles; repetir una preparación idéntica reutiliza sus objetos. El candidato
-  se guarda en `.local/generations/` y conserva la publicación anterior.
-- **Trabajo diario:** `./dev status`, `workflows` y `test --changed --plan`
-  identifican herramientas, entradas y comprobaciones. La selección automática
-  está acotada; las campañas económicas mantienen comandos explícitos.
-- **Validación:** `./dev check` pasa los 251 casos habituales en 6,6 segundos;
-  otros 160 casos de componentes y 62 de generaciones pasan. Navegador real
-  aprobado con la wallet desconectada. Verificados los 1.716 originales
-  versionados. Las regresiones de herramientas también pasan.
+- **Propiedad del código:** 15 implementaciones compartidas trasladadas a sus
+  paquetes; las entradas antiguas reexportan los mismos objetos. Los paquetes
+  ya no importan las aplicaciones. Se han retirado 17 dependencias de ejecución
+  hacia tests. Quedan 72 dependencias históricas concretas de soporte y
+  experimentos, registradas y sin permiso para crecer automáticamente.
+- **Autoridad de cuenta:** siete módulos para depósitos, reservas, ejecución,
+  retiradas, operaciones del propietario, ciclo manual e interfaz. La entrada
+  mantiene el Vault, el bloqueo y los registros originales de identidad.
+  Corregidas dos referencias a una cuenta no declarada al retirar un depósito:
+  se comprueba la capability original y se rechazan copias.
+- **Activo e histórico:** inventariadas 42 parejas engine/protocol; los 63
+  archivos históricos de protocol conservan hashes comprobados. Los nuevos
+  consumidores deben utilizar el motor activo.
+- **Arranque:** entrada común `./dev platform` para admisión y perfiles nativos
+  explícitos de creación/reapertura. La reapertura conserva y verifica su
+  descriptor; ya no intenta crearlo otra vez. Docker local utiliza la misma
+  composición, con el laboratorio retenido en su ruta y UID originales.
+- **Comprobación estática:** sintaxis e imports/exports del núcleo; checkJs
+  estricto en tres APIs y referencias léxicas en la autoridad y sus siete
+  módulos. No representa tipado completo del backend. Los doce imports
+  históricos ausentes están enumerados exactamente y cualquier fallo nuevo
+  bloquea la comprobación.
+- **Pruebas:** salida en directo, plazo predeterminado de 120 segundos,
+  cancelación del grupo de procesos propio y límite de 8 MiB de salida.
+  Informes con fecha, revisión y huella de cambios; un timeout o modificación
+  durante la ejecución no figura como aprobado.
+- **Diagnóstico:** códigos fijos de SQL, adaptador y transporte de workers,
+  con contadores y salida limitada. No incluyen payloads, secretos ni
+  excepciones completas; no cambian el resultado de una operación.
 
-Informes locales: `.internal/dev/reports/host-tests.json`,
-`source-workflow-check.log`, `source-first-browser/browser-disconnected.json`
-y `source-generation-prepare-current.json`.
+**Comprobado al cerrar esta reorganización:** `./dev check` pasa; 829 archivos
+revisados por las fronteras, 775 módulos en el análisis estático y 251 casos
+HOST aprobados en 7,1 segundos. Pasan las regresiones focales de arquitectura
+(228 casos cubiertos), autoridad (17), plataforma (26) y generaciones (106),
+además de las comprobaciones nuevas de herramientas. Chromium real y las dos
+configuraciones de Compose también pasan. Verificados los 1.716 originales
+versionados y los 52 archivos protegidos de visión, exclusiones y trabajo
+retenido. Las selecciones pueden solaparse; no se suman como una suite única.
 
-Los workers criptográficos ligados a hashes históricos siguen usando
-`./dev legacy …`. El candidato preparado no está publicado ni adoptado por el
-consumidor financiero; las campañas anteriores corresponden a sus revisiones,
-no prueban automáticamente estos cambios. Los siete objetivos del producto
-mantienen su evaluación funcional. [Guía diaria](docs/WORKFLOW.md),
-[módulos](docs/MODULES.md) y [generaciones](docs/SOURCE-GENERATIONS.md).
+La preparación actual valida **929 fuentes y doce roles de artefactos**, en
+`.local/generations/e0cfa2f53066809f2f204e9508a5f7cd54475b53b1520fa60410be375c458519/`.
+Conserva los originales y autentica la publicación anterior completa; no compila,
+publica ni adopta el candidato en el consumidor financiero. La tabla móvil actual
+refleja los nuevos paquetes locales; Noble y sus 46 archivos fijados permanecen
+intactos. Activar un laboratorio económico sigue requiriendo una generación
+aceptada por su consumidor.
 
-## Corte actual del 10 de octubre
+Informes locales: `.internal/dev/reports/engineering-check.log`,
+`host-tests.json` y `source-generation-engineering-current.json`.
+
+El mecanismo de identidad, custodia y autoridad entre procesos (punto 4 de la
+revisión de ingeniería) permanece fuera de esta reorganización. Persisten los
+ciclos asociados a él; estos cambios no acreditan distribución independiente de
+workers, despliegue en Cloud ni finalización de los siete objetivos funcionales.
+
+[Mapa del código](docs/STRUCTURE.md), [módulos](docs/MODULES.md),
+[flujo diario](docs/WORKFLOW.md) y
+[arranque local](apps/platform/docs/LOCAL-COMPOSITION.md).
+
+## Aceptaciones funcionales conservadas del 10 de octubre
 
 - **Uniswap móvil aceptado:** `45a420b8-9dd9-4e83-b513-91c2c4c885a6`
   completó las 14 relaciones originales, swap exact-output, retirada del

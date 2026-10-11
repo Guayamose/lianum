@@ -8,8 +8,8 @@ por separado en [LOCAL-ENVIRONMENT.md](LOCAL-ENVIRONMENT.md).
 | --- | --- | --- |
 | `apps/wallet/` | Aplicación web y servidor HTTP que compone las sesiones | `src/server/run.mjs`, `src/server/server.mjs`, `src/client/app.mjs` |
 | `apps/mobile/` | Cliente nativo, custodia de dispositivo y permisos móviles | `App.tsx`, `README.md` |
-| `apps/platform/` | API móvil, registro PostgreSQL y gateway económico local | `src/run.mjs`, `README.md` |
-| `packages/mobile-protocol/` | Esquemas y bytes firmados compartidos sin Node | `src/authorization.mjs` |
+| `apps/platform/` | API móvil, registro PostgreSQL y gateway económico local | `src/entry.mjs`, `README.md` |
+| `packages/mobile-protocol/` | Esquemas, bytes firmados y cliente compartido sin DOM | `src/authorization.mjs` |
 | `packages/backend/` | API, estado de cuentas, ejecución y adaptadores | `src/api/accounts/flat-account-session.mjs` |
 | `packages/custody/` | Custodia local, firmas y procesos del propietario | `src/processes/flat-owner-process.mjs` |
 | `packages/proofs/` | Workers, circuitos actuales Noir y bibliotecas de pruebas | `src/catalog.mjs`, `circuits/` |
@@ -32,14 +32,24 @@ una colección de servicios desplegados independientemente. `apps/mobile/`
 es un cliente propio: comparte protocolos con la web y el backend, pero no
 se obtiene convirtiendo automáticamente la interfaz web.
 
-La entrada genérica V1 de `apps/platform/src/run.mjs` conserva el adaptador
-económico desconectado: estado privado desconocido y readiness 503. El gateway
-económico V3 tiene una integración local distinta, ligada al actor, executor
-y bridges originales antes de financiar, con persistencia SQL y
-captura/reapertura ordenada. Sus límites y aceptaciones figuran en
-[STATUS.md](../STATUS.md) y en el [README de plataforma](../apps/platform/README.md).
-La infraestructura de Google Cloud se prepara y comprueba localmente;
-no hay despliegue autorizado.
+El backend se arranca con `./dev platform` desde `apps/platform/src/entry.mjs`.
+El perfil predeterminado `admission` mantiene las operaciones económicas
+indisponibles. Los perfiles explícitos `original-native-new` y
+`original-native-reopen` componen el operador y gateway originales en el mismo
+proceso, con su custodia, workers y persistencia. Consulta
+[la composición local](../apps/platform/docs/LOCAL-COMPOSITION.md) para su
+configuración y alcance. Google Cloud conserva su preparación local.
+
+Los contratos que comparten wallet y backend se editan en
+`packages/mobile-protocol/src/wallet/contracts/`; la proyección y cliente sin
+DOM están en `wallet/client/`. Las rutas anteriores de la wallet reexportan esas
+implementaciones. El motor activo es `packages/engine`; `packages/protocol`
+conserva la generación histórica inventariada. [Dependencias](MODULES.md).
+
+La autoridad nativa conserva su entrada en
+`packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs`.
+Sus operaciones están separadas por dominio en
+[`accounts/authority/native-value/`](../packages/backend/src/accounts/authority/native-value/README.md).
 
 ## Interior de los componentes
 
