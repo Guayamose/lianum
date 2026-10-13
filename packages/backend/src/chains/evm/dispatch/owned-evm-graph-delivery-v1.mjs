@@ -58,3 +58,6 @@ export function assertOwnedEvmGraphDeliveryDescriptorV1(runtime, system, router,
   if(isOwnedMetaMorphoGraphDeliveryBatchV4(observer))assert.ok(readOriginalMetaMorphoGraphBatchRoutersV4(observer,{runtime,system,poolIndex:router.destinationPoolIndex}).includes(router),'EVM_GRAPH_ORIGINAL_BATCH_ROUTER');
   else assert.deepEqual(observer.identity, router.identity, 'EVM_GRAPH_ORIGINAL_OBSERVER_ROUTER');
 }
+
+// Narrow original Uniswap identity predicate on the existing observer edge.
+export {assertOwnedUniswapGraphDeliveryObserverV1};

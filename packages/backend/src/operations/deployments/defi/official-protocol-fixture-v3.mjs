@@ -10,12 +10,16 @@ import {OFFICIAL_PROTOCOL_RESOURCE_DIRECTORY_V1 as D,loadOriginalProtocolAbiTool
 let Interface,AbiCoder,keccak256;
 const zero='0x'+'0'.repeat(40),sha=b=>createHash('sha256').update(b).digest('hex');
 import { assertOfficialAaveFixtureV1 } from './official-aave-fixture-v1.mjs';
-const owned=new WeakMap();
+const owned=new WeakMap(),uniswapOriginals=new WeakSet();
 export function assertOfficialProtocolFixture(runtime,fixture){if (owned.has(fixture)) assert.equal(owned.get(fixture),runtime,'ORIGINAL_PROTOCOL_FIXTURE_REQUIRED'); else assertOfficialAaveFixtureV1(runtime,fixture);}
 function artifact(path,source,name){const output=JSON.parse(readFileSync(path));return source?output.contracts[source][name]:output;}
 function creation(a){const b=a.bytecode??a.evm?.bytecode?.object;assert.ok(typeof b==='string');const raw=b.startsWith('0x')?b.slice(2):b;assert.ok(/^[0-9a-f]+$/.test(raw)&&raw.length%2===0,'FIXED_CREATION_HEX');return'0x'+raw;}
-export async function createOfficialProtocolFixture(runtime){
- assert.equal(arguments.length,1);await assertOwnedLocalEvmV2(runtime);assert.equal(runtime.metadata.chainId,'31337');
+export async function createOfficialProtocolFixture(runtime){assert.equal(arguments.length,1);return createProtocolFixture(runtime,false);}
+/** Closed Uniswap-only birth, retaining the SAME original fixture brand and
+ * pinned deployments without the unrelated MetaMorpho timelock advance. */
+export async function createOriginalUniswapFixtureV3(runtime){assert.equal(arguments.length,1);return createProtocolFixture(runtime,true);}
+async function createProtocolFixture(runtime,uniswapOnly){
+ await assertOwnedLocalEvmV2(runtime);assert.equal(runtime.metadata.chainId,'31337');
  const pinsRaw=readFileSync(join(D,'protocol-fixture-artifact-pins.json'));assert.equal(sha(pinsRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8','FIXED_PROTOCOL_ARTIFACT_MANIFEST');const pins=JSON.parse(pinsRaw);
  for(const row of pins.files)assert.equal(sha(readFileSync(join(D,row.path))),row.sha256,'PROTOCOL_FIXTURE_ARTIFACT_PIN');
  ({Interface,AbiCoder,keccak256}=loadOriginalProtocolAbiToolsV1());
@@ -46,6 +50,7 @@ export async function createOfficialProtocolFixture(runtime){
  await send(positionManager,'mint',[[token0.address,token1.address,3000,-887220,887220,10n**9n,10n**9n,0,0,sender,(await runtime.time())+3600n]]);
  for(const t of [token0,token1])await send(t,'approve',[positionManager.address,0]);
  assert.ok((await read(pool,'liquidity'))[0]>0n,'REAL_UNISWAP_LIQUIDITY');
+ if(uniswapOnly){const fixture=Object.freeze({runtime,first,second,swapRouter,pool,deployments:Object.freeze(deployments),read,send});owned.set(fixture,runtime);uniswapOriginals.add(fixture);return fixture;}
  const blue=await deploy('morpho-blue',artifact(join(D,'official-compilation-v2/Morpho.json'),'lib/morpho-blue/src/Morpho.sol','Morpho'),[sender]);
  await send(blue,'enableIrm',[zero]);await send(blue,'enableLltv',[0]);
  const market=[first.address,zero,zero,zero,0];await send(blue,'createMarket',[market]);
@@ -59,41 +64,47 @@ export async function createOfficialProtocolFixture(runtime){
  const fixture=Object.freeze({runtime,first,second,swapRouter,pool,vault,blue,marketId,deployments:Object.freeze(deployments),read,send});owned.set(fixture,runtime);return fixture;
 }
 
-function recoveryArtifactsV1(){
+function recoveryArtifactsV1(uniswapOnly=false){
  const core=join(D,'official-protocols/uniswap-v3-core-1.0.1/package/artifacts/contracts'),periphery=join(D,'official-protocols/uniswap-v3-periphery-1.4.4/package/artifacts/contracts');
  const token=loadBackedAssetDeploymentArtifacts().artifacts.token;
- return {'input-token':token,'output-token':token,
+ const uniswap={'input-token':token,'output-token':token,
  'uniswap-factory':artifact(join(core,'UniswapV3Factory.sol/UniswapV3Factory.json')),
  'uniswap-router':artifact(join(periphery,'SwapRouter.sol/SwapRouter.json')),
- 'uniswap-position-manager':artifact(join(periphery,'NonfungiblePositionManager.sol/NonfungiblePositionManager.json')),
+ 'uniswap-position-manager':artifact(join(periphery,'NonfungiblePositionManager.sol/NonfungiblePositionManager.json'))};
+ if(uniswapOnly)return uniswap;return{...uniswap,
  'morpho-blue':artifact(join(D,'official-compilation-v2/Morpho.json'),'lib/morpho-blue/src/Morpho.sol','Morpho'),
  'metamorpho':artifact(join(D,'official-compilation-v2/MetaMorpho.json'),'src/MetaMorpho.sol','MetaMorpho')};
 }
-export async function captureOfficialProtocolFixtureRecoveryV1(runtime,fixture){
- assert.equal(arguments.length,2);assertOfficialProtocolFixture(runtime,fixture);await assertOwnedLocalEvmV2(runtime);
- const head=await runtime.block(),artifacts=recoveryArtifactsV1();assert.equal(fixture.deployments.length,7);
+export async function captureOfficialProtocolFixtureRecoveryV1(runtime,fixture){assert.equal(arguments.length,2);return captureProtocolFixture(runtime,fixture,false);}
+/** Only the closed five-contract Uniswap birth/reopen can enter this schema. */
+export async function captureOriginalUniswapFixtureRecoveryV3(runtime,fixture){assert.equal(arguments.length,2);assert.ok(uniswapOriginals.has(fixture),'ORIGINAL_UNISWAP_ONLY_FIXTURE_V3');return captureProtocolFixture(runtime,fixture,true);}
+async function captureProtocolFixture(runtime,fixture,uniswapOnly){
+ assertOfficialProtocolFixture(runtime,fixture);await assertOwnedLocalEvmV2(runtime);
+ const head=await runtime.block(),artifacts=recoveryArtifactsV1(uniswapOnly);assert.equal(fixture.deployments.length,uniswapOnly?5:7);
  const records=fixture.deployments.map(record=>({name:record.name,address:record.address,receipt:structuredClone(record.receipt),code:record.code,creationSHA256:record.creationSHA256,artifactSHA256:sha(Buffer.from(JSON.stringify(artifacts[record.name])))}));
  assert.deepEqual(records.map(r=>r.name),Object.keys(artifacts));
  const reads=[];
- for(const [target,method,args]of [[fixture.swapRouter,'factory',[]],[fixture.vault,'asset',[]],[fixture.vault,'MORPHO',[]],[fixture.vault,'owner',[]],
-  [fixture.vault,'totalAssets',[]],[fixture.vault,'totalSupply',[]],[fixture.pool,'fee',[]],[fixture.pool,'factory',[]],[fixture.pool,'token0',[]],[fixture.pool,'token1',[]],[fixture.pool,'liquidity',[]]]){
+ for(const [target,method,args]of [[fixture.swapRouter,'factory',[]],...(uniswapOnly?[]:[[fixture.vault,'asset',[]],[fixture.vault,'MORPHO',[]],[fixture.vault,'owner',[]],[fixture.vault,'totalAssets',[]],[fixture.vault,'totalSupply',[]]]),[fixture.pool,'fee',[]],[fixture.pool,'factory',[]],[fixture.pool,'token0',[]],[fixture.pool,'token1',[]],[fixture.pool,'liquidity',[]]]){
   const calldata=target.iface.encodeFunctionData(method,args);reads.push({address:target.address,calldata,result:await runtime.call({to:target.address,data:calldata},head.number)});
  }
  const poolCode=await runtime.code(fixture.pool.address,head.number);await runtime.assertCanonical(head);assert.deepEqual(await runtime.block(),head);
- return {schema:'ORIGINAL_OFFICIAL_PROTOCOL_FIXTURE_V1',genesis:runtime.metadata.evmGenesis,head:structuredClone(head),records,pool:{address:fixture.pool.address,code:poolCode},marketId:fixture.marketId,reads};
+ return {schema:uniswapOnly?'ORIGINAL_UNISWAP_ONLY_PROTOCOL_FIXTURE_V3':'ORIGINAL_OFFICIAL_PROTOCOL_FIXTURE_V1',genesis:runtime.metadata.evmGenesis,head:structuredClone(head),records,pool:{address:fixture.pool.address,code:poolCode},...(uniswapOnly?{}:{marketId:fixture.marketId}),reads};
 }
 export async function reopenOfficialProtocolFixtureRecoveryV1(token){
  assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
  return reopenOfficialProtocolRecordV1(consumeExternalDefiBootstrapPartV1(token,'protocols'));
 }
+export async function reopenOriginalUniswapFixtureRecoveryV3(token){
+ assert.equal(arguments.length,1);const {consumeExternalDefiBootstrapPartV1}=await import('../../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');return reopenOfficialProtocolRecordV1(consumeExternalDefiBootstrapPartV1(token,'uniswap-protocols-v3'),false,true);
+}
 export async function reopenOfficialProtocolVaultFixtureRecoveryV1(token){assert.equal(arguments.length,1);const {consumeExternalDefiProtocolFixtureReopenV1}=await import('../../../accounts/recovery/external-defi-catalogue-recovery-v1.mjs');return reopenOfficialProtocolRecordV1(consumeExternalDefiProtocolFixtureReopenV1(token),true);}
-async function reopenOfficialProtocolRecordV1({runtime,record:r},exitOnly=false){await assertOwnedLocalEvmV2(runtime);
- assert.equal(r.schema,'ORIGINAL_OFFICIAL_PROTOCOL_FIXTURE_V1');assert.equal(r.genesis,runtime.metadata.evmGenesis);assert.deepEqual(await runtime.block(),r.head);
+async function reopenOfficialProtocolRecordV1({runtime,record:r},exitOnly=false,uniswapOnly=false){await assertOwnedLocalEvmV2(runtime);
+ assert.equal(r.schema,uniswapOnly?'ORIGINAL_UNISWAP_ONLY_PROTOCOL_FIXTURE_V3':'ORIGINAL_OFFICIAL_PROTOCOL_FIXTURE_V1');assert.equal(r.genesis,runtime.metadata.evmGenesis);assert.deepEqual(await runtime.block(),r.head);
  const pinsRaw=readFileSync(join(D,'protocol-fixture-artifact-pins.json'));
  assert.equal(sha(pinsRaw),'9913e72be559a10c7340ba291f88b067eab2dd3a0c290052c4c024db14bff2e8','FIXED_PROTOCOL_ARTIFACT_MANIFEST');
  // Same fixed resource manifest as the original constructor.
  const sourcePins=JSON.parse(pinsRaw);for(const row of sourcePins.files)assert.equal(sha(readFileSync(join(D,row.path))),row.sha256);
- ({Interface,AbiCoder,keccak256}=loadOriginalProtocolAbiToolsV1());const artifacts=recoveryArtifactsV1();assert.deepEqual(r.records.map(x=>x.name),Object.keys(artifacts));
+ ({Interface,AbiCoder,keccak256}=loadOriginalProtocolAbiToolsV1());const artifacts=recoveryArtifactsV1(uniswapOnly);assert.deepEqual(r.records.map(x=>x.name),Object.keys(artifacts));
  const deployments=[];
  for(const packed of r.records){
   const a=artifacts[packed.name];assert.equal(sha(Buffer.from(JSON.stringify(a))),packed.artifactSHA256);
@@ -111,6 +122,6 @@ async function reopenOfficialProtocolRecordV1({runtime,record:r},exitOnly=false)
  const sender=runtime.accounts[0];
  const read=async(contract,method,args=[])=>contract.iface.decodeFunctionResult(method,await runtime.call({from:sender,to:contract.address,data:contract.iface.encodeFunctionData(method,args)}));
  const send=async(contract,method,args=[])=>{assert.equal(exitOnly,false,'METAMORPHO_EXIT_RECOVERY_NO_PROTOCOL_WRITE');const receipt=await runtime.send('official-'+contract.name+'-'+method,{from:sender,to:contract.address,data:contract.iface.encodeFunctionData(method,args)});await runtime.assertCanonical(receipt);return receipt;};
- const fixture=Object.freeze({runtime,first:named['input-token'],second:named['output-token'],swapRouter:named['uniswap-router'],pool,vault:named.metamorpho,blue:named['morpho-blue'],marketId:r.marketId,deployments:Object.freeze(deployments),read,send});
- await runtime.assertCanonical(r.head);assert.deepEqual(await runtime.block(),r.head);owned.set(fixture,runtime);return fixture;
+ const fixture=Object.freeze({runtime,first:named['input-token'],second:named['output-token'],swapRouter:named['uniswap-router'],pool,...(uniswapOnly?{}:{vault:named.metamorpho,blue:named['morpho-blue'],marketId:r.marketId}),deployments:Object.freeze(deployments),read,send});
+ await runtime.assertCanonical(r.head);assert.deepEqual(await runtime.block(),r.head);owned.set(fixture,runtime);if(uniswapOnly)uniswapOriginals.add(fixture);return fixture;
 }

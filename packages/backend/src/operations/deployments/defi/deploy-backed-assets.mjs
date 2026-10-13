@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, lstatSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { resourceRoot } from '@lianum/environment';
 import { assertLocalEvm, assertLocalEvmDeploymentProfile } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments,
@@ -11,7 +13,7 @@ import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-na
 import { exactRecord } from '@lianum/components/encoding/commitments';
 import { validateVaultIdentity, VAULT_ACTION_TAG } from '../../../defi/vaults/backed-vault.mjs';
 
-const root = new URL('../../../', import.meta.url);
+const root = pathToFileURL(resourceRoot('wallet') + '/');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const codeSHA = code => sha(Buffer.from(code.slice(2), 'hex'));
 const keccak = code => '0x' + publicKeccak256(Buffer.from(code.slice(2), 'hex')).toString('hex');

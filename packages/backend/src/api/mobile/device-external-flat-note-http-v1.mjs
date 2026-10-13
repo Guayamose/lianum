@@ -7,6 +7,7 @@ import {createPrivateKey,X509Certificate} from 'node:crypto';
 import {types} from 'node:util';
 import {externalFlatWipeV1,readExternalFlatFreshFailureV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {isIP} from 'node:net';
+import {networkInterfaces} from 'node:os';
 import {originalOwnedRuntimeRpcFailureV1} from '@lianum/engine/chains/shared/runtime-harness';
 import {privateFailureDiagnostic} from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import {AssertionError} from 'node:assert';
@@ -17,6 +18,7 @@ import {ROOT,FLAT,GOLDEN} from '@lianum/proofs/catalog';
 import {assertOriginalDeviceExternalFlatNoteAuthorityV1,assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1,isOriginalDeviceExternalFlatPrivateShareNoteAuthorityV2,isOriginalDeviceExternalFlatPrivateNoteAuthorityV3} from '../../accounts/authority/device-external-flat-note-authority-v1.mjs';
 const listeners=new WeakSet(),diagnosticSlots=new WeakMap(),MAX_BODY=8192,MAX_REPLY=65536;
 const fail=()=>{throw Error('DEVICE_EXTERNAL_FLAT_TLS_CONFIGURATION');};
+function assignedPrivateIPv4(value){if(isIP(value)!==4)return false;const[a,b]=value.split('.').map(Number);if(!(a===10||a===172&&b>=16&&b<=31||a===192&&b===168))return false;return Object.values(networkInterfaces()).some(rows=>(rows??[]).some(row=>row.family==='IPv4'&&!row.internal&&row.address===value));}
 const DIAGNOSTIC_TYPES=new Map([[AssertionError.prototype,'ASSERTION_ERROR'],[TypeError.prototype,'TYPE_ERROR'],[RangeError.prototype,'RANGE_ERROR'],[Error.prototype,'ERROR'],[AggregateError.prototype,'AGGREGATE_ERROR']]);
 const ROOTS=Object.freeze([['flat-wallet',ROOT],['golden',GOLDEN],['mobile-protocol',join(FLAT,'mobile-protocol')]]);
 // Node24 V8 exposes stack through an intrinsic getter even after assignment.
@@ -145,7 +147,7 @@ export function createOriginalDeviceMetaMorphoTargetTlsServerV2(input){if(argume
 async function createNoteTls(input,meta){
 const keys=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['account','tls','host']:['account','tls'];exact(input,keys);exact(input.tls,['certificate','privateKey']);
  const reader=input.account,descriptor=assertOriginalDeviceExternalFlatNoteAuthorityV1(reader),origin=new URL(descriptor.origin),host=input.host??'127.0.0.1',hostname=origin.hostname.replace(/^\[|\]$/g,'');
- if(!['127.0.0.1','0.0.0.0'].includes(host)||listeners.has(reader)||typeof input.tls.certificate!=='string'||Buffer.byteLength(input.tls.certificate)>65536||typeof input.tls.privateKey!=='string'||Buffer.byteLength(input.tls.privateKey)>16384)fail();
+ if(!(['127.0.0.1','0.0.0.0'].includes(host)||host===hostname&&assignedPrivateIPv4(host))||listeners.has(reader)||typeof input.tls.certificate!=='string'||Buffer.byteLength(input.tls.certificate)>65536||typeof input.tls.privateKey!=='string'||Buffer.byteLength(input.tls.privateKey)>16384)fail();
  let certificate;try{certificate=new X509Certificate(input.tls.certificate);const key=createPrivateKey(input.tls.privateKey);if(certificate.ca||!certificate.checkPrivateKey(key)||(isIP(hostname)?certificate.checkIP(hostname)!==hostname:certificate.checkHost(hostname,{subject:'never',wildcards:false})!==hostname))fail();}catch{fail();}
  const current=()=>{const now=Date.now();if(now<certificate.validFromDate.getTime()||now>=certificate.validToDate.getTime())fail();};current();
  const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
@@ -189,7 +191,7 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
  if(arguments.length!==1)fail();const keys=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['account','targetAccount','workspace','tls','host']:['account','targetAccount','workspace','tls'];exact(input,keys);exact(input.tls,['certificate','privateKey']);
  const reader=input.account,target=input.targetAccount,workspace=input.workspace;const {assertOriginalDeviceExternalFlatGraphWorkspaceV1}=await import('../../operations/local/device-external-flat-source-graph-service-v1.mjs');assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,{account:reader,targetAccount:target});const targetDescriptor=assertOriginalDeviceExternalFlatNoteAuthorityV1(target);const descriptor=assertOriginalDeviceExternalFlatNoteAuthorityV1(reader),origin=new URL(descriptor.origin),host=input.host??'127.0.0.1',hostname=origin.hostname.replace(/^\[|\]$/g,'');
  if(descriptor.profile!=='LIANUM_DEVICE_EXTERNAL_FLAT_SOURCE_NOTE_V1'||targetDescriptor.profile!=='LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1'||targetDescriptor.origin!==descriptor.origin||targetDescriptor.devicePublicKey!==descriptor.devicePublicKey||listeners.has(target))fail();
- if(!['127.0.0.1','0.0.0.0'].includes(host)||listeners.has(reader)||typeof input.tls.certificate!=='string'||Buffer.byteLength(input.tls.certificate)>65536||typeof input.tls.privateKey!=='string'||Buffer.byteLength(input.tls.privateKey)>16384)fail();
+ if(!(['127.0.0.1','0.0.0.0'].includes(host)||host===hostname&&assignedPrivateIPv4(host))||listeners.has(reader)||typeof input.tls.certificate!=='string'||Buffer.byteLength(input.tls.certificate)>65536||typeof input.tls.privateKey!=='string'||Buffer.byteLength(input.tls.privateKey)>16384)fail();
  let certificate;try{certificate=new X509Certificate(input.tls.certificate);const key=createPrivateKey(input.tls.privateKey);if(certificate.ca||!certificate.checkPrivateKey(key)||(isIP(hostname)?certificate.checkIP(hostname)!==hostname:certificate.checkHost(hostname,{subject:'never',wildcards:false})!==hostname))fail();}catch{fail();}
  const current=()=>{const now=Date.now();if(now<certificate.validFromDate.getTime()||now>=certificate.validToDate.getTime())fail();};current();
  const privateKey=Buffer.from(input.tls.privateKey),running=new Set(),sockets=new Set();let closed=false,closing,server;
