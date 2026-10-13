@@ -1,13 +1,473 @@
 # Estado actual
 
-Actualizado el 11 de octubre de 2026. Hay una base versionada y utilizable para
-desarrollo; todavía no está completada la wallet omnichain de la visión original.
-Los resultados distinguen código comprobado, laboratorio local y producto
-pendiente. Las entregas históricas permanecen en `archive/`.
+Actualizado el 13 de octubre de 2026. La cartera pública y el recorrido privado
+PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
+conservan sus fechas, generaciones y límites históricos.
+
+## Cartera pública y API desplegada
+
+- API `https://api.lianum.oryontechnology.com` desplegada en el proyecto Google
+  Cloud `lianum`, VM `lianum-wallet-api`, zona `europe-west1-b`. DNS, HTTPS y los
+  servicios `lianum-public-wallet` y Caddy comprobados.
+- El servicio publicado contiene `public-wallet`, `native-wallet` y `fiat`.
+  Consulta Ethereum, Bitcoin y Solana mainnet, prepara envíos, transmite bytes
+  firmados en el móvil y conserva su seguimiento. No guarda semillas privadas.
+- APK `android-standalone-4e7fd50f-cbd2-4f97-b7d1-ff5a4584eef9` instalada
+  conservando los datos; SHA256 verificado en el dispositivo:
+  `0d3930781e6cd685b4d9870db72fbb185c3bbd244ecd7025294071493733fea4`.
+  Direcciones, QR y consulta de los tres saldos comprobados en Samsung.
+  Esta comprobación no realizó envíos ni leyó las palabras de recuperación.
+- Generación de fuentes adoptada:
+  `a9020a5990483d5f9597a239acb8485f8c7cdb2bef0088a50d6958b7cfff4fe9`.
+  Artefacto del servidor:
+  `36c03efaca07a6a2822cdb1bf183882dec952e872f2b3a740ee90b9a021c72f2`.
+- MoonPay sigue desactivado: faltan cuenta de partner, aprobación y credenciales.
+  No hay compra, venta ni envío mainnet completos verificados desde el móvil.
+- PAEG, pruebas privadas, operaciones DeFi y el ejecutor programático conservan
+  sus servicios locales separados. No forman parte de este despliegue público.
+  Conectar fondos reales al motor y publicar ese recorrido sigue pendiente.
+- La instalación inicial limita identidades residentes y persistidas a 16 y 64.
+  Usa proveedores RPC públicos; una consulta de Solana falló antes de las
+  siguientes consultas correctas. Esto no acredita disponibilidad de producción.
+
+La evidencia de instalación y consultas se conserva fuera de Git en
+`.local/work-blocks/native-public-wallet-20261013/` y
+`.local/mobile/public-wallet-device-review-20261013/`. Los artefactos, custodias
+y claves locales no se incluyen en el repositorio. Las instrucciones históricas
+que limitaban Google Cloud a preparación local no describen este nuevo servicio.
+
+## Histórico del 12 de octubre: Android privado, recorrido completo pendiente
+
+La APK `52b8c299-976a-414a-a353-0916538a757e`, de la generación
+`a2c90a1dfdd650c8c350a69a391f21dfc94c824df33b89189aa87d2b5de0af08`,
+está instalada y verificada en el Samsung. El ingreso de 600 y la preparación
+de presupuesto 400 llegaron a reabrirse mediante la captura original. La
+preparación de Uniswap llegó a su revisión; después de la autorización humana
+falló la validación del transcript privado: el adaptador enviaba `ArrayBuffer`
+a una función Android que exige `TypedArray`. No se alcanzó el envío D27 ni
+se ejecutó el intercambio. **Pagos físicos completados: cero.**
+
+El cierre posterior de esa demo falló en la captura de Solana. El supervisor
+quedó `ACTIVE`, generación 1, sin snapshot, y todos los procesos propios están
+cerrados. Ese entorno no admite una reapertura oficial; se conserva como
+evidencia, sin reconstruir autoridad a partir de sus registros. Se están
+corrigiendo el adaptador Android y la captura posterior a una reapertura antes
+de preparar otra demo. Las aceptaciones HOST de abajo siguen siendo históricas;
+no acreditan este recorrido físico ni estas correcciones pendientes.
+
+## Bloque actual: recuperación mixta y cartera conjunta
+
+Implementado en la generación
+`7b7a8a33900f3ada15f980164db7cd9c16d738ee71b25aced27066761a2eadb4`:
+
+- **Recuperación Mixed:** captura y reapertura ordenadas del mismo backend,
+  incluidas las cinco cadenas locales, contratos Uniswap, recepción D27,
+  custodia privada y proveedor. `paged-mixed-reopen` conserva el entorno original;
+  exige una captura completa autenticada. No migra entornos antiguos sin esa retención.
+- **Respuesta perdida:** el SDK identifica una respuesta de operación que no
+  llegó, consulta el estado original y vuelve a pedir el siguiente paso, con
+  un máximo de dos observaciones. El proveedor concilia el mismo envío registrado.
+- **Cartera conjunta:** consulta cifrada de la nota fuente, cambio, recuperación,
+  resultados y reserva, ligada al mismo bloque y a las aperturas de la custodia
+  móvil. La app agrupa las conexiones y custodias registradas por activo y unidad,
+  evita duplicados y separa disponible, reservado y pendiente. El token recibido
+  en Uniswap conserva su cuenta y unidad propias.
+- **Navegación:** cerrar una pantalla conserva la consulta verificada durante
+  su vigencia original de quince segundos; una escritura de custodia o su
+  caducidad la invalida. La actualización automática vuelve a consultar las
+  salidas. Una cobertura parcial se presenta como parcial.
+
+**Aceptación económica conjunta en HOST: completada.** El
+[resultado original](.local/device-paged-mixed-v3/attempt-99a02302-7f88-4004-8e7e-d85f6c478143/result.json)
+tiene SHA256 `a78543e3cb1cf6357c57d3313dffa7fc10c4489e76982b1370e11a5c10447999`.
+Completó veinte pruebas Paged y una D27 únicas, Uniswap y los tres pagos
+nativos, FULFILLED, cambio de 200 y cuatro liquidaciones de 100 al proveedor.
+Hubo cuatro reaperturas completas: antes del ingreso, después de Uniswap,
+después de Ethereum y después de las liquidaciones. Los cinco PIDs backend
+fueron distintos, sin repetir pruebas ni envíos durante las reaperturas.
+Una respuesta perdida tras el envío de Ethereum se recuperó mediante el SDK
+original y observación del mismo envío.
+
+La consulta cifrada y el actor de cartera verificaron **600 → 400 → 0 → 0**
+unidades demo, con el último cero después de reabrir el backend. El token
+Uniswap conservó **100 unidades atómicas** separadas. Las dos rutas registradas
+quedaron completas; el actor conservó DATA verificada tras cerrar SDK, Vault y
+transportes dentro de los quince segundos originales, sin conservar permisos.
+El ledger final tiene saldo retenido y respaldado cero, beneficiario 400 y
+los cuatro nullifiers de liquidación gastados. Backend y HOST cerraron sin
+errores, señales ni recursos pendientes.
+
+Las pruebas Paged tardaron entre 27.357 y 70.879 ms, con 1.053.070 ms acumulados.
+El rendimiento de la visión sigue pendiente. Esta aceptación usa contratos,
+ledgers, pruebas y custodias software originales en cadenas locales con
+operador común; no acredita teléfono ni redes públicas.
+
+**APK nuevo: compilado, conservado y verificado.** El
+[APK actual](.local/mobile/artifacts/android-standalone-b01b3ca8-31c3-45be-91bf-a568f84806fc/app-release.apk)
+y su
+[verificación](.local/mobile/artifacts/android-standalone-b01b3ca8-31c3-45be-91bf-a568f84806fc/verification.json)
+corresponden a este corte. Tiene 44.049.439 bytes y SHA256
+`1166963411b8107c1f0c3e9f87c25688f42d508f6fdabe99ea32b74a2f6c2d18`.
+La comprobación independiente verificó los 1.553 archivos de la captura fija
+intactos, 203 inputs públicos iguales antes/después y 61 módulos contra su mapa
+de fuentes. Sesenta módulos pertenecen al contrato financiero fijo; el transporte
+Android se verifica como input del APK, sin atribuirle aceptación financiera HOST.
+Incluye Hermes 98, ARM64/x86_64 y firma Android Debug original; no necesita Metro.
+Los procesos de compilación cerraron y los artefactos se conservan en modo 0400.
+Se instaló posteriormente conservando datos e identidad, y su hash instalado
+coincide con el artefacto retenido.
+
+Las comprobaciones focales de custodia, protocolo, proveedor, recuperación, CLI
+y runner pasan, al igual que TypeScript, análisis estático y límites de módulos.
+**Android: comprobación corta completada.** El
+[resultado físico](.local/mobile/artifacts/android-standalone-b01b3ca8-31c3-45be-91bf-a568f84806fc/physical-short-check.json)
+acredita sesión abierta, importación, TLS con pin, consulta de propietario
+firmada y aceptada por el SDK, navegación entre Cartera/Operaciones/DeFi/Ajustes
+y reconexión al volver a Operaciones dentro de la misma sesión. La comprobación
+duró aproximadamente once minutos. No movió fondos ni ejecutó una operación
+financiera completa; cartera con fondos y los cuatro pagos físicos siguen pendientes.
+No acredita aislamiento de hardware.
+
+La conexión antigua 9444 estaba caducada y su servidor apagado; ese entorno
+nació sin captura de supervisor y no admite reapertura actual. Sus datos se
+conservan intactos. El entorno Mixed nuevo de producto en 9445/9446 usa la misma
+identidad del Samsung, sin financiación automática. El servidor y sus túneles
+USB quedan disponibles; la página temporal de copia y su túnel fueron retirados.
+
+El intento inicial `attempt-e5449e08-6f12-4efa-9c72-e06a95ccb0cf` se conserva
+rechazado: detectó un hash de descriptor sin normalizar y una captura de fixture
+que exigía los siete contratos de otro perfil. Su resultado no acredita cierre
+correcto. La corrección usa el codec original del descriptor y una captura
+exclusiva de los cinco contratos Uniswap; el resultado aceptado anterior supera
+ambos fallos. Los guardas del fixture histórico de siete contratos permanecen vigentes.
+
+| Objetivo original | Lo que añade este bloque | Pendiente de la visión |
+| --- | --- | --- |
+| 1. Wallet para siete redes | Cartera de notas Paged, token recibido y posiciones registradas; conexión y navegación del APK comprobadas en Samsung | Cuatro redes aplazadas y recorrido financiero completo del nuevo APK en Android |
+| 2. Privacidad por defecto | Consulta de salidas cifrada y ligada a la custodia original | Metadatos, correlación y privacidad frente al operador común |
+| 3. PAEG genérico | Continuación del mismo recorrido mixto mediante el SDK | Generalidad fuera de los perfiles acotados, rendimiento y ejecución distribuida |
+| 4. Liquidación y recuperación | Reapertura Mixed y conciliación automática de respuesta perdida | Caída abrupta, ventanas ambiguas y compensación de entregas parciales |
+| 5. DeFi privado | Conservación de Uniswap, D27 y token privado al reabrir | Aave/Morpho en Paged y reutilizar el token privado en otro nodo |
+| 6. Estado privado global | Vista conjunta de fondos, reservas y posiciones registradas, con cobertura explícita | Custodias sin registrar y conservación coordinada de backend y móvil |
+| 7. Modelos heterogéneos | Conservación conjunta de los modelos EVM, UTXO y SVM locales | Redes públicas, operadores independientes y las redes aplazadas |
+
+La reapertura es un cierre controlado, no una recuperación de cualquier caída.
+La cartera Paged enumera notas del ledger EVM; Bitcoin y Solana son destinos de
+pagos en este recorrido, y el token de Uniswap conserva su custodia independiente.
+La cartera no calcula equivalencias entre monedas ni un total fiat. La
+liquidación al proveedor sigue autorizada por el propietario; precios,
+beneficio neto y solvers independientes siguen pendientes. El agente externo
+lo implementa Rafa mediante las interfaces autorizadas del SDK.
+
+## Corte anterior aceptado: ejecución, economía y recuperación del 12 de octubre
+
+Esta sección conserva las aceptaciones y los pendientes de ese corte. El
+estado vigente de la implementación está en el bloque anterior.
+
+Implementado, con aceptación económica conjunta:
+
+- **Motor y tres redes:** cierre y reapertura del backend en otro proceso,
+  conservación de las cuatro cadenas originales y continuación del mismo grafo.
+  Solana conserva sus snapshots internos y espera su bloque finalizado original.
+- **DeFi en PAEG:** una operación de cuatro pasos combina Uniswap con Ethereum,
+  Bitcoin y Solana. `./dev platform paged-mixed-new` prepara un entorno separado,
+  TLS y conexión pública para la app. El ERC20 recibido mantiene su custodia
+  privada ExternalFlat; aún no alimenta otro paso privado del grafo. El resultado
+  abre esa misma custodia y concilia su recepción pendiente mediante el SDK
+  original, sin repetir el intercambio.
+- **Economía visible y liquidación:** consulta cifrada de resultados y comisiones
+  originales después de FULFILLED, revisión en la app y una aprobación acotada
+  para los cuatro pagos al proveedor. Conserva importes, aperturas, destinatario,
+  pruebas y nullifiers originales. Las comisiones ETH/BTC/SOL se presentan por
+  activo; las unidades demo del presupuesto conservan su unidad propia.
+- **Cartera y recuperación móvil:** lectura de las conexiones registradas,
+  selección conservada y separación entre saldo fresco e historial. La copia
+  conjunta cifrada restaura identidad y custodias registradas incluso desde
+  una entrada bloqueada, con contraseña, biometría y revisión exacta del estado.
+  Los journals del backend requieren su propia conservación.
+
+El SDK ejecuta este recorrido con la custodia y consentimiento originales.
+Rafa puede integrar su consumidor externo mediante esas interfaces; el agente
+queda fuera de nuestro alcance según la visión acordada.
+
+**Tres redes con reinicio completo: aceptado.** El
+[resultado original](.local/device-paged-cold-v3/attempt-7dd13e1b-074c-48d6-ba1e-3a27f8143fa6/result.json)
+tiene SHA256 `fe0b652ca613827f6bf0d127c3d801036a4ea477404e78d85f47bcf713de174e`.
+Se verificaron trece pruebas únicas, los tres pagos nativos, FULFILLED y la
+retirada W39 de 300 unidades de cambio. Hubo tres reaperturas: antes del ingreso,
+después de Ethereum y después de retirar el cambio. Los cuatro procesos backend
+fueron distintos; cada reapertura conservó descriptor, configuración y ledgers,
+sin repetir pruebas ni envíos. El estado final conservó el nullifier gastado y
+el saldo del destinatario. Backend y HOST cerraron sin errores ni señales.
+
+**Uniswap y tres redes con liquidación: aceptado.** El
+[resultado original](.local/device-paged-mixed-v3/attempt-5c1133f9-bedb-4c74-8a8d-8a3d88bf396f/result.json)
+tiene SHA256 `c02e5d4d50a9f8fe22c1a89f0608ceb435a2ff0954a8f386a7d65576b542ac70`.
+Se verificaron veinte pruebas Paged y una D27, todas únicas. Los cuatro pasos
+terminaron en FULFILLED y el token recibido en Uniswap se confirmó usando el
+mismo observador del SDK que utiliza la app. Del depósito de 600 unidades demo
+se devolvieron 200 y se pagaron cuatro salidas de 100 al proveedor, con una sola
+aprobación acotada a esa liquidación. El saldo respaldado del depósito pasó de
+400 a cero; el destinatario recibió 400 y los cuatro nullifiers quedaron gastados.
+Las comisiones se observaron en las cuatro acciones, agrupadas por cadena,
+activo y unidad. No se aplicaron precios entre activos ni se calculó beneficio
+neto. Operador y HOST cerraron sin errores, señales ni sockets pendientes.
+
+Las veinte pruebas Paged de esta aceptación tardaron entre 27 y 67 segundos
+por relación, con 999.556 ms de generación acumulada. El objetivo de rendimiento
+de la visión sigue pendiente; esta aceptación acredita ejecución y conservación,
+no baja latencia.
+
+Ambas aceptaciones usan custodias software originales, pruebas y contratos
+reales en cadenas locales, con operador común. No incluyen teléfono, redes
+públicas ni operadores independientes.
+
+La aceptación de tres redes corresponde a la generación
+`e9181cf2a5e0c1841fb77fc5f397713ca8e04d393d5d77f60f734d886eba75d9`.
+El recorrido mixto aceptado y el APK compilado tienen la generación
+`8eab00d36eaa9602a20dfd572d0d95228817df1061a0fad4145a346f9c48bfc2`:
+añade únicamente la selección del tiempo autorizado en el despacho Uniswap y
+conserva el recorrido nativo y la recuperación aceptados anteriormente.
+Análisis estático y límites de módulos pasan, con cero ciclos nuevos.
+
+**APK de este bloque: compilado y conservado.** El
+[APK actual](.local/mobile/artifacts/android-standalone-c757fac4-91c7-4125-97be-a2668f1284f5/app-release.apk)
+y su [verificación](.local/mobile/artifacts/android-standalone-c757fac4-91c7-4125-97be-a2668f1284f5/verification.json)
+corresponden a la generación mixta aceptada. Tiene 44.014.327 bytes y SHA256
+`a7b22a4b221854dd0c2f395d0c471081a2d805f375b3eec3c6a2a384d0e2085b`.
+Se verificaron 58 módulos empaquetados contra sus fuentes actuales, los 197
+archivos públicos de entrada antes/después de compilar y las 1.541 entradas de
+la captura fija usada por la aceptación mixta. Incluye Hermes, ARM64/x86_64 y
+firma Android Debug; no necesita Metro. Los procesos de compilación cerraron.
+Se conserva el informe completo y el mapa de fuentes. No se ha instalado ni
+comprobado esta versión en el teléfono; biometría, TLS y recuperación físicos
+requieren esa comprobación, y el APK no es una distribución de producción.
+
+La ejecución `attempt-55a26bc5-d8c6-4bbb-bb8a-802bb0425e93` alcanzó las trece
+pruebas, los tres pagos, FULFILLED y la devolución de 300 unidades de cambio.
+Pasaron las dos reaperturas ejercidas en esa revisión. Su cierre final fue
+rechazado por el guard de formato/tamaño de la exportación EVM del hub:
+`originalResourcesClosed:false`. Se conserva ese resultado parcial; no se
+presenta como aceptación completa. Ese fallo queda superado por el resultado
+aceptado anterior: el codec exclusivo del hub Paged valida formato, tamaño,
+genesis, bloque y cuentas tanto al capturar como al cargar el estado. Los
+límites históricos de los otros perfiles permanecen vigentes.
+
+| Objetivo original | Avance de este bloque | Pendiente de la visión |
+| --- | --- | --- |
+| 1. Wallet para siete redes | Conexiones y custodias de las tres redes elegidas; copia conjunta y cartera por conexión | Cuatro redes aplazadas, saldo global completo y comprobación física del nuevo APK |
+| 2. Privacidad por defecto | Datos económicos cifrados y autorizaciones ligadas a la custodia original | Metadatos, correlaciones de entregas y privacidad frente al operador común |
+| 3. PAEG genérico | Uniswap y tres modelos nativos en el mismo recorrido y runner del SDK | Más composiciones, generalidad más allá de las cotas del perfil y ejecución distribuida |
+| 4. Liquidación y recuperación | Pagos al proveedor tras cumplimiento global, cambio previo y reinicio controlado de tres redes | Caída abrupta, continuación ambigua, compensación de entregas parciales, precios y solvers independientes |
+| 5. DeFi privado | Nodo Uniswap, custodia propia del token recibido y arranque Mixed | Aave/Morpho dentro de Paged, encadenar el token privado recibido y reapertura Mixed |
+| 6. Estado privado global | Revisión económica del mismo bloque, nullifiers y respaldo; copia de custodias registradas | Vista global fresca de activos/posiciones y recuperación conjunta con el estado del backend |
+| 7. Modelos heterogéneos | Firmas, costes y finalidad originales de EVM, UTXO y SVM en entorno local | Redes públicas, operadores independientes, reorgs/ambigüedad y Tron con las redes aplazadas |
+
+La recuperación aquí es una captura ordenada. El perfil Mixed rechaza su
+captura; no tiene reapertura económica completa. El ledger condicional tampoco
+revierte un pago ya finalizado en otra cadena. La remuneración del proveedor
+es una liquidación autorizada por el OWNER; cotización, beneficio neto y cobro
+autónomo de solvers independientes quedan pendientes.
+
+## Corte anterior aceptado: continuidad, cartera y UX
+
+Esta sección conserva la evidencia del corte anterior. Las aceptaciones y
+pendientes vigentes están en el bloque del 12 de octubre al comienzo del archivo.
+
+Los cuatro frentes están integrados y el recorrido conjunto de tres redes con
+reapertura está aceptado en el ordenador: nota de 600 unidades demo, presupuesto
+300, tres pagos, trece pruebas originales verificadas por sus contratos, cierre
+FULFILLED y retirada W39 de 300 unidades de cambio. Después de completar Ethereum
+se recargó la credencial original y se reemplazó el OWNER conservando progreso,
+autoridad y runtimes; no se repitieron pruebas ni envíos durante la reapertura.
+
+El [resultado conservado](.local/device-paged-continuity-v3/attempt-b25135fc-ee45-4b22-821d-1131de941964/result.json)
+tiene SHA256 `2d3abd4586b6968dbcb314bc4eecf4aedb4c3b11368bd315404c34ce8b82a732`.
+Corresponde a la generación de fuentes
+`f9e5a75cbbc78a271a4518dfebbd039418d47dcfc421265db3e8767e38f6d3bc`;
+el supervisor, los cuatro runtimes y el HOST cerraron sin errores. Es un perfil
+local sintético de operador común y custodia software, sin teléfono ni redes
+públicas. Las campañas históricas de las secciones siguientes conservan su corte.
+
+| Cambio respecto al corte anterior | Objetivos originales | Alcance implementado |
+| --- | --- | --- |
+| Progreso privado del motor guardado con cifrado y revisión exacta | 3, 4, 6 | Reemplaza el OWNER bajo el mismo supervisor, autoridad y runtimes vivos; exige OBSERVE fresco antes de continuar. Conserva una prueba PROVED reconocida. |
+| Credencial original del proveedor guardada y recargable | 1, 2, 7 | Misma identidad, registro, claves y preparaciones de Ethereum, Bitcoin y Solana. La recarga no firma ni envía otra transacción. |
+| Historial incremental y actividad explícita en Operaciones | 1, 2, 3 | Reutiliza la proyección privada sólo mientras POINTER/RECORD coincidan; distingue trabajo, espera y pausa. |
+| Autorización explícita del grafo durante treinta minutos | 1, 2 | Conserva permisos de quince segundos. Segundo plano, cancelación o vencimiento revocan las claves; una autenticación sensible satisfactoria renueva la entrada. |
+| Conexiones públicas durables y navegación a la custodia elegida | 1, 5, 6 | Cartera abre la cuenta y ruta exactas. Las notas del dispositivo y las posiciones retenidas por el servicio conservan su custodia y unidades. |
+| Posiciones DeFi con transporte TLS fijado | 2, 5, 6 | Tres rutas originales de consulta, drenaje de apertura/cierre y datos inciertos UNKNOWN. Las estimaciones de subyacente no se convierten en saldo gastable. |
+
+Las comprobaciones focales, TypeScript, límites de módulos y análisis estático
+pasan. La compilación Android conserva las fuentes antes/después y verifica
+49 uniones del bundle, Hermes sin Metro, ARM64/x86_64 y firma Android Debug.
+El [APK de ese corte](.local/mobile/artifacts/android-standalone-7afdf728-1ad0-49ee-b5c3-8cca264dd703/app-release.apk)
+y su [verificación](.local/mobile/artifacts/android-standalone-7afdf728-1ad0-49ee-b5c3-8cca264dd703/verification.json)
+corresponden a esa misma generación: 43.828.407 bytes y SHA256
+`f9e2c6354752fee6b936e19918bf14ba79557b3e02e02967624387ba514b49a2`.
+No se ha instalado ni comprobado en el teléfono.
+
+La primera ejecución de este bloque fue rechazada antes del primer envío nativo,
+tras tres pruebas y FOLD aceptado. El guard de tiempo podía rechazar un permiso
+ya registrado durante un retroceso del reloj de WSL. Clock/Owner/Graph conservan
+ahora el deadline monotónico original de ese mismo permiso; una clave nueva
+futura, otra expiración y un permiso ya vencido siguen rechazándose. Doce focales
+de reloj y firmas pasan. Las pruebas financieras tardan aproximadamente entre
+30 y 80 segundos por relación en este entorno; este bloque no cierra el objetivo
+de rendimiento de la visión.
+
+La continuidad requiere el supervisor y los cuatro runtimes originales vivos.
+Una caída entre guardar un checkpoint y reconocer su respuesta, un lock antiguo
+o una revisión diferente se rechazan; no se adopta automáticamente la última
+copia. No se ha cerrado el reinicio total de la plataforma. DeFi sigue en su
+recorrido ExternalFlat y no se ha añadido como nodo al mismo grafo Paged.
+
+## Sesión y experiencia móvil
+
+La app ahora se abre con una lectura biométrica de la identidad. Durante la
+sesión, consultar saldos, navegar y preparar pagos reutiliza las claves en
+memoria sin repetir esa lectura. Inactividad de quince minutos, treinta minutos
+de sesión total, bloqueo explícito o segundo plano revocan la sesión. Una huella
+sensible adicional autoriza el ingreso concreto, el grafo revisado completo o
+la retirada concreta; los permisos originales de quince segundos siguen iguales.
+
+Las raíces originales permanecen en su SecureStore autenticado. La primera
+apertura de una raíz existente requiere una huella de migración adicional para
+crear un sobre AES-GCM ligado a la misma identidad y namespace. Después se abre
+ese sobre con la identidad de sesión. No se guardan claves en claro sin biometría.
+
+La interfaz principal usa tarjetas, navegación inferior y revisiones con importe,
+red y destinatario antes de autorizar. Conexiones y detalles técnicos se pliegan.
+La conexión pública de Operaciones se conserva; sus consultas automáticas no
+mueven fondos. DeFi conserva la selección al cambiar de sección y cierra su
+transporte antes de abrir otra conexión.
+
+La prueba focal de sesión usa Vault/SDK reales con puertos de almacenamiento y
+biometría de HOST: comprueba una lectura de identidad por entrada, reutilización
+de raíces, aprobaciones acotadas y rechazo después del bloqueo. No acredita aún
+la nueva UX física ni los tres pagos en el Samsung. El teléfono conserva el
+ingreso confirmado de 600 unidades y la preparación original de tres pagos;
+no se han ejecutado esos pagos durante el cambio de interfaz.
+
+## APK de sesión e interfaz instalado
+
+El [APK de sesión e interfaz](.local/mobile/artifacts/android-standalone-5b61f259-ef9a-4ea0-8c27-3d79e65b1c12/app-release.apk) está instalado en el
+Samsung conservando datos: 43.779.779 bytes, SHA256
+`9970a7af0fe0666c55b95b2b855e352b1d1fd98d4f7bce995b10aeb63a1385e9`.
+Su generación es `bb71fdb0a09c7768c98b60706f38bacbef9c8a32b87f677fc7105a92f399db40`.
+El [build](.local/mobile/artifacts/android-standalone-5b61f259-ef9a-4ea0-8c27-3d79e65b1c12/build-report.json) y la
+[verificación](.local/mobile/artifacts/android-standalone-5b61f259-ef9a-4ea0-8c27-3d79e65b1c12/native-transport-verification.json) comprueban fuentes
+iguales antes/después, quince archivos principales unidos al bundle real,
+Hermes sin Metro, ARM64/x86_64 y el mismo certificado Android Debug.
+TypeScript y quince comprobaciones focales de custodia/sesión pasan.
+
+La interfaz principal se ha observado en el teléfono; al salir a Chrome se
+bloquea la sesión. Se ha recuperado el mismo perfil público y la apertura
+inicial pide la huella de migración prevista. La sesión anterior ya realizó la consulta firmada; la corrección final muestra
+el ingreso confirmado como histórico ligado a la operación y reduce el polling
+a READ breve, sin reconstruir ni ampliar el historial cada doce segundos.
+La [lectura física de la sesión](.local/mobile/artifacts/android-standalone-5b61f259-ef9a-4ea0-8c27-3d79e65b1c12/physical-session-readback-v1.json) confirma entrada, reconexión de la misma wallet y navegación Cartera/Operaciones/Ajustes sin otra huella de custodia. Operaciones muestra el ingreso confirmado de 600 como histórico ligado a la preparación. Las operaciones financieras se acreditarán por separado. No se ha ejecutado ningún
+pago ni retirada durante esta actualización.
+
+## Motor, tres redes y app
+
+- La navegación principal ofrece Cartera, Operaciones, DeFi y Ajustes. La preparación usa
+  presupuesto, plazos, destinatarios e importes; el motor determina los comandos,
+  dependencias, pruebas, recibos y retiradas. La app y la integración financiera
+  comparten el mismo ejecutor.
+- El recorrido conjunto terminó correctamente: nota financiada con 600 unidades,
+  presupuesto de 300, Ethereum → Bitcoin → Solana, resultado `FULFILLED` y
+  retirada confirmada de las 300 unidades de cambio. Hubo tres identificadores
+  nativos distintos, sin reenvíos ciegos, y trece pruebas originales: D26, R,
+  seis Fold, tres Admission, T y W39. Los contratos desplegados verificaron
+  las pruebas y sus efectos.
+- El intento aceptado es `6d53d7a1-42e9-47aa-99d0-9b2fe0e703a9`.
+  Su [resultado conservado](.local/device-paged-three-network-v3/attempt-6d53d7a1-42e9-47aa-99d0-9b2fe0e703a9/result.json)
+  corresponde a las fuentes `a1c25561fdc747144aeeb1be54362c923ec51c6a9a4f82014470ed65e7ed9ce1`.
+  SHA256 del resultado: `761b6a9feef3bbf229afd337e0f976887a3f24fc6fbed7961ed3f05f40a412fd`.
+  Se conservaron 252 avances públicos, sin aperturas ni claves. El operador,
+  los tres runtimes y el HOST cerraron sin errores ni sockets propios abiertos.
+- Ethereum, Bitcoin y Solana usan sus runtimes locales originales. Bitcoin
+  exige seis confirmaciones y Solana finalidad. El importe nativo de cada paso
+  se mantiene separado del presupuesto de la nota; no hay conversión ficticia
+  entre ETH, BTC, SOL y las unidades de la nota.
+- Los permisos mantienen quince segundos de vigencia. El reloj Paged conserva
+  el tiempo transcurrido ante retrocesos reales del reloj del entorno WSL, sin
+  cambiar Date global. La recuperación obtiene observaciones y comandos nuevos;
+  un envío incierto conserva su identificador y se consulta antes de avanzar.
+- Una sesión móvil autoriza sólo su grafo durante un máximo de treinta minutos
+  en primer plano. Cancelar, caducar o pasar a segundo plano borra sus claves
+  de memoria. Financiar, retirar y DeFi mantienen autorizaciones propias.
+- La app importa `paired-connection.json` con descriptor original y certificado
+  TLS fijado por su SHA256 DER. El transporte Android usa TLS 1.3, comprueba
+  el hostname y limita las rutas y la cancelación a esa conexión.
+- `./dev platform paged-native-new` configura identidad pública, interfaz,
+  certificado y archivos de arranque; inicia las tres redes y publica la conexión
+  de la app. `./dev platform defi-new` prepara una relación DeFi original y su
+  conexión propia. [Uso con Android y WSL](apps/platform/README.md).
+- DeFi guía financiación, reserva, ejecución y recuperación sobre ExternalFlat:
+  Uniswap, Aave y Morpho conservan sus protocolos originales. La pestaña DeFi
+  y su conexión están incorporadas; convertir estas acciones en nodos Paged
+  sigue pendiente.
+
+La ejecución aceptada utiliza software de custodia en Node y tres ledgers locales
+con operadores en el mismo host. Para completar el alcance de producto faltan la
+operación en teléfono físico, redes públicas, operadores independientes, DeFi
+mixto dentro del grafo y la reapertura económica del backend Paged retenido.
+Conserva el proceso durante la vida de sus notas; el arranque nuevo no reemplaza
+el estado guardado ni financia notas automáticamente.
+
+El [APK que confirmó el primer D26 físico](.local/mobile/artifacts/android-standalone-f2678a40-c90b-4691-ab5c-6c15376250f7/app-release.apk)
+está compilado, verificado e instalado en el Samsung: 43.650.119 bytes,
+SHA256 `7243b9c175dd1a467f937123a9764a8ca2af5be66017f3d3cf263260eac9ec76`.
+Corresponde a la generación de fuentes
+`0e41709b86803f3a6369a47d54da471edaa7bac0b9f56bf4b3727067cd446dbd`.
+El [informe de compilación](.local/mobile/artifacts/android-standalone-f2678a40-c90b-4691-ab5c-6c15376250f7/build-report.json)
+registra fuentes iguales antes y después y un build de unos 53 segundos.
+Incluye ARM64, x86_64 y
+JavaScript/Hermes sin Metro, con el mismo firmante Android Debug.
+Se conserva la [verificación del empaquetado](.local/mobile/artifacts/android-standalone-f2678a40-c90b-4691-ab5c-6c15376250f7/native-transport-verification.json), el
+bundle generado y su mapa. Este APK mantiene la corrección AES y la lectura
+acotada de la raíz a 60 segundos, y separa el epoch real de los mensajes de su
+caducidad monotónica local. Los permisos de 15 segundos y el límite de adelanto
+de 3 segundos permanecen intactos; la sesión de lectura no guarda la clave del
+propietario.
+
+Añade **Continuar ingreso preparado**, conservando nota, trabajo, importe y
+apertura tras una lectura original que confirme ausencia de prueba. Si venció
+la época D26, sólo renueva época, firma de la nota y sus hashes asociados. El
+registro pendiente se guarda antes del challenge; tras la firma, un token
+privado de un uso comprueba el SDK y el registro cifrado sin volver a abrir ROOT.
+Los selectores del formulario tampoco fuerzan lecturas biométricas. El cambio
+de recuperación pasó cuatro comprobaciones focales/HOST en 19,44 segundos;
+TypeScript y límites pasan. El APK actual añade diagnóstico por fase y código
+acotados, sin datos privados.
+
+La actualización conservó identidad, namespace y operador; el hash instalado
+coincide. En este APK se confirmó el ingreso desde el Samsung: [prueba D26
+original aceptada](.internal/runtime/omnichain-product/evidence/paeg-proof-attempts/8a623959-4419-455c-bc51-dd622002fa7c.json),
+financiación con su autorización nueva y lectura posterior con **600 unidades
+disponibles**. El [checkpoint físico](.local/mobile/device-android-937ced9c-3e2a-41a6-9978-fd27044c8bc9/funded-physical-paged-f267-v1.json)
+conserva ese alcance. El grafo físico de tres redes, las retiradas y DeFi siguen
+pendientes; el READ confirmado previamente en `9af3816e` conserva su propia
+[evidencia](.local/mobile/device-android-937ced9c-3e2a-41a6-9978-fd27044c8bc9/paired-signed-read-wall-clock.json).
+Los [experimentos del reloj de WSL](docs/USB-MOBILE.md#comprobación-física-realizada)
+y el APK anterior `ccda916f` conservan su alcance histórico; la aceptación
+financiera descrita arriba corresponde a sus fuentes originales y no acredita
+esta nueva generación.
+TypeScript, límites de dependencias y análisis estático pasan: 937 módulos,
+108 entradas checkJs y ningún ciclo nuevo. La comprobación focal del móvil
+verifica SDK, firmas, cifrado y continuidad de custodia; los trece comprobantes
+financieros corresponden al recorrido conjunto descrito arriba.
+
+Los cuatro intentos previos permanecen separados. Se corrigieron el compromiso
+original de riesgo Paged y los rechazos causados por retrocesos del reloj.
+La limpieza de un permiso rechazado antes de ejecutarse conserva el trabajo
+original; una vez entrado el envío, conserva UNKNOWN y su reconciliación.
 
 ## Limpieza del entorno
 
-El desarrollo funcional permanece pausado durante esta reorganización.
+El desarrollo funcional se ha retomado después de esta reorganización.
 La limpieza del 10 de octubre redujo el proyecto de **29,8 a 19,8 GiB**:
 **10 GiB liberados**. Se retiraron cachés y copias temporales; el historial
 seleccionado quedó respaldado y verificado en `.local/history/`.
@@ -23,6 +483,119 @@ sin clasificar en los directorios gestionados. El proyecto sigue ocupando unos
 19,9 GiB: herramientas, originales, dependencias y estado retenido siguen siendo
 necesarios. No se ha presentado ese volumen como código eliminable.
 
+## Guardado de pasos desde la app
+
+El emparejamiento devuelve las familias, destinos sugeridos y contextos públicos
+de las tres redes del proveedor original. `PREPARE_NATIVE_PAGE` utiliza el permiso original de la
+identidad del dispositivo, con vigencia de quince segundos y respuesta cifrada.
+El backend limita la petición a compromisos públicos de la página conservada;
+rechaza campos privados extra y ordinales ajenos a la página actual antes de
+llamar al proveedor. El proveedor queda fijado al crear el servicio y no puede
+seleccionarse ni sustituirse mediante HTTP. Preparar acciones no ejecuta una
+transferencia ni avanza el grafo financiero.
+
+El Vault conserva el mismo identificador y las claves antes de pedir acciones.
+El proveedor guarda los términos de la preparación y devuelve las mismas
+acciones ante una petición idéntica. La app también reconstruye un envío de
+página conservada pendiente de confirmar. Las dependencias y aperturas siguen
+en la custodia y en el canal privado del grafo; no forman parte de la petición
+al proveedor.
+
+Pasan TypeScript y tres comprobaciones HOST seleccionadas de nota, preparación
+del grafo y autorización de envío. Incluyen respuesta perdida, campos ajenos,
+ordinales incorrectos y continuidad de la misma custodia. Sus puertos de red y
+prueba financiera son inertes: estos resultados no acreditan una operación en
+un teléfono ni cinco transferencias reales. No se ha iniciado otra ejecución
+financiera larga para entregar esta conexión.
+
+## Integración móvil del 11 de octubre
+
+Las pantallas Nota Paged y Grafo Paged publican ahora sus lecturas en Estado
+privado. La vista distingue la nota y el progreso del grafo, conserva su red,
+pool y raíz propios y permite volver a la pantalla correspondiente para leer.
+Las cantidades proceden de la lectura original y de su vinculación comprobada
+con la custodia local; un presupuesto o una fase del grafo no se convierte en
+saldo disponible. Al preparar el grafo, la nota fuente deja de estar disponible.
+
+Las proyecciones son inmutables y propias del Vault: copias, proxies y resúmenes
+sin esa identidad se rechazan. Una escritura o reapertura invalida las vistas
+anteriores. Cambiar de pestaña conserva la lectura sólo hasta su caducidad
+original; un pendiente, una recuperación sin lectura o el paso a segundo plano
+no conserva un saldo utilizable. Las claves, aperturas y respuestas privadas
+del grafo no llegan a esta vista.
+
+TypeScript y los 16 HOST seleccionados de SDK/Vault/estado pasan; la selección
+tardó 23,667 s. La prueba local usa un reloj monotónico y mantiene las ventanas
+originales de 15 s. El check general posterior pasó 498/498 en 44,168 s. Los
+HOST usan puertos de cadena, prueba y Expo inertes; no acreditan ejecución
+económica. Las correcciones posteriores del ledger pasaron sus cuatro casos
+causales y el cargador Expo pasó su caso original, junto con ambos HOST móviles.
+
+El APK anterior a la integración de ejecución está compilado sin Metro para
+ARM64 y x86_64: 43.470.439 bytes,
+SHA256 `0ae7a29edf4df63802e8fd72b49c3b366043f74493dab307af07b98b93ba0b2f`.
+El build tardó 4 min 23 s; conserva 159 inputs iguales antes/después y 43 uniones
+de fuentes originales con el bundle. Los 159 inputs se comprobaron de nuevo al
+terminar y siguen intactos. El APK y su informe están conservados en
+`.local/mobile/artifacts/android-standalone-3f88f751-8b92-4ca9-9f8e-7163eb45f87c/`.
+La conservación del APK inmediatamente anterior falló antes del clean del build:
+su binario no quedó retenido. Su informe se conserva desde el stdout original;
+las versiones anteriores ya archivadas conservan sus bytes. El primer intento
+nuevo se interrumpió y su informe fallido permanece separado del build completado.
+ADB no detecta un dispositivo: instalación,
+biometría, TLS y operación financiera en el teléfono siguen sin comprobar.
+
+El nacimiento económico paginado ya supera los locators y las bibliotecas del
+pool trasladado. La carga usa las fuentes retenidas autenticadas y los programas,
+claves y recibos originales; no recompila ni sustituye verificadores. El
+reconciliador lee los receipts RPC originales dentro de sus filas de runtime.
+El ledger privado se reconstruye desde sus eventos NoteInserted canónicos y se
+compara con currentRoot, sin depender de un getter de nodos que el pool no tiene.
+
+Los descriptores nuevos conservan el vencimiento de emparejamiento de nueve
+horas en reloj real y añaden su límite de nueve horas en el reloj de cadena. El
+grafo comprueba cada cutoff contra su propio reloj; los descriptores anteriores
+mantienen su comparación original. El HOST causal usa un genesis de laboratorio
+posterior al reloj real y comprueba también el rechazo en el límite exacto.
+TypeScript y ambos HOST móviles pasan; los permisos y lecturas siguen en 15 s.
+
+La lectura de la nota incluye ahora el timestamp de su mismo bloque canónico.
+La pantalla convierte presupuesto y minutos en los términos originales sin
+usar el reloj del teléfono. El conversor exige el status original vigente del
+SDK, rechaza copias, importes superiores al disponible y plazos fuera de la
+conexión. Los descriptores y status anteriores conservan su formato aceptado;
+el nuevo formulario exige una lectura que incluya la hora de cadena. TypeScript,
+los diez casos focales y el análisis estático pasan. Los casos focales tardaron
+30,226 s; no se repitió el recorrido financiero.
+
+El intento local `9934a2b1-851c-4c0e-aa08-ca922b5dd3b7` confirma D26/FUND,
+fuente LIVE, dos páginas y restauración cifrada antes de R con nuevos READ y
+OBSERVE, sin nueva prueba ni envío durante la restauración. Termina rechazado
+en R por la salida de consola del wrapper oficial de generación, con todos
+los recursos originales cerrados. El productor corregido llama a la misma API
+oficial con la clave preparada autenticada, conserva la verificación real y
+el rechazo de salida por consola. El intento posterior `8bb70b66-848c-48a6-b4a4-f80f147b85c8`
+confirma R en el pool y la primera prueba Fold, ambas verificadas por sus
+verificadores desplegados. Termina antes de enviar el primer nodo: el runner
+intentaba llamar a advanceTo, que el runtime nativo no expone. La sincronización
+se conecta ahora dentro del despacho Paged, sólo contra el timestamp del bloque
+canónico capturado por su grant READY original. No añade un setter de reloj ni
+modifica SOURCE. El HOST focal confirma sincronización antes de la guardia final,
+rechazo antes de clave si cambia READY y un único wire durable ante respuesta
+perdida. Falta completar las cinco entregas, T y las dos W39; estos intentos
+rechazados no se han presentado como aceptación. Todo este perfil
+es EVM LOCAL_SYNTHETIC con operador común y custodia Expo software; no demuestra
+un grafo mixto Ethereum/Bitcoin/Solana, independencia de operadores ni teléfono.
+
+El intento posterior `5a5d6755-19dc-466c-aabb-7e0c07496b41` se detuvo tras la
+preparación y restauración, antes del primer envío nativo, al detectar que la
+admisión usaba la hora de observación como inicio de READY. Conserva su rechazo,
+SIGTERM y cierre de recursos originales. La corrección toma la hora de firma
+del despacho original, vinculada al head preparado, y conserva por separado
+la hora de evidencia confirmada. La preparación HOST rechaza ahora una firma
+fuera de READY antes de abrir el productor, como exige el circuito original.
+Esta corrección aún no tiene una nueva ejecución financiera completa.
+
 ## Ingeniería del 11 de octubre
 
 El código diario se ejecuta desde `apps/` y `packages/`. `./dev build` prepara
@@ -34,13 +607,13 @@ La reorganización actual deja estos resultados comprobados:
 
 - **Paquetes y consumidores:** cero ciclos entre paquetes, cero imports privados
   activos entre paquetes y cero enlaces activos hacia pruebas/experimentos.
-  La comprobación inspecciona 973 fuentes y 1.817 imports públicos. Los trece
+  La comprobación inspecciona 983 fuentes y 1.835 imports públicos. Los trece
   enlaces de soporte de `protocol` son históricos y permanecen separados.
 - **Familias privadas:** mecánica EVM, reloj SOURCE, tres bridges, actor móvil y
   sesión nativa tienen propietarios por instancia y contratos concretos. La
   composición original conserva las funciones públicas y los validadores no
   aceptan marcas de otro builder. Se mantienen AEAD, CAS y tokens de un uso.
-- **Tipado:** la comprobación estricta tiene 100 entradas explícitas, frente a
+- **Tipado:** la comprobación estricta tiene 108 entradas explícitas, frente a
   las 27 anteriores. Comprueba los cuerpos completos del actor y sesión nativa,
   depósitos y ejecución de cuenta, además de los mecanismos extraídos de
   journal, recuperación, observación, DeFi y formatos móviles. Incluye también
@@ -73,8 +646,8 @@ La reorganización actual deja estos resultados comprobados:
   generales, módulos variables, campos sobrantes y acceso general a escritura.
 
 La adopción actual es
-`8380c3486b78f395694b23285fd23f1a235b82ba959ed6cca306a52913a00eef`, con
-**1.475 filas de fuentes y cero aliases de ejecución** en su contrato. Preparación y
+`90739a2ad005ffa0e56ea5897c29dfc916810d90e3bfb2e6f5de744c253b325f`, con
+**1.488 filas de fuentes y cero aliases de ejecución** en su contrato. Preparación y
 adopción autentican los doce roles nativos y los cinco paginados, los originales
 W39/N32, programas, claves, compiler inputs y recibos. Los catálogos anteriores
 quedan archivados por sus bytes exactos; no se ejecutan ni se reescriben.
@@ -220,8 +793,30 @@ una sola invocación, sin copiar manualmente su huella. Rechaza candidatos
 incompletos o cambios entre captura y adopción. Sus 24 regresiones pasan y no
 modifican publicaciones, aceptación financiera ni los pins históricos.
 
+
+### Limpieza focal para continuar iterando (11 de octubre de 2026)
+
+La sesión genérica y el keeper duradero tienen implementaciones separadas,
+con tipado estricto y registros privados por familia. Las composiciones
+canónicas conservan las funciones públicas y sus guardas de identidad; los
+consumidores genéricos usan directamente el propietario de sesión. La lectura
+económica de claims pertenece al módulo de portfolio. Los preparadores usan
+el contrato inferior de validación, sin cargar la composición HTTP.
+
+La validación de registros SOURCE es un módulo puro tipado; el backend sigue
+siendo propietario de almacenamiento y autoridad. El transporte HTTPS SOURCE
+es un módulo completo probado por el SDK real, sin extracción de JavaScript.
+La prueba móvil puede ejecutarse desde fuentes editables. Dos fixtures HOST
+usan ahora la autoridad canónica vigente y puertos ajustados al contrato real.
+
+Se añaden regresiones rápidas de aislamiento de familias de sesión y de
+registros SOURCE a la selección diaria. No se amplía la política de ciclos,
+ni se alteran publicaciones financieras o pins históricos. Sigue pendiente
+la separación completa del gran ciclo interno y la deuda descrita arriba;
+este bloque no pretende cerrar todas las campañas económicas.
+
 **Deuda que permanece:** el SCC interno pasó de 154 archivos/845 imports a
-**133 archivos/756 imports**, pero sigue reuniendo SOURCE, autoridad nativa,
+**130 archivos/744 imports**, pero sigue reuniendo SOURCE, autoridad nativa,
 recuperación wrapped, servicio GRAPH y recuperación del catálogo DeFi. Sus
 composiciones superiores no están tipadas por completo. Persisten pruebas que
 extraen código por texto fuera de las familias migradas. El lector I84 ya es
@@ -233,11 +828,11 @@ Estado concreto de los seis puntos de deuda y cinco de simplificación:
 
 | Punto | Comprobado | Pendiente |
 | --- | --- | --- |
-| Deuda 1: ciclos backend | Implementaciones SOURCE/wrapped/catálogo/GRAPH/autoridad nativa separadas de sus composiciones y checkpoints de datos; cero ciclos de paquetes. | Resolver las relaciones entre las cinco composiciones canónicas; el SCC sigue en 133 archivos. |
+| Deuda 1: ciclos backend | Implementaciones SOURCE/wrapped/catálogo/GRAPH/autoridad nativa separadas de sus composiciones y checkpoints de datos; cero ciclos de paquetes. | Resolver las relaciones entre las cinco composiciones canónicas; el SCC sigue en 130 archivos. |
 | Deuda 2: adopción económica | Generación actual adoptada; lectura real paginada/nativa/wrapped y rechazo de copia del bundle. | No se cuenta esta lectura como una nueva operación financiera. |
 | Deuda 3: pins actuales | Inventario gestionado de móvil, plataforma, callers y runtime; 200 verificaciones inmutables separadas. | Las ampliaciones futuras deben declarar sus fuentes; no se actualizan hashes históricos. |
 | Deuda 4: disposición y recursos | Fuentes canónicas, bundle wallet, lectores paginado/wrapped/I84, SDK ABI y Solc trasladados; recursos declarados sin fallback. | Portar y aceptar todos los workers y recorridos económicos/DeFi con sus recursos reales. |
-| Deuda 5: tipado del núcleo | 100 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, keeper duradero, sesión general, SOURCE y recuperación GRAPH/DeFi. |
+| Deuda 5: tipado del núcleo | 108 entradas estrictas y cuerpos completos de las familias indicadas arriba. | Autoridad nativa superior, implementación SOURCE restante y recuperación GRAPH/DeFi. |
 | Deuda 6: pruebas por interfaces | Actor, sesión, journal, recuperación y fixtures wrapped usan interfaces completas; autorización, I84, lector acotado, cola GRAPH y lector de portfolio, currentness, retención de certificados y preparación de vaults ya no extraen JavaScript. | Migrar las extracciones restantes y aceptar las matrices wrapped completas. |
 | Limpieza 1: histórico separado | Búsquedas, dependencias cotidianas y clones de desarrollo excluyen el histórico; originales conservados. | Nada adicional identificado en este bloque. |
 | Limpieza 2: fachadas | Catorce fachadas wallet y nueve backend retiradas; consumidores directos y bytes históricos autenticados fuera de `src`. | Nada adicional identificado entre las fachadas retiradas de este bloque; se conservan las entradas públicas útiles. |
@@ -621,7 +1216,7 @@ comprobados en los ámbitos indicados; se conservan las notas por requisito.
 | Privacidad de intake SQL nuevo y legacy | HMAC por operación y clave estable separada; `afbd9c3` convierte un grupo legacy explícito y `3ed9157` rechaza una marca privada con datos visibles. Los dos casos PostgreSQL focales pasan en 7,25 s, incluido COMMIT perdido. | API, backups/WAL y otros grupos conservan sus exposiciones; no implica anonimato del sistema. |
 | Costes observados de salida DeFi | `b8ab225`: la wallet presenta gas histórico en NATIVE_WEI sin identificadores de operación; conserva importes y mínimos originales. | No convierte gas en shares ni acredita solvencia o pérdida neta completa. |
 | Recuperación del journal retenido | `3a0aaeb`: reabre el candidato original tras perder readback, conserva la misma operación y reconcilia sin otro envío; 6/6 HOST focales de EXIT/privacidad/reapertura en 9,95 s. | No sustituye la aceptación financiera SOURCE/GRAPH ni demuestra caída abrupta del producto completo. |
-| APK Android actual | SHA256 `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`, 42.841.007 bytes, 85 inputs iguales antes/después, 36 uniones con bundle y sin Metro. | Instalación, biometría y operación física pendientes al final. |
+| APK Android de ese corte anterior | SHA256 `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`, 42.841.007 bytes, 85 inputs iguales antes/después, 36 uniones con bundle y sin Metro. | Instalación, biometría y operación física pendientes al final. |
 | Transacción conservada tras respuesta perdida | `a7b5434`: guarda la identidad del envío original en el journal; 23/23 HOST pasan en 0,915 s. | No acredita por sí solo el reinicio financiero completo ni autoriza otro envío. |
 | Observación original de GRAPH fresca | `c2a9e06`: al conciliar T observa el original S; un HOST SDK/Vault pasa en 2,68 s. | GRAPH completo nuevo aún pendiente de cierre. |
 | Primer permiso SOURCE por TLS | `6951b88`: framing UTF-8 explícito; primer challenge del SDK original sobre HTTPS pasa en 2,73 s. SOURCE nuevo recorrió D26 y la primera caída17. | Falló la reapertura avanzada; no acredita las dos caídas ni el recorrido completo. |

@@ -6,7 +6,84 @@ organiza por esos objetivos. Las seis tareas de implementación anteriores eran
 un orden de trabajo, no una definición distinta del producto. El avance y los
 resultados están en [STATUS.md](STATUS.md).
 
-## Avance comprobado y próximo cierre
+## Situación del 13 de octubre
+
+La cartera pública ETH/BTC/SOL y su API HTTPS ya están instaladas. Se han
+comprobado direcciones y saldos desde Android; quedan pendientes el primer
+envío real y la activación de MoonPay. El alta de MoonPay queda aplazada por
+decisión del usuario y requiere la cuenta y aprobación del proveedor.
+
+El servicio público no incluye PAEG ni DeFi. El siguiente bloque del producto
+debe conectar la entrada y salida de fondos reales con el motor, adaptar y
+desplegar sus servicios y contratos para redes públicas, y unificar el recorrido
+móvil. El SDK conserva la base de ejecución autorizada para el agente externo;
+no hay un agente autónomo desplegado. Las aceptaciones locales de abajo no
+equivalen a aceptación financiera en redes públicas.
+
+## Corte del 12 de octubre
+
+El bloque actual añade reapertura controlada de la composición Mixed completa,
+conciliación de respuesta perdida y cartera conjunta de las conexiones y
+custodias registradas. Conserva Uniswap, Ethereum, Bitcoin y Solana en la misma
+operación, sus pruebas, salidas y permisos originales. La aceptación conjunta
+con cuatro reinicios y veintiuna pruebas terminó correctamente; el APK de ese
+corte está compilado, conservado y verificado. Las evidencias vigentes se registran al
+comienzo de [STATUS.md](STATUS.md).
+
+El cierre de este bloque queda así:
+
+1. **Aceptaciones anteriores conservadas:** tres redes con tres reaperturas;
+   Uniswap y tres redes con cambio y liquidación de cuatro resultados.
+2. **Aceptado:** recorrido mixto completo con cuatro reaperturas, respuesta
+   perdida, cartera 600 → 400 → 0 y el mismo cero después de reabrir.
+3. **Android básico comprobado:** APK instalado, sesión abierta, consulta firmada
+   por TLS, navegación y reconexión en Samsung. Pendiente la operación financiera
+   completa y la cartera con fondos desde ese teléfono.
+
+Los siguientes bloques de producto requieren trabajo nuevo:
+
+- **Continuación y recuperación:** persistir y conciliar ventanas ambiguas de
+  caída abrupta e historia no disponible. La captura/reapertura Mixed y la
+  observación de respuesta perdida tienen alcance controlado y acotado.
+- **Economía y composición:** cotización por activo, límites y responsabilidad
+  ante entregas parciales, remuneración de solvers independientes y uso del
+  ERC20 privado recibido como entrada de otros nodos. Aave/Morpho mantienen
+  recorridos separados hasta integrarse en Paged.
+- **Estado y privacidad:** cubrir custodias sin conexión registrada, conservación
+  coordinada del backend y móvil, y tratamiento de correlaciones/metadatos frente
+  a observadores y operadores comunes. La cartera actual informa de la cobertura
+  registrada y caducidad de cada consulta; no suma monedas distintas.
+- **Salida del entorno local:** comprobar el APK en Android, iOS, perfiles de
+  redes públicas y operadores independientes. Las otras cuatro redes siguen
+  aplazadas por la decisión de centrarse primero en Ethereum, Bitcoin y Solana.
+
+El agente externo lo implementa Rafa. Nuestro trabajo expone la wallet, API,
+SDK, permisos y documentación; no incluye planner o lógica autónoma.
+
+## Corte anterior de implementación del 12 de octubre
+
+El texto de esta sección y las campañas posteriores conserva su alcance
+histórico. Los pendientes vigentes están enumerados en el bloque actual.
+
+Están implementados el guardado cifrado y la reapertura del OWNER con el mismo
+supervisor vivo, la recarga de credenciales del mismo proveedor de tres redes,
+el historial móvil incremental, la autorización explícita de treinta minutos y
+la selección durable de conexiones con consulta DeFi por TLS fijado. El recorrido
+con Ethereum, Bitcoin y Solana terminó aceptado con trece pruebas, reapertura
+tras el primer pago y retirada del cambio. El APK de ese corte pertenece a esa misma
+generación, compilado y retenido sin instalación física. El detalle y la evidencia
+vigente están al comienzo de STATUS; las campañas enumeradas más abajo siguen
+siendo históricas.
+
+Los pendientes de producto que este bloque no cierra son: reinicio total y
+ventanas ambiguas de caída, DeFi dentro del mismo grafo Paged, precios y pago a
+solvers independientes, estado económico global completo, privacidad frente a
+metadatos del sistema, ejecución general de plataforma (`executor:null`),
+operadores independientes y redes públicas, cuatro redes restantes y verificación
+física del último APK. No se han recalculado porcentajes de la visión con pruebas
+de implementación.
+
+## Campaña histórica: avance y próximos pasos de ese corte
 
 El plan conserva los siete objetivos y los requisitos de la visión. STATUS
 explica los cierres funcionales y enlaza el

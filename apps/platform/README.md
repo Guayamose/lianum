@@ -1,7 +1,9 @@
 # API móvil y base de operación
 
 La [composición local actual](docs/LOCAL-COMPOSITION.md) usa una entrada común:
-`./dev platform admission`, `original-native-new` o `original-native-reopen`.
+`./dev platform admission`, `original-native-new`, `original-native-reopen`
+o `paged-native-new`, `paged-native-reopen`, `paged-mixed-new`, `paged-mixed-reopen`
+y `defi-new`.
 El perfil original monta los constructores existentes en el mismo proceso;
 la admisión V1 descrita abajo conserva sus capacidades cerradas por defecto.
 La guía indica dependencias, Docker local, reapertura y diagnóstico sin datos privados.
@@ -11,12 +13,13 @@ conserva sus fuentes antes de financiar y permite reabrirlas desde disco.
 Es una entrada separada del arranque API/SQL descrito aquí; su aceptación
 integrada de caída abrupta y recuperación autónoma sigue pendiente.
 
-Esta aplicación contiene la frontera HTTP para permisos móviles y su registro
-PostgreSQL. La réplica local arranca y permite consultar disponibilidad. El
+El perfil de admisión contiene la frontera HTTP para permisos móviles y su registro
+PostgreSQL. Su réplica local arranca y permite consultar disponibilidad. El
 adaptador económico está **sin vincular** en `src/run.mjs`: no genera notas,
 pruebas ni movimientos. `ACCEPTED` significa permiso admitido; nunca saldo o
-liquidación confirmada. El backend de `packages/backend` sigue siendo una
-integración pendiente, con validación de propietario, keeper y operaciones.
+liquidación confirmada. Vincular esa admisión al backend de `packages/backend`
+sigue pendiente. El perfil Paged nativo siguiente monta su operador original
+y sus tres fuentes locales mediante una entrada separada.
 
 ## Archivos
 
@@ -27,6 +30,9 @@ integración pendiente, con validación de propietario, keeper y operaciones.
 | `src/schema-migrations.mjs` | Versiones, checksums, lock y validación de esquema |
 | `src/migrate.mjs` y `migrations/` | Comando explícito y SQL fijo; sin efectos económicos |
 | `src/run.mjs` | Arranque sin hooks económicos, pool acotado y cierre |
+| `src/paged-native-bootstrap-v3.mjs` y `src/paged-native-configure-v3.mjs` | Paged de tres redes y Mixed con Uniswap: arranque nuevo o reapertura controlada; asistente de identidad pública, interfaz y TLS |
+| `src/device-defi-local-bootstrap-v1.mjs` y `src/device-defi-local-setup-v1.mjs` | Selección explícita de una relación DeFi original, configuración privada y conexión Android propia |
+| `src/run-original-device-paged-native-v3.mjs` | Entrada directa compatible del mismo perfil Paged nativo |
 | `src/database-pool.mjs` | Pool con plazos de espera y errores de transporte propios acotados |
 | `tests/server.test.mjs` | Validación HTTP/criptográfica con persistencia de prueba |
 | `tests/database-pool.test.mjs` | Cliente pg real ante silencio y cierre TCP controlados |
@@ -35,6 +41,211 @@ integración pendiente, con validación de propietario, keeper y operaciones.
 | `Dockerfile` | Runtime público Node/pg; usuario sin privilegios |
 | `compose.local.yml` | Réplica API + PostgreSQL local, sin publicar la base de datos |
 | `scripts/local.mjs` | Arrancar/parar la réplica y crear la credencial local ignorada |
+
+## Usar el ordenador con la app Android
+
+El checkout debe tener su backend y artefactos originales preparados. Los
+arranques comprueban su correspondencia con las fuentes actuales. Necesitan
+una terminal interactiva y `/usr/bin/openssl`; `./dev` usa el Node fijado del
+proyecto. Para el teléfono, usa un APK que incluya el transporte Android con
+TLS fijado al certificado, Android 10 o posterior y biometría fuerte configurada.
+La comprobación completa en un teléfono físico sigue pendiente.
+
+En WSL2, una IP privada de la máquina virtual o de Docker no demuestra acceso
+desde la Wi-Fi del teléfono. USB requiere que el ADB Linux ya vea un teléfono
+autorizado; el proyecto no configura esa asociación en Windows ni ha comprobado
+la conexión en hardware físico. [Conexión y diagnóstico USB](../../docs/USB-MOBILE.md).
+
+1. En la entrada de la app, crea tu wallet o desbloquea la identidad existente.
+   En **Ajustes → Herramientas avanzadas y recuperación**, copia la clave pública
+   seleccionable que empieza por `04`. La clave privada permanece en el teléfono.
+2. Desde la raíz del repositorio, ejecuta en una terminal:
+
+   ```sh
+   ./dev platform paged-native-new
+   ```
+
+   Pega esa clave pública y elige una interfaz privada accesible desde el
+   teléfono. Para USB con ADB, elige `127.0.0.1` y sigue los comandos siguientes;
+   sin ese túnel, loopback sirve sólo dentro del ordenador. El asistente
+   genera la configuración privada y el certificado para esa dirección;
+   no necesitas redactar JSON ni calcular hashes, políticas o plazos.
+3. Espera `ORIGINAL_DEVICE_PAGED_NATIVE_LOCAL_SERVICE_READY`. El proceso indica
+   `.local/device-paged-native-v3/paired-connection.json`. Lleva al teléfono el
+   contenido completo de ese archivo público y cópialo al portapapeles.
+4. En **Operaciones**, pulsa **Importar conexión del ordenador** y comprueba
+   el origen y la huella del certificado que muestra. La app exige la misma
+   identidad pública del teléfono y conserva las autorizaciones originales.
+   Financia la nota desde la app, prepara sus pasos y revisa el recorrido antes
+   de autorizarlo. Un resultado pendiente se consulta como la misma operación.
+
+Mantén esa terminal y sus recursos en marcha durante la vida de las notas.
+Importa sólo `paired-connection.json`: `operator.json` contiene secretos del
+servidor y `paired-descriptor.json` no incluye el certificado del transporte.
+La conexión usa el origen HTTPS elegido, TLS 1.3 y la huella DER del certificado
+original; no necesita confiar globalmente en certificados ni cambiar el origen
+por otra IP. El listener se limita a loopback o a una IPv4 RFC1918 realmente
+asignada al ordenador y elegida expresamente. No se publica en Internet.
+
+### USB opcional
+
+Con un único teléfono USB autorizado en el ADB del SDK de este entorno:
+
+```sh
+/home/rafa_pradillo/Android/Sdk/platform-tools/adb devices -l
+/home/rafa_pradillo/Android/Sdk/platform-tools/adb -d reverse --no-rebind tcp:9443 tcp:9443
+```
+
+Para DeFi, usa `9444` en ambos puertos del segundo comando. Elige `127.0.0.1`
+en el asistente y después importa su `paired-connection.json` como se describe
+arriba. El descriptor conserva su origen HTTPS y certificado original.
+[Diagnóstico y retirada de las reglas propias](../../docs/USB-MOBILE.md).
+
+### Operador Paged con tres redes locales
+
+El perfil monta el operador original Paged y sus fuentes Ethereum, Bitcoin y
+Solana. No financia notas al arrancar ni acepta elegir proveedor, red o runtime
+mediante HTTP. Su autoridad original está limitada a nueve horas; la sesión de
+autorización móvil y los permisos individuales mantienen sus propios plazos.
+
+El asistente conserva `.local/device-paged-native-v3/operator.json` con sus
+siete campos originales: `deployment`, `journal`, `nativeDirectory`, `origin`,
+`devicePublicKey`, `tls` y `host`. Deriva los hashes del manifiesto y del consumer
+preparados, crea la contraseña privada del journal y fija HTTPS al host elegido
+con puerto 9443. No introduce cuentas, destinos, notas ni permisos en el archivo.
+Los directorios privados tienen modo 0700 y los archivos conservados modo 0600,
+sin sobrescribir archivos existentes ni seguir enlaces simbólicos.
+
+Cuando el operador queda listo, publica en esa carpeta:
+
+| Archivo | Contenido |
+| --- | --- |
+| `paired-connection.json` | Perfil público Android `DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3`: descriptor original y certificado público con su SHA256 DER |
+| `paired-descriptor.json` | Emparejamiento original `DEVICE_PAGED_PRIVATE_GRAPH_PAIRING_V3`, conservado para sus consumidores existentes |
+| `capabilities.json` | Tres redes de esta composición, `localOnly:true`, `automaticFunding:false` y capacidad de reapertura controlada declarada por el perfil; no acredita recuperación abrupta ni aceptación económica |
+| `startup.json` | Marca retenida del intento, escrita antes de crear los recursos económicos |
+
+**Ámbito LOCAL:** las redes son fuentes `LOCAL_SYNTHETIC`, con un operador
+común 3 de 4. No acreditan consenso público ni operadores independientes.
+El recorrido **Cold13 está aceptado con custodia software en el ordenador**:
+trece pruebas, tres pagos nativos, FULFILLED y retirada del cambio de 300
+unidades demo. Hubo tres reaperturas en cuatro procesos backend distintos,
+conservando descriptor y ledgers, sin repetir pruebas ni envíos; todos los
+recursos cerraron. Las evidencias originales están en [STATUS.md](../../STATUS.md).
+
+El código ofrece `./dev platform paged-native-reopen` para el mismo estado
+privado después de una captura ordenada y completa. La aceptación anterior
+prueba las funciones originales de reapertura mediante su driver; no acredita
+una ejecución independiente de ese CLI ni recuperación después de una caída
+abrupta o captura incompleta. Una copia cifrada móvil tampoco sustituye los
+journals del backend. `original-native-reopen` pertenece a otro recorrido.
+
+El comando `paged-native-new` exige primer arranque. Si existen la marca de
+arranque, el emparejamiento, las capacidades, `authority` o `native`, rechaza
+arrancar con
+`PAGED_NATIVE_RETAINED_STATE_NO_ECONOMIC_REOPEN`. Un asistente interrumpido que
+haya creado su carpeta también conserva ese intento y rechaza sustituirlo.
+No borres estado retenido para forzar un arranque nuevo. Estos recursos quedan
+fuera de la limpieza automática.
+
+### Operación Paged mixta con Uniswap
+
+Desde la raíz del repositorio, en una terminal interactiva:
+
+```sh
+./dev platform paged-mixed-new
+```
+
+El asistente solicita la **clave pública** del teléfono de
+**Ajustes → Herramientas avanzadas y recuperación**
+y una interfaz privada del ordenador; no solicita su clave privada. Genera
+la configuración y TLS en el realm separado
+`.local/device-paged-mixed-product-v3`, sin adoptar ni reemplazar el estado del
+perfil nativo o de los intentos financieros. Usa HTTPS en el puerto **9445**
+para Paged y **9446** para la recepción Uniswap original. Ambos listeners usan
+el mismo certificado público, comprobado por origen y huella DER con TLS 1.3.
+Para USB, los túneles opcionales deben corresponder a esos dos puertos.
+
+Espera `ORIGINAL_DEVICE_PAGED_MIXED_LOCAL_SERVICE_READY` e importa en
+**Operaciones** el contenido público de
+`.local/device-paged-mixed-product-v3/paired-connection.json`. El pairing de la
+API contiene las tres redes y la conexión de destino Uniswap original, con su
+plantilla local: entrada máxima **200** y salida exacta **100**, expresadas en
+unidades mínimas de sus respectivos tokens. La app muestra sus activos,
+precisión y destinatario original antes de autorizar; estos valores no son una
+cotización de mercado ni el presupuesto de la nota Paged.
+
+El recorrido implementado añade Uniswap como nodo de la **misma operación
+Paged** que los pagos Ethereum, Bitcoin y Solana. Prepara la recepción D27 y
+exige guardar y verificar su copia cifrada antes de incorporar el nodo. El
+token recibido conserva su **custodia ERC20 ExternalFlat independiente**: no
+se convierte en saldo de la nota Paged ni en entrada privada reutilizable por
+otro nodo. Aave y Morpho siguen en sus relaciones ExternalFlat separadas.
+
+El arranque no financia notas automáticamente ni acepta programación,
+factories, proveedores o runtimes elegidos por un caller HTTP. El primer
+arranque escribe archivos exclusivos; si ya hay configuración o estado
+retenido, lo conserva y rechaza sustituirlo. No borres esa carpeta para forzar
+un arranque. El cierre ordenado captura los cinco runtimes, las autoridades,
+el proveedor y Uniswap en el supervisor original. Tras una captura completa:
+
+```sh
+./dev platform paged-mixed-reopen
+```
+
+La reapertura conserva el mismo directorio privado, ledgers, contratos,
+identidad, TLS, D27 y custodia del token. Exige la retención autenticada creada
+al nacer el entorno; rechaza capturas incompletas y entornos antiguos que no la
+tengan. No sustituye un entorno retenido ni recupera cualquier caída abrupta.
+
+**Mixed21 está aceptado en entorno LOCAL con custodia software en el
+ordenador:** Uniswap y los tres pagos nativos, recepción D27 conciliada por
+su observador original, veintiuna pruebas, FULFILLED, cambio de 200 unidades
+demo y cuatro retiradas de 100 al beneficiario original del proveedor. Los
+recursos originales cerraron. El presupuesto y los pagos al proveedor conservan
+sus unidades demo; las cantidades nativas y comisiones se presentan por activo,
+sin equivalencia monetaria ni beneficio calculado. Las evidencias están en
+[STATUS.md](../../STATUS.md). Esta aceptación anterior no incluye reapertura
+Mixed; el nuevo recorrido con cuatro reinicios y cartera se acredita por
+separado. Ninguno acredita teléfono físico, redes públicas u operadores independientes.
+
+### Una relación DeFi original
+
+En otra terminal, desde la misma raíz:
+
+```sh
+./dev platform defi-new
+```
+
+Elige **una** relación: Uniswap, Aave o MetaMorpho. El asistente solicita la
+misma clave pública del teléfono, una interfaz privada y un límite explícito
+en tokens locales, con hasta seis decimales. Usa PALT para Uniswap/MetaMorpho
+y USDC para Aave; son activos de ejemplo de esta composición, sin valor real.
+Prepara las allowances exactas de infraestructura del operador original y
+mantiene la financiación de la nota como una acción autorizada aparte.
+
+Espera `ORIGINAL_DEVICE_EXTERNAL_FLAT_LOCAL_READY`. El proceso imprime la ruta
+exacta de su propio `paired-connection.json`, dentro del directorio original
+de esa relación. Copia su contenido público al teléfono y, en **DeFi**, pulsa
+**Importar conexión DeFi del ordenador**. El perfil
+`DEVICE_EXTERNAL_FLAT_CONNECTION_V1` incluye la pareja source/target original
+y su certificado público; no contiene claves privadas. Su HTTPS usa la interfaz
+elegida con puerto 9444, distinto del operador Paged.
+
+La pantalla guía financiación, recepción de destino, reserva, ejecución,
+consulta de respuestas perdidas y retiradas; Aave/MetaMorpho conservan además
+su redención original. Cada operación requiere su revisión y permisos propios.
+Una cotización o consulta no equivale a ejecución ni a fondos disponibles.
+
+DeFi usa las relaciones **ExternalFlat** existentes, sus pools y notas propios.
+Este perfil no convierte sus relaciones en nodos Paged ni mueve fondos entre
+esas familias; la composición Uniswap Paged se inicia con `paged-mixed-new`,
+descrita arriba. El selector abre sólo la relación elegida y no
+financia notas automáticamente. Conserva también este proceso: `defi-new` es
+una entrada nueva, no una reapertura económica automática. Si encuentra estado
+original retenido, lo preserva y exige el recorrido original de observación o
+recuperación; no lo reemplaza por una cuenta nueva. El control TLS de Android
+admite exclusivamente las rutas móviles originales de esa relación.
 
 ## Preparar y arrancar localmente
 

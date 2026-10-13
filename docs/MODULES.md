@@ -86,6 +86,86 @@ para sustituirlos en la instancia real. El journal conserva AEAD, CAS, tokens
 de un uso y sus registros privados. Las pruebas comprueban que otra instancia,
 incluso con un proceso local real, no obtiene autoridad del singleton original.
 
+## Interfaces Paged compartidas
+
+Estas entradas de `@lianum/mobile-protocol` conservan implementación y tipos
+compartidos para móvil y SDK:
+
+| Entrada | Interfaz | Responsabilidad |
+| --- | --- | --- |
+| `device/paged-operation-runner-v3` | `runDevicePagedOperationV3({command, isUnconfirmedReply, onProgress, onActivity, signal, maxCommands})` | Pide `NEXT_COMMAND` y consume el siguiente comando original; informa finalización, espera o resultado adverso. El puerto acepta la respuesta SDK en custodia antes de devolver su copia privada; el clasificador sólo identifica errores de esa misma instancia SDK. |
+| `device/paged-economic-view-v3` | `normalizeDevicePagedEconomicRequestV3`, `normalizeDevicePagedEconomicViewV3` | Valida DATA de costes, beneficiario, salidas y ledger. Sus tipos incluyen `DevicePagedEconomicViewV3` y `DevicePagedEconomicLedgerV3`; no emite una marca SDK ni un permiso. |
+| `device/paged-payout-settlement-v3` | `runDevicePagedPayoutSettlementV3({plan, command, readState, readOutputs, prepareWithdrawal, approve, onProgress, signal})` | Tras la retirada del cambio, compone W39 originales y comprueba por salida NF, destinatario, importe y conservación del ledger. Los costes nativos quedan separados de los pagos en unidades de la nota. |
+| `device/paged-wallet-portfolio-v3` | `normalizeDevicePagedPortfolioRequestV3`, `normalizeDevicePagedWalletPortfolioV3` | Valida DATA de salidas, emisión, gasto y reserva del mismo bloque; no emite permisos ni autoridad SDK. |
+
+Estos codecs y helpers no importan backend ni poseen RPC, claves, custodia o
+capacidad de envío. Los puertos suministrados por la composición autorizada
+mantienen las firmas, permisos frescos y aceptación originales; un callback o
+un plan normalizado no sustituye esas fronteras.
+
+El runner recupera una respuesta de estado caducada, adelantada o identificada
+como perdida por esa misma instancia del SDK mediante un máximo de dos
+`OBSERVE_GRAPH` y una nueva planificación con `NEXT_COMMAND`.
+No repite a ciegas la prueba, el efecto ni el envío nativo que perdió respuesta;
+las demás guardas de consentimiento y caducidad conservan sus errores originales.
+
+`READ_PORTFOLIO` compone un canal cifrado de sólo lectura con la autoridad de
+notas original. Une el mismo bloque, grafo, ROOT y revisión con los CM/NF/valores
+de SOURCE, CHANGE, RECOVERY y PAYOUT abiertos por el Vault del dispositivo. Una
+salida PAYOUT emitida exige tanto la entrega MINED original del proveedor como
+la inclusión en la raíz de salidas aceptada. No genera pruebas, firmas nativas
+ni retiradas, y conserva el permiso original de quince segundos.
+
+El actor móvil agrupa DATA verificada por activo, dominio, contrato, política,
+unidad y precisión. Excluye duplicados, salidas no emitidas y valoraciones de
+subyacente; informa de cobertura sólo de las conexiones y custodias registradas.
+Su ventana de observación conserva el corte original al cerrar un transporte,
+pero caduca a los quince segundos y se revoca al escribir la custodia. Esa DATA
+no conserva autorizaciones ni constituye permiso de gasto.
+
+Mixed añade una composición de retención autenticada de cinco runtimes y
+cuatro componentes. Uniswap captura su fixture original de cinco contratos,
+router, autoridad privada D27 y configuración, con formato y tokens propios.
+La composición Native de siete tokens y el fixture histórico de siete
+contratos conservan sus formatos. La captura requiere ambos listeners drenados,
+proveedor quieto y lecturas canónicas; la reapertura sólo admite tokens originales
+del mismo supervisor y mantiene los mismos ledgers y journals. Es cierre ordenado.
+
+`READ_ECONOMIC_SETTLEMENT` sólo se admite con grafo FULFILLED, sin trabajo ni
+pendiente. El backend lo entrega cifrado por
+[`createDevicePagedNativeEconomicChannelV3`](../packages/backend/src/operations/local/device-paged-native-economic-channel-v3.mjs),
+con un lector privado enlazado al proveedor y a la autoridad originales. Ese
+callback consulta hechos y ledger en la misma cabeza del status; no prueba,
+firma ni ejecuta una retirada.
+
+El móvil obtiene `graphEconomicRequest()` y `graphEconomicReview(reply)` desde
+su [Vault original](../apps/mobile/src/custody/device-paged-note-vault-v3.ts).
+La revisión exige respuesta Original SDK y une descriptor, ROOT, revisión,
+grafo, raíz de autorización, CM, valor, NF y beneficiario con su propia custodia.
+El historial confirmado comprueba el destinatario de las salidas retiradas.
+[`wallet-session-v1.ts`](../apps/mobile/src/custody/wallet-session-v1.ts) emite
+`approveWalletSessionPagedSettlementV3(review, signal)` tras aprobación fuerte;
+`walletSessionPagedSettlementLeafV3(parent, id)` limita cada hoja a su salida,
+y `closeWalletSessionPagedSettlementV3(parent)` la revoca. El alcance máximo es
+30 minutos en primer plano; cada comando conserva su permiso de 15 segundos.
+
+La salida Uniswap conserva su D27 y su custodia ExternalFlat independiente.
+[`observeDeviceExternalFlatReceptionV1`](../apps/mobile/src/api/device-external-flat-reception-observer-v1.mjs)
+compone el SDK y el Vault originales para una sola `OBSERVE_D27` de la misma
+recepción en `DELIVERY_UNKNOWN`, seguida de STATUS fresco. Comprueba descriptor,
+trabajo, ROOT, statement y hashes de prueba; no modifica una preparación PROVED,
+genera pruebas ni envía fondos. El resultado Paged abre el perfil de destino
+exacto después de drenar su transporte y exige la custodia ya existente. La
+cartera publica la lectura original de ese token; la terminación del grafo y el
+registro público de conexiones no acreditan saldo disponible ni permiso de gasto.
+
+Los agentes externos sólo pueden consumir un puerto autorizado de ese mismo
+recorrido. DTOs, perfiles públicos, semillas, plantillas y ciphertexts no se
+convierten en grants ni permiten reconstruir tokens. El `executor:null` de
+[`apps/platform/src/run.mjs`](../apps/platform/src/run.mjs) pertenece al perfil
+de admisión V1 TOP_UP/EXIT, distinto del executor Paged ligado a su cuenta
+original. Esta sección describe interfaces, no acredita aceptación financiera.
+
 ## Comprobación y deuda pendiente
 
 ```sh

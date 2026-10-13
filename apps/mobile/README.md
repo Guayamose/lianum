@@ -1,37 +1,329 @@
 # Wallet móvil
 
-Aplicación **nativa React Native/Expo para Android e iOS**, con custodia local,
-consentimientos por acción y conexiones HTTPS explícitas. Los recorridos
-financieros originales están aceptados en laboratorio Node/TLS; el uso
-financiero en teléfono y las siete redes completas siguen pendientes.
+Aplicación **React Native/Expo con entrega Android**, custodia local,
+conexiones HTTPS explícitas y permisos firmados en los dominios originales.
+La pantalla **Cartera** usa Ethereum, Bitcoin y Solana mainnet mediante la API
+`https://api.lianum.oryontechnology.com`; genera o restaura las direcciones y
+firma en el móvil. No necesita el ordenador para consultar saldos. Direcciones,
+QR y consultas están comprobados en Android; el primer envío real sigue pendiente.
+MoonPay permanece desactivado hasta configurar la cuenta del proveedor.
 
-La app abre **Estado privado**. Reúne sólo lecturas autorizadas de las cuentas,
-notas y posiciones conectadas, separadas por activo, dominio, raíz y generación.
-No suma redes ni convierte una participación o su valoración en saldo gastable.
-UNKNOWN, STALE, un servicio no conectado y una lectura caducada muestran
-**No disponible**, conservando las operaciones pendientes.
+Las cuentas privadas PAEG y DeFi conservan **ledgers locales** y conexiones
+separadas. Su recorrido financiero completo en Android y su publicación en
+redes reales siguen pendientes. Las instrucciones de conexión al ordenador
+de esta guía pertenecen a ese recorrido privado.
+La [APK vigente y la evidencia de cada generación](../../STATUS.md) se registran
+en STATUS; los artefactos anteriores descritos aquí son históricos.
 
-- **Cuenta vinculada:** consultar o reconciliar una petición original; leer el
-  saldo de una cuenta y pool con un permiso de lectura específico.
-- **Financiar nota:** conservar la misma nota fuente D26, reservarla y consultar
-  por separado los outputs de cambio y recuperación; ejecutar, reconciliar o
-  retirar con sus permisos originales. La recuperación automática se activa
-  o desactiva con consentimiento fresco y conserva el plazo económico original.
-- **Nota ERC20:** crear la nota propia antes de financiar, depositar y retirar
-  la fuente íntegra con D26/W39. Una respuesta perdida se observa sobre el
-  mismo trabajo, sin reenvío automático.
-- **Posiciones DeFi:** revelar y leer posiciones del backend vinculado con dos
-  permisos propios. Esta consulta no adopta su custodia ni autoriza gasto móvil.
-- **Custodia local:** preparar y respaldar la raíz cifrada. Una preparación
-  local `UNISSUED` o una firma todavía no representan fondos ni saldo.
-- **Cartera:** conserva el outbox de admisiones legado descrito más abajo;
-  su aceptación HTTP/SQL se presenta separada del estado financiero original.
+La app abre **Cartera**. La cartera de la demo sólo incorpora lecturas autorizadas y separa cantidades
+por activo, dominio, raíz y generación. No suma ETH, BTC, SOL, notas o
+participaciones como si fueran una sola moneda. UNKNOWN, STALE y una lectura
+caducada muestran **Saldo por consultar**. El último importe confirmado conserva
+su hora y se identifica como histórico, sin presentarse como disponible actual.
+Los trabajos pendientes permanecen en sus custodias originales.
 
-La raíz y las claves de nota permanecen locales. El usuario protege su respaldo;
-la apertura consentida llega al worker original para la prueba. Editar, ocultar
-la pantalla o pasar a segundo plano revoca los permisos pendientes y la frescura
-visible. El APK actualizado está compilado y archivado con el contrato de ambos
-outputs bloqueados. La instalación y operación física quedan para el final.
+La navegación principal contiene **Cartera**, **Demo privada**, **DeFi demo** y
+**Actividad demo**, con **Ajustes** en la cabecera. Dentro de DeFi, **Mis inversiones** abre los activos recibidos
+y las cuentas vinculadas. **Ajustes → Herramientas avanzadas y recuperación**
+conserva las conexiones y recuperaciones anteriores.
+
+## Conectar el teléfono al ordenador
+
+1. En la entrada, pulsa **Crear mi wallet** o desbloquea la identidad existente.
+   Su clave pública aparece en **Ajustes → Herramientas avanzadas y recuperación**;
+   cópiala para vincular el servidor con esta misma wallet.
+2. Ejecuta `./dev platform paged-native-new` en el ordenador. Pega esa clave y
+   elige una dirección accesible desde el teléfono; el asistente prepara TLS y
+   los archivos del servidor.
+3. Copia al teléfono el contenido público de
+   `paired-connection.json` de la ruta que imprime el asistente y pulsa
+   **Importar conexión del ordenador** en **Operaciones**. Comprueba el origen
+   y la huella del certificado que muestra la app.
+4. Mantén el servidor abierto mientras utilizas sus notas. Para DeFi, ejecuta
+   `./dev platform defi-new` en otra terminal e importa su conexión propia
+   en la pestaña **DeFi**.
+
+El transporte local incluido en el APK exige Android 10 o posterior y biometría
+fuerte configurada. En WSL, una IP privada del proceso puede no ser accesible por
+Wi-Fi: la [guía del servidor](../platform/README.md) incluye la alternativa USB
+con ADB para los puertos de los perfiles seleccionados. Sólo el perfil público
+se lleva al teléfono; `operator.json` contiene la configuración privada del servidor.
+
+## Operaciones PAEG desde la app
+
+1. Conecta el paquete original de la wallet y consulta su estado.
+2. Ingresa fondos en la nota. La app prepara D26 y solicita su financiación
+   original sin pedir comandos técnicos.
+3. Define presupuesto y plazos. Añade pagos con red, dirección, importe y pasos
+   anteriores que deben completarse. Guarda los pagos y revisa la operación.
+4. Pulsa **Autorizar y ejecutar la operación**. La app firma las páginas y utiliza
+   el mismo runner del SDK para reservar, comprobar dependencias, enviar,
+   admitir recibos, guardar resultados y liquidar.
+5. Consulta el avance y retira las salidas disponibles mediante su autorización
+   propia. Si una red tiene una confirmación pendiente, **Continuar ejecución**
+   consulta el mismo envío; una respuesta perdida exige observar su trabajo.
+
+El formulario convierte texto decimal a unidades mínimas con aritmética exacta:
+ETH a wei, BTC a satoshis y SOL a lamports. El importe nativo de cada pago se
+mantiene separado de la **reserva del paso en unidades de la nota**. No se
+inventa un precio de conversión entre ambos. La conexión ofrece destinos rápidos
+y permite una dirección libre validada por el runtime correspondiente.
+
+Las tres conexiones actuales son **Ethereum local**, **Bitcoin regtest** y
+**Solana local**. Bitcoin admite destinos regtest P2WPKH `bcrt1…`; Ethereum
+comprueba un destinatario EOA y Solana valida su dirección y las condiciones
+del destino. Sus importes, límites, comisiones y finalidades se comprueban en
+cada runtime. El formulario no presenta una estimación de comisión que el
+proveedor no haya entregado.
+
+El runner compartido está en
+[`mobile-protocol/device-paged-operation-runner-v3.mjs`](../../packages/mobile-protocol/src/device-paged-operation-runner-v3.mjs);
+la entrada de `src/api/` reexporta esa misma implementación.
+Pide `NEXT_COMMAND` por el canal privado y ejecuta el siguiente comando original.
+El motor genera los índices, dependencias, testigos, recibos y salud del quórum;
+la app no exige pegarlos como JSON. El runner recibe un puerto autenticado y delega firmas, pruebas y llamadas RPC
+en sus implementaciones originales. La confirmación
+pendiente o un resultado adverso detienen el avance automático.
+
+## Artefacto histórico de sesión e interfaz
+
+Este apartado describe únicamente el corte anterior; no acredita las funciones
+nuevas ni su instalación. Consulta [STATUS](../../STATUS.md) para la APK vigente.
+
+[APK histórico 5b61f259](../../.local/mobile/artifacts/android-standalone-5b61f259-ef9a-4ea0-8c27-3d79e65b1c12/app-release.apk), instalado por actualización sin
+borrar datos. SHA256 `9970a7af0fe0666c55b95b2b855e352b1d1fd98d4f7bce995b10aeb63a1385e9`;
+43.779.779 bytes; generación
+`bb71fdb0a09c7768c98b60706f38bacbef9c8a32b87f677fc7105a92f399db40`.
+[Verificación de empaquetado](../../.local/mobile/artifacts/android-standalone-5b61f259-ef9a-4ea0-8c27-3d79e65b1c12/native-transport-verification.json):
+los quince archivos principales de sesión/UI coinciden con el bundle instalado,
+Hermes sin Metro, ARM64/x86_64 y certificado Debug original.
+En ese corte pasaron TypeScript y quince comprobaciones focales de sesión/custodia.
+Su UI se observó en el Samsung. La migración de la custodia existente exige
+una huella inicial adicional; no se enviaron pagos durante aquella actualización.
+
+## Entrada y navegación
+
+Cartera, Operaciones, DeFi y Ajustes forman la navegación principal. La entrada
+abre una sesión mediante una lectura biométrica de la identidad. Consultas y
+preparaciones usan esa sesión; no generan autorizaciones financieras por sí
+mismas. La sesión se bloquea al pasar a segundo plano, tras quince minutos sin
+interacción o a los treinta minutos de su apertura.
+
+Los ROOT existentes conservan su entrada autenticada. Una primera lectura de
+migración crea un sobre AES-GCM ligado a la identidad y al namespace exacto;
+puede pedir una huella adicional una sola vez por custodia existente. Después,
+el sobre se abre con la clave de sesión. Al bloquear, los buffers mutables se
+borran y las continuaciones de los Vaults quedan revocadas.
+
+Los importes, destinos y redes se revisan antes de autorizar el movimiento.
+La conexión pública de Operaciones se conserva y se consulta automáticamente
+mientras está activa. Las consultas automáticas se pausan al editar pagos en
+BUILDING; cambiar manualmente de conexión tiene prioridad sobre el polling.
+Cambiar entre Cartera y Operaciones mantiene esa conexión;
+cambiar a DeFi espera al cierre del transporte anterior. Los datos técnicos y
+las copias de recuperación quedan en tarjetas plegadas.
+
+## Autorización de una operación
+
+La revisión económica muestra pagos, destinatarios, reservas y plazos antes de
+abrir una autorización de **hasta 30 minutos con la app en primer plano**. Una
+huella sensible confirma esa operación y renueva la entrada porque es una
+autenticación nueva. Los comandos de ese grafo cuentan como actividad para el
+límite de quince minutos de inactividad; no amplían el máximo de treinta minutos.
+La autorización queda ligada al descriptor, raíz de custodia, ID del grafo, raíz de autorización
+y nullifier de reserva originales; no concede acceso a otro grafo o proveedor.
+
+Durante la sesión, cada comando obtiene y firma un **permiso original nuevo de
+15 segundos**. Se vuelven a comprobar su alcance y la vigencia antes de firmar;
+la sesión no conserva permisos reutilizables ni sustituye las firmas de las
+notas, las pruebas o la aceptación en cadena. **Depósitos, retiros y DeFi quedan
+fuera de esta autorización de ejecución** y mantienen sus permisos específicos.
+
+La autorización de ejecución y su copia de clave viven sólo en memoria. **Pausar ejecución**,
+la cancelación, el cierre, pasar a segundo plano o el vencimiento borran los
+buffers mutables y revocan la sesión. Los pagos ya enviados conservan sus IDs y
+su estado para consultar; pausar la app no deshace una transferencia en otra red.
+
+La copia cifrada conserva identidad, páginas y aperturas ya creadas. Se necesita
+una copia nueva tras preparar nuevas páginas; una copia antigua no contiene las
+claves posteriores. Restaurar requiere la misma identidad y lecturas originales
+antes de nuevos efectos. Una preparación local o una firma todavía no representan
+fondos disponibles.
+
+## Costes y pago al proveedor
+
+Cuando el grafo está FULFILLED, **Consultar costes y pagos** muestra los hechos
+originales de cada red y el reparto de la nota. Las comisiones se muestran por
+activo y unidad; un coste desconocido permanece sin dato confirmado. No se
+calcula un precio de mercado ni se convierte gas, ETH, BTC, SOL o tokens en
+unidades demo.
+
+Retira primero el **Saldo restante** mediante su autorización propia. Después,
+**Autorizar pagos al proveedor** revisa el beneficiario original y las salidas
+exactas. Una aprobación biométrica específica permite completar esos pagos,
+hasta treinta minutos en primer plano: en el recorrido mixto son cuatro salidas.
+Cada W39 mantiene su firma de nota y un permiso nuevo de quince segundos. La
+app usa el mismo helper del SDK y comprueba cada cobro y la conservación de las
+unidades demo; las notas siguen bajo custodia del propietario hasta retirarlas.
+Esto no demuestra cobro autónomo de un solver ni beneficio de mercado.
+
+Una salida retirada a otra dirección no cuenta como cobro del proveedor. Si
+falta su confirmación original, el pago permanece bloqueado. Cancelar, cerrar
+la custodia, bloquear, salir al fondo o vencer la autorización revoca las hojas
+pendientes; los envíos confirmados conservan su historial.
+
+## Cartera por conexión
+
+Al completar una operación que incluye Uniswap, **Consultar token recibido en
+Uniswap** abre la conexión y custodia ERC20 originales de ese paso. Comprueba
+trabajo, raíz y compromiso; conserva la nota existente. Al consultar una
+recepción D27 en DELIVERY_UNKNOWN, la app pide una observación original y vuelve
+a leer el estado. Esa consulta no repite el intercambio ni su prueba y mantiene
+intacta una recepción todavía PROVED. Si falta la confirmación, conserva el
+estado pendiente. El grafo completado no convierte por sí solo ese token en
+saldo disponible ni autoriza retirarlo; se necesita la lectura de su custodia
+propia y una autorización de retirada separada.
+
+Al entrar se consultan secuencialmente las conexiones registradas y sus rutas
+originales. **Cartera** agrupa sus fondos por activo y unidad, separa disponible,
+reservado y ligado a operaciones, y cuenta una sola vez la misma nota o posición.
+La consulta cifrada Paged incluye fuente, cambio, recuperación y resultados con
+su estado real de emisión y gasto. La cartera indica cuántas consultas siguen
+vigentes; abrir una fila selecciona su conexión y custodia exactas. No convierte
+monedas o participaciones a un total común ni cubre custodias sin registrar.
+
+Un saldo LIVE requiere su lectura original vigente. Cambiar de pantalla y
+cerrar el transporte conserva la DATA de la consulta durante su vigencia
+original de quince segundos. Al caducar, cambiar la custodia o quedar pendiente,
+el importe anterior se muestra como histórico y la acción necesita consultar
+de nuevo. La actualización automática del grafo vuelve a consultar sus salidas.
+Una posición retenida por el servicio
+conserva custodia BACKEND; una nota del dispositivo conserva custodia DEVICE.
+Las estimaciones de subyacente no son fondos gastables. Con el servidor apagado
+se pueden conservar conexiones y copias, pero no obtener disponibilidad actual.
+
+## Copia conjunta y recuperación desde bloqueo
+
+**Ajustes → Copia y recuperación conjunta** conserva la identidad, las conexiones
+públicas y las custodias Paged y DeFi registradas. Guarda la copia y su contraseña
+por separado, y crea otra copia después de nuevas páginas, notas o trabajos.
+Las custodias antiguas sin conexión registrada y los journals del servicio
+requieren sus copias específicas.
+
+La entrada mantiene **Restaurar mi copia conjunta** disponible aunque falle el
+login o la sesión esté LOCKED. Introduce la copia completa y su contraseña,
+revisa la identidad y pulsa **Comprobar y restaurar**. El paquete y cada corte
+conservan autenticación AEAD, identidad, namespace, revisión y CAS originales;
+una identidad o una custodia distinta no se sobrescriben.
+
+La recuperación desde LOCKED usa una aprobación biométrica específica y un
+token privado de un uso, ligado al paquete, identidad y señal de cancelación,
+con un máximo de sesenta segundos y revocación al cambiar la época de sesión o
+pasar a segundo plano. Después de instalar la misma identidad, la entrada se
+abre mediante su lectura protegida normal y se restauran las custodias. Puede
+pedir la huella de recuperación, la de entrada y las autenticaciones originales
+que necesite cada custodia. No se abre una sesión ni se autoriza dinero mediante
+un snapshot de datos.
+
+Restaurar la copia no confirma saldos, reconstruye permisos ni recupera journals
+externos. Antes de mover fondos se requieren el servicio original, su estado
+conservado y nuevas lecturas originales.
+
+## Acciones DeFi y posiciones
+
+**DeFi** reconoce las conexiones originales de nota ERC20, Uniswap, Aave,
+Morpho Blue y MetaMorpho. Su recorrido guiado muestra el siguiente paso para
+financiar, reservar, convertir, confirmar y consultar o retirar sus resultados,
+con los permisos y salidas de cada protocolo. Desde Operaciones se accede a DeFi
+y desde **Ver mis posiciones** se vuelve a sus acciones.
+
+La consulta de posiciones y las acciones de gasto tienen autorizaciones distintas.
+Las participaciones, su valoración y los fondos reservados no se convierten en
+saldo disponible. Estas acciones utilizan sus relaciones originales ExternalFlat:
+la navegación común **no las convierte en admisiones nativas del grafo Paged**.
+La preparación opcional de Uniswap local como nodo Paged utiliza D27 original y
+exige verificar su copia ERC20 antes de añadirlo. Su salida conserva custodia
+propia; no financia automáticamente otros nodos. La aceptación de cada recorrido
+mixto se acredita por separado en [STATUS](../../STATUS.md). Otros protocolos
+DeFi y los resultados SPL conservan sus límites de integración específicos.
+
+## Alcance actual
+
+TypeScript y las comprobaciones HOST usan SDK, firmas, AEAD y custodia originales,
+con fronteras Expo y de cadena declaradas cuando están simuladas. La comprobación
+focalizada de sesión rechaza otro grafo, retiradas y permisos caducados; verifica
+una firma fresca sin repetir biometría o lecturas de claves y la revocación tras
+segundo plano/cierre. Estas comprobaciones no acreditan aislamiento de hardware,
+biometría física ni operación en redes públicas.
+
+La aceptación financiera conjunta, recuperación y artefactos actuales se
+registran en [STATUS.md](../../STATUS.md). El bloque nuevo incorpora reapertura
+Mixed, conciliación de respuesta perdida y cartera registrada conjunta; su
+recorrido económico completó cuatro reinicios, veintiuna pruebas, las cuatro
+entregas y liquidaciones, con cartera 600 → 400 → 0 y token Uniswap separado.
+El APK de ese corte está compilado, conservado y verificado. La comprobación
+corta en Samsung pasó: sesión, importación, TLS, consulta firmada, navegación
+y reconexión. La operación financiera completa y cartera con fondos desde
+ese teléfono siguen pendientes. Incluye 61 módulos comprobados contra el mapa de fuentes
+y 203 inputs sin cambios durante la compilación. El transporte Android tiene
+verificación de empaquetado propia, sin atribuirle aceptación financiera HOST.
+El recorrido mixto anterior de la generación
+`8eab00d36eaa9602a20dfd572d0d95228817df1061a0fad4145a346f9c48bfc2`
+completó los cuatro pasos en el ordenador, con veinte pruebas Paged, una D27 y
+las liquidaciones originales. Se utilizó el SDK con custodia de software HOST;
+esta aceptación no acredita biometría o ejecución física de la nueva APK, iOS
+ni reapertura en frío del perfil Mixed. Su APK anterior está conservado;
+la verificación de empaquetado de cada corte se registra por separado en STATUS.
+
+Un recorrido financiero **histórico** de
+las tres redes terminó con trece pruebas originales, finalidad de las tres
+entregas, grafo FULFILLED y retirada de 300 unidades de cambio. Se usaron los
+mismos SDK y ejecutor móvil con custodia de software en Node; la operación
+completa de este bloque en teléfono físico permanece pendiente.
+
+## Histórico del primer ingreso físico
+
+Este corte anterior conserva su evidencia y no acredita la nueva liquidación,
+cartera ni recuperación desde LOCKED.
+
+El [APK histórico conservado](../../.local/mobile/artifacts/android-standalone-f2678a40-c90b-4691-ab5c-6c15376250f7/app-release.apk)
+está compilado, verificado e instalado en Samsung: **43.650.119 bytes**, SHA-256
+`7243b9c175dd1a467f937123a9764a8ca2af5be66017f3d3cf263260eac9ec76`.
+Generación de fuentes:
+`0e41709b86803f3a6369a47d54da471edaa7bac0b9f56bf4b3727067cd446dbd`.
+Las entradas de fuentes coinciden antes y después. El build terminó en
+**unos 53 segundos**. Incluye JavaScript/Hermes sin Metro, ARM64, x86_64 y el mismo
+firmante Android Debug. Se conservan el [informe de compilación](../../.local/mobile/artifacts/android-standalone-f2678a40-c90b-4691-ab5c-6c15376250f7/build-report.json),
+el bundle, su mapa y la [verificación del empaquetado](../../.local/mobile/artifacts/android-standalone-f2678a40-c90b-4691-ab5c-6c15376250f7/native-transport-verification.json).
+
+Mantiene la corrección de ciphertext base64 a bytes para AES nativo y el préstamo
+de raíz sólo para lectura del mismo namespace, con su AbortSignal y un máximo de
+60 segundos; se borra al terminar, cancelar, cerrar o vencer. La corrección de ese corte
+separa el epoch real de los mensajes de la caducidad monotónica local. Conserva
+los permisos de 15 segundos y el adelanto máximo de 3 segundos; la sesión de
+lectura no guarda la clave de firma del propietario.
+
+**Continuar ingreso preparado** recupera la misma nota, apertura, importe y
+trabajo después de una lectura original que confirme ausencia de prueba. Una
+época vencida sólo renueva época y firma D26, junto con sus hashes. Depósito,
+financiación y comandos del grafo guardan el pendiente antes del challenge y
+validan un token privado de un uso después de firmar, sin abrir ROOT otra vez.
+Seleccionar red, destino o dependencias no provoca refrescos protegidos.
+La recuperación pasó cuatro comprobaciones focales/HOST en 19,44 segundos;
+En ese corte pasaron TypeScript y límites. Ese APK añadió diagnóstico por fase y código
+acotados, sin datos privados.
+
+Android aceptó la actualización conservando identidad, namespace y operador;
+el hash instalado está verificado. En el Samsung se confirmaron la [prueba D26
+original](../../.internal/runtime/omnichain-product/evidence/paeg-proof-attempts/8a623959-4419-455c-bc51-dd622002fa7c.json),
+la financiación con una autorización nueva y la lectura posterior de **600
+unidades disponibles**. El [checkpoint físico](../../.local/mobile/device-android-937ced9c-3e2a-41a6-9978-fd27044c8bc9/funded-physical-paged-f267-v1.json)
+acredita ese ingreso en el operador común local. El grafo de tres redes, las
+retiradas y DeFi desde el teléfono siguen pendientes. La importación y el READ
+anteriores, realizados con `9af3816e`, conservan su [evidencia propia](../../.local/mobile/device-android-937ced9c-3e2a-41a6-9978-fd27044c8bc9/paired-signed-read-wall-clock.json).
+El [diagnóstico del reloj de WSL](../../docs/USB-MOBILE.md#comprobación-física-realizada),
+el APK anterior `ccda916f` y los resultados financieros de sus fuentes siguen
+siendo históricos; no acreditan la generación vigente.
 
 ## Estructura
 
@@ -45,7 +337,8 @@ outputs bloqueados. La instalación y operación física quedan para el final.
 
 ## Outbox de admisión legado
 
-La pestaña Cartera y el outbox V1/V2 pertenecen a la ruta de admisión histórica.
+La pantalla avanzada **Conexión avanzada** y el outbox V1/V2 pertenecen a la
+ruta de admisión histórica, separada del recorrido Paged actual.
 Sus permisos SQL no conceden custodia ni sustituyen las rutas originales
 Cuenta vinculada, Financiar nota, Nota ERC20 o Posiciones DeFi.
 
@@ -86,6 +379,9 @@ permiso: el estado económico sigue UNRESOLVED y no libera la operación.
 
 ## Notas nativas y recuperación
 
+Las aceptaciones económicas citadas aquí son históricas y corresponden a sus
+propios cortes de fuentes; no acreditan la nueva APK ni el bloque actual.
+
 La fuente D26 y los outputs de cambio y recuperación conservan su raíz, trabajo,
 reserva y destinatario originales. Un importe guardado es información local;
 el disponible exige lectura original fresca, inclusión y nullifier no gastado.
@@ -109,25 +405,23 @@ y [entrada nativa local](../platform/docs/ORIGINAL-LOCAL-DEVICE-OPERATOR.md).
 
 ## Consultar posiciones DeFi
 
-En **Posiciones DeFi**, introduce el origen HTTPS y el ID de vinculación
-entregados por el operador del servicio original. La vinculación usa tu clave
-protegida actual y un descriptor propio de posiciones; no reutiliza el permiso
-ni descriptor de saldo de notas nativas.
+Abre **DeFi → Ver mis posiciones**. Elige una conexión registrada o pulsa
+**Importar conexión de posiciones** para importar el perfil público original.
+Su descriptor y permisos son propios: no reutilizan los permisos de notas
+Paged ni los de conversión ExternalFlat.
 
-1. Conecta y autoriza **Mostrar posiciones con biometría** para revelar los
-   targets de esa cartera.
-2. Revisa vault, activo, red e identidad y autoriza **Leer posiciones con biometría**.
-3. Solicita una nueva consulta al caducar; no se firman ni reenvían permisos
-   automáticamente. Cancelar, editar o salir de primer plano revoca la revisión.
+La sesión abierta firma las dos consultas originales de acceso y lectura, con
+permisos frescos de quince segundos; consultar no autoriza gastar. **Actualizar
+la cuenta seleccionada** obtiene otra lectura al caducar. Cancelar o salir al
+fondo cierra el transporte y revoca la revisión.
 
-Son dos permisos específicos y frescos de 15 segundos. La pantalla presenta
-cantidades exactas por activo, con disponibles, reservadas y bloqueadas
-separadas; datos UNKNOWN, caducados o fallidos muestran **No disponible**.
+La pantalla separa participaciones disponibles, reservadas, bloqueadas y en
+recuperación. UNKNOWN y datos caducados quedan por consultar.
 La estimación del subyacente no es saldo gastable ni garantía de liquidez.
 Esta vista no prepara ni transmite TOP_UP, GRAPH, EXIT o redenciones. Las
 acciones de estas posiciones y shares requieren sus propias cuentas y notas
 del dispositivo creadas antes de financiar; las posiciones Linux no se convierten
-en autoridad de gasto móvil. La nota ERC20 fuente tiene una pestaña separada. La salida de notas nativas usa su bridge original
+en autoridad de gasto móvil. La nota ERC20 fuente se gestiona en **DeFi**. La salida de notas nativas usa su bridge original
 separado.
 
 La custodia de estas posiciones permanece en el backend Linux original.
@@ -145,7 +439,7 @@ abrupta y salida del padre siguen fuera de este recorrido aceptado.
 
 ## Nota ERC20 propia
 
-En **Nota ERC20**, conecta el descriptor privado entregado por el operador del
+En **DeFi**, importa el perfil público de conexión entregado por el operador del
 [servicio local original](../platform/docs/DEVICE-ERC20-LOCAL.md). La raíz y la
 clave de nota permanecen en la app. Fija el destinatario de retirada antes de
 preparar el depósito y usa el mismo importe en unidades atómicas que preparó
@@ -228,13 +522,13 @@ El constructor original ensambla `app-release.apk` con la firma Android Debug
 existente. Funciona sin Metro; conserva las dos arquitecturas, lint y el límite
 de 3 GiB. Para esta variante el JVM principal usa heap 768 MiB y metaspace
 384 MiB, SerialGC y dos procesadores activos, verificados en los argumentos
-reales de Gradle. El APK actual `b52d49a6-9cd4-4230-9591-8d9afa7346e6`
+reales de Gradle. El corte histórico `b52d49a6-9cd4-4230-9591-8d9afa7346e6`
 comprobó 85 inputs iguales antes/después y 36 joins del bundle: **42.841.007 bytes**,
 SHA-256 `bdc836079db34161a793fcc0f383351890e3b79ddfee421c74f5148b4be2dbaf`,
 con JavaScript/Hermes incluidos y sin Metro. Incluye copia RootNote cifrada,
 publicación de saldo original tras ejecución/W39 y espera del resultado
 en los dos SDK de retirada admitida, conservando permisos y guards originales.
-[APK actual archivado](../../.internal/dev/reports/mobile-android-standalone-local/attempt-b52d49a6-9cd4-4230-9591-8d9afa7346e6/app-release.apk) ·
+[APK de ese corte](../../.internal/dev/reports/mobile-android-standalone-local/attempt-b52d49a6-9cd4-4230-9591-8d9afa7346e6/app-release.apk) ·
 [informe original](../../.internal/dev/reports/mobile-android-standalone-local/attempt-b52d49a6-9cd4-4230-9591-8d9afa7346e6/report.json).
 La copia local está en `apps/mobile/android/app/build/outputs/apk/release/app-release.apk`.
 GRAPH `1159c12e…` recorrió 14 pruebas, respuesta perdida de W39, restores
@@ -242,8 +536,9 @@ software SOURCE/SHARE/PoP y READ de notas gastadas confirmadas sin nuevos
 efectos financieros. Su RAW terminó rechazado por un contador del replay HTTP403;
 `56f8212` lo corrige con una regresión focal, sin repetir financiación. No se
 alcanzó la captura original de cuatro secciones ni la reapertura del backend.
-Esta compilación no cambia el alcance Node/TLS de los recorridos descritos ni
-acredita hardware; el uso físico queda para el final.
+Ese corte no cambia el alcance Node/TLS de sus recorridos ni acredita hardware.
+El informe de compilación del bloque actual está en STATUS; su comprobación en
+el teléfono permanece pendiente.
 
 El corte histórico `d07f578f` comprobó 36 joins del bundle y 79 inputs,
 incluidos el validador puro de posiciones y la nueva nota ERC20.
@@ -300,10 +595,11 @@ siga sin gastar. El Vault retiene la misma raíz, intención y trabajo antes de 
 POST; una respuesta perdida se consulta, sin reenviar automáticamente.
 
 Las rutas originales de notas y posiciones tienen backend/SDK/Vault conectados
-y aceptaciones locales descritas arriba. El APK actualizado está compilado.
-Faltan uso financiero en teléfono, migración y recuperación ante pérdida abrupta,
-custodia multinota de
-shares propia del dispositivo y completar las siete redes. El executor API/SQL
+y aceptaciones locales descritas arriba. El bloque Paged automatiza la ejecución
+y conecta tres ledgers locales. Faltan uso financiero en teléfono, operación en
+redes públicas, migración y recuperación ante pérdida abrupta, custodia multinota
+de shares propia del dispositivo y el recorrido privado DeFi completo en PAEG.
+Las otras cuatro redes quedan fuera de este bloque de entrega de tres redes. El executor API/SQL
 legado sigue cerrado; su disponibilidad no acredita el estado económico de las
 nuevas rutas originales.
 
@@ -313,8 +609,8 @@ La clave se genera mediante `expo-crypto.getRandomBytesAsync`, se conserva en
 SecureStore con `requireAuthentication: true` y, en iOS, accesibilidad
 `WHEN_UNLOCKED_THIS_DEVICE_ONLY`. La clave pública se almacena por separado.
 Cambiar la biometría puede invalidar la clave protegida; el cliente falla y no
-la reemplaza silenciosamente. No hay exportación de clave raíz ni envío al
-servidor.
+la reemplaza silenciosamente. Las copias exportadas están cifradas; las claves privadas no se envían sin
+cifrar al servidor.
 
 Esta implementación recupera temporalmente la clave **en memoria JavaScript**
 para firmar. Se limpian los buffers mutables; JavaScript no permite garantizar

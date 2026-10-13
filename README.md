@@ -8,6 +8,18 @@ La [visión original](PROJECT-VISION.md) define el producto y
 [STATUS.md](STATUS.md) para saber qué funciona y qué falta, y
 [ROADMAP.md](ROADMAP.md) para el orden de trabajo.
 
+## Estado publicado: 13 de octubre de 2026
+
+La app Android incluye una cartera de ETH, BTC y SOL en redes públicas,
+con claves y firma en el dispositivo. Su API HTTPS está desplegada en
+`https://api.lianum.oryontechnology.com`; las direcciones, QR y consultas de
+saldo se han comprobado en el teléfono. El primer envío real sigue pendiente.
+MoonPay está implementado, pero desactivado hasta disponer de cuenta y credenciales.
+
+PAEG, las cuentas privadas y DeFi conservan sus servicios y recorridos locales.
+No están publicados en esa API ni conectados automáticamente al saldo de la
+cartera pública. Las aceptaciones locales descritas abajo conservan ese alcance.
+
 ## Dónde trabajar
 
 | Carpeta | Responsabilidad |
@@ -19,7 +31,7 @@ La [visión original](PROJECT-VISION.md) define el producto y
 | `contracts/` | Contratos Solidity |
 | `tests/` | Integración entre componentes |
 | `scripts/` | Comandos de desarrollo y laboratorios |
-| `infra/` | Infraestructura Google Cloud preparada para validación local |
+| `infra/` | Despliegue de la wallet pública y perfiles anteriores de infraestructura |
 | `docs/` | Guías de desarrollo y contratos entre componentes |
 | `experiments/` | Implementaciones experimentales; algunas siguen en uso |
 | `archive/` | Entregas originales y referencias históricas |
@@ -41,8 +53,26 @@ Desde la raíz del proyecto:
 ./dev help      # Todos los comandos
 ```
 
-La wallet inicia desconectada. Los laboratorios económicos se ejecutan con
-comandos propios; arrancar la interfaz no acredita fondos ni una operación.
+Para conectar la app Android con las tres redes locales, usa
+`./dev platform paged-native-new`; para las tres redes y Uniswap en la misma
+operación, usa `./dev platform paged-mixed-new`. Una relación DeFi independiente
+se abre con `./dev platform defi-new`. Los asistentes generan su conexión pública para
+importar desde el teléfono. Sigue los pasos y límites de
+[apps/platform/README.md](apps/platform/README.md#usar-el-ordenador-con-la-app-android).
+
+La wallet web local inicia desconectada. Arrancar una interfaz u operador no financia
+notas ni acredita una operación. Los perfiles `paged-native-new` y
+`paged-mixed-new` exigen un entorno nuevo y preservan el estado existente.
+
+El recorrido actual está aceptado en el ordenador con custodia software y
+cadenas locales: Uniswap y tres pagos nativos, veintiuna pruebas, cuatro
+reaperturas completas, recuperación de respuesta perdida, cambio de 200 y
+cuatro liquidaciones de 100 al proveedor. La cartera registrada verificó
+600 → 400 → 0 unidades demo y conservó el cero tras reabrir, con el token
+Uniswap separado. Los recursos originales cerraron. Las aceptaciones anteriores
+se conservan en [STATUS.md](STATUS.md), junto a sus límites. Estos resultados
+no acreditan el recorrido del APK nuevo en teléfono físico ni redes públicas.
+
 La [guía de desarrollo](docs/DEVELOPMENT.md) explica el bootstrap de un clon
 limpio y la selección de pruebas por carpeta.
 
