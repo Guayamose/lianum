@@ -20,10 +20,10 @@ const requiredSources = Object.freeze([
 const reviewedCallers = Object.freeze([
   Object.freeze({"path":"apps/platform/src/database-pool.mjs","bytes":1216,"sha256":"d6328f91b789d04ded1eb683b612a58cbfc7da25f48b07df41f545732602fc06"}),
   Object.freeze({"path":"apps/platform/src/diagnostics.mjs","bytes":2701,"sha256":"dc4206e9b56ebcaffabc8113ab043ef1daaccb053291045db476e6d460924c5e"}),
-  Object.freeze({"path":"apps/platform/src/entry.mjs","bytes":999,"sha256":"713a7682ab83c202554309570a87e10101b29293ec6194c4bb49b78c40c44a26"}),
-  Object.freeze({"path":"apps/platform/src/gateway-pairing.mjs","bytes":3217,"sha256":"c272a5ae845b48568bcf39fd65830fc6e5d24f923731674264b2a75be8e7b996"}),
+  Object.freeze({"path":"apps/platform/src/entry.mjs","bytes":1576,"sha256":"554abb5f325159febaf589fe8f7ecc7f001be5cea3db99cd0302ff7da5782215"}),
+  Object.freeze({"path":"apps/platform/src/gateway-pairing.mjs","bytes":3233,"sha256":"7bada04506e7d6ac3feb7fd5514fe5b5fa193fafd31f203f35ca509a94c5b788"}),
   Object.freeze({"path":"apps/platform/src/original-device-cloud-local-gateway-v1.mjs","bytes":14654,"sha256":"5deac582bd4fc178745aae9631b7e2e1b73a9e3f0bfdf847cc5d61107f5bf0f6"}),
-  Object.freeze({"path":"apps/platform/src/original-device-cloud-source-pins-v1.mjs","bytes":22730,"sha256":"2dbce5f9b01ac4cad3bfadbf4851667548ae9a0aec737d0a27af0190be939d57"}),
+  Object.freeze({"path":"apps/platform/src/original-device-cloud-source-pins-v1.mjs","bytes":22732,"sha256":"913e733ef51af8a68a9ac32291e3cf9d4bfe01fd8a62fa8f61e24093395cb87b"}),
   Object.freeze({"path":"apps/platform/src/original-device-local-caller-v1.mjs","bytes":7872,"sha256":"9ebd70097dd37c0a438e12990a3264edbe041d6997b26158fd780888177a1524"}),
   Object.freeze({"path":"apps/platform/src/original-device-local-operator-v1.mjs","bytes":11932,"sha256":"943178073035af0b4e62832adcf8d1902e868ff85805db7fee28be923cee31d1"}),
   Object.freeze({"path":"apps/platform/src/original-device-schema-v1.mjs","bytes":5173,"sha256":"e88ab9c4b9faeff24b4ac1b118f9b78546edbb15d6429784f713c314a643e20a"}),

@@ -1,6 +1,18 @@
 {
   "schema": "LIANUM_STATIC_LEXICAL_BINDINGS_V1",
   "files": [
+    "packages/backend/src/operations/local/device-paged-wallet-portfolio-channel-v3.mjs",
+    "packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs",
+    "packages/backend/src/providers/funded-paged-native-provider-v3.mjs",
+    "packages/backend/src/providers/paged-uniswap-provider-v3.mjs",
+    "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs",
+    "packages/backend/src/operations/local/funded-paged-native-operator-v3.mjs",
+    "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs",
+    "packages/backend/src/operations/local/funded-graph-paged-deployment-v3.mjs",
+    "tests/integration/wallet/native/run-device-paged-cold-operation-v3.mjs",
+    "tests/integration/wallet/native/run-device-paged-mixed-operation-v3.mjs",
+    "tests/integration/wallet/native/device-paged-backend-process-v3.mjs",
+    "tests/integration/wallet/native/device-paged-backend-client-v3.mjs",
     "packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs",
     "packages/backend/src/accounts/authority/native-value/native-value-authority-deposits.mjs",
     "packages/backend/src/accounts/authority/native-value/native-value-authority-execution.mjs",
@@ -15,6 +27,10 @@
     "packages/backend/src/chains/solana/transfers/solana-transfers.mjs",
     "tests/integration/chains/solana/host-send-checks.mjs",
     "packages/backend/src/chains/solana/runtime/owned-solana-spl-custody-v1.mjs",
-    "packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs"
+    "packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs",
+    "tests/integration/wallet/native/device-paged-mixed-backend-process-v3.mjs",
+    "tests/integration/wallet/native/device-paged-mixed-backend-client-v3.mjs",
+    "tests/integration/wallet/native/device-paged-mixed-backend-transport-v3.mjs",
+    "tests/integration/wallet/native/run-device-paged-mixed-cold-operation-v3.mjs"
   ]
 }

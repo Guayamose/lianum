@@ -220,7 +220,7 @@
       "level": "component",
       "entry": "apps/platform/src/entry.mjs",
       "command": "./dev platform admission",
-      "description": "API de admisi\u00f3n; original-native-new y original-native-reopen son perfiles expl\u00edcitos con configuraci\u00f3n privada y estado original conservado."
+      "description": "API de admisi\u00f3n y perfiles locales expl\u00edcitos: original-native-new/reopen, paged-native-new/reopen, paged-mixed-new/reopen y defi-new. Reopen requiere captura original completa; no reemplaza wallets ni financia notas."
     },
     {
       "id": "paired-http",

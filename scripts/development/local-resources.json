@@ -92,6 +92,21 @@
       "cleanup": false
     },
     {
+      "path": ".local/device-paged-native-v3",
+      "category": "private-state",
+      "cleanup": false
+    },
+    {
+      "path": ".local/device-paged-mixed-product-v3",
+      "category": "private-state",
+      "cleanup": false
+    },
+    {
+      "path": ".local/device-paged-three-network-v3",
+      "category": "private-state",
+      "cleanup": false
+    },
+    {
       "path": "node_modules",
       "category": "dependencies",
       "cleanup": false

@@ -41,6 +41,76 @@ PREFIXES = (
 )
 MAX_BYTES = 128 * 1024 * 1024
 CURRENT_SOURCE_INPUTS = (
+    "apps/mobile/src/screens/NativeWalletScreen.tsx",
+    "apps/mobile/src/native-wallet/native-wallet-ui-port.ts",
+    "apps/mobile/src/native-wallet/native-wallet-controller.ts",
+    "apps/mobile/src/native-wallet/native-wallet-public-configuration-v1.ts",
+    "apps/mobile/src/native-wallet/native-wallet-form-v1.mjs",
+    "apps/mobile/src/native-wallet/native-wallet-form-v1.d.mts",
+    "apps/mobile/src/native-wallet/NativeWalletQr.tsx",
+    "apps/mobile/src/custody/native-wallet-custody-v1.ts",
+    "packages/crypto/src/native-wallet-v1.d.mts",
+    "packages/crypto/src/native-wallet-auth-v1.d.mts",
+    "packages/backend/src/public-wallet/entry-v1.mjs",
+    "packages/backend/src/public-wallet/http-service-v1.mjs",
+    "packages/backend/src/public-wallet/auth-v1.mjs",
+    "packages/backend/src/native-wallet/index.mjs",
+    "packages/backend/src/fiat/moonpay-gateway-v1.mjs",
+    "packages/backend/src/fiat/moonpay-http-v1.mjs",
+    "packages/crypto/src/native-wallet-v1.mjs",
+    "packages/crypto/src/native-wallet-auth-v1.mjs",
+    "tests/integration/wallet/native/device-paged-mixed-backend-process-v3.mjs",
+    "tests/integration/wallet/native/device-paged-mixed-backend-client-v3.mjs",
+    "tests/integration/wallet/native/device-paged-mixed-backend-transport-v3.mjs",
+    "tests/integration/wallet/native/run-device-paged-mixed-cold-operation-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-wallet-portfolio-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-wallet-portfolio-v3.d.mts",
+    "packages/mobile-protocol/src/device-paged-owner-v3.d.mts",
+    "packages/backend/src/operations/local/device-paged-wallet-portfolio-channel-v3.mjs",
+    "apps/mobile/src/state/wallet-observation-window-v1.mjs",
+    "apps/mobile/src/state/wallet-observation-window-v1.d.mts",
+    "apps/mobile/src/state/wallet-portfolio-v1.mjs",
+    "apps/mobile/src/state/wallet-portfolio-v1.d.mts",
+    "scripts/development/static-bindings.json",
+    "packages/backend/src/operations/local/device-paged-native-economic-channel-v3.mjs",
+    "packages/backend/src/operations/deployments/defi/deploy-backed-assets.mjs",
+    "packages/mobile-protocol/src/device-paged-economic-view-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-economic-view-v3.d.mts",
+    "packages/backend/src/providers/paged-native-economic-balance-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-payout-settlement-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-payout-settlement-v3.d.mts",
+    "tests/integration/wallet/native/device-paged-backend-process-v3.mjs",
+    "tests/integration/wallet/native/device-paged-backend-client-v3.mjs",
+    "tests/integration/wallet/native/device-paged-three-network-cold-operation-v3.mjs",
+    "tests/integration/wallet/native/run-device-paged-cold-operation-v3.mjs",
+    "tests/integration/wallet/native/run-device-paged-mixed-operation-v3.mjs",
+    "tests/integration/wallet/native/device-paged-uniswap-mobile-flow-v3.mjs",
+    "packages/backend/src/api/mobile/device-paged-platform-application-v3.mjs",
+    "packages/backend/src/operations/recovery/paged-runtime-recovery-authority-v3.mjs",
+    "packages/backend/src/providers/paged-uniswap-provider-v3.mjs",
+    "packages/backend/src/chains/evm/dispatch/paged-uniswap-dispatch-gate-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-operation-runner-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-operation-runner-v3.d.mts",
+    "packages/mobile-protocol/src/device-paged-uniswap-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-uniswap-v3.d.mts",
+    "apps/mobile/src/state/wallet-connection-read-plan-v1.mjs",
+    "apps/mobile/src/state/wallet-connection-read-plan-v1.d.mts",
+    "apps/mobile/src/custody/wallet-recovery-package-v1.mjs",
+    "apps/mobile/src/custody/wallet-recovery-package-v1.d.mts",
+    "apps/mobile/src/custody/wallet-recovery-native-v1.ts",
+    "apps/mobile/src/api/device-paged-uniswap-preparation-v3.ts",
+    "apps/mobile/src/api/device-external-flat-reception-observer-v1.mjs",
+    "apps/mobile/src/api/device-external-flat-reception-observer-v1.d.mts",
+    "tests/integration/wallet/native/run-device-paged-three-network-continuity-v3.mjs",
+    "tests/integration/wallet/native/device-paged-three-network-operation-v3.mjs",
+    "apps/mobile/src/custody/device-paged-custody-views-v3.mjs",
+    "apps/mobile/src/custody/device-paged-custody-views-v3.d.mts",
+    "apps/mobile/src/state/public-connection-registry-v1.mjs",
+    "apps/mobile/src/state/public-connection-registry-v1.d.mts",
+    "apps/mobile/src/state/public-connection-store-v1.ts",
+    "apps/mobile/src/api/device-paged-operation-runner-v3.mjs",
+    "apps/mobile/src/api/device-paged-operation-runner-v3.d.mts",
+    "apps/mobile/scripts/owned-build-process.mjs",
     "packages/backend/src/api/accounts/native-manual-session-contract-v1.mjs",
     "packages/backend/src/api/mobile/paired-original-account-actor-contract-v2.mjs",
     "tests/integration/proofs/source-generation-financial-readback.mjs",
@@ -107,6 +177,7 @@ CURRENT_SOURCE_INPUTS = (
     "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
     "apps/mobile/src/custody/funded-balance-owner-codec-v1.mjs",
     "apps/mobile/src/custody/key-store.ts",
+    "apps/mobile/src/custody/wallet-session-v1.ts",
     "apps/mobile/src/custody/native-claim-pending-store-v1.ts",
     "apps/mobile/src/custody/native-claim-pending-v1.d.mts",
     "apps/mobile/src/custody/native-claim-pending-v1.mjs",
@@ -675,6 +746,154 @@ class Capture:
         return row
 
 
+NATIVE_WALLET_NPM_PATHS = frozenset("node_modules/" + name for name in (
+    "@noble/ciphers", "@noble/curves", "@noble/hashes", "@scure/base", "@scure/bip32",
+    "@scure/bip39", "@scure/btc-signer", "micro-eth-signer", "micro-key-producer",
+    "micro-packed", "micro-sol-signer", "micro-sol-signer/node_modules/@scure/base",
+    "micro-sol-signer/node_modules/micro-packed"))
+
+
+class ReviewedNativeWalletNpm:
+    """A closed installed dependency boundary, independent of legacy mobile pins.
+
+    The policy seals bytes of all public package files, not just metadata/version.
+    Node's nearest package resolution is reproduced only within this exact set;
+    nested Solana dependencies must not silently resolve to the newer root copy.
+    """
+    def __init__(self, policy, capture):
+        self.files, self.packages, self.metadata = {}, {}, {}
+        self.manifests, self.consumers = set(), ()
+        if policy is None:
+            return
+        if (not isinstance(policy, dict) or set(policy) != {"schema", "manifest", "lock",
+                "consumerPrefixes", "directDependencies", "packages"}
+                or policy["schema"] != "LIANUM_REVIEWED_NATIVE_WALLET_NPM_V1"
+                or policy["manifest"] != "packages/crypto/package.json"
+                or policy["lock"] != "package-lock.json"
+                or policy["consumerPrefixes"] != ["packages/crypto/src/"]
+                or not isinstance(policy["packages"], list)
+                or {row.get("path") for row in policy["packages"]} != NATIVE_WALLET_NPM_PATHS
+                or len(policy["packages"]) != len(NATIVE_WALLET_NPM_PATHS)):
+            raise ValueError("Unknown reviewed native wallet npm policy")
+        self.consumers = tuple(policy["consumerPrefixes"])
+        self.manifests = {policy["manifest"], policy["lock"]}
+
+        def json_source(path):
+            row = capture.observe(path)
+            if row["status"] != "PRESENT":
+                raise ValueError("Reviewed npm input is missing: " + path)
+            return json.loads(capture.objects[row["sha256"]].decode("utf8"), object_pairs_hook=unique_object)
+
+        manifest, lock = json_source(policy["manifest"]), json_source(policy["lock"])
+        dependencies = {name: version for name, version in manifest.get("dependencies", {}).items()
+                        if not name.startswith("@lianum/")}
+        if (dependencies != policy["directDependencies"]
+                or lock.get("packages", {}).get("packages/crypto", {}).get("dependencies")
+                    != manifest.get("dependencies")):
+            raise ValueError("Native wallet manifest/lock dependencies differ from reviewed policy")
+        for package in policy["packages"]:
+            if (set(package) != {"path", "name", "version", "resolved", "integrity", "dependencies", "files"}
+                    or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", package["version"])
+                    or not package["resolved"].startswith("https://registry.npmjs.org/")
+                    or not re.fullmatch(r"sha512-[A-Za-z0-9+/]+={0,2}", package["integrity"])
+                    or not isinstance(package["dependencies"], dict)
+                    or not isinstance(package["files"], list) or len(package["files"]) > 256):
+                raise ValueError("Invalid reviewed npm package record")
+            path = relative(package["path"])
+            record = lock["packages"].get(path, {})
+            if (any(record.get(key) != package[key] for key in ("version", "resolved", "integrity"))
+                    or record.get("dependencies", {}) != package["dependencies"]):
+                raise ValueError("Reviewed npm lock record changed: " + path)
+            installed = json_source(path + "/package.json")
+            if (installed.get("name") != package["name"] or installed.get("version") != package["version"]
+                    or installed.get("type") != "module"
+                    or installed.get("dependencies", {}) != package["dependencies"]):
+                raise ValueError("Reviewed installed npm package changed: " + path)
+            self.packages[path], self.metadata[path] = package, installed
+            paths = set()
+            for entry in package["files"]:
+                if (set(entry) != {"path", "bytes", "sha256"} or type(entry["bytes"]) is not int
+                        or entry["bytes"] < 0 or not re.fullmatch(r"[0-9a-f]{64}", entry["sha256"])):
+                    raise ValueError("Invalid reviewed npm public file")
+                local = relative(entry["path"])
+                if "node_modules" in local.split("/") or local in paths:
+                    raise ValueError("Nested/duplicate reviewed npm file: " + local)
+                paths.add(local)
+                target = path + "/" + local
+                row = capture.observe(target)
+                if row["status"] != "PRESENT" or row["bytes"] != entry["bytes"] or row["sha256"] != entry["sha256"]:
+                    raise ValueError("Reviewed npm public bytes changed: " + target)
+                self.files[target] = entry
+            if "package.json" not in paths:
+                raise ValueError("Reviewed npm manifest is not byte-pinned: " + path)
+            actual = set()
+            for parent, directories, names in os.walk(physical(path), followlinks=False):
+                directories[:] = [name for name in directories if name != "node_modules"]
+                for name in names:
+                    child = Path(parent) / name
+                    actual.add(child.relative_to(physical(path)).as_posix())
+            if actual != paths:
+                raise ValueError("Reviewed npm public file inventory changed: " + path)
+        for name, version in dependencies.items():
+            if self.packages.get("node_modules/" + name, {}).get("version") != version:
+                raise ValueError("Native wallet direct dependency version changed: " + name)
+
+    def owner(self, path):
+        candidates = [package for package in self.packages if path.startswith(package + "/")]
+        return max(candidates, key=len) if candidates else None
+
+    def applies(self, path, name):
+        return bool(self.packages) and (self.owner(path) is not None or path.startswith(self.consumers))
+
+    def resolve(self, source, specifier):
+        parts = specifier.split("/")
+        name = "/".join(parts[:2]) if specifier.startswith("@") else parts[0]
+        subpath = specifier[len(name):]
+        if not name or any(part in {"", ".", ".."} for part in parts):
+            raise ValueError("Invalid reviewed npm specifier: " + specifier)
+        source_owner = self.owner(source)
+        if source_owner:
+            package_dependencies = self.packages[source_owner]["dependencies"]
+            if name != self.packages[source_owner]["name"] and name not in package_dependencies:
+                raise ValueError("Undeclared reviewed npm dependency: " + specifier + " in " + source)
+        else:
+            declared = {self.packages[path]["name"] for path in self.packages
+                        if path.count("node_modules/") == 1}
+            if name not in declared:
+                raise ValueError("Unreviewed native wallet npm dependency: " + specifier)
+        package_path = None
+        if source_owner and self.packages[source_owner]["name"] == name and self.metadata[source_owner].get("exports"):
+            package_path = source_owner
+        parent = posixpath.dirname(source)
+        while package_path is None:
+            candidate = (parent + "/" if parent else "") + "node_modules/" + name
+            if candidate in self.packages:
+                package_path = candidate
+                break
+            if physical(candidate).exists():
+                raise ValueError("Unreviewed closer npm installation: " + candidate)
+            if not parent:
+                break
+            parent = posixpath.dirname(parent)
+        if package_path is None:
+            raise ValueError("Reviewed npm package cannot be resolved: " + specifier)
+        package = self.packages[package_path]
+        exports = self.metadata[package_path].get("exports")
+        if exports is not None:
+            if not isinstance(exports, dict) or not isinstance(exports.get("." + subpath), str):
+                raise ValueError("Reviewed npm requires an explicit ESM export: " + specifier)
+            entry = exports["." + subpath]
+        else:
+            entry = subpath.lstrip("/") if subpath else self.metadata[package_path].get("main")
+        if not isinstance(entry, str) or not entry:
+            raise ValueError("Reviewed npm entry is missing: " + specifier)
+        entry = entry[2:] if entry.startswith("./") else entry
+        target = package_path + "/" + relative(entry)
+        if target not in self.files or not target.endswith(".js"):
+            raise ValueError("Reviewed npm entry is outside its public JS inventory: " + specifier)
+        return package, target
+
+
 def inventory():
     capture = Capture()
     publication_bytes = read(RELEASE)
@@ -746,7 +965,12 @@ def current_source_contract(report, capture):
     imported_by = {}
     mobile_dependencies = json.loads(read("apps/mobile/package.json")).get("dependencies", {})
     platform_dependencies = json.loads(read("apps/platform/package.json")).get("dependencies", {})
-    platform_policy = json.loads(read("scripts/development/source-pins.json"))["profiles"]["platform"]
+    source_policy = json.loads(read("scripts/development/source-pins.json"), object_pairs_hook=unique_object)
+    platform_policy = source_policy["profiles"]["platform"]
+    reviewed_npm = ReviewedNativeWalletNpm(source_policy.get("nativeWalletNpm"), capture)
+    roots.update(reviewed_npm.files)
+    roots.update(reviewed_npm.manifests)
+    npm_bindings = set()
     url_pattern = re.compile(r"\bnew\s+URL\s*\(\s*(['\"])([^'\"]+\.mjs)\1\s*,\s*import\.meta\.url\s*\)")
     def evidence_only(path):
         return (retained_source_evidence(path) or path.startswith(("experiments/", "packages/protocol/"))
@@ -787,7 +1011,8 @@ def current_source_contract(report, capture):
                 queue.append((manifest, False))
         if retained_source_evidence(row["source"]):
             row["sourceDisposition"] = "RETAINED_SOURCE_EVIDENCE"
-        if not follow or retained_source_evidence(row["source"]) or not path.endswith(".mjs"):
+        if not follow or retained_source_evidence(row["source"]) or not (path.endswith(".mjs")
+                or path in reviewed_npm.files and path.endswith(".js")):
             continue
         expanded.add(path)
         content = capture.objects[row["sha256"]].decode("utf8")
@@ -820,6 +1045,8 @@ def current_source_contract(report, capture):
             if name.startswith("."):
                 target = posixpath.normpath(posixpath.join(posixpath.dirname(path), name))
                 relative(target)
+                if path in reviewed_npm.files and target not in reviewed_npm.files:
+                    raise ValueError("Reviewed npm relative import escaped its inventory: " + target)
                 imported_by[target] = path
                 queue.append((target, code_import or not evidence_only(target)))
             elif name.startswith("@lianum/"):
@@ -832,6 +1059,11 @@ def current_source_contract(report, capture):
                 # Their actual entrypoints/Wasm/toolchain and CRS are checked by
                 # the original artifact inspector, never resolved from a caller.
                 external.add(name)
+            elif reviewed_npm.applies(path, name):
+                package, target = reviewed_npm.resolve(path, name)
+                imported_by[target] = path
+                queue.append((target, True))
+                npm_bindings.add((path, name, package["path"], package["version"]))
             elif name.startswith(("@noble/curves/", "@noble/hashes/")):
                 target = "apps/mobile/node_modules/" + name
                 if target not in roots:
@@ -872,6 +1104,10 @@ def current_source_contract(report, capture):
                 "inventory": platform_policy["target"],
                 "acceptance": "EXACT_MANIFEST_LOCK_AND_REVIEWED_PUBLIC_FILES"}
                 for path, name, version in sorted(platform_bindings)],
+            "nativeWalletNpmBindings": [{"source": path, "specifier": name,
+                "packagePath": package, "version": version,
+                "acceptance": "EXACT_MANIFEST_LOCK_AND_REVIEWED_INSTALLED_FILES"}
+                for path, name, package, version in sorted(npm_bindings)],
             "runtimeResourceAcceptanceEstablished": False,
             "historicalInventoriesModified": False, "financialAcceptance": False}
 

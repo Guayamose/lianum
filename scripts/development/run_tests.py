@@ -19,6 +19,8 @@ FLAT = ROOT / ".internal/runtime/omnichain-flat-profile/flat-wallet"
 NODE = ROOT / ".internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node"
 REPORTS = ROOT / ".internal/dev/reports"
 DEFAULT_TESTS = [
+    "packages/backend/tests/api/accounts/flat-account-session-family-v1.test.mjs",
+    "packages/backend/tests/accounts/authority/native-source-record-validator-v1.test.mjs",
     "apps/wallet/tests/server/server.test.mjs", "apps/wallet/tests/client/ui.test.mjs",
     "apps/wallet/tests/server/exact-action-capabilities.test.mjs", "apps/wallet/tests/server/public-errors.test.mjs",
     "packages/backend/tests/api/wallet/wallet-application-client.test.mjs",

@@ -22694,10 +22694,22 @@
     "packages/backend/tests/fixtures/chains/shared/runtime/claim-key-runtime-v4.fixture.mjs": "archive/source-evidence/retired-facades/6632ab515692fc89f4825508211936ca7ee5be3609969cad4e4d9c8f3482f4e8.source"
   },
   "canonicalImports": {
+    "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs": [
+      "../../operations/local/device-paged-native-preparation-channel-v3.mjs"
+    ],
     "packages/proofs/src/tooling/original-paged-artifacts-v3.mjs": [
       "@lianum/engine/execution/graph/funded-graph-paged-v3",
       "@lianum/proofs/toolchain/paged-artifacts-v3",
       "@lianum/proofs/toolchain/paged-proof-client-v3"
+    ],
+    "packages/backend/src/operations/local/funded-graph-paged-deployment-v3.mjs": [
+      "./paged-source-ledger-v3.mjs"
+    ],
+    "packages/backend/src/operations/local/device-paged-graph-recipient-v3.mjs": [
+      "./device-paged-failure-metadata-v3.mjs"
+    ],
+    "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs": [
+      "./device-paged-failure-metadata-v3.mjs"
     ]
   },
   "retiredRuntimeSources": {
@@ -22801,6 +22813,11 @@
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/nonce-first-send-state.mjs": "packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs",
     "omnichain-flat-profile/flat-wallet/integration/solana-host-send-checks.mjs": "tests/integration/chains/solana/host-send-checks.mjs",
     "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/solana-profiles.mjs": "packages/backend/src/chains/solana/runtime/solana-profiles.mjs",
-    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/spl-transfer-journal.mjs": "packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs"
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/chain-adapters/spl-transfer-journal.mjs": "packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/flat-account-session-core.mjs": "packages/backend/src/api/accounts/flat-account-session-core.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/api/flat-account-session-owner-v1.mjs": "packages/backend/src/api/accounts/flat-account-session-owner-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/ops/source-journal/record-validator-v1.mjs": "packages/backend/src/operations/recovery/source-journal/record-validator-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/integration/native-source-tls-transport-v1.mjs": "tests/integration/wallet/native/native-source-tls-transport-v1.mjs",
+    "omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/durable-generic-account-keeper-backend-v1.mjs": "packages/backend/src/accounts/storage/durable-generic-account-keeper-backend-v1.mjs"
   }
 }

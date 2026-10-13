@@ -117,6 +117,10 @@
     "../../packages/backend/src/chains/solana/transfers/nonce-first-send-state.mjs",
     "../../packages/backend/src/chains/solana/runtime/solana-profiles.mjs",
     "../../packages/backend/src/chains/solana/runtime/solana-base58.mjs",
-    "../../packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs"
+    "../../packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs",
+    "../../packages/backend/src/operations/recovery/source-journal/record-validator-v1.mjs",
+    "../../packages/backend/src/api/accounts/flat-account-session-core.mjs",
+    "../../tests/integration/wallet/native/native-source-tls-transport-v1.mjs",
+    "../../packages/backend/src/accounts/storage/durable-generic-account-keeper-backend-v1.mjs"
   ]
 }
