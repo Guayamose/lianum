@@ -1,0 +1,12 @@
+{
+  "origin": "https://api.lianum.oryontechnology.com",
+  "directory": "/var/lib/lianum-public-wallet",
+  "nativeConfiguration": {
+    "networks": [
+      {"id": "ethereum-mainnet", "endpoint": "https://ethereum-rpc.publicnode.com"},
+      {"id": "bitcoin-mainnet", "endpoint": "https://mempool.space/api", "feeProvider": "MEMPOOL"},
+      {"id": "solana-mainnet", "endpoint": "https://api.mainnet-beta.solana.com"}
+    ]
+  },
+  "moonpayConfiguration": {"enabled": false}
+}
