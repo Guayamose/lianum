@@ -73,7 +73,7 @@ const originalSource = buildOriginalNativeSourceLifecycleV1(
       evmNativeValueHealthSourceV4: () =>
         import("../../chains/evm/health/evm-native-value-health-source-v4.mjs"),
       flatAccountSession: () =>
-        import("../../api/accounts/flat-account-session.mjs"),
+        import("../../api/accounts/flat-account-session-owner-v1.mjs"),
       nativeValueSystemV2: () =>
         import("../deployments/native-value/native-value-system-v2.mjs"),
       durableGenericAccountKeeper: () =>
@@ -83,6 +83,22 @@ const originalSource = buildOriginalNativeSourceLifecycleV1(
     }),
   }),
 );
+
+export async function createOwnedOriginalPagedNativeRuntimesV3() {
+  return wrappedRecovery.createOwnedOriginalPagedNativeRuntimesV3(...arguments);
+}
+export async function openOriginalPagedUniswapConstructionV3(){return wrappedRecovery.openOriginalPagedUniswapConstructionV3(...arguments);}
+export async function armOriginalPagedUniswapRuntimeRetentionV3(){return wrappedRecovery.armOriginalPagedUniswapRuntimeRetentionV3(...arguments);}
+export async function captureOriginalPagedUniswapRuntimeV3(){return wrappedRecovery.captureOriginalPagedUniswapRuntimeV3(...arguments);}
+export async function reopenOriginalPagedUniswapRuntimeV3(){return wrappedRecovery.reopenOriginalPagedUniswapRuntimeV3(...arguments);}
+export async function reopenOriginalPagedUniswapBootstrapV3(){return wrappedRecovery.reopenOriginalPagedUniswapBootstrapV3(...arguments);}
+export async function createOwnedOriginalPagedDurableNativeRuntimesV3(){return wrappedRecovery.createOwnedOriginalPagedDurableNativeRuntimesV3(...arguments);}
+export async function reopenOwnedOriginalPagedNativeRuntimesV3() {
+  return wrappedRecovery.reopenOwnedOriginalPagedNativeRuntimesV3(...arguments);
+}
+export async function captureOwnedOriginalPagedNativeRuntimesV3() {
+  return wrappedRecovery.captureOwnedOriginalPagedNativeRuntimesV3(...arguments);
+}
 
 export function consumeOriginalNativeSourceAccountCheckpointV1(request) {
   return originalSource.consumeOriginalNativeSourceAccountCheckpointV1(
@@ -501,6 +517,11 @@ export const {
   reemitOwnedOriginalNativeRecoveryV1,
   armOwnedEvmRecoveryRetentionV1,
   captureOwnedEvmRecoveryV1,
+  captureOwnedPagedEvmRecoveryV3,
+  reopenOwnedPagedHubEvmV3,
+  reopenOwnedPagedNativeEvmV3,
+  createOwnedPagedHubDurableEvmV3,
+  createOwnedPagedNativeDurableEvmV3,
   reopenOwnedReceiverRecoveryV1,
   reopenOwnedNativeD26ObservationReceiverV1,
   reopenOwnedNativeEconomicReceiverV1,
@@ -546,6 +567,7 @@ export const {
   checkpointOwnedDeviceExternalFlatSourceReceiverV2,
   reopenOwnedDeviceExternalFlatSourceReceiverV2,
   assertOwnedDeviceExternalFlatReceiverV1,
+  assertOwnedDeviceExternalFlatReceiverLiveV1,
   captureOwnedDeviceExternalFlatReceiverV1,
   abortOwnedDeviceExternalFlatReceiverCaptureV1,
   isOwnedNativeEconomicRuntimeV2,

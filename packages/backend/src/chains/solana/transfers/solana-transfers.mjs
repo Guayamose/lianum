@@ -225,7 +225,7 @@ export function createSolanaTransfers(contracts) {
       ...(nonce ? ["beforeBroadcast"] : []),
       ...(nonce && selectedRoute.name === "deposit"
         ? ["beforeSend", "assertBeforeSend"]
-        : []),
+        : !nonce && selectedRoute.name === null && Object.hasOwn(callbacks,"beforeSend") ? ["beforeSend"] : []),
     ]);
     const beforeSign = callbacks.beforeSign,
       onSigned = callbacks.onSigned,
@@ -247,13 +247,15 @@ export function createSolanaTransfers(contracts) {
           typeof assertBeforeSend === "function",
         "SOLANA_REQUIRED_INGRESS_FINAL_SEND_CALLBACKS",
       );
+    if(!nonce && selectedRoute.name === null && Object.hasOwn(callbacks,"beforeSend"))
+      requireCondition(typeof beforeSend === "function", "SOLANA_GRAPH_FINAL_SEND_CALLBACK");
     lamportsValue(amount);
     bytes32(wireKeyCommitment, true);
     requireCondition(
       Number.isSafeInteger(recipientIndex) &&
         !Object.is(recipientIndex, -0) &&
         recipientIndex >= 0 &&
-        recipientIndex < recipientAddresses.length,
+        (recipientIndex < recipientAddresses.length || (selectedRoute.name===null && typeof selectedRoute.externalRecipient==='string' && recipientIndex<64)),
       "SOLANA_INVALID_RECIPIENT_INDEX",
     );
     requireCondition(
@@ -634,6 +636,12 @@ export function createSolanaTransfers(contracts) {
           assertBeforeSend(state.activePrepared) === undefined,
           "SOLANA_FINAL_SEND_SYNC_ASSERT_ONLY",
         );
+      }
+      if(!nonce && state.activeRoute.name === null && beforeSend){
+        requireCondition(await beforeSend(frozenInput({nativeWire:record.nativeWire}),state.activePrepared) === undefined,
+          "SOLANA_GRAPH_FINAL_SEND_ASSERT_ONLY");
+        requireCondition(record.broadcastAttempts === 1 && record.phase === "BROADCAST_UNKNOWN",
+          "SOLANA_GRAPH_FINAL_SEND_IDENTITY");
       }
       // Fsync can yield while shutdown or socket isolation fails. Recheck
       // synchronously after it; no await/RPC intervenes before the sole send.

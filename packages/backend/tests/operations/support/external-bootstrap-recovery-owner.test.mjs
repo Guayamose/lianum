@@ -101,6 +101,7 @@ function fixture({ failUpdate = false } = {}) {
         auth(p);
       },
       captureOfficialProtocolFixtureRecoveryV1: async () => captured('protocols'),
+      reopenOriginalUniswapFixtureRecoveryV3: async () => assert.fail('LEGACY_BOOTSTRAP_MUST_NOT_OPEN_UNISWAP_V3'),
       reopenOfficialProtocolFixtureRecoveryV1: async (token) => {
         consume(token, 'protocols');
         calls.push('reopen:protocols');

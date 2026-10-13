@@ -13,6 +13,7 @@ import { recoverSecp256k1Sender, encodeCanonicalEvmUnsignedTransaction, decodeCa
 import {startOriginalNativeSourceProcessV1} from '../../../operations/recovery/native-original-source-process-v1.mjs';
 import {EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3,EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3,assertOwnedExternalDefiStateDumpV3,assertOwnedExternalDefiPrivateRecordV3} from './owned-external-defi-receiver-state-v3.mjs';
 import {assertOwnedEvmRecoveryStateDumpV1} from './owned-evm-recovery-state-bound-v1.mjs';
+import {assertOwnedPagedHubEvmStateDumpV3,assertOwnedPagedHubEvmPrivateRecordV3,writeOwnedPagedHubEvmStateFileV3} from './owned-paged-hub-evm-state-v3.mjs';
 import { buildNativeEconomicCustodyBackend, NATIVE_ECONOMIC_ANVIL_PIN_V2 } from './native-economic-local-custody-backend-v2.mjs';
 import { shouldUseOwnedEvmStateFileV1, writeOwnedEvmStateFileV1, writeOwnedExternalDefiStateFileV3, assertOwnedEvmStateFileV1 } from './owned-evm-state-file-v1.mjs';
 import { assertOwnedReceiverPreopenRepairV1, claimOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
@@ -92,6 +93,8 @@ function assertOwnedLocalEvmObservedClockV1(runtime){
 }
 // A separate fixed synthetic network, never a claim of Ethereum mainnet.
 const ownedPagedNativeRuntimesV3=new WeakSet();
+const PAGED_SUPERVISOR_COLD_RECOVERY_V3=Symbol('ORIGINAL_PAGED_SUPERVISOR_COLD_RECOVERY_V3');
+const PAGED_DURABLE_RUNTIME_V3=Symbol('ORIGINAL_PAGED_DURABLE_RUNTIME_V3'),ownedPagedDurableRuntimesV3=new WeakSet();
 const LOCAL_NATIVE_VALUE_PROCESS_PROFILE = Object.freeze({ ...LOCAL_EVM_PROFILE,
   name: 'LOCAL_SYNTHETIC_EVM_CHAIN_ID_1', chainId: 1, genesisTimestamp: 1_900_000_310 });
 // Private descriptor identity is the selector, never a caller chain/profile.
@@ -323,7 +326,7 @@ const deviceReceivers=buildDeviceReceiverFamilyV1({
   consumeSourceCheckpoint:(token,runtime)=>deviceSourceContract.consumeOriginalDeviceGraphSourceRequestV2(token,'runtime-checkpoint',runtime)
 });
 const {create:createOwnedDeviceExternalFlatReceiverV1,reopen:reopenOwnedDeviceExternalFlatReceiverV1,
-  assertReceiver:assertOwnedDeviceExternalFlatReceiverV1,capture:captureOwnedDeviceExternalFlatReceiverV1,abort:abortOwnedDeviceExternalFlatReceiverCaptureV1,
+  assertReceiver:assertOwnedDeviceExternalFlatReceiverV1,assertReceiverLive:assertOwnedDeviceExternalFlatReceiverLiveV1,capture:captureOwnedDeviceExternalFlatReceiverV1,abort:abortOwnedDeviceExternalFlatReceiverCaptureV1,
   createSource:createOwnedDeviceExternalFlatSourceReceiverV2,reopenSource:reopenOwnedDeviceExternalFlatSourceReceiverV2,
   assertSource:assertOwnedDeviceExternalFlatSourceReceiverV2,checkpointSource:checkpointOwnedDeviceExternalFlatSourceReceiverV2}=deviceReceivers;
 // Only this zero-option original fixture may hold one before-F native snapshot.
@@ -358,6 +361,17 @@ async function captureOwnedEvmRecoveryV1(runtime) {
   assert.ok(!originalEconomicV2Runtimes.has(runtime),'EVM_ECONOMIC_V2_DISTINCT_ISSUER_REQUIRED');
   const capture=originalEvmRecoveryCapturesV1.get(runtime);assert.ok(capture,'EVM_RECOVERY_FIXED_FAMILY');return capture();
 }
+async function captureOwnedPagedEvmRecoveryV3(runtime){assert.equal(arguments.length,1);assert.ok(ownedPagedDurableRuntimesV3.has(runtime),'PAGED_DURABLE_ORIGINAL_RUNTIME_REQUIRED');if(ownedPagedNativeRuntimesV3.has(runtime))assertOwnedLocalPagedNativeEvmV3(runtime);else await assertOwnedLocalEvmV2(runtime);const capture=originalEvmRecoveryCapturesV1.get(runtime);assert.ok(capture,'PAGED_DURABLE_ORIGINAL_CAPTURE_REQUIRED');return capture();}
+async function reopenOwnedPagedEvmV3(token,family){
+ const {consumeOriginalPagedRuntimeRecoveryV3}=await import('../../../operations/recovery/paged-runtime-recovery-authority-v3.mjs');
+ const record=consumeOriginalPagedRuntimeRecoveryV3(token,family);assert.equal(record.schema,'OWNED_FIXED_EVM_CAPTURE_V2');
+ const runtime=await createFixedOwnedLocalEvm(family==='receiver'?LOCAL_EVM_PROFILE:LOCAL_NATIVE_VALUE_PROCESS_PROFILE,false,record,PAGED_SUPERVISOR_COLD_RECOVERY_V3);
+ if(family==='graphNative')ownedPagedNativeRuntimesV3.add(runtime);return runtime;
+}
+async function reopenOwnedPagedHubEvmV3(token){assert.equal(arguments.length,1);return reopenOwnedPagedEvmV3(token,'receiver');}
+async function reopenOwnedPagedNativeEvmV3(token){assert.equal(arguments.length,1);return reopenOwnedPagedEvmV3(token,'graphNative');}
+async function createOwnedPagedHubDurableEvmV3(){assert.equal(arguments.length,0);return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,null,PAGED_DURABLE_RUNTIME_V3);}
+async function createOwnedPagedNativeDurableEvmV3(){assert.equal(arguments.length,0);const runtime=await createFixedOwnedLocalEvm(LOCAL_NATIVE_VALUE_PROCESS_PROFILE,false,null,PAGED_DURABLE_RUNTIME_V3);ownedPagedNativeRuntimesV3.add(runtime);return runtime;}
 async function reopenOwnedReceiverRecoveryV1(token) {
   assert.equal(arguments.length,1);const record=recoveryContract.consumeWrappedRuntimeRecoveryV1(token,'receiver');
   return createFixedOwnedLocalEvm(LOCAL_EVM_PROFILE,false,record,true);
@@ -585,6 +599,9 @@ function isOwnedNativeEconomicRuntimeV2(runtime){assert.equal(arguments.length,1
 async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptance = false, recovery = null, recoveryAdmitted = false, preopenRepair = null, sourceRequest = null, sourceJournal = null) {
   assert.ok(!poolGenerationAcceptance || processProfile === LOCAL_EVM_PROFILE, 'POOL_GENERATION_NATIVE_PROFILE_INCOMPATIBLE');
   const nativeDescriptor = nativeProcessProfiles.get(processProfile);
+  const pagedColdRecoveryV3=recoveryAdmitted===PAGED_SUPERVISOR_COLD_RECOVERY_V3,pagedDurableV3=recoveryAdmitted===PAGED_DURABLE_RUNTIME_V3||pagedColdRecoveryV3;
+  assert.ok(!pagedDurableV3||[LOCAL_EVM_PROFILE,LOCAL_NATIVE_VALUE_PROCESS_PROFILE].includes(processProfile)&&!poolGenerationAcceptance&&!preopenRepair,'PAGED_DURABLE_FIXED_EVM_PROFILE');
+  assert.ok(!pagedColdRecoveryV3||recovery&&[LOCAL_EVM_PROFILE,LOCAL_NATIVE_VALUE_PROCESS_PROFILE].includes(processProfile)&&!poolGenerationAcceptance&&!preopenRepair,'PAGED_COLD_FIXED_EVM_PROFILE');
   const externalDefiV3=recoveryAdmitted===EXTERNAL_DEFI_RECEIVER_RUNTIME_V3;
   assert.ok(!externalDefiV3||processProfile===LOCAL_EVM_PROFILE&&!poolGenerationAcceptance&&!preopenRepair,'EXTERNAL_RECEIVER_V3_FIXED_FACTORY');
   const deviceSourceV2=recoveryAdmitted===DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2;
@@ -592,6 +609,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
   const deviceExternalFlatV1=recoveryAdmitted===DEVICE_EXTERNAL_FLAT_RECEIVER_RUNTIME_V1||deviceSourceV2;
   assert.ok(!deviceExternalFlatV1||processProfile===LOCAL_EVM_PROFILE&&!poolGenerationAcceptance&&!preopenRepair,'DEVICE_EXTERNAL_FLAT_RECEIVER_FIXED_FACTORY');
   const receiverRecoveryV3=externalDefiV3||deviceExternalFlatV1;
+  const pagedHubRecoveryV3=pagedDurableV3&&processProfile===LOCAL_EVM_PROFILE;
   const liveArmedV1=recoveryAdmitted===NATIVE_LIVE_ARMED_OBSERVED_RUNTIME_V1;
   const sourceDurableV1=recoveryAdmitted===NATIVE_DURABLE_SOURCE_RUNTIME_V1;
   const sourceIdentity=sourceDurableV1?sourceJournal.originalNativeSourceRuntimeRequestIdentityV1(sourceRequest):null;
@@ -607,7 +625,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
 
   assert.equal(process.platform, 'linux', 'LOCAL_EVM_LINUX_ONLY');
   assert.ok(!recoveryAdmitted||(!poolGenerationAcceptance&&(observedEconomicV2?(liveArmedV1||recovery===null)&&(processProfile===LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2||processProfile===LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2):!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE))),'EVM_PRIVATE_INPUT_FIXED_PROFILE');
-  const economicV2=recoveryAdmitted===NATIVE_ECONOMIC_RUNTIME_V2||observedEconomicV2||receiverRecoveryV3;
+  const economicV2=recoveryAdmitted===NATIVE_ECONOMIC_RUNTIME_V2||observedEconomicV2||receiverRecoveryV3||pagedDurableV3;
   const runtimePin=economicV2?NATIVE_ECONOMIC_ANVIL_PIN_V2:recoveryAdmitted?recoveryAnvilPinV1:linuxRuntimePins.anvil;
   const binary = await pinnedBinary(...runtimePin);
   const recoveryFamily=nativeValueOnly?'graphNative':'receiver',recoveryPrefix=economicV2?(nativeValueOnly?'flat-economic-native-v2-':'flat-economic-receiver-v2-'):(nativeValueOnly?'flat-owned-evm-native-value-v1-':'flat-owned-evm-v2-');
@@ -629,11 +647,11 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
     assert.equal(restored.uncertainMutation,false,'DEVICE_GRAPH_SOURCE_HALF_MUTATION');assert.equal(restored.uncertainSignedHash,null,'DEVICE_GRAPH_SOURCE_HALF_MUTATION');
   }
   else if(recovery){
-    assert.ok(recoveryAdmitted===true||economicV2,'EVM_RECOVERY_PRIVATE_INPUT_ADMISSION_REQUIRED');
+    assert.ok(recoveryAdmitted===true||economicV2||pagedColdRecoveryV3,'EVM_RECOVERY_PRIVATE_INPUT_ADMISSION_REQUIRED');
     assert.ok(!poolGenerationAcceptance&&(liveArmedV1?observedEconomicV2:!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE)));
     assert.equal(recovery.schema,liveArmedV1?LIVE_ARMED_CAPTURE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(recovery.family,recoveryFamily);assert.equal(recovery.terminal.ownedProcessStopped,true);assert.equal(recovery.terminal.forced,false);
     await assertOwnedRecoveryScratchV1(recovery.cwd,recoveryPrefix);if(preopenRepair)await assertOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await assertStoppedNativeFilesV1(recovery.cwd,recovery.files);
-    restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);assert.equal(restored.schema,liveArmedV1?LIVE_ARMED_PRIVATE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1');if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(restored);assert.equal(restored.family,recoveryFamily);assert.equal(restored.cwd,recovery.cwd);assert.deepEqual(restored.runtimePin,runtimePin);assert.equal(restored.profile,processProfile.name);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(preopenRepair)await claimOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);
+    restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);assert.equal(restored.schema,liveArmedV1?LIVE_ARMED_PRIVATE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1');if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(restored);else if(pagedHubRecoveryV3)assertOwnedPagedHubEvmPrivateRecordV3(restored);assert.equal(restored.family,recoveryFamily);assert.equal(restored.cwd,recovery.cwd);assert.deepEqual(restored.runtimePin,runtimePin);assert.equal(restored.profile,processProfile.name);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(preopenRepair)await claimOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);
   }
   const cwd = restored?restored.cwd:await scratchDirectory(recoveryPrefix);
   let initialPrivateRecord=null,stateFilePin=null,localCustody=null,localCustodyPublic=null;
@@ -741,7 +759,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       const parent=await open(cwd,'r');try{await parent.sync();}finally{await parent.close();}
       mnemonicArgs=['--mnemonic-file',mnemonicPath];
     }
-    if(restored&&(economicV2||shouldUseOwnedEvmStateFileV1(restored.stateDump)))stateFilePin=receiverRecoveryV3?await writeOwnedExternalDefiStateFileV3({cwd,suffix:recoverySuffix,stateDump:restored.stateDump}):await writeOwnedEvmStateFileV1({cwd,suffix:recoverySuffix,stateDump:restored.stateDump});
+    if(restored&&(economicV2||shouldUseOwnedEvmStateFileV1(restored.stateDump)))stateFilePin=pagedHubRecoveryV3?await writeOwnedPagedHubEvmStateFileV3({cwd,suffix:recoverySuffix,stateDump:restored.stateDump}):receiverRecoveryV3?await writeOwnedExternalDefiStateFileV3({cwd,suffix:recoverySuffix,stateDump:restored.stateDump}):await writeOwnedEvmStateFileV1({cwd,suffix:recoverySuffix,stateDump:restored.stateDump});
     const originalProcessArguments = [
       '--host', '127.0.0.1', '--port', String(port), '--chain-id', String(processProfile.chainId),
       '--hardfork', processProfile.hardfork, '--timestamp', String(genesisTimestamp),
@@ -1152,13 +1170,17 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
     });
 
     const dispatchOriginalPagedNativeV3=async scopedRequest=>{
-      assertOwnedLocalPagedNativeEvmV3(runtime);assert.equal(economicRecoveryFence,null);assert.equal(sourceDurableV1,false);assert.equal(economicV2,false);assert.equal(observedClock,false);
+      assertOwnedLocalPagedNativeEvmV3(runtime);assert.equal(economicRecoveryFence,null);assert.equal(sourceDurableV1,false);assert.ok(!economicV2||pagedDurableV3,'PAGED_NATIVE_FIXED_CUSTODY_REQUIRED');assert.equal(observedClock,false);
 
       const { openOriginalPagedNativeDispatchV3 } = await dispatchContract.paged();
 
       const scope=openOriginalPagedNativeDispatchV3(scopedRequest,runtime),tx=cloned(request(scope.transaction,true));
       assert.deepEqual(Object.keys(tx).sort(),['data','from','gas','to','value']);assert.ok(BigInt(tx.value)>0n&&BigInt(tx.value)<(1n<<128n));assert.ok(tx.to&&tx.from!==tx.to);assert.equal(tx.data,scope.memo);assert.equal(scope.chainId,String(processProfile.chainId));
-      return mutate(async()=>{let keyUsePossible=false,outcomeKnown=false,entry;try{
+      return mutate(async()=>{let keyUsePossible=false,outcomeKnown=false,entry,localSigningLease=null;try{
+        // LOCAL_SYNTHETIC Paged clock follows the canonical receiver head
+        // captured by the original READY grant, never a caller timestamp.
+        const receiverTimestamp=uint(scope.receiverTimestamp,64);assert.ok(receiverTimestamp<=BigInt(Number.MAX_SAFE_INTEGER),'PAGED_NATIVE_RECEIVER_CLOCK_BOUND');
+        if(receiverTimestamp>lastTimestamp)try{await mineAt(receiverTimestamp);}catch(error){uncertainMutation=true;throw error;}
         const head=await block();assert.equal(BigInt(head.timestamp),lastTimestamp);const pending=quantity(await rpc('eth_getTransactionCount',[tx.from,'pending']));assert.equal(await rpc('eth_getTransactionCount',[tx.from,'latest']),pending);
         const gasPrice=1000000000n;assert.ok(BigInt(head.baseFeePerGas)<=gasPrice);const targetCode=await rpc('eth_getCode',[tx.to,head.number]);assert.equal(targetCode,'0x','PAGED_NATIVE_RECIPIENT_CODE_OR_DELEGATION');
         const balanceWei=BigInt(await rpc('eth_getBalance',[tx.from,head.number])),recipientBalance=BigInt(await rpc('eth_getBalance',[tx.to,head.number]));assert.ok(balanceWei>=BigInt(tx.value)+BigInt(tx.gas)*gasPrice);
@@ -1166,12 +1188,32 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
         const estimate=BigInt(await rpc('eth_estimateGas',[signingRequest,head.number]));assert.ok(estimate>0n&&estimate<=BigInt(tx.gas));
         const prepared=cloned({genesis:genesisHash,head:{number:head.number,hash:head.hash,timestamp:head.timestamp},transaction:txExact,unsignedWire:encodeCanonicalEvmUnsignedTransaction(txExact),funds:{balanceWei:balanceWei.toString(),recipientBalanceWei:recipientBalance.toString(),estimatedGas:estimate.toString(),targetCodeHash:'0x'+keccak(Buffer.alloc(0)).toString('hex')}});
         entry={label:'original Paged LOCAL_SYNTHETIC native delivery V3',request:tx,senderNonce:pending,prepared,phase:'prepared-before-final-guard'};transactions.push(entry);
+        if(pagedDurableV3)localSigningLease=await prepareNativeEconomicCustodySigningV2(localCustody,prepared);
         const authority=await scope.beforeSign(prepared),auditStart=performance.now();assert.deepEqual(await block(),head);for(const tag of ['latest','pending'])assert.equal(await rpc('eth_getTransactionCount',[tx.from,tag]),pending);assert.equal(await rpc('eth_getCode',[tx.to,'latest']),targetCode);assert.equal(BigInt(await rpc('eth_getBalance',[tx.from,'latest'])),balanceWei);assert.equal(BigInt(await rpc('eth_getBalance',[tx.to,'latest'])),recipientBalance);assert.equal(BigInt(await rpc('eth_estimateGas',[signingRequest,'latest'])),estimate);assert.deepEqual(await block(),head);
         await scope.finalCurrent(authority,prepared);scope.consumeBeforeKey(authority,prepared);assert.ok(performance.now()-auditStart<30000,'PAGED_NATIVE_AUDIT_TOO_OLD');assertAlive();keyUsePossible=true;entry.phase='signing-outcome-unknown';
-        const raw=await rpc('eth_signTransaction',[signingRequest]);const signed=assertSignedEvmTransaction(raw,prepared.transaction);assert.equal(signed.unsignedWire,prepared.unsignedWire);entry.signed=cloned({nativeWire:signed.nativeWire,nativeId:signed.nativeId,transactionSHA256:signed.transactionSHA256});entry.transactionHash=signed.nativeId;entry.phase='signed-not-yet-durable';await persistSigned(entry);entry.phase='native-signed-durable';await scope.onSigned(entry.signed,prepared);entry.phase='provider-signature-durable';await scope.beforeSend(entry.signed,prepared);entry.phase='broadcast-result-unknown';assert.equal(await rpc('eth_sendRawTransaction',[entry.signed.nativeWire]),entry.transactionHash);entry.phase='broadcast';await mineAt(lastTimestamp+1n);const included=await receipt(entry.transactionHash),header=await assertCanonical(included);assert.deepEqual(header.transactions,[entry.transactionHash]);assert.equal(included.status,'0x1');await checkReceipt(included);assert.equal(await rpc('eth_getCode',[tx.to,header.number]),'0x');assert.equal(BigInt(await rpc('eth_getBalance',[tx.to,header.number])),recipientBalance+BigInt(tx.value));entry.receipt=included;entry.gasUsed=BigInt(included.gasUsed).toString();entry.phase='mined';receipts.push(entry);outcomeKnown=true;
+        const raw=pagedDurableV3?consumeNativeEconomicCustodySigningV2(localCustody,localSigningLease,prepared).nativeWire:await rpc('eth_signTransaction',[signingRequest]);localSigningLease=null;const signed=assertSignedEvmTransaction(raw,prepared.transaction);assert.equal(signed.unsignedWire,prepared.unsignedWire);entry.signed=cloned({nativeWire:signed.nativeWire,nativeId:signed.nativeId,transactionSHA256:signed.transactionSHA256});entry.transactionHash=signed.nativeId;entry.phase='signed-not-yet-durable';await persistSigned(entry);entry.phase='native-signed-durable';await scope.onSigned(entry.signed,prepared);entry.phase='provider-signature-durable';await scope.beforeSend(entry.signed,prepared);entry.phase='broadcast-result-unknown';assert.equal(await rpc('eth_sendRawTransaction',[entry.signed.nativeWire]),entry.transactionHash);entry.phase='broadcast';await mineAt(lastTimestamp+1n);const included=await receipt(entry.transactionHash),header=await assertCanonical(included);assert.deepEqual(header.transactions,[entry.transactionHash]);assert.equal(included.status,'0x1');await checkReceipt(included);assert.equal(await rpc('eth_getCode',[tx.to,header.number]),'0x');assert.equal(BigInt(await rpc('eth_getBalance',[tx.to,header.number])),recipientBalance+BigInt(tx.value));entry.receipt=included;entry.gasUsed=BigInt(included.gasUsed).toString();entry.phase='mined';receipts.push(entry);outcomeKnown=true;
         let tip=header;const finalityStart=performance.now();for(let i=0;i<64;i++){assert.ok(performance.now()-finalityStart<30000,'PAGED_NATIVE_FINALITY_ORIGINAL_TIMEOUT');assert.deepEqual(await block(),tip);const next=await mineAt(lastTimestamp+1n);assert.equal(next.parentHash,tip.hash);assert.equal(BigInt(next.number),BigInt(tip.number)+1n);assert.deepEqual(next.transactions,[]);tip=next;}
         const finalized=await rpc('eth_getBlockByNumber',['finalized',false]);assert.deepEqual(finalized,header,'PAGED_NATIVE_ORIGINAL_FINALIZED_TAG');await checkReceipt(included);entry.pagedFinality=cloned({profile:'LOCAL_SYNTHETIC_PINNED_ANVIL_FINALIZED_64_V3',included:header,tip,finalized});return cloned({nativeId:entry.transactionHash,transactionSHA256:entry.signed.transactionSHA256});
-      }catch(error){if(keyUsePossible&&!entry?.pagedFinality){uncertainMutation=true;uncertainSignedHash=entry?.signed&&entry.phase==='broadcast-result-unknown'?entry.transactionHash:null;if(entry){entry.uncertaintyCause=uncertainSignedHash?'original-signed-broadcast':outcomeKnown?'paged-mined-finality-unconfirmed':'unrecoverable-signing-or-mining';entry.phase='uncertain-no-resend';}}else if(entry&&!keyUsePossible)entry.phase='pre-sign-rejected';throw error;}});
+      }catch(error){if(keyUsePossible&&!entry?.pagedFinality){uncertainMutation=true;uncertainSignedHash=entry?.signed&&entry.phase==='broadcast-result-unknown'?entry.transactionHash:null;if(entry){entry.uncertaintyCause=uncertainSignedHash?'original-signed-broadcast':outcomeKnown?'paged-mined-finality-unconfirmed':'unrecoverable-signing-or-mining';entry.phase='uncertain-no-resend';}}else if(entry&&!keyUsePossible)entry.phase='pre-sign-rejected';throw error;}finally{if(localSigningLease)revokeNativeEconomicCustodySigningV2(localSigningLease);}});
+    };
+    // Same original Node custody and native-provider READY grant, with the
+    // actual Uniswap/D27 observer guarding the complete contract preparation.
+    const dispatchOriginalPagedUniswapV3=async scopedRequest=>{
+      assert.ok(deviceExternalFlatV1&&!deviceSourceObservationOnly&&economicV2&&!observedClock,'PAGED_UNISWAP_FIXED_ORIGINAL_RECEIVER');assertOwnedDeviceExternalFlatReceiverLiveV1(runtime);assert.equal(economicRecoveryFence,null);
+      const {openOriginalPagedUniswapProviderDispatchV3}=await dispatchContract.paged(),scope=openOriginalPagedUniswapProviderDispatchV3(scopedRequest,runtime),tx=cloned(request(scope.transaction,true));
+      assert.deepEqual(Object.keys(tx).sort(),['data','from','gas','to','value']);assert.equal(tx.value,'0x0');assert.equal(scope.chainId,'31337');assert.ok(tx.to&&tx.data.length>=10);
+      return mutate(async()=>{let keyUsePossible=false,outcomeKnown=false,entry,localSigningLease=null;try{
+        const receiverTimestamp=uint(scope.receiverTimestamp,64);assert.ok(receiverTimestamp<=BigInt(Number.MAX_SAFE_INTEGER));if(receiverTimestamp>lastTimestamp)try{await mineAt(receiverTimestamp);}catch(error){uncertainMutation=true;throw error;}
+        const head=await block();assert.equal(BigInt(head.timestamp),lastTimestamp);const pending=quantity(await rpc('eth_getTransactionCount',[tx.from,'pending']));assert.equal(await rpc('eth_getTransactionCount',[tx.from,'latest']),pending);
+        const gasPrice=1000000000n;assert.ok(BigInt(head.baseFeePerGas)<=gasPrice);const targetCode=await rpc('eth_getCode',[tx.to,head.number]);assert.notEqual(targetCode,'0x');const balanceWei=BigInt(await rpc('eth_getBalance',[tx.from,head.number]));assert.ok(balanceWei>=BigInt(tx.gas)*gasPrice);
+        const txExact={chainId:scope.chainId,from:tx.from,to:tx.to,nonce:BigInt(pending).toString(),gasPrice:gasPrice.toString(),gas:BigInt(tx.gas).toString(),value:'0',data:tx.data},signingRequest=Object.freeze({...tx,nonce:pending,chainId:'0x7a69',gasPrice:hex(gasPrice),type:'0x0'});
+        const estimate=BigInt(await rpc('eth_estimateGas',[signingRequest,head.number]));assert.ok(estimate>0n&&estimate<=BigInt(tx.gas));const prepared=cloned({genesis:genesisHash,head:{number:head.number,hash:head.hash,timestamp:head.timestamp},transaction:txExact,unsignedWire:encodeCanonicalEvmUnsignedTransaction(txExact),funds:{balanceWei:balanceWei.toString(),estimatedGas:estimate.toString(),targetCodeHash:'0x'+keccak(Buffer.from(targetCode.slice(2),'hex')).toString('hex')}});
+        entry={label:'gated EVM vault delivery',request:tx,senderNonce:pending,prepared,phase:'prepared-before-final-guard'};transactions.push(entry);localSigningLease=await prepareNativeEconomicCustodySigningV2(localCustody,prepared);
+        const authority=await scope.beforeSign(prepared),auditStart=performance.now();assert.deepEqual(await block(),head);for(const tag of ['latest','pending'])assert.equal(await rpc('eth_getTransactionCount',[tx.from,tag]),pending);assert.equal(await rpc('eth_getCode',[tx.to,'latest']),targetCode);assert.equal(BigInt(await rpc('eth_getBalance',[tx.from,'latest'])),balanceWei);assert.equal(BigInt(await rpc('eth_estimateGas',[signingRequest,'latest'])),estimate);assert.deepEqual(await block(),head);
+        await scope.finalCurrent(authority,prepared);scope.consumeBeforeKey(authority,prepared);assert.ok(performance.now()-auditStart<30000,'PAGED_UNISWAP_AUDIT_TOO_OLD');assertAlive();keyUsePossible=true;entry.phase='signing-outcome-unknown';const raw=consumeNativeEconomicCustodySigningV2(localCustody,localSigningLease,prepared).nativeWire;localSigningLease=null;const signed=assertSignedEvmTransaction(raw,prepared.transaction);assert.equal(signed.unsignedWire,prepared.unsignedWire);
+        entry.signed=cloned({nativeWire:signed.nativeWire,nativeId:signed.nativeId,transactionSHA256:signed.transactionSHA256});entry.transactionHash=signed.nativeId;entry.phase='signed-not-yet-durable';await persistSigned(entry);entry.phase='native-signed-durable';await scope.onSigned(entry.signed,prepared);entry.phase='provider-signature-durable';await scope.beforeSend(entry.signed,prepared);entry.phase='broadcast-result-unknown';assert.equal(await rpc('eth_sendRawTransaction',[entry.signed.nativeWire]),entry.transactionHash);entry.phase='broadcast';await mineAt(lastTimestamp+1n);
+        const included=await receipt(entry.transactionHash),header=await assertCanonical(included);assert.deepEqual(header.transactions,[entry.transactionHash]);await checkReceipt(included);entry.receipt=included;entry.gasUsed=BigInt(included.gasUsed).toString();entry.phase=included.status==='0x1'?'mined':'mined-reverted';receipts.push(entry);outcomeKnown=true;assert.equal(included.status,'0x1','PAGED_UNISWAP_EXECUTION_REVERTED');return cloned({nativeId:entry.transactionHash,transactionSHA256:entry.signed.transactionSHA256});
+      }catch(error){if(keyUsePossible&&!outcomeKnown){uncertainMutation=true;uncertainSignedHash=entry?.signed&&entry.phase==='broadcast-result-unknown'?entry.transactionHash:null;if(entry){entry.uncertaintyCause=uncertainSignedHash?'original-signed-broadcast':'unrecoverable-signing-or-mining';entry.phase='uncertain-no-resend';}}else if(entry&&!keyUsePossible)entry.phase='pre-sign-rejected';throw error;}finally{if(localSigningLease)revokeNativeEconomicCustodySigningV2(localSigningLease);}});
     };
     const readOriginalPagedNativeTransferV3=async hash=>{assertOwnedLocalPagedNativeEvmV3(runtime);await health();assert.match(hash,/^0x[0-9a-f]{64}$/);const entry=transactions.find(e=>e.transactionHash===hash&&e.label==='original Paged LOCAL_SYNTHETIC native delivery V3');assert.ok(entry?.pagedFinality&&entry.signed&&entry.receipt,'PAGED_NATIVE_ORIGINAL_FINALITY_REQUIRED');const durable=JSON.parse(await readFile(join(cwd,'signed-'+hash.slice(2)+'.json'),'utf8'));assert.deepEqual(durable,{schema:'OWNED_EVM_SIGNED_WIRE_V2',prepared:entry.prepared,signed:entry.signed});assertSignedEvmTransaction(entry.signed.nativeWire,entry.prepared.transaction);await checkReceipt(entry.receipt);const included=await assertCanonical(entry.receipt),tip=await block(),finalized=await rpc('eth_getBlockByNumber',['finalized',false]);assert.ok(BigInt(finalized.number)>=BigInt(included.number));assert.equal((await block(finalized.number)).hash,finalized.hash);assert.equal(await rpc('eth_getCode',[entry.request.to,tip.number]),'0x');assert.ok(BigInt(await rpc('eth_getBalance',[entry.request.to,tip.number]))>=BigInt(entry.prepared.funds.recipientBalanceWei)+BigInt(entry.request.value));return cloned({prepared:entry.prepared,signed:entry.signed,receipt:entry.receipt,included,tip,finalized,transaction:await transaction(hash)});};
 
@@ -1532,6 +1574,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
         observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedEconomicV2?{send,refreshObservedClock,dispatch}:observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
       signedTransaction: logicalReadV4(signedTransaction), reconcileSignedTransaction,
       dispatchOriginalPagedNativeV3,readOriginalPagedNativeTransferV3,
+      ...(deviceExternalFlatV1?{dispatchOriginalPagedUniswapV3}:{}),
       call: (transaction, tag = 'latest') => rpc('eth_call', [request(transaction, false), blockTag(tag)]),
       balance: async (holder, tag = 'latest') => BigInt(await rpc('eth_getBalance', [address(holder), blockTag(tag)])),
       code: (holder, tag = 'latest') => rpc('eth_getCode', [address(holder), blockTag(tag)]),
@@ -1598,14 +1641,14 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       const head=await ownRead('eth_getBlockByNumber',['latest',false]),genesisHeader=await ownRead('eth_getBlockByNumber',['0x0',false]);
       assert.equal(genesisHeader.hash,genesisHash);assert.deepEqual((await ownRead('eth_accounts')).map(address),economicV2?[]:accounts);
       const accountState=[];for(const holder of accounts)accountState.push({address:holder,balance:await ownRead('eth_getBalance',[holder,'latest']),nonce:await ownRead('eth_getTransactionCount',[holder,'latest']),code:await ownRead('eth_getCode',[holder,'latest'])});
-      const stateDump=await ownRead('anvil_dumpState',[true]);if(receiverRecoveryV3)assertOwnedExternalDefiStateDumpV3(stateDump);else assertOwnedEvmRecoveryStateDumpV1(stateDump);
+      const stateDump=await ownRead('anvil_dumpState',[true]);if(pagedHubRecoveryV3)assertOwnedPagedHubEvmStateDumpV3(stateDump);else if(receiverRecoveryV3)assertOwnedExternalDefiStateDumpV3(stateDump);else assertOwnedEvmRecoveryStateDumpV1(stateDump);
       assert.deepEqual(await ownRead('eth_getBlockByNumber',['latest',false]),head,'EVM_RECOVERY_CAPTURE_HEAD_CHANGED');
       let mnemonic,retainedLocalCustody=null;
       if(economicV2){retainedLocalCustody=await captureNativeEconomicLocalCustodyV2(localCustody);assert.deepEqual(retainedLocalCustody.accounts,accounts);}
       else {const st=await lstat(walletConfigPath);assert.ok(st.isFile()&&!st.isSymbolicLink()&&st.nlink===1&&st.size<16384);assert.equal(st.mode&0o777,0o600);
         const wallet=JSON.parse(await readFile(walletConfigPath,'utf8'));assert.deepEqual(wallet.available_accounts.map(address),accounts);mnemonic=wallet.wallet?.mnemonic;assert.ok(typeof mnemonic==='string'&&/^[a-z]+(?: [a-z]+){11}$/.test(mnemonic),'EVM_RECOVERY_PRIVATE_MNEMONIC');}
       const state={schema:liveArmedV1?LIVE_ARMED_PRIVATE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1',family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,...(economicV2?{localCustodyCommitment:localCustodyPublic.commitment}:{mnemonic}),lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
-      assert.ok(state.transactions.length<=512&&state.receipts.length<=512);if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(state);const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);
+      assert.ok(state.transactions.length<=512&&state.receipts.length<=512);if(pagedHubRecoveryV3)assertOwnedPagedHubEvmPrivateRecordV3(state);else if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(state);const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);
       await close();const stopped=lifecycle.findLast(row=>row.event==='stopped-owned-process');assert.ok(stopped?.stopped===true&&stopped.forced===false,'EVM_RECOVERY_REQUIRES_GRACEFUL_TERMINAL');
       const files=await sealStoppedNativeFilesV1(cwd);const captured={schema:liveArmedV1?LIVE_ARMED_CAPTURE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1',family:recoveryFamily,cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false},processGeneration,genesis:genesisHash};
       await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);
@@ -1644,6 +1687,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
     if(deviceExternalFlatV1)deviceReceiverCapture=createDeviceReceiverCaptureControlV1({
       captureIdentity:token=>recoveryContract.deviceExternalFlatReceiverCaptureIdentityV1(token),
       assertAliveAndPin(){assertAlive();assert.deepEqual(runtimePin,NATIVE_ECONOMIC_ANVIL_PIN_V2);},
+      assertUnfenced(){assert.ok(economicRecoveryFence===null&&!recoveryCapturing,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_FENCED');},
       assertQuiescent(){assert.ok(economicRecoveryFence===null&&!busy&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_REQUIRES_QUIESCENCE');},
       installFence(identity){economicRecoveryFence=cloneRuntimeRecoveryV1(identity);recoveryRetained=true;},
       captureRetained:()=>recoveryCapture(),
@@ -1905,6 +1949,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       }
       deviceReceiverSource={observationOnly:deviceSourceObservationOnly,preflight(){assertAlive();assert.ok(!busy&&recoveryRpcActive===0&&nativeActiveReadsV4===0,'DEVICE_GRAPH_SOURCE_SNAPSHOT_QUIESCENCE');},async snapshot(observationOnly){assert.equal(observationOnly,deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_ORIGINAL_CHECKPOINT_KIND');const state=await stateSnapshot();assertOwnedExternalDefiPrivateRecordV3(state);const retained=await captureNativeEconomicLocalCustodyV2(localCustody);assert.deepEqual(retained.accounts,state.accounts);assert.deepEqual(await block(),state.head);return{schema:'DEVICE_EXTERNAL_FLAT_SOURCE_RECEIVER_V2',state,localCustody:retained};}};
     }
+    if(pagedDurableV3)ownedPagedDurableRuntimesV3.add(runtime);
     await health(); return sourceDurableV1 ? sourceFrame : deviceExternalFlatV1 ? {runtime,capture:deviceReceiverCapture,source:deviceReceiverSource} : runtime;
   } catch (error) {
     try { error.cleanup = await close({ removeScratch: true }); } catch (cleanupError) { error.cleanupError = cleanupError; }
@@ -1953,6 +1998,11 @@ const {assertRecoverable:assertOwnedNativeEconomicRuntimeRecoverableV1,fence:fen
     reemitOwnedOriginalNativeRecoveryV1,
     armOwnedEvmRecoveryRetentionV1,
     captureOwnedEvmRecoveryV1,
+    captureOwnedPagedEvmRecoveryV3,
+    reopenOwnedPagedHubEvmV3,
+    reopenOwnedPagedNativeEvmV3,
+    createOwnedPagedHubDurableEvmV3,
+    createOwnedPagedNativeDurableEvmV3,
     reopenOwnedReceiverRecoveryV1,
     reopenOwnedNativeD26ObservationReceiverV1,
     reopenOwnedNativeEconomicReceiverV1,
@@ -1998,6 +2048,7 @@ const {assertRecoverable:assertOwnedNativeEconomicRuntimeRecoverableV1,fence:fen
     checkpointOwnedDeviceExternalFlatSourceReceiverV2,
     reopenOwnedDeviceExternalFlatSourceReceiverV2,
     assertOwnedDeviceExternalFlatReceiverV1,
+    assertOwnedDeviceExternalFlatReceiverLiveV1,
     captureOwnedDeviceExternalFlatReceiverV1,
     abortOwnedDeviceExternalFlatReceiverCaptureV1,
     isOwnedNativeEconomicRuntimeV2,

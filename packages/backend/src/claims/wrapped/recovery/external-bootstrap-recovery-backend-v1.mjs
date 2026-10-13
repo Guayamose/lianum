@@ -9,7 +9,7 @@ import { exactRecord } from '@lianum/components/encoding/commitments';
  * @typedef {{address: string, identity: {solver: string}, protocolKind: string, fee: unknown, creationTransactionHash: string}} Router
  * @typedef {{publicKey: unknown, close(): Promise<unknown>}} Operator
  * @typedef {{operators: Operator[]}} OperatorGroup
- * @typedef {{head: Head}} ActorRecord
+ * @typedef {{head: Head, schema?: string}} ActorRecord
  * @typedef {{profile: string, genesis: string, hub: string}} Identity
  * @typedef {{runtime: Runtime, system: System, protocols: Protocols, routers: readonly Router[], operatorGroup: OperatorGroup}} Actors
  * @typedef {{profile: string, genesis: string, chainId: string, runtimeAccounts: string[], operatorKeys: unknown[], hub: string, poolAddresses: string[], poolDomains: unknown[], verifierAddresses: Record<string, string>, protocolDeployments: {name: string, address: string, creationSHA256: string}[], routers: {identity: {solver: string}, protocolKind: string, fee: unknown, creationTransactionHash: string}[], externalProtocolAdmin: string, solver: string, providers: never[]}} Inventory
@@ -32,7 +32,7 @@ import { exactRecord } from '@lianum/components/encoding/commitments';
  * @typedef {{recordSHA256(value: unknown): string,
  * runtime: {assertOwnedLocalEvmV2(runtime: Runtime): Promise<unknown>},
  * system: {assertOwnedFlatSystem(runtime: Runtime, system: System): unknown, captureOwnedFlatSystemRecoveryV1(runtime: Runtime, system: System): Promise<ActorRecord>, reopenOwnedFlatSystemRecoveryV1(token: object): Promise<System>},
- * protocols: {assertOfficialProtocolFixture(runtime: Runtime, protocols: Protocols): unknown, captureOfficialProtocolFixtureRecoveryV1(runtime: Runtime, protocols: Protocols): Promise<ActorRecord>, reopenOfficialProtocolFixtureRecoveryV1(token: object): Promise<Protocols>},
+ * protocols: {assertOfficialProtocolFixture(runtime: Runtime, protocols: Protocols): unknown, captureOfficialProtocolFixtureRecoveryV1(runtime: Runtime, protocols: Protocols): Promise<ActorRecord>, reopenOfficialProtocolFixtureRecoveryV1(token: object): Promise<Protocols>, reopenOriginalUniswapFixtureRecoveryV3(token: object): Promise<Protocols>},
  * routers: {assertOwnedPrivateExternalRouterV1(router: Router, expected: {runtime: Runtime, system: System, poolIndex: number}): unknown, captureOwnedPrivateExternalRouterRecoveryV1(router: Router): Promise<ActorRecord>, reopenOwnedPrivateExternalRouterRecoveryV1(token: object): Promise<Router>},
  * operators: {assertRetainedLocalFlatOperatorGroupV1(group: OperatorGroup, expected: {runtime: Runtime}): unknown, captureRetainedLocalFlatOperatorGroupV1(group: OperatorGroup): Promise<unknown>, reopenRetainedLocalFlatOperatorGroupV1(input: {runtime: Runtime, expected: unknown, bindings: null[]}): Promise<OperatorGroup>},
  * lifetime: {retainWrappedPrivateLifetimePartV1(runtime: Runtime, name: string, identity: Identity, record: BootstrapRecord | ExitRecord): Promise<object>, readWrappedPrivateLifetimePartV1(runtime: Runtime, name: string, identity: Identity): Promise<SavedPart>, updateWrappedPrivateLifetimePartV1(handle: object, record: BootstrapRecord): Promise<unknown>, assertWrappedPrivateLifetimePartSealedV1(handle: object): unknown, assertWrappedPrivateLifetimeAttemptV1(runtime: Runtime, identity: unknown): unknown, wrappedPrivateLifetimeRuntimeCheckpointV1(runtime: Runtime): Promise<Checkpoint>},
@@ -71,12 +71,14 @@ export function buildExternalDefiBootstrapRecoveryV1(ports) {
     'assertOfficialProtocolFixture',
     'captureOfficialProtocolFixtureRecoveryV1',
     'reopenOfficialProtocolFixtureRecoveryV1',
+    'reopenOriginalUniswapFixtureRecoveryV3',
   ]);
   for (const method of Object.values(ports.protocols)) assert.equal(typeof method, 'function');
   const {
     assertOfficialProtocolFixture,
     captureOfficialProtocolFixtureRecoveryV1,
     reopenOfficialProtocolFixtureRecoveryV1,
+    reopenOriginalUniswapFixtureRecoveryV3,
   } = ports.protocols;
   exactRecord(ports.routers, [
     'assertOwnedPrivateExternalRouterV1',
@@ -647,6 +649,34 @@ export function buildExternalDefiBootstrapRecoveryV1(ports) {
     return Object.freeze({ system, protocols, router, deliveryObserver });
   }
 
+  /** Private mechanical opener; the façade first consumes an original Mixed
+   * supervisor component. Its part tokens never leave this closed builder. */
+  /** @param {{runtime: Runtime, record: {profile: string, targetDescriptor: unknown, bootstrap: {system: ActorRecord, protocols: ActorRecord, router: ActorRecord}, account: unknown}}} input */
+  async function reopenPagedUniswapBootstrapPartsV3(input) {
+    assert.equal(arguments.length, 1);
+    exactRecord(input, ['runtime', 'record']);
+    const { runtime, record } = input;
+    assert.equal(record.profile, 'ORIGINAL_PAGED_UNISWAP_CONTEXT_COLD_RETENTION_V3');
+    await assertOwnedLocalEvmV2(runtime);
+    exactRecord(record.bootstrap, ['system', 'protocols', 'router']);
+    assert.deepEqual(record.bootstrap.system.head, record.bootstrap.protocols.head);
+    assert.deepEqual(record.bootstrap.system.head, record.bootstrap.router.head);
+    await runtime.assertCanonical(record.bootstrap.system.head);
+    assert.equal(record.bootstrap.protocols.schema,'ORIGINAL_UNISWAP_ONLY_PROTOCOL_FIXTURE_V3');
+    const protocols = await reopenOriginalUniswapFixtureRecoveryV3(part({ runtime, record: record.bootstrap.protocols }, 'uniswap-protocols-v3'));
+    const system = await reopenOwnedFlatSystemRecoveryV1(part({ runtime, record: record.bootstrap.system }, 'system'));
+    const router = await reopenOwnedPrivateExternalRouterRecoveryV1(part({ runtime, record: record.bootstrap.router, system, protocols }, 'router'));
+    assertOwnedFlatSystem(runtime, system);
+    assertOfficialProtocolFixture(runtime, protocols);
+    assertOwnedPrivateExternalRouterV1(router, { runtime, system, poolIndex: 1 });
+    assert.equal(router.protocolKind, 'UNISWAP_V3_EXACT_OUTPUT_SINGLE');
+    const { createOwnedUniswapGraphDeliveryObserverV1 } = await loadObservers();
+    const deliveryObserver = await createOwnedUniswapGraphDeliveryObserverV1({ runtime, system, poolIndex: 1, router, protocolFixture: protocols });
+    return Object.freeze({ runtime, system, protocols, router, deliveryObserver,
+      accountToken: part({ runtime, system, router, deliveryObserver, saved: record.account }, 'paged-uniswap-private-share'),
+      retained: record });
+  }
+
   return Object.freeze({
     createExternalDefiBootstrapRecoveryV1,
     retainExternalDefiBootstrapForReopenV1,
@@ -657,5 +687,6 @@ export function buildExternalDefiBootstrapRecoveryV1(ports) {
     reopenExternalDefiVaultExitSystemFromAuthorityV1,
     reopenOriginalDeviceExternalFlatSystemRecordV1,
     reopenOriginalDeviceExternalFlatGraphSystemRecordV1,
+    reopenPagedUniswapBootstrapPartsV3,
   });
 }

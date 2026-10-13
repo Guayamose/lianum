@@ -10,6 +10,7 @@ import * as fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
+import * as childProcess from 'node:child_process';
 import { encodeBitcoinBinding } from '@lianum/engine/native/native-receipt-binding';
 import { auditClaimNativeInventory } from '../../../../src/claims/operations/backing-audit.mjs';
 import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
@@ -17,6 +18,7 @@ import { nativeClaimEndpointCommitment } from '@lianum/engine/claims/framing';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const hash160 = value => createHash('ripemd160').update(createHash('sha256').update(value).digest()).digest('hex');
 const asset = sha('combined host BTC asset'), copy = value => structuredClone(value);
+const actualHarness = await import('@lianum/engine/chains/shared/runtime-harness');
 let control;
 const actualOpen = fs.open;
 mock.module('node:fs/promises', { exports: { ...fs, async open(path, ...args) {
@@ -30,6 +32,7 @@ mock.module('node:fs/promises', { exports: { ...fs, async open(path, ...args) {
 const transport = () => { throw new Error('HOST_PROMISIFIED_RPC_ONLY'); };
 transport[promisify.custom] = async (binary, args, options) => {
   assert.equal(binary, '/host-only/bitcoin-cli'); assert.equal(options.cwd, join(control.directory, 'bitcoin'));
+  assert.equal(options.timeout, 15_000, 'HOST_ORIGINAL_RPC_TIMEOUT_UNCHANGED');
   const offset = args.findIndex(value => !value.startsWith('-'));
   const method = args[offset], values = args.slice(offset + 1).map(value => {
     try { return JSON.parse(value); } catch { return value; }
@@ -40,7 +43,8 @@ transport[promisify.custom] = async (binary, args, options) => {
   const value = rpc(method, values, wallet); control.afterRPC?.(method, value);
   return { stdout: JSON.stringify(value), stderr: '' };
 };
-mock.module('node:child_process', { exports: { execFile: transport } });
+mock.module('node:child_process', { exports: { ...childProcess, execFile: transport,
+  spawn() { throw new Error('HOST_OWNED_START_ONLY'); } } });
 // Exercise the actual fixed inventory helper through the actual runtime factory.
 // Only node:http's wire transport is replaced; no socket or daemon is started.
 mock.module('node:http', { exports: { request(options, callback) {
@@ -73,9 +77,14 @@ mock.module('node:http', { exports: { request(options, callback) {
   return req;
 } } });
 
-mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness.mjs', import.meta.url).href, { exports: {
+mock.module('@lianum/engine/chains/shared/runtime-harness', { exports: {
+  ...actualHarness,
   async pinnedBinary(name) { return name.endsWith('/bitcoind') ? '/host-only/bitcoind' : '/host-only/bitcoin-cli'; },
-  async scratchDirectory() { control.directory = await fs.mkdtemp(join(tmpdir(), 'combined-btc-host-')); return control.directory; },
+  async scratchDirectory() {
+    const root = join(actualHarness.projectRoot, '.local/integrations');
+    await fs.mkdir(root, { recursive: true, mode: 0o700 });
+    control.directory = await fs.mkdtemp(join(root, 'flat-bitcoin-host-')); return control.directory;
+  },
   async removeOwnScratch(path) { assert.equal(path, control.directory); control.removals++; await fs.rm(path, { recursive: true }); },
   async unusedLoopbackPort() { return 31339; }, async sleep() {},
   isolatedRuntimeEnvironment(path) { return { HOST_ONLY_RUNTIME: path }; },
@@ -303,6 +312,24 @@ test('wallet alias and immature graph funding fail construction and close the so
   }
 });
 
+test('fresh bootstrap retains exactly 101 ordered blocks in bounded batches', async () => {
+  const { runtime, c } = await fixture({}, createOwnedFlatBitcoinRuntime);
+  try {
+    assert.deepEqual(c.calls.filter(row => row.method === 'generatetoaddress').map(row => row.values[0]), [...Array(10).fill(10), 1]);
+    assert.equal(c.height, 101);
+    assert.equal(c.blocks.size, 101);
+    assert.equal(c.signs, 0); assert.equal(c.sends, 0);
+  } finally { await runtime.close(); }
+});
+
+test('malformed, short and duplicate bootstrap batches reject and close the original process', async () => {
+  for (const mutate of [rows => rows.pop(), rows => { rows[0] = 'not-a-block-hash'; }, rows => { rows[1] = rows[0]; }]) {
+    await assert.rejects(fixture({ afterRPC(method, rows) { if (method === 'generatetoaddress') mutate(rows); } }, createOwnedFlatBitcoinRuntime), /BITCOIN_BOOTSTRAP_BATCH_LENGTH|BITCOIN_INVALID_HASH|BITCOIN_BOOTSTRAP_DUPLICATE_BLOCK/);
+    assert.equal(control.starts, 1); assert.equal(control.stops, 1); assert.equal(control.removals, 1);
+    assert.equal(control.signs, 0); assert.equal(control.sends, 0);
+  }
+});
+
 test('graph funding and original graph effects stay outside custody principal, inventory, fee audit and facts', async () => {
   const { runtime: { custody, graph }, c } = await fixture();
   try {
@@ -355,13 +382,12 @@ test('graph funding and original graph effects stay outside custody principal, i
     assert.ok(firstSign < events.indexOf('persist-sync')); assert.ok(events.indexOf('persist-sync') < events.indexOf('directory-sync'));
     assert.ok(events.indexOf('directory-sync') < events.indexOf('onSigned')); assert.ok(events.indexOf('onSigned') < events.indexOf('sendrawtransaction'));
     assert.equal(c.signs, 2); assert.equal(c.sends, 2);
-    const refund = await send(custody, 'refund'); await custody.confirm(refund.nativeId);
-    const refunded = await custody.inventory(); assert.equal(audit(custody, refunded).nativePrincipalAvailable, '0');
-    assert.equal(refunded.feeAudit.escrowActualFees, '200');
-    assert.equal(custody.transfers[1].intent.sourceScript, custody.roles.escrow.endpoint);
-    assert.equal(custody.transfers[1].intent.recipientScript, custody.roles.depositor.endpoint);
-    assert.equal(custody.transfers[1].intent.changeScript, custody.roles.escrow.endpoint);
-    assert.equal(graph.transfers.length, 1); assert.equal(c.signs, 3); assert.equal(c.sends, 3);
+    // This runtime/inventory fixture has no original payout controller grant.
+    // Keep that boundary intact; dedicated payout tests exercise real grants.
+    await assert.rejects(send(custody, 'refund'), /BITCOIN_INVALID_OPTIONS/);
+    const unchanged = await custody.inventory();
+    assert.equal(audit(custody, unchanged).nativePrincipalAvailable, audit(custody, afterDeposit).nativePrincipalAvailable);
+    assert.equal(graph.transfers.length, 1); assert.equal(c.signs, 2); assert.equal(c.sends, 2);
   } finally { await custody.close(); }
 });
 

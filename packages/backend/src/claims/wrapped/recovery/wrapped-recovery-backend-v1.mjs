@@ -5952,6 +5952,7 @@ export function buildWrappedRecoveryAuthorityV1(contracts) {
           externalBootstrapProtocols.captureOfficialProtocolFixtureRecoveryV1(
             ...args,
           ),
+        reopenOriginalUniswapFixtureRecoveryV3: (...args) => externalBootstrapProtocols.reopenOriginalUniswapFixtureRecoveryV3(...args),
         reopenOfficialProtocolFixtureRecoveryV1: (...args) =>
           externalBootstrapProtocols.reopenOfficialProtocolFixtureRecoveryV1(
             ...args,
@@ -6015,6 +6016,7 @@ export function buildWrappedRecoveryAuthorityV1(contracts) {
     reopenExternalDefiVaultExitSystemFromAuthorityV1,
     reopenOriginalDeviceExternalFlatSystemRecordV1,
     reopenOriginalDeviceExternalFlatGraphSystemRecordV1,
+    reopenPagedUniswapBootstrapPartsV3,
   } = originalExternalBootstrapRecovery;
 
   return Object.freeze({
@@ -6166,5 +6168,6 @@ export function buildWrappedRecoveryAuthorityV1(contracts) {
     reopenExternalDefiVaultExitSystemFromAuthorityV1,
     reopenOriginalDeviceExternalFlatSystemRecordV1,
     reopenOriginalDeviceExternalFlatGraphSystemRecordV1,
+    reopenPagedUniswapBootstrapPartsV3,
   });
 }

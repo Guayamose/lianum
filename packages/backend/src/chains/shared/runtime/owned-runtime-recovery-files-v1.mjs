@@ -1,7 +1,7 @@
 /** Fixed native-runtime private retention primitives. No runtime launch or caller-selected root. */
 import assert from 'node:assert/strict';
 import{createHash}from'node:crypto';import{constants}from'node:fs';
-import{realpath,lstat,readdir,open,rename}from'node:fs/promises';import{join,dirname,basename}from'node:path';
+import{realpath,lstat,readdir,readlink,open,rename}from'node:fs/promises';import{join,dirname,basename}from'node:path';
 import{projectRoot}from'@lianum/engine/chains/shared/runtime-harness';
 const ROOT=join(projectRoot,'.local/integrations'),MAX_RECORD=64*1024*1024,MAX_FILES=20000,MAX_TOTAL=8*1024*1024*1024;
 const SHA=b=>createHash('sha256').update(b).digest('hex');
@@ -23,19 +23,49 @@ export async function readPrivateRuntimeRecoveryV1(cwd,pin){
  assert.ok(privateNames.has(pin.path));const path=join(cwd,pin.path),s=await lstat(path);assert.equal(s.mode&0o777,0o600);const b=await readFixed(path,MAX_RECORD);assert.equal(b.length,pin.bytes);assert.equal(SHA(b),pin.sha256);return JSON.parse(b);
 }
 export async function sealStoppedNativeFilesV1(cwd){
- const files=[];let total=0;
+ const files=[],fileRows=new Map(),observed=[],directories=[],aliases=new Map(),symbolic=[];let total=0,solanaRootChecked=false;
+ const stableFields=['dev','ino','uid','mode','nlink','size','mtimeMs','ctimeMs'];
+ const stable=(a,b)=>{for(const field of stableFields)assert.equal(b[field],a[field],'NATIVE_RECOVERY_FILE_CHANGED');};
+ async function solanaRoot(){if(!solanaRootChecked){await assertOwnedRecoveryScratchV1(cwd,'flat-solana-');const root=await lstat(cwd);assert.equal(root.uid,process.getuid(),'NATIVE_RECOVERY_HARDLINK_OWNER');solanaRootChecked=true;}}
+ async function retainAlias(path,a){
+  assert.ok(a.nlink>=2&&a.nlink<=9,'NATIVE_RECOVERY_UNEXPECTED_HARDLINK');
+  await solanaRoot();
+  assert.equal(a.uid,process.getuid(),'NATIVE_RECOVERY_HARDLINK_OWNER');
+  const match=/^ledger\/accounts\/(?:run\/|snapshot\/(?:0|[1-9][0-9]{0,19})\/)((?:0|[1-9][0-9]{0,19})\.(?:0|[1-9][0-9]{0,19}))$/.exec(path);
+  assert.ok(match,'NATIVE_RECOVERY_UNEXPECTED_HARDLINK_PATH');
+  const identity=String(a.dev)+':'+String(a.ino),group=aliases.get(identity)??[];assert.ok(group.length<9,'NATIVE_RECOVERY_HARDLINK_COUNT');group.push({path,filename:match[1],stat:a});aliases.set(identity,group);
+ }
+ async function retainSnapshotReference(path,a){
+  const match=/^ledger\/snapshot\/(0|[1-9][0-9]{0,19})\/accounts_hardlinks\/account_path_0$/.exec(path);assert.ok(match,'NATIVE_RECOVERY_SYMLINK');await solanaRoot();assert.equal(a.uid,process.getuid(),'NATIVE_RECOVERY_SNAPSHOT_LINK_OWNER');assert.equal(a.nlink,1,'NATIVE_RECOVERY_SNAPSHOT_LINK_COUNT');
+  // Agave v2.3.13 snapshot_utils::rebuild_storages_from_snapshot_dir uses
+  // read_link as cwd-relative DATA. Never resolve or follow this OS symlink.
+  const full=join(cwd,path),target=await readlink(full);stable(a,await lstat(full));assert.equal(target,'ledger/accounts/snapshot/'+match[1],'NATIVE_RECOVERY_SNAPSHOT_LINK_TARGET');assert.ok(files.length+symbolic.length<MAX_FILES,'NATIVE_RECOVERY_TREE_BOUND');symbolic.push({path,target,stat:a});
+ }
  async function walk(relative=''){
   const dir=relative?join(cwd,relative):cwd;assert.equal(await realpath(dir),dir);const s=await lstat(dir);assert.ok(s.isDirectory()&&!s.isSymbolicLink());
+  directories.push({path:dir,stat:s});
   for(const name of(await readdir(dir)).sort()){
    assert.ok(name!=='.'&&name!=='..'&&!name.includes('/'));const path=relative?relative+'/'+name:name;if(!relative&&privateNames.has(name))continue;
-   const full=join(cwd,path),a=await lstat(full);assert.ok(!a.isSymbolicLink(),'NATIVE_RECOVERY_SYMLINK');
+   const full=join(cwd,path),a=await lstat(full);if(a.isSymbolicLink()){await retainSnapshotReference(path,a);continue;}
    if(a.isDirectory()){await walk(path);continue;}
    if(a.isSocket()){assert.equal(path,'ledger/admin.rpc','NATIVE_RECOVERY_UNEXPECTED_SOCKET');continue;}
-   assert.ok(a.isFile()&&a.nlink===1&&a.size<=2*1024*1024*1024);const f=await open(full,constants.O_RDONLY|constants.O_NOFOLLOW),hash=createHash('sha256'),buffer=Buffer.alloc(256*1024);let size=0;try{for(;;){const {bytesRead}=await f.read(buffer,0,buffer.length,null);if(!bytesRead)break;size+=bytesRead;assert.ok(size<=a.size);hash.update(buffer.subarray(0,bytesRead));}await f.sync();const z=await f.stat();for(const k of ['dev','ino','size','mtimeMs','ctimeMs'])assert.equal(a[k],z[k]);}finally{await f.close();}assert.equal(size,a.size);total+=size;assert.ok(total<=MAX_TOTAL&&files.length<MAX_FILES,'NATIVE_RECOVERY_TREE_BOUND');files.push({path,bytes:size,sha256:hash.digest('hex'),mode:(a.mode&0o777).toString(8).padStart(4,'0')});
+   assert.ok(a.isFile()&&a.nlink>=1&&a.size<=2*1024*1024*1024);if(a.nlink!==1)await retainAlias(path,a);const f=await open(full,constants.O_RDONLY|constants.O_NOFOLLOW),hash=createHash('sha256'),buffer=Buffer.alloc(256*1024);let size=0;try{stable(a,await f.stat());for(;;){const {bytesRead}=await f.read(buffer,0,buffer.length,null);if(!bytesRead)break;size+=bytesRead;assert.ok(size<=a.size);hash.update(buffer.subarray(0,bytesRead));}await f.sync();stable(a,await f.stat());stable(a,await lstat(full));}finally{await f.close();}assert.equal(size,a.size);total+=size;assert.ok(total<=MAX_TOTAL&&files.length+symbolic.length<MAX_FILES,'NATIVE_RECOVERY_TREE_BOUND');const row={path,bytes:size,sha256:hash.digest('hex'),mode:(a.mode&0o777).toString(8).padStart(4,'0')};files.push(row);fileRows.set(path,row);observed.push({path:full,stat:a});
   }
   const directory=await open(dir,'r');try{await directory.sync();}finally{await directory.close();}
  }
- await walk();return{files,totalBytes:total};
+ await walk();
+ const hardlinkGroups=[];
+ for(const group of aliases.values()){
+  assert.equal(group.length,group[0].stat.nlink,'NATIVE_RECOVERY_INCOMPLETE_HARDLINK');const runs=group.filter(row=>row.path.startsWith('ledger/accounts/run/')),snapshots=group.filter(row=>row.path.startsWith('ledger/accounts/snapshot/'));
+  assert.ok(runs.length===1&&snapshots.length>=1&&snapshots.length<=8,'NATIVE_RECOVERY_HARDLINK_PAIR');const run=runs[0],a=fileRows.get(run.path);
+  for(const snapshot of snapshots){assert.equal(snapshot.filename,run.filename,'NATIVE_RECOVERY_HARDLINK_PAIR');stable(run.stat,snapshot.stat);const b=fileRows.get(snapshot.path);assert.equal(a.bytes,b.bytes,'NATIVE_RECOVERY_HARDLINK_BYTES');assert.equal(a.sha256,b.sha256,'NATIVE_RECOVERY_HARDLINK_BYTES');assert.equal(a.mode,b.mode,'NATIVE_RECOVERY_HARDLINK_MODE');}
+  hardlinkGroups.push({paths:[run.path,...snapshots.map(row=>row.path).sort()],nlink:group.length});
+ }
+ const aliasPaths=new Set(hardlinkGroups.flatMap(group=>group.paths));
+ for(const reference of symbolic){const target=join(cwd,reference.target),directory=directories.find(row=>row.path===target);assert.ok(directory,'NATIVE_RECOVERY_SNAPSHOT_LINK_DIRECTORY');assert.equal(directory.stat.uid,process.getuid(),'NATIVE_RECOVERY_SNAPSHOT_LINK_OWNER');assert.equal(directory.stat.dev,reference.stat.dev,'NATIVE_RECOVERY_SNAPSHOT_LINK_DEVICE');stable(directory.stat,await lstat(target));const members=files.filter(row=>row.path.startsWith(reference.target+'/'));assert.ok(members.length>0&&members.every(row=>aliasPaths.has(row.path)),'NATIVE_RECOVERY_SNAPSHOT_LINK_HARDLINKS');}
+ for(const row of [...observed,...directories])stable(row.stat,await lstat(row.path));
+ for(const reference of symbolic){const path=join(cwd,reference.path);stable(reference.stat,await lstat(path));assert.equal(await readlink(path),reference.target,'NATIVE_RECOVERY_SNAPSHOT_LINK_CHANGED');stable(reference.stat,await lstat(path));}
+ hardlinkGroups.sort((a,b)=>a.paths[0].localeCompare(b.paths[0]));const symbolicLinks=symbolic.map(({path,target})=>({path,target}));return{files,totalBytes:total,...(hardlinkGroups.length?{hardlinkGroups}:{}),...(symbolicLinks.length?{symbolicLinks}:{})};
 }
 export async function assertStoppedNativeFilesV1(cwd,expected){assert.deepEqual(await sealStoppedNativeFilesV1(cwd),expected,'NATIVE_RECOVERY_RETAINED_FILES_CHANGED');}
 export const cloneRuntimeRecoveryV1=value=>JSON.parse(JSON.stringify(value));

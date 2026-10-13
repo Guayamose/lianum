@@ -141,10 +141,10 @@ test('HOST ordered device receiver retains before effects and preserves its dist
  const record=Object.freeze({schema:'OWNED_EXTERNAL_DEFI_RECEIVER_CAPTURE_V3',family:'receiver',terminal:Object.freeze({ownedProcessStopped:true,forced:false}),explicitInertHost:true});
  const captureIdentity=token=>{const saved=writes.get(token);assert.ok(saved&&!saved.fault,'HOST_ORIGINAL_DEVICE_WRITE_TOKEN');return saved.identity;};
  const consume=token=>{const saved=reads.get(token);assert.ok(saved&&!saved.used,'HOST_ORIGINAL_DEVICE_OPEN_TOKEN');saved.used=true;return saved.record;};
- const createCore=async(saved,source)=>{factoryCalls++;assert.ok(saved===null||saved===record);const state={closed:false,fenced:false,retained:false};
+ const createCore=async(saved,source)=>{factoryCalls++;assert.ok(saved===null||saved===record);const state={closed:false,fenced:false,busy:false,retained:false};
    const runtime=Object.freeze({async close(){events.push('close');state.closed=true;if(cleanupError)throw cleanupError;return{closed:true};}});instances.set(runtime,state);
    const capture=createDeviceReceiverCaptureControlV1({captureIdentity,
-     assertAliveAndPin(){assert.equal(state.closed,false);},assertQuiescent(){assert.equal(state.fenced,false,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_REQUIRES_QUIESCENCE');},
+     assertAliveAndPin(){assert.equal(state.closed,false);},assertUnfenced(){assert.equal(state.fenced,false,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_FENCED');},assertQuiescent(){assert.ok(!state.fenced&&!state.busy,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_REQUIRES_QUIESCENCE');},
      installFence(value){assert.equal(value,identity);state.fenced=true;state.retained=true;},
      async captureRetained(){assert.equal(state.retained,true);assert.equal(state.fenced,true);events.push('capture');if(captureGate)await captureGate;if(captureError)throw captureError;return record;},
      async closeCaptured(){await runtime.close();}
@@ -161,15 +161,16 @@ test('HOST ordered device receiver retains before effects and preserves its dist
  let releaseRetention;retentionGate=new Promise(resolve=>{releaseRetention=resolve;});let returned=false;
  const creation=bridge.create().then(runtime=>{returned=true;return runtime;});await new Promise(resolve=>setTimeout(resolve,0));
  assert.deepEqual(events,['new-core','retain-before-effects']);assert.equal(returned,false);releaseRetention();const runtime=await creation;retentionGate=null;
- assert.equal(bridge.assert(runtime),undefined);assert.throws(()=>bridge.assert({...runtime}),/ORIGINAL_REQUIRED/);assert.throws(()=>bridge.native(runtime),/DISTINCT_ISSUER/);
+ assert.equal(bridge.assert(runtime),undefined);assert.equal(family.assertReceiverLive(runtime),undefined);assert.throws(()=>family.assertReceiverLive({...runtime}),/ORIGINAL_REQUIRED/);assert.throws(()=>family.assertReceiverLive(new Proxy(runtime,{})),/ORIGINAL_REQUIRED/);assert.throws(()=>bridge.assert({...runtime}),/ORIGINAL_REQUIRED/);assert.throws(()=>bridge.native(runtime),/DISTINCT_ISSUER/);
  assert.throws(()=>bridge.fenceNative(runtime,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.captureNative(runtime,{}),/DISTINCT_ISSUER/);await assert.rejects(bridge.abortNative(runtime,{}),/DISTINCT_ISSUER/);
  await assert.rejects(bridge.create({}),/0/);await assert.rejects(bridge.abort(runtime,null),/ORIGINAL_CAPTURE_TOKEN/);assert.equal(instances.get(runtime).closed,false);
  const token=Object.freeze(Object.create(null));writes.set(token,{identity,fault:false});assert.throws(()=>bridge.capture(runtime,{...token}),/HOST_ORIGINAL_DEVICE_WRITE_TOKEN/);assert.throws(()=>bridge.capture({...runtime},token),/ORIGINAL_REQUIRED/);
+ instances.get(runtime).busy=true;assert.equal(family.assertReceiverLive(runtime),undefined,'the same original runtime stays live during its scoped mutation');assert.throws(()=>bridge.assert(runtime),/QUIESCENCE/);assert.throws(()=>bridge.capture(runtime,token),/QUIESCENCE/);assert.equal(instances.get(runtime).fenced,false,'rejected busy capture installs no fence');instances.get(runtime).busy=false;
  let releaseCapture;captureGate=new Promise(resolve=>{releaseCapture=resolve;});captureError=new Error('HOST_ORIGINAL_CAPTURE_FAILURE');
- const work=bridge.capture(runtime,token);assert.equal(instances.get(runtime).fenced,true);assert.throws(()=>bridge.assert(runtime),/QUIESCENCE/);assert.throws(()=>bridge.capture(runtime,token),/QUIESCENCE/);
+ const work=bridge.capture(runtime,token);assert.equal(instances.get(runtime).fenced,true);assert.throws(()=>family.assertReceiverLive(runtime),/CAPTURE_FENCED/);assert.throws(()=>bridge.assert(runtime),/QUIESCENCE/);assert.throws(()=>bridge.capture(runtime,token),/QUIESCENCE/);
  await assert.rejects(bridge.abort(runtime,{...token}),/ORIGINAL_CAPTURE_TOKEN/);assert.equal(instances.get(runtime).closed,false);
  writes.get(token).fault=true;releaseCapture();await assert.rejects(work,error=>error===captureError);const aborted=await bridge.abort(runtime,token);
- assert.equal(aborted.closed,true);assert.equal(aborted.recoveryIncomplete,true);assert.equal(instances.get(runtime).closed,true);
+ assert.equal(aborted.closed,true);assert.equal(aborted.recoveryIncomplete,true);assert.equal(instances.get(runtime).closed,true);assert.throws(()=>family.assertReceiverLive(runtime));
  captureGate=null;captureError=null;const readToken=Object.freeze(Object.create(null));reads.set(readToken,{record,used:false});
  const before=factoryCalls;await assert.rejects(bridge.reopen({...readToken}),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);assert.equal(factoryCalls,before);
  const recovered=await bridge.reopen(readToken);assert.equal(factoryCalls,before+1);assert.equal(bridge.assert(recovered),undefined);await assert.rejects(bridge.reopen(readToken),/HOST_ORIGINAL_DEVICE_OPEN_TOKEN/);
@@ -183,7 +184,7 @@ test('HOST ordered device receiver retains before effects and preserves its dist
  await assert.rejects(family.checkpointSource(source,{...checkpoint}),/SOURCE_CHECKPOINT_TOKEN/);assert.equal(await family.checkpointSource(source,checkpoint),record);await assert.rejects(family.checkpointSource(source,checkpoint),/SOURCE_CHECKPOINT_TOKEN/);
  const sourceToken=Object.freeze({});sourceReads.set(sourceToken,{record,used:false});await assert.rejects(family.reopenSource({...sourceToken}),/SOURCE_OPEN_TOKEN/);const restoredSource=await family.reopenSource(sourceToken);await assert.rejects(family.reopenSource(sourceToken),/SOURCE_OPEN_TOKEN/);assert.throws(()=>bridge.native(restoredSource),/DISTINCT_ISSUER/);
  const wrongCheckpoint=Object.freeze({});sourceRequests.set(wrongCheckpoint,{runtime:restoredSource,opening:false,used:false});await assert.rejects(family.checkpointSource(restoredSource,wrongCheckpoint),/SOURCE_ORIGINAL_RECEIVER/);
- const separate=buildDeviceReceiverFamilyV1(ports),foreign=await separate.createSource();assert.throws(()=>family.assertReceiver(foreign),/ORIGINAL_REQUIRED/);assert.throws(()=>separate.assertReceiver(source),/ORIGINAL_REQUIRED/);assert.equal(family.assertDistinct(foreign),undefined);assert.throws(()=>bridge.native(foreign),/EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED/);
+ const separate=buildDeviceReceiverFamilyV1(ports),foreign=await separate.createSource();assert.throws(()=>family.assertReceiver(foreign),/ORIGINAL_REQUIRED/);assert.throws(()=>family.assertReceiverLive(foreign),/ORIGINAL_REQUIRED/);assert.throws(()=>separate.assertReceiverLive(source),/ORIGINAL_REQUIRED/);assert.throws(()=>separate.assertReceiver(source),/ORIGINAL_REQUIRED/);assert.equal(family.assertDistinct(foreign),undefined);assert.throws(()=>bridge.native(foreign),/EVM_ECONOMIC_ORIGINAL_RUNTIME_REQUIRED/);
  await source.close();await restoredSource.close();await foreign.close();
  await recovered.close();const originalRetentionError=new Error('HOST_RETENTION_FAILED'),originalCleanupError=new Error('HOST_CLEANUP_FAILED');retentionError=originalRetentionError;
  await assert.rejects(bridge.create(),error=>error===originalRetentionError);cleanupError=originalCleanupError;

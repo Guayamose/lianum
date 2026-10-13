@@ -6,19 +6,22 @@ import {exactRecord} from '@lianum/components/encoding/commitments';
 
 /** Synchronous capture fencing and exact-token cleanup. This mechanism owns no
  * runtime brand. The core supplies its original pin, quiescence and close ports. */
-/** @typedef {{preflight():void,capture(token:unknown):Promise<unknown>,abort(token:unknown):Promise<{closed:boolean,recoveryIncomplete:boolean}>}} CaptureControl */
+/** @typedef {{assertLive():void,preflight():void,capture(token:unknown):Promise<unknown>,abort(token:unknown):Promise<{closed:boolean,recoveryIncomplete:boolean}>}} CaptureControl */
 /** @typedef {{close():Promise<unknown>}} ReceiverRuntime */
 /** @typedef {{observationOnly:boolean,preflight():void,snapshot(opening:boolean):Promise<unknown>}} SourceControl */
 /** @typedef {{runtime:ReceiverRuntime,capture:CaptureControl,source:SourceControl|null}} CoreFrame */
-/** @param {{captureIdentity(token:unknown):unknown,assertAliveAndPin():void,assertQuiescent():void,
+/** @param {{captureIdentity(token:unknown):unknown,assertAliveAndPin():void,assertUnfenced():void,assertQuiescent():void,
  * installFence(identity:unknown):void,captureRetained():Promise<unknown>,closeCaptured():Promise<void>}} ports
  * @returns {CaptureControl} */
 export function createDeviceReceiverCaptureControlV1(ports){
-  assert.equal(arguments.length,1);exactRecord(ports,['captureIdentity','assertAliveAndPin','assertQuiescent','installFence','captureRetained','closeCaptured']);
-  const {captureIdentity,assertAliveAndPin,assertQuiescent,installFence,captureRetained,closeCaptured}=ports;
+  assert.equal(arguments.length,1);exactRecord(ports,['captureIdentity','assertAliveAndPin','assertUnfenced','assertQuiescent','installFence','captureRetained','closeCaptured']);
+  const {captureIdentity,assertAliveAndPin,assertUnfenced,assertQuiescent,installFence,captureRetained,closeCaptured}=ports;
   /** @type {unknown} */
   let originalToken=null;
   return Object.freeze({
+    // Identity/liveness is valid during the same original mutation. It cannot
+    // enter capture, adopt a recovery token or bypass an installed fence.
+    assertLive(){assertAliveAndPin();assert.ok(originalToken===null,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_FENCED');assertUnfenced();},
     preflight(){assertAliveAndPin();assertQuiescent();},
     capture(token){const identity=captureIdentity(token);assertAliveAndPin();
       assert.ok(originalToken===null,'DEVICE_EXTERNAL_FLAT_RECEIVER_CAPTURE_REQUIRES_QUIESCENCE');assertQuiescent();
@@ -41,7 +44,7 @@ export function buildDeviceReceiverFamilyV1(ports){
   function adopt(frame,source){
     exactRecord(frame,['runtime','capture','source']);
     assert.ok(frame.runtime&&typeof frame.runtime.close==='function');
-    assert.ok(frame.capture&&typeof frame.capture.preflight==='function'&&typeof frame.capture.capture==='function'&&typeof frame.capture.abort==='function');
+    assert.ok(frame.capture&&typeof frame.capture.assertLive==='function'&&typeof frame.capture.preflight==='function'&&typeof frame.capture.capture==='function'&&typeof frame.capture.abort==='function');
     assert.ok(!originals.has(frame.runtime),'DEVICE_EXTERNAL_FLAT_RECEIVER_ORIGINAL_REQUIRED');
     if(source)assert.ok(frame.source&&typeof frame.source.observationOnly==='boolean'&&typeof frame.source.preflight==='function'&&typeof frame.source.snapshot==='function','DEVICE_GRAPH_SOURCE_ORIGINAL_RECEIVER');
     else assert.equal(frame.source,null,'DEVICE_GRAPH_SOURCE_ORIGINAL_RECEIVER');
@@ -64,6 +67,8 @@ export function buildDeviceReceiverFamilyV1(ports){
   }
   /** @param {unknown} runtime */
   function assertReceiver(runtime){assert.equal(arguments.length,1);original(runtime).capture.preflight();}
+  /** @param {unknown} runtime */
+  function assertReceiverLive(runtime){assert.equal(arguments.length,1);original(runtime).capture.assertLive();}
   /** @param {unknown} runtime @param {unknown} token */
   function capture(runtime,token){assert.equal(arguments.length,2);return original(runtime).capture.capture(token);}
   /** @param {unknown} runtime @param {unknown} token */
@@ -77,5 +82,5 @@ export function buildDeviceReceiverFamilyV1(ports){
   function assertSource(runtime){assert.equal(arguments.length,1);source(runtime).preflight();}
   /** @param {unknown} runtime @param {unknown} token */
   async function checkpointSource(runtime,token){assert.equal(arguments.length,2);const request=consumeSourceCheckpoint(token,runtime),state=source(runtime);assert.equal(state.observationOnly,request.opening,'DEVICE_GRAPH_SOURCE_ORIGINAL_RECEIVER');return state.snapshot(request.opening);}
-  return Object.freeze({create,reopen,assertReceiver,capture,abort,assertDistinct,createSource,reopenSource,assertSource,checkpointSource});
+  return Object.freeze({create,reopen,assertReceiver,assertReceiverLive,capture,abort,assertDistinct,createSource,reopenSource,assertSource,checkpointSource});
 }

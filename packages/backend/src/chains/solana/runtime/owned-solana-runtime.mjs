@@ -37,6 +37,45 @@ const READ_METHODS = new Set(['getAccountInfo', 'getMultipleAccounts', 'getFeeFo
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const fail = code => { throw new Error(code); };
 const requireCondition = (condition, code) => { if (!condition) fail(code); };
+/** Finite capture diagnostics only; no native stdout/stderr, paths or keys. */
+function solanaCaptureFailureDiagnosticV1(stage, error, cleanup, nativeState) {
+  if (stage !== 'STOP' && stage !== 'SEAL') return null;
+  const codes = new Set(['EACCES', 'EPERM', 'ENOENT', 'ECONNREFUSED',
+    'SOLANA_RECOVERY_ADMIN_TIMEOUT', 'SOLANA_RECOVERY_ADMIN_UNAVAILABLE',
+    'SOLANA_RECOVERY_ADMIN_RESPONSE_BOUND', 'SOLANA_RECOVERY_ADMIN_RESPONSE',
+    'SOLANA_RECOVERY_OWNED_ADMIN_SOCKET', 'SOLANA_RECOVERY_ORIGINAL_ADMIN_PATH',
+    'SOLANA_RECOVERY_ADMIN_ORIGINAL_PID', 'SOLANA_RECOVERY_ADMIN_EXIT_ACK',
+    'SOLANA_RECOVERY_NATIVE_JOIN_NOT_ESTABLISHED', 'SOLANA_RECOVERY_NATIVE_EXIT_TIMEOUT',
+    'SOLANA_RECOVERY_NATIVE_EXIT_BEFORE_ADMIN', 'SOLANA_RECOVERY_NATIVE_EXIT_REJECTED',
+    'SOLANA_RECOVERY_REQUIRES_ORDERLY_NATIVE_TERMINAL', 'OWN_RUNTIME_DID_NOT_EXIT',
+    'NATIVE_RECOVERY_FILE_BOUND', 'NATIVE_RECOVERY_FILE_CHANGED', 'NATIVE_RECOVERY_TREE_BOUND',
+    'NATIVE_RECOVERY_UNEXPECTED_HARDLINK', 'NATIVE_RECOVERY_UNEXPECTED_HARDLINK_PATH',
+    'NATIVE_RECOVERY_INCOMPLETE_HARDLINK', 'NATIVE_RECOVERY_HARDLINK_COUNT',
+    'NATIVE_RECOVERY_HARDLINK_OWNER', 'NATIVE_RECOVERY_HARDLINK_PAIR',
+    'NATIVE_RECOVERY_HARDLINK_BYTES', 'NATIVE_RECOVERY_HARDLINK_MODE',
+    'NATIVE_RECOVERY_SYMLINK', 'NATIVE_RECOVERY_UNEXPECTED_SOCKET',
+    'NATIVE_RECOVERY_SNAPSHOT_LINK_OWNER', 'NATIVE_RECOVERY_SNAPSHOT_LINK_COUNT',
+    'NATIVE_RECOVERY_SNAPSHOT_LINK_TARGET', 'NATIVE_RECOVERY_SNAPSHOT_LINK_DIRECTORY',
+    'NATIVE_RECOVERY_SNAPSHOT_LINK_DEVICE', 'NATIVE_RECOVERY_SNAPSHOT_LINK_HARDLINKS',
+    'NATIVE_RECOVERY_SNAPSHOT_LINK_CHANGED']);
+  let code = 'UNCLASSIFIED';
+  for (const name of ['code', 'message']) {
+    const value = error && Object.getOwnPropertyDescriptor(error, name)?.value;
+    if (typeof value === 'string') {
+      const candidate = value.split('\n', 1)[0];
+      if (codes.has(candidate)) { code = candidate; break; }
+    }
+  }
+  return { stage, code,
+    ownedProcessStopped: cleanup?.ownedProcessStopped === true,
+    forced: cleanup?.forced === true,
+    nativeOrderlyExit: cleanup?.nativeOrderlyExit === true,
+    nativeStopFailure: codes.has(cleanup?.nativeStopFailure) ? cleanup.nativeStopFailure : null,
+    nativeExitTimeoutObserved: nativeState.nativeExitTimeoutObserved === true,
+    nativeChildCloseObserved: nativeState.nativeChildCloseObserved === true,
+    nativeExitZero: nativeState.nativeExitZero === true,
+    nativeSignalPresent: nativeState.nativeSignalPresent === true };
+}
 const ownedSolanaRuntimes = new WeakSet(), ownedSolanaLiveness = new WeakMap(), ownedSolanaAuditStates = new WeakMap();
 const originalSplContextsV1=new WeakMap(),originalSplFacadesV1=new WeakMap(),originalSplGraphsV1=new WeakMap();
 export function consumeOwnedSolanaSplContextV1(token){requireCondition(arguments.length===1,'SOLANA_SPL_CONTEXT_ARITY');const value=originalSplContextsV1.get(token);requireCondition(value,'SOLANA_SPL_ORIGINAL_CONTEXT_REQUIRED');originalSplContextsV1.delete(token);value.assertLive();return value;}
@@ -510,6 +549,11 @@ export async function createOwnedJupiterPublicBankV1(){
 }
 const fixedOwnedSolanaSend = sendOwnedSolanaTransaction;
 const originalSolanaRecoveryCapturesV1=new WeakMap(),originalSolanaRetentionArmsV1=new WeakMap();
+const originalPagedSolanaRecoveryCapturesV3=new WeakMap();
+/** Graph-only custody is recovered from the supervisor's authenticated private
+ * checkpoint. Prepared authorizations from the old process are not recreated. */
+export async function captureOwnedPagedSolanaRecoveryV3(runtime){requireCondition(arguments.length===1,'SOLANA_RECOVERY_ARITY');assertOwnedSolanaRuntime(runtime);const capture=originalPagedSolanaRecoveryCapturesV3.get(runtime);requireCondition(capture,'SOLANA_RECOVERY_FIXED_PAGED_GRAPH');return capture();}
+export async function reopenOwnedPagedSolanaRecoveryV3(token){requireCondition(arguments.length===1,'SOLANA_RECOVERY_ARITY');const {consumeOriginalPagedRuntimeRecoveryV3}=await import('../../../operations/recovery/paged-runtime-recovery-authority-v3.mjs');const record=consumeOriginalPagedRuntimeRecoveryV3(token,'solana');return createOwnedSolanaRuntimeProfile(async()=>{},SOLANA_PRIVATE_COHORT_OPTIONS,true,false,false,record,false,false,false,true);}
 export async function armOwnedSolanaRecoveryRetentionV1(runtime){requireCondition(arguments.length===1,'SOLANA_RETENTION_ARITY');assertOwnedSolanaRuntime(runtime);const arm=originalSolanaRetentionArmsV1.get(runtime);requireCondition(arm,'SOLANA_RETENTION_FIXED_CUSTODY');return arm();}
 export async function captureOwnedSolanaRecoveryV1(runtime){requireCondition(arguments.length===1,'SOLANA_RECOVERY_ARITY');assertOwnedSolanaRuntime(runtime);const capture=originalSolanaRecoveryCapturesV1.get(runtime);requireCondition(capture,'SOLANA_RECOVERY_FIXED_CUSTODY');return capture();}
 export async function reopenOwnedSolanaRecoveryV1(token){requireCondition(arguments.length===1,'SOLANA_RECOVERY_ARITY');const record=consumeWrappedRuntimeRecoveryV1(token,'solana');return createOwnedSolanaRuntimeProfile(async()=>{},SOLANA_PRIVATE_COHORT_OPTIONS,true,true,false,record);}
@@ -518,7 +562,7 @@ function restoreSolanaKeyV1(row,role){
  if(row.seedHex===null){requireCondition(['depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce'].includes(role),'SOLANA_RECOVERY_MISSING_SOURCE_KEY');return{seed:Buffer.alloc(32),publicBytes,address:row.address};}
  requireCondition(typeof row.seedHex==='string'&&/^[0-9a-f]{64}$/.test(row.seedHex),'SOLANA_RECOVERY_SEED');const seed=Buffer.from(row.seedHex,'hex'),key=createPrivateKey({key:Buffer.concat([PKCS8_ED25519,seed]),type:'pkcs8',format:'der'});assert.deepEqual(createPublicKey(key).export({type:'spki',format:'der'}).subarray(-32),publicBytes,'SOLANA_RECOVERY_KEY_PAIR');return{seed,publicBytes,address:row.address};
 }
-async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false,jupiterSpl=false,originalClaimIngress=false) {
+async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custody = false, combined = false,recovery=null,jupiterPublic=false,jupiterSpl=false,originalClaimIngress=false,pagedRecovery=false) {
   requireCondition(typeof originalClaimIngress === 'boolean'
     && (!originalClaimIngress || (cohort && custody && combined && !recovery && !jupiterPublic && !jupiterSpl)),
     'SOLANA_ORIGINAL_CLAIM_FIXED_PROFILE');
@@ -533,13 +577,18 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
   const retentionArguments = solanaLedgerRetentionArguments(options);
   requireCondition(solanaLoopbackCompatibilityPin !== null, 'SOLANA_LOOPBACK_COMPAT_BUILD_NOT_READY');
   const boundedLedger = options.resourceProfile === SOLANA_BOUNDED_LEDGER_PROFILE;
+  const originalPagedGraph = !custody && cohort && !combined && !jupiterPublic && !jupiterSpl;
   const selectedValidatorPin = boundedLedger ? solanaCandidateBoundedLedgerCompatibilityPin : solanaLoopbackCompatibilityPin;
   const binaries = { validator: await pinnedSolanaBinary(selectedValidatorPin) };
   try { await lstat(join(dirname(binaries.validator), 'perf-libs')); fail('SOLANA_UNREVIEWED_PERFORMANCE_LIBRARY_DIRECTORY'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   let restored=null;
-  if(recovery){requireCondition(custody&&cohort&&!combined,'SOLANA_RECOVERY_FIXED_CUSTODY');requireCondition(recovery.schema==='OWNED_FIXED_SOLANA_CAPTURE_V1'&&recovery.family==='solana','SOLANA_RECOVERY_RECORD');requireCondition(recovery.terminal.ownedProcessStopped===true&&recovery.terminal.forced===false&&recovery.terminal.nativeOrderlyExit===true,'SOLANA_RECOVERY_TERMINAL');await assertOwnedRecoveryScratchV1(recovery.cwd,'flat-solana-');await assertStoppedNativeFilesV1(recovery.cwd,recovery.files);restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);requireCondition(restored.schema==='OWNED_FIXED_SOLANA_PRIVATE_RECOVERY_V1'&&restored.cwd===recovery.cwd,'SOLANA_RECOVERY_IDENTITY');assert.deepEqual(restored.validatorPin,selectedValidatorPin);assert.deepEqual(restored.options,options);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);}
+  requireCondition(!pagedRecovery||(!custody&&cohort&&!combined&&recovery&&!jupiterPublic&&!jupiterSpl),'SOLANA_RECOVERY_FIXED_PAGED_GRAPH');
+  if(recovery){requireCondition(cohort&&!combined&&(pagedRecovery?!custody:custody),'SOLANA_RECOVERY_FIXED_CUSTODY');requireCondition(recovery.schema==='OWNED_FIXED_SOLANA_CAPTURE_V1'&&recovery.family==='solana','SOLANA_RECOVERY_RECORD');requireCondition(recovery.terminal.ownedProcessStopped===true&&recovery.terminal.forced===false&&recovery.terminal.nativeOrderlyExit===true,'SOLANA_RECOVERY_TERMINAL');await assertOwnedRecoveryScratchV1(recovery.cwd,'flat-solana-');await assertStoppedNativeFilesV1(recovery.cwd,recovery.files);restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);requireCondition(restored.schema==='OWNED_FIXED_SOLANA_PRIVATE_RECOVERY_V1'&&restored.cwd===recovery.cwd,'SOLANA_RECOVERY_IDENTITY');assert.deepEqual(restored.validatorPin,selectedValidatorPin);assert.deepEqual(restored.options,options);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(pagedRecovery)requireCondition(restored.pagedProfile==='PAGED_GRAPH_ONLY_V3'&&recovery.pagedProfile==='PAGED_GRAPH_ONLY_V3','SOLANA_RECOVERY_FIXED_PAGED_GRAPH');else requireCondition(!restored.pagedProfile,'SOLANA_RECOVERY_FIXED_CUSTODY');await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);}
   const cwd = restored?restored.cwd:await scratchDirectory('flat-solana-'), ledger = join(cwd, 'ledger'), env = envFor(cwd);
+  // Official Agave admin exit hard-exits after five seconds by default.
+  // Allow an orderly native join within our unchanged 30-second outer bound.
+  if (originalPagedGraph) env.SOLANA_VALIDATOR_EXIT_TIMEOUT = '30';
   let initialPrivateRecord=null;
   let recoveryCapturing=false,recoveryRetained=Boolean(restored),recoveryCapture=null,recoveryCaptureResult=null;
   const processGeneration=restored?restored.processGeneration+1:0;requireCondition(Number.isSafeInteger(processGeneration)&&processGeneration>=0&&processGeneration<16,'SOLANA_RECOVERY_GENERATION');
@@ -559,13 +608,17 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
   let nativeExitTimeoutObserved=false,nativeChildCloseObserved=false;const nativeDiagnosticOverlap={stdout:'',stderr:''};
   async function stopRetainedValidator(){
     const child=handle.child;
-    if(child.exitCode!==null||child.signalCode!==null)return{stopped:true,forced:false,nativeOrderlyExit:false};
-    const socketPath=join(ledger,'admin.rpc');let nativeStopFailure=null;
+    if(child.exitCode!==null||child.signalCode!==null)return{stopped:true,forced:false,nativeOrderlyExit:false,nativeStopFailure:'SOLANA_RECOVERY_NATIVE_EXIT_BEFORE_ADMIN'};
+    const socketPath=join(ledger,'admin.rpc'),connectionPath=originalPagedGraph?`/proc/${child.pid}/cwd/ledger/admin.rpc`:socketPath;let nativeStopFailure=null;
     const requestAdmin=async method=>{
       requireCondition(method==='pid'||method==='exit','SOLANA_RECOVERY_ADMIN_FIXED_METHOD');
       handle.assertAlive();const st=await lstat(socketPath);requireCondition(st.isSocket()&&!st.isSymbolicLink()&&st.uid===process.getuid()&&(await realpath(socketPath))===socketPath,'SOLANA_RECOVERY_OWNED_ADMIN_SOCKET');
+      // The same original socket is reached through its live child's cwd.
+      // An absolute compatibility-root pathname exceeds Linux sun_path; no
+      // other ledger, PID, endpoint or symlink target can be selected here.
+      if(originalPagedGraph)requireCondition(await realpath(`/proc/${child.pid}/cwd`)===cwd&&await realpath(connectionPath)===socketPath,'SOLANA_RECOVERY_ORIGINAL_ADMIN_PATH');
       return new Promise((resolve,reject)=>{
-        const socket=createConnection({path:socketPath});let data='',settled=false;
+        const socket=createConnection({path:connectionPath});let data='',settled=false;
         const absoluteTimer=setTimeout(()=>done(new Error('SOLANA_RECOVERY_ADMIN_TIMEOUT')),5000);
         const done=(error,value)=>{if(settled)return;settled=true;clearTimeout(absoluteTimer);socket.destroy();error?reject(error):resolve(value);};
         socket.setTimeout(5000,()=>done(new Error('SOLANA_RECOVERY_ADMIN_TIMEOUT')));
@@ -582,7 +635,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       for(let i=0;i<300&&!nativeChildCloseObserved;i++)await sleep(100);
       if(nativeChildCloseObserved&&child.exitCode===0&&child.signalCode===null&&!nativeExitTimeoutObserved)return{stopped:true,forced:false,nativeOrderlyExit:true};
     }catch(error){nativeStopFailure=['EACCES','EPERM','ENOENT','ECONNREFUSED'].includes(error.code)?error.code:(/^[A-Z_]{1,100}$/.test(error.message)?error.message:'SOLANA_RECOVERY_ADMIN_FAILED');/* Cleanup only; no alternate endpoint or permission bypass. */}
-    const result=await stopOwnProcess(handle,{graceMs:30000});return{...result,nativeOrderlyExit:false,nativeStopFailure:nativeStopFailure??'SOLANA_RECOVERY_NATIVE_JOIN_NOT_ESTABLISHED'};
+    const result=await stopOwnProcess(handle,{graceMs:30000});return{...result,nativeOrderlyExit:false,nativeStopFailure:nativeStopFailure??(nativeExitTimeoutObserved?'SOLANA_RECOVERY_NATIVE_EXIT_TIMEOUT':nativeChildCloseObserved?'SOLANA_RECOVERY_NATIVE_EXIT_REJECTED':'SOLANA_RECOVERY_NATIVE_JOIN_NOT_ESTABLISHED')};
   }
   const close = async () => {if(recoveryRetained&&!recoveryCapturing&&recoveryCapture){try{await recoveryCapture();return cleanupOutcome;}catch(error){recoveryCapturing=true;try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'SOLANA_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}}return closePromise ??= (async () => {
     if (closed) return cleanupOutcome;
@@ -607,7 +660,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     if (combined&&!restored) {
       for (const role of ['graphSolver', 'graphRecipient', 'graphRecipient1']) keys[role] = createSyntheticKey();
     }
-    if(restored){assert.deepEqual(Object.keys(restored.keys).sort(),['solver','recipient','recipient1','unusedMint','depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce'].sort());for(const [role,row]of Object.entries(restored.keys))keys[role]=restoreSolanaKeyV1(row,role);}
+    if(restored){assert.deepEqual(Object.keys(restored.keys).sort(),(pagedRecovery?['solver','recipient','recipient1','unusedMint']:['solver','recipient','recipient1','unusedMint','depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce']).sort());for(const [role,row]of Object.entries(restored.keys))keys[role]=restoreSolanaKeyV1(row,role);}
     if(custody&&!combined&&!restored){const economicKeys={};for(const role of ['solver','recipient','recipient1','unusedMint']){economicKeys[role]={publicHex:keys[role].publicBytes.toString('hex'),address:keys[role].address,seedHex:keys[role].seed.toString('hex')};const verified=restoreSolanaKeyV1(economicKeys[role],role);verified.seed.fill(0);}initialPrivateRecord=await writeOriginalSolanaEconomicKeysV1(cwd,{schema:'OWNED_SOLANA_ORIGINAL_ECONOMIC_KEYS_V1',keys:economicKeys});}
     // Includes economic roles, both infrastructure pairs, graph roles and mint.
     requireCondition(new Set(Object.values(keys).map(key => key.address)).size === Object.keys(keys).length,
@@ -617,12 +670,14 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     const roles = frozenInput(Object.fromEntries(Object.entries(roleKeys).filter(([, key]) => key)
       .map(([role, key]) => [role, { address: key.address, endpoint: key.publicBytes.toString('hex') }])));
     const custodyRoute = name => ({ name, ...ownedCustodyRoute(name) });
-    const graphRoute = recipientIndex => ({ name: null, recipientIndex, sourceRole: 'depositor',
+    const pagedGraphRecipients=new Map();
+    if(pagedRecovery){requireCondition(Array.isArray(restored.pagedGraphRecipients)&&restored.pagedGraphRecipients.length<=62,'SOLANA_RECOVERY_RECIPIENT_BOUND');for(const row of restored.pagedGraphRecipients){const route=cloneInput(row);exactRecord(route,['name','recipientIndex','sourceRole','destinationRole','externalRecipient']);requireCondition(route.name===null&&route.recipientIndex===recipientAddresses.length+pagedGraphRecipients.size&&route.sourceRole==='depositor'&&route.destinationRole==='recipient','SOLANA_RECOVERY_RECIPIENT_ORDER');const bytes=base58Decode(route.externalRecipient,32);requireCondition(base58Encode(bytes)===route.externalRecipient&&route.externalRecipient!==keys.solver.address&&!recipientAddresses.includes(route.externalRecipient),'SOLANA_RECOVERY_RECIPIENT_ADDRESS');pagedGraphRecipients.set(route.recipientIndex,frozenInput(route));}}
+    const graphRoute = recipientIndex => pagedGraphRecipients.get(recipientIndex)??({ name: null, recipientIndex, sourceRole: 'depositor',
       destinationRole: recipientIndex === 0 ? 'escrow' : 'recipient' });
     const graphRoleKeys = combined ? { depositor: keys.graphSolver, escrow: keys.graphRecipient, recipient: keys.graphRecipient1 } : roleKeys;
     const selectedKeys = selectedRoute => selectedRoute.name === null ? graphRoleKeys : roleKeys;
     const sourceKey = selectedRoute => selectedKeys(selectedRoute)[selectedRoute.sourceRole];
-    const recipientAddress = selectedRoute => selectedKeys(selectedRoute)[selectedRoute.destinationRole].address;
+    const recipientAddress = selectedRoute => selectedRoute.externalRecipient??selectedKeys(selectedRoute)[selectedRoute.destinationRole].address;
     const nonceAuthorityRoles = Object.freeze(['depositor', 'escrow']);
     const nonceKeysByAuthority = custody ? Object.freeze({
       depositor: Object.freeze({ payer: keys.depositorNonceBootstrapPayer, account: keys.depositorNonce }),
@@ -723,7 +778,9 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     const { rpcPort, gossipPort, faucetPort, dynamicBase, dynamicEnd } = ports;
     const endpoint = `http://127.0.0.1:${rpcPort}`;
     await writeFile(config, `json_rpc_url: ${endpoint}\nwebsocket_url: ws://127.0.0.1:${rpcPort + 1}\nkeypair_path: ${JSON.stringify(join(cwd, 'unused.json'))}\ncommitment: finalized\n`, { mode: 0o600 });
-    const args = ['--config', config, '--ledger', ledger, ...(restored?[]:['--mint',keys.unusedMint.address,'--account',keys.solver.address,solverAccount,...custodyGenesisArguments]), '--bind-address', '127.0.0.1', '--gossip-host', '127.0.0.1', '--rpc-port', String(rpcPort), '--gossip-port', String(gossipPort), '--faucet-port', String(faucetPort), '--faucet-sol', '0', '--dynamic-port-range', `${dynamicBase}-${dynamicEnd}`, '--ticks-per-slot', String(options.ticksPerSlot ?? 16), '--slots-per-epoch', '512', '--log', ...retentionArguments];
+    // Agave binds admin.rpc using the ledger argument itself. Preserve the
+    // exact owned cwd/ledger while keeping the graph-only native socket short.
+    const args = ['--config', config, '--ledger', originalPagedGraph?'ledger':ledger, ...(restored?[]:['--mint',keys.unusedMint.address,'--account',keys.solver.address,solverAccount,...custodyGenesisArguments]), '--bind-address', '127.0.0.1', '--gossip-host', '127.0.0.1', '--rpc-port', String(rpcPort), '--gossip-port', String(gossipPort), '--faucet-port', String(faucetPort), '--faucet-sol', '0', '--dynamic-port-range', `${dynamicBase}-${dynamicEnd}`, '--ticks-per-slot', String(options.ticksPerSlot ?? 16), '--slots-per-epoch', '512', '--log', ...retentionArguments];
     await ports.release(); portReservation = undefined;
     const child = spawn(binaries.validator, args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
     child.once('close',()=>{nativeChildCloseObserved=true;});
@@ -732,12 +789,13 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     const collectDiagnostic = (stream,bytes) => { const chunk=bytes.toString(),combined=nativeDiagnosticOverlap[stream]+chunk;if(combined.includes('validator exit timeout'))nativeExitTimeoutObserved=true;nativeDiagnosticOverlap[stream]=combined.slice(-64);diagnostic = (diagnostic + chunk).slice(-48000); };
     child.stderr.on('data', bytes=>collectDiagnostic('stderr',bytes)); child.stdout.on('data', bytes=>collectDiagnostic('stdout',bytes));
     handle = { child, assertAlive() { if (spawnError || child.exitCode !== null || child.signalCode !== null) { const error = new Error('SOLANA_VALIDATOR_EXITED'); error.diagnostic = sanitize(diagnostic); error.exitCode = child.exitCode; error.signal = child.signalCode; throw error; } } };
-    const read = async (method, params = []) => {
+    const read = async (method, params = [], timeoutMs = 5000) => {
       requireCondition(READ_METHODS.has(method), 'SOLANA_READ_ONLY_METHOD_REQUIRED');
+      requireCondition(Number.isSafeInteger(timeoutMs)&&timeoutMs>0&&timeoutMs<=5000,'SOLANA_READ_TIMEOUT_BOUND');
       requireCondition(!closed && !shuttingDown && !recoveryCapturing, 'SOLANA_RUNTIME_CLOSED');
       if (isolationFailure) throw isolationFailure; handle.assertAlive();
       readGeneration++; activeNativeReads++;
-      try { return await ownedRuntimeRpc(endpoint, method, params, { timeoutMs: 5000 }); }
+      try { return await ownedRuntimeRpc(endpoint, method, params, { timeoutMs }); }
       finally { activeNativeReads--; }
     };
     await progress('Starting Solana validator with loopback-only addresses and no public entrypoint');
@@ -1005,11 +1063,40 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       metadata.nonceInfrastructureByAuthority = cloneInput(nonceInfrastructureByAuthority);
     }
     if(restored){
+      if(pagedRecovery){requireCondition(genesis===restored.genesis&&identity===restored.validatorIdentity,'SOLANA_RECOVERY_ORIGINAL_GENESIS');assert.deepEqual(metadata.publicKeys,restored.publicKeys,'SOLANA_RECOVERY_ORIGINAL_KEYS');}
       requireCondition(Array.isArray(restored.records)&&restored.records.length<=64&&Array.isArray(restored.graphRecords)&&restored.graphRecords.length===0,'SOLANA_RECOVERY_RECORD_BOUND');
-      for(const row of restored.records){const record=cloneInput(row),decoded=validateSolanaNonceBindingTransaction(record.nativeWire,record.intent);requireCondition(decoded.signatureHex===record.nativeId&&decoded.transactionSHA256===record.transactionSHA256,'SOLANA_RECOVERY_SIGNED_IDENTITY');requireCondition(!records.has(record.nativeId),'SOLANA_RECOVERY_DUPLICATE_RECORD');records.set(record.nativeId,record);}
+      for(const row of restored.records){const record=cloneInput(row),decoded=(pagedRecovery?validateSolanaBindingTransaction:validateSolanaNonceBindingTransaction)(record.nativeWire,record.intent);if(pagedRecovery){requireCondition(!Object.hasOwn(record,'route')&&!Object.hasOwn(record.intent,'nonceAccountPublicKey'),'SOLANA_RECOVERY_GRAPH_ROUTE');const route=graphRoute(record.recipientIndex);requireCondition(record.intent.sourcePublicKey===keys.solver.publicBytes.toString('hex')&&record.intent.recipientPublicKey===base58Decode(recipientAddress(route),32).toString('hex'),'SOLANA_RECOVERY_RETAINED_ROUTE');}requireCondition(decoded.signatureHex===record.nativeId&&decoded.transactionSHA256===record.transactionSHA256,'SOLANA_RECOVERY_SIGNED_IDENTITY');requireCondition(!records.has(record.nativeId),'SOLANA_RECOVERY_DUPLICATE_RECORD');records.set(record.nativeId,record);}
       // Historical prepared bytes are retained as evidence; original in-memory
       // preparation/authorization WeakMaps are deliberately never recreated.
-      const blockOpts={commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0};assert.deepEqual(await read('getBlock',[restored.finalizedSlot,blockOpts]),restored.finalizedBlock,'SOLANA_RECOVERY_FINALIZED_HEAD');
+      const blockOpts={commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0};
+      let retainedBlock;
+      if(pagedRecovery){
+        // RPC health is not evidence that replay has rooted the retained slot.
+        // All retries stay within one elapsed budget and query that exact slot.
+        const deadline=performance.now()+60000,target=safeInteger(restored.finalizedSlot,'SOLANA_RECOVERY_FINALIZED_SLOT');
+        const remaining=()=>{const ms=Math.floor(deadline-performance.now());requireCondition(ms>0,'SOLANA_RECOVERY_FINALIZED_FRONTIER_TIMEOUT');return ms;};
+        const retainedRead=(method,params)=>read(method,params,Math.min(5000,remaining()));
+        const wait=()=>sleep(Math.min(250,remaining()));
+        for(;;){
+          const current=safeInteger(await retainedRead('getSlot',[{commitment:'finalized'}]),'SOLANA_RECOVERY_FINALIZED_SLOT');
+          if(current>=target){
+            try{retainedBlock=await retainedRead('getBlock',[restored.finalizedSlot,blockOpts]);}
+            catch(error){
+              // Finite public metadata only. Missing/cleaned/skipped history
+              // fails immediately; only original not-yet-available statuses wait.
+              const codes=new Map([[-32001,'CLEANED_UP'],[-32004,'NOT_AVAILABLE'],[-32007,'SLOT_SKIPPED'],[-32009,'LONG_TERM_SLOT_SKIPPED'],[-32011,'HISTORY_UNAVAILABLE'],[-32014,'STATUS_NOT_AVAILABLE_YET']]);
+              const label=error?.message==='OWNED_RPC_REMOTE_ERROR'?codes.get(error.rpcCode):null;
+              if(label){
+                const code='SOLANA_RECOVERY_FINALIZED_BLOCK_'+label;
+                if(![-32004,-32014].includes(error.rpcCode)||performance.now()>=deadline){const failure=new Error(code);failure.code=code;throw failure;}
+              }else throw error;
+            }
+            if(retainedBlock!==undefined&&retainedBlock!==null)break;
+          }
+          await wait();
+        }
+      }else retainedBlock=await read('getBlock',[restored.finalizedSlot,blockOpts]);
+      assert.deepEqual(retainedBlock,restored.finalizedBlock,'SOLANA_RECOVERY_FINALIZED_HEAD');
       const currentSlot=await read('getSlot',[{commitment:'finalized'}]);requireCondition(currentSlot>=restored.finalizedSlot,'SOLANA_RECOVERY_SLOT_REGRESSION');
       if(restored.records.length===0)for(const [role,amount]of Object.entries(restored.balances))requireCondition(safeInteger((await read('getBalance',[roles[role].address,{commitment:'finalized'}])).value,'SOLANA_UNSAFE_BALANCE').toString()===amount,'SOLANA_RECOVERY_UNFUNDED_BALANCE');
       signingUnresolved=restored.signingUnresolved;boundNativeAsset=restored.boundNativeAsset;mutationGeneration=BigInt(restored.mutationGeneration)+1n;
@@ -1017,15 +1104,17 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     }
     recoveryCapture=async()=>{
       if(recoveryCaptureResult)return cloneInput(recoveryCaptureResult);recoveryRetained=true;requireCondition(!closed&&!shuttingDown&&!recoveryCapturing&&!busy&&!observationBusy&&!inventoryBusy&&activeNativeReads===0&&activeNativeMutations===0&&activeNativeReadOperations===0,'SOLANA_RECOVERY_REQUIRES_QUIESCENCE');handle.assertAlive();recoveryRetained=true;recoveryCapturing=true;
+      let captureDiagnosticStage=null;
       try {
       const ownRead=(method,params=[])=>{requireCondition(READ_METHODS.has(method),'SOLANA_RECOVERY_READ_ONLY');handle.assertAlive();return ownedRuntimeRpc(endpoint,method,params,{timeoutMs:5000});};
       requireCondition(await ownRead('getGenesisHash')===genesis,'SOLANA_RECOVERY_GENESIS');const finalizedSlot=await ownRead('getSlot',[{commitment:'finalized'}]),blockOpts={commitment:'finalized',transactionDetails:'signatures',rewards:false,maxSupportedTransactionVersion:0},finalizedBlock=await ownRead('getBlock',[finalizedSlot,blockOpts]);requireCondition(finalizedBlock,'SOLANA_RECOVERY_FINALIZED_HEAD_UNAVAILABLE');
       const balances={};for(const [role,row]of Object.entries(roles))balances[role]=safeInteger((await ownRead('getBalance',[row.address,{commitment:'finalized',minContextSlot:finalizedSlot}])).value,'SOLANA_UNSAFE_BALANCE').toString();
       const keyRows={};for(const [role,key]of Object.entries(keys))keyRows[role]={publicHex:key.publicBytes.toString('hex'),address:key.address,seedHex:['depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce'].includes(role)&&key.seed.every(x=>x===0)?null:key.seed.toString('hex')};
-      const state={schema:'OWNED_FIXED_SOLANA_PRIVATE_RECOVERY_V1',family:'solana',cwd,validatorPin:[...selectedValidatorPin],options:cloneInput(options),processGeneration,originalProcessId:handle.child.pid,originalLifetimeId:lifetimeId,genesis,validatorIdentity:identity,publicKeys:cloneInput(metadata.publicKeys),keys:keyRows,finalizedSlot,finalizedBlock,balances,records:cloneInput([...records.values()]),graphRecords:cloneInput([...graphRecords.values()]),historicalSignedPreparations:cloneInput([...signedPreparations]),bootstrapRecordsByAuthority:cloneInput(bootstrapRecordsByAuthority),nonceInfrastructureByAuthority:cloneInput(nonceInfrastructureByAuthority),signingUnresolved,boundNativeAsset,nativePersistenceFailed:Boolean(nativePersistenceFailure),isolationFailed:Boolean(isolationFailure),mutationGeneration:mutationGeneration.toString()};
-      requireCondition(state.records.length<=64&&state.graphRecords.length===0,'SOLANA_RECOVERY_RECORD_BOUND');const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);await close();requireCondition(cleanupOutcome.ownedProcessStopped===true&&cleanupOutcome.forced===false&&cleanupOutcome.nativeOrderlyExit===true,'SOLANA_RECOVERY_REQUIRES_ORDERLY_NATIVE_TERMINAL');
-      const files=await sealStoppedNativeFilesV1(cwd),captured={schema:'OWNED_FIXED_SOLANA_CAPTURE_V1',family:'solana',cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false,nativeOrderlyExit:true},processGeneration,genesis};await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);recoveryCaptureResult=captured;return cloneInput(captured);
-    } catch(error){try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'SOLANA_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}
+      const state={schema:'OWNED_FIXED_SOLANA_PRIVATE_RECOVERY_V1',family:'solana',...(!custody&&cohort&&!combined&&!jupiterPublic?{pagedProfile:'PAGED_GRAPH_ONLY_V3',pagedGraphRecipients:cloneInput([...pagedGraphRecipients.values()])}:{}),cwd,validatorPin:[...selectedValidatorPin],options:cloneInput(options),processGeneration,originalProcessId:handle.child.pid,originalLifetimeId:lifetimeId,genesis,validatorIdentity:identity,publicKeys:cloneInput(metadata.publicKeys),keys:keyRows,finalizedSlot,finalizedBlock,balances,records:cloneInput([...records.values()]),graphRecords:cloneInput([...graphRecords.values()]),historicalSignedPreparations:cloneInput([...signedPreparations]),bootstrapRecordsByAuthority:cloneInput(bootstrapRecordsByAuthority),nonceInfrastructureByAuthority:cloneInput(nonceInfrastructureByAuthority),signingUnresolved,boundNativeAsset,nativePersistenceFailed:Boolean(nativePersistenceFailure),isolationFailed:Boolean(isolationFailure),mutationGeneration:mutationGeneration.toString()};
+      requireCondition(state.records.length<=64&&state.graphRecords.length===0,'SOLANA_RECOVERY_RECORD_BOUND');const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);captureDiagnosticStage='STOP';await close();requireCondition(cleanupOutcome.ownedProcessStopped===true&&cleanupOutcome.forced===false&&cleanupOutcome.nativeOrderlyExit===true,'SOLANA_RECOVERY_REQUIRES_ORDERLY_NATIVE_TERMINAL');
+      captureDiagnosticStage='SEAL';
+      const files=await sealStoppedNativeFilesV1(cwd),captured={schema:'OWNED_FIXED_SOLANA_CAPTURE_V1',family:'solana',...(!custody&&cohort&&!combined&&!jupiterPublic?{pagedProfile:'PAGED_GRAPH_ONLY_V3'}:{}),cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false,nativeOrderlyExit:true},processGeneration,genesis};await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);recoveryCaptureResult=captured;return cloneInput(captured);
+    } catch(error){if(originalPagedGraph){try{const row=solanaCaptureFailureDiagnosticV1(captureDiagnosticStage,error,cleanupOutcome,{nativeExitTimeoutObserved,nativeChildCloseObserved,nativeExitZero:handle.child.exitCode===0,nativeSignalPresent:handle.child.signalCode!==null});if(row)console.error('LIANUM_PAGED_SOLANA_CAPTURE_FAILURE',JSON.stringify(row));}catch{/* Diagnostics must not alter the original failure or cleanup. */}}try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'SOLANA_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}
     };
     async function prepareAtCurrentHead(selectedRoute, amount, wireKeyCommitment, expected = null) {
       if (usesNonce(selectedRoute)) return prepareNonceAtCurrentHead(selectedRoute, amount, wireKeyCommitment, expected);
@@ -1579,13 +1668,23 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         const result = await read('getBalance', [address, { commitment: 'confirmed' }]);
         return safeInteger(result.value, 'SOLANA_UNSAFE_BALANCE').toString();
       } : balance;
+      function registerPagedRecipient(input){
+        requireCondition(!custody,'SOLANA_GRAPH_RECIPIENT_ONLY');exactRecord(input,['recipient']);
+        requireCondition(typeof input.recipient==='string','SOLANA_GRAPH_RECIPIENT_ADDRESS');const bytes=base58Decode(input.recipient,32);requireCondition(base58Encode(bytes)===input.recipient,'SOLANA_GRAPH_RECIPIENT_ADDRESS');
+        requireCondition(!closed&&!shuttingDown&&!recoveryCapturing&&!busy&&!observationBusy&&!inventoryBusy,'SOLANA_OPERATION_BUSY_OR_CLOSED');handle.assertAlive();
+        requireCondition(input.recipient!==graphSource.address,'SOLANA_GRAPH_SELF_PAYMENT');
+        const existing=viewRecipients.indexOf(input.recipient);if(existing>=0)return {recipientIndex:existing};
+        for(const route of pagedGraphRecipients.values())if(route.externalRecipient===input.recipient)return {recipientIndex:route.recipientIndex};
+        requireCondition(pagedGraphRecipients.size<62,'SOLANA_GRAPH_RECIPIENT_CAPACITY');const recipientIndex=viewRecipients.length+pagedGraphRecipients.size;
+        pagedGraphRecipients.set(recipientIndex,frozenInput({name:null,recipientIndex,sourceRole:'depositor',destinationRole:'recipient',externalRecipient:input.recipient}));return {recipientIndex};
+      }
       function route(options) {
         exactRecord(options, custody ? ['asset', 'route'] : ['asset', 'recipientIndex']); bytes32(options.asset, true);
         let selectedRoute;
         if (custody) selectedRoute = custodyRoute(options.route);
         else {
           requireCondition(Number.isSafeInteger(options.recipientIndex) && !Object.is(options.recipientIndex, -0)
-            && options.recipientIndex >= 0 && options.recipientIndex < viewRecipients.length, 'SOLANA_INVALID_RECIPIENT_INDEX');
+            && options.recipientIndex >= 0 && options.recipientIndex < 64 && (options.recipientIndex<viewRecipients.length||pagedGraphRecipients.has(options.recipientIndex)), 'SOLANA_INVALID_RECIPIENT_INDEX');
           selectedRoute = graphRoute(options.recipientIndex);
         }
         bindNativeAsset(options.asset); return { asset: options.asset, selectedRoute };
@@ -1636,7 +1735,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         return Object.freeze({ async observe(request) {
           const input = cloneInput(request); exactRecord(input, ['family', 'recipientIndex', 'nativeId']);
           requireCondition(input.family === '2', 'SOLANA_FACT_FAMILY');
-          const recipientIndex = Number(inputUint(input.recipientIndex, 8, 1n)), record = recordFor(input.nativeId, namespace);
+          const recipientIndex = Number(inputUint(input.recipientIndex, 8, custody?1n:63n)), record = recordFor(input.nativeId, namespace);
           requireCondition(!custody || record.route === selectedRoute.name, 'SOLANA_OTHER_ROUTE');
           requireCondition(record.recipientIndex === recipientIndex, 'SOLANA_OTHER_RECIPIENT');
           const observed = await observeRecord(record, { timeoutMs: 0 });
@@ -1655,7 +1754,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
             : { nonceInfrastructureByAuthority, nonceIngressProfile: SOLANA_NONCE_INGRESS_PROFILE }),
           payoutFinalSendProfile: SOLANA_PAYOUT_FINAL_SEND_PROFILE } : {
           solver: graphSource.address, solverHex: '0x' + graphSource.publicBytes.toString('hex'),
-          recipients: Object.freeze([...viewRecipients]), recipient: viewRecipients[0],
+          recipients: Object.freeze([...viewRecipients]), registerPagedRecipient, recipient: viewRecipients[0],
           recipientHex: '0x' + base58Decode(viewRecipients[0], 32).toString('hex'),
           // Preserve graph coordinator read access; custody has only fixed-role reads.
           readPublic: async (method, params = []) => structuredClone(await read(method, params)),
@@ -1681,6 +1780,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         }, get transfers() { return cloneInput([...namespace.values()]); },
         ...(custody ? { get nonceBootstrapByAuthority() { return cloneInput(bootstrapRecordsByAuthority); } } : {}), close });
       if(custody&&!combined)originalSolanaRecoveryCapturesV1.set(runtime,()=>recoveryCapture());
+      if(!custody&&cohort&&!combined&&!jupiterPublic)originalPagedSolanaRecoveryCapturesV3.set(runtime,()=>recoveryCapture());
       if(custody&&!combined)originalSolanaRetentionArmsV1.set(runtime,()=>{requireCondition(!closed&&!shuttingDown&&!recoveryCapturing&&processGeneration===0&&initialPrivateRecord&&!busy&&records.size===0,'SOLANA_RETENTION_BEFORE_NATIVE_EFFECTS');handle.assertAlive();recoveryRetained=true;return cloneInput({schema:'OWNED_NATIVE_INITIAL_RETENTION_V1',family:'solana',cwd,processGeneration,initialPrivateRecord});});
       ownedSolanaRuntimes.add(runtime);
       ownedSolanaLiveness.set(runtime, () => {

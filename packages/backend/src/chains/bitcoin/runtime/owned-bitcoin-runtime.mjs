@@ -170,10 +170,15 @@ export async function createOwnedCombinedBitcoinRuntime() {
   return createOwnedBitcoinRuntimeProfile(true, true);
 }
 const originalBitcoinRecoveryCapturesV1=new WeakMap(),originalBitcoinRetentionArmsV1=new WeakMap();
+const originalPagedBitcoinRecoveryCapturesV3=new WeakMap();
+/** Retain this original graph ledger after a drained, orderly stop. The result
+ * belongs in the authenticated supervisor vault, never in a public pairing. */
+export async function captureOwnedPagedBitcoinRecoveryV3(runtime){need(arguments.length===1,'BITCOIN_RECOVERY_ARITY');assertOwnedBitcoinRuntime(runtime);const capture=originalPagedBitcoinRecoveryCapturesV3.get(runtime);need(capture,'BITCOIN_RECOVERY_FIXED_PAGED_GRAPH');return capture();}
+export async function reopenOwnedPagedBitcoinRecoveryV3(token){need(arguments.length===1,'BITCOIN_RECOVERY_ARITY');const {consumeOriginalPagedRuntimeRecoveryV3}=await import('../../../operations/recovery/paged-runtime-recovery-authority-v3.mjs');const record=consumeOriginalPagedRuntimeRecoveryV3(token,'bitcoin');return createOwnedBitcoinRuntimeProfile(false,false,record,true);}
 export async function armOwnedBitcoinRecoveryRetentionV1(runtime){need(arguments.length===1,'BITCOIN_RETENTION_ARITY');assertOwnedBitcoinRuntime(runtime);const arm=originalBitcoinRetentionArmsV1.get(runtime);need(arm,'BITCOIN_RETENTION_FIXED_CUSTODY');return arm();}
 export async function captureOwnedBitcoinRecoveryV1(runtime){need(arguments.length===1,'BITCOIN_RECOVERY_ARITY');assertOwnedBitcoinRuntime(runtime);const capture=originalBitcoinRecoveryCapturesV1.get(runtime);need(capture,'BITCOIN_RECOVERY_FIXED_CUSTODY');return capture();}
 export async function reopenOwnedBitcoinRecoveryV1(token){need(arguments.length===1,'BITCOIN_RECOVERY_ARITY');const record=consumeWrappedRuntimeRecoveryV1(token,'bitcoin');return createOwnedBitcoinRuntimeProfile(true,false,record);}
-async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recovery=null) {
+async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recovery=null,pagedRecovery=false) {
   // Fixed lazy bridge: decoding/importing BTC source must not initialize the
   // claim controller graph. Only an actual custody factory needs this module.
   const bitcoinPayoutController = custody ? await import('../../../claims/payouts/payout-controller-dispatch-v1.mjs') : null;
@@ -181,7 +186,8 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
   need(process.platform === 'linux' && process.arch === 'x64', 'BITCOIN_RUNTIME_REQUIRES_LINUX_X64');
   const binaries = { bitcoin: await pinnedBinary(...bitcoinRuntimePins.bitcoin), cli: await pinnedBinary(...bitcoinRuntimePins.cli) };
   let restored=null;
-  if(recovery){need(custody&&!combined,'BITCOIN_RECOVERY_FIXED_CUSTODY');need(recovery.schema==='OWNED_FIXED_BITCOIN_CAPTURE_V1'&&recovery.family==='bitcoin','BITCOIN_RECOVERY_RECORD');need(recovery.terminal.ownedProcessStopped===true&&recovery.terminal.forced===false,'BITCOIN_RECOVERY_TERMINAL');await assertOwnedRecoveryScratchV1(recovery.cwd,'flat-bitcoin-');await assertStoppedNativeFilesV1(recovery.cwd,recovery.files);restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);need(restored.schema==='OWNED_FIXED_BITCOIN_PRIVATE_RECOVERY_V1'&&restored.cwd===recovery.cwd&&restored.genesis===BITCOIN_REGTEST_GENESIS,'BITCOIN_RECOVERY_IDENTITY');assert.deepEqual(restored.runtimePins,bitcoinRuntimePins);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);}
+  need(!pagedRecovery||(!custody&&!combined&&recovery),'BITCOIN_RECOVERY_FIXED_PAGED_GRAPH');
+  if(recovery){need(!combined&&(pagedRecovery?!custody:custody),'BITCOIN_RECOVERY_FIXED_CUSTODY');need(recovery.schema==='OWNED_FIXED_BITCOIN_CAPTURE_V1'&&recovery.family==='bitcoin','BITCOIN_RECOVERY_RECORD');need(recovery.terminal.ownedProcessStopped===true&&recovery.terminal.forced===false,'BITCOIN_RECOVERY_TERMINAL');await assertOwnedRecoveryScratchV1(recovery.cwd,'flat-bitcoin-');await assertStoppedNativeFilesV1(recovery.cwd,recovery.files);restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);need(restored.schema==='OWNED_FIXED_BITCOIN_PRIVATE_RECOVERY_V1'&&restored.cwd===recovery.cwd&&restored.genesis===BITCOIN_REGTEST_GENESIS,'BITCOIN_RECOVERY_IDENTITY');assert.deepEqual(restored.runtimePins,bitcoinRuntimePins);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(pagedRecovery){need(restored.pagedProfile==='PAGED_GRAPH_ONLY_V3'&&recovery.pagedProfile==='PAGED_GRAPH_ONLY_V3','BITCOIN_RECOVERY_FIXED_PAGED_GRAPH');assert.deepEqual(Object.keys(restored.profiles),[SOURCE_WALLET]);}else need(!restored.pagedProfile,'BITCOIN_RECOVERY_FIXED_CUSTODY');await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);}
   const cwd = restored?restored.cwd:await scratchDirectory('flat-bitcoin-');
   let initialPrivateRecord=null;
   let recoveryCapturing=false,recoveryRetained=Boolean(restored),recoveryCapture=null,recoveryCaptureResult=null,recoveryRpc;
@@ -271,7 +277,20 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
           need(!ownedScripts.has(script), 'BITCOIN_COMBINED_SCRIPT_ALIAS'); ownedScripts.add(script);
         }
       }
-      const fundingBlocks = saved?[]:await rpc('generatetoaddress', [101, source]);
+      // Fresh, unissued fixture only: bound each initial mining call while
+      // keeping the same 101 blocks and the original fifteen-second RPC cap.
+      const fundingBlocks = saved?[]:await (async () => {
+        const blocks = [];
+        while (blocks.length < 101) {
+          const count = Math.min(10, 101 - blocks.length);
+          const batch = await rpc('generatetoaddress', [count, source]);
+          need(Array.isArray(batch) && batch.length === count, 'BITCOIN_BOOTSTRAP_BATCH_LENGTH');
+          for (const block of batch) blocks.push(hex32(block));
+          need(new Set(blocks).size === blocks.length, 'BITCOIN_BOOTSTRAP_DUPLICATE_BLOCK');
+        }
+        need(blocks.length === 101, 'BITCOIN_BOOTSTRAP_BLOCK_COUNT');
+        return blocks;
+      })();
       const fundedHead = await health();
       let syntheticFunding = saved?.syntheticFunding??null;
       if (solver&&!saved) {
@@ -301,9 +320,32 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
           sourceWallet: wallets[spec.sourceRole], recipient: to.address, recipientScript: to.endpoint,
           recipientWallet: wallets[spec.destinationRole], changeAddress: from.address, changeScript: from.endpoint });
       };
-      const graphRoute = recipientIndex => ({ name: null, recipientIndex, source, sourceScript,
-        sourceWallet: sourceWalletName, recipient: recipients[recipientIndex], recipientScript: recipientScripts[recipientIndex],
-        recipientWallet: recipientWalletNames[recipientIndex], changeAddress, changeScript });
+      const pagedRecipients = new Map();
+      if(pagedRecovery){need(Array.isArray(saved.pagedRecipients)&&saved.pagedRecipients.length<=62,'BITCOIN_RECOVERY_RECIPIENT_BOUND');for(const row of saved.pagedRecipients){const route=clone(row);need(route.recipientIndex===recipients.length+pagedRecipients.size&&route.externalRecipient===true&&route.name===null&&route.recipientWallet===null,'BITCOIN_RECOVERY_RECIPIENT_ORDER');assert.deepEqual({source:route.source,sourceScript:route.sourceScript,sourceWallet:route.sourceWallet,changeAddress:route.changeAddress,changeScript:route.changeScript},{source,sourceScript,sourceWallet:sourceWalletName,changeAddress,changeScript});const info=await rpc('validateaddress',[route.recipient]);need(info.isvalid===true&&info.address===route.recipient&&p2wpkh(info.scriptPubKey)===route.recipientScript,'BITCOIN_RECOVERY_RECIPIENT_SCRIPT');need(route.recipientScript!==sourceScript&&route.recipientScript!==changeScript,'BITCOIN_GRAPH_SELF_PAYMENT');pagedRecipients.set(route.recipientIndex,immutable(route));}}
+      function graphRecipientIndex(value){need(Number.isSafeInteger(value)&&!Object.is(value,-0)&&value>=0&&value<64&&(value<recipients.length||pagedRecipients.has(value)),'BITCOIN_INVALID_GRAPH_RECIPIENT');return value;}
+      const graphRoute = recipientIndex => {
+        graphRecipientIndex(recipientIndex);
+        if(pagedRecipients.has(recipientIndex))return pagedRecipients.get(recipientIndex);
+        return { name: null, recipientIndex, source, sourceScript,
+          sourceWallet: sourceWalletName, recipient: recipients[recipientIndex], recipientScript: recipientScripts[recipientIndex],
+          recipientWallet: recipientWalletNames[recipientIndex], changeAddress, changeScript };
+      };
+      async function recipientInfo(route){
+        if(!route.externalRecipient)return addressInfo(route.recipient,route.recipientWallet);
+        const value=await rpc('validateaddress',[route.recipient]);need(value.isvalid===true&&value.address===route.recipient,'BITCOIN_GRAPH_RECIPIENT_ADDRESS');p2wpkh(value.scriptPubKey);return value;
+      }
+      async function registerPagedRecipient(input){
+        need(!custody,'BITCOIN_GRAPH_RECIPIENT_ONLY');exactOptions(input,['recipient'],['recipient']);
+        const recipient=input.recipient;need(typeof recipient==='string'&&/^bcrt1[0-9a-z]{20,86}$/.test(recipient),'BITCOIN_GRAPH_REGTEST_RECIPIENT');live();need(!busy&&!observationBusy&&!inventoryBusy,'BITCOIN_OPERATION_BUSY');
+        const existing=recipients.indexOf(recipient);if(existing>=0)return {recipientIndex:existing};
+        for(const route of pagedRecipients.values())if(route.recipient===recipient)return {recipientIndex:route.recipientIndex};
+        need(pagedRecipients.size<62,'BITCOIN_GRAPH_RECIPIENT_CAPACITY');
+        const info=await rpc('validateaddress',[recipient]);need(info.isvalid===true&&info.address===recipient,'BITCOIN_GRAPH_RECIPIENT_ADDRESS');const recipientScript=p2wpkh(info.scriptPubKey);
+        need(recipientScript!==sourceScript&&recipientScript!==changeScript,'BITCOIN_GRAPH_SELF_PAYMENT');
+        const recipientIndex=recipients.length+pagedRecipients.size;
+        pagedRecipients.set(recipientIndex,immutable({name:null,recipientIndex,source,sourceScript,sourceWallet:sourceWalletName,recipient,recipientScript,recipientWallet:null,externalRecipient:true,changeAddress,changeScript}));
+        return {recipientIndex};
+      }
       let syntheticPrefunding = saved?.syntheticPrefunding??null;
       if (custody&&!saved) {
         // An explicitly labeled mature synthetic mining reward supplies fixture
@@ -325,12 +367,12 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
         need(Array.isArray(saved.records)&&saved.records.length<=64,'BITCOIN_RECOVERY_RECORD_BOUND');for(const row of saved.records){const record=clone(row),decoded=decodeBitcoinTransaction(record.rawTransaction);need(decoded.txid===record.txid&&decoded.transactionSHA256===record.transactionSHA256,'BITCOIN_RECOVERY_SIGNED_IDENTITY');need(!allRecords.has(record.txid),'BITCOIN_RECOVERY_DUPLICATE_RECORD');records.set(record.txid,record);allRecords.set(record.txid,record);}
         for(const [wallet,locked]of Object.entries(saved.locked)){need([sourceWalletName,...recipientWalletNames].includes(wallet),'BITCOIN_RECOVERY_WALLET');if(locked.length)need(await rpc('lockunspent',[false,locked],wallet)===true,'BITCOIN_RECOVERY_LOCK_RESTORE');assert.deepEqual(await rpc('listlockunspent',[],wallet),locked);}
       }
-      recoveryProfiles[sourceWalletName]=()=>({source,sourceScript,changeAddress,changeScript,recipients:[...recipients],recipientScripts:[...recipientScripts],syntheticFunding,syntheticPrefunding,records:clone([...records.values()]),wallets:[sourceWalletName,...recipientWalletNames]});
+      recoveryProfiles[sourceWalletName]=()=>({source,sourceScript,changeAddress,changeScript,recipients:[...recipients],recipientScripts:[...recipientScripts],syntheticFunding,syntheticPrefunding,...(!custody?{pagedRecipients:clone([...pagedRecipients.values()])}:{}),records:clone([...records.values()]),wallets:[sourceWalletName,...recipientWalletNames]});
       const transfer = async (amountSatoshi, options, fixedRoute = null) => {
         const amount = sats(amountSatoshi), payout = custody && fixedRoute?.name !== 'deposit';
-        exactOptions(options, ['recipientIndex', 'wireKeyCommitment', 'beforeSign', 'onSigned', ...(payout ? ['payoutSendToken'] : [])],
+        exactOptions(options, ['recipientIndex', 'wireKeyCommitment', 'beforeSign', 'onSigned', ...(payout ? ['payoutSendToken'] : []), ...(!custody ? ['beforeSend'] : [])],
           ['wireKeyCommitment', 'beforeSign', 'onSigned', ...(payout ? ['payoutSendToken'] : [])]);
-        const recipientIndex = index(options.recipientIndex ?? 0), { beforeSign, onSigned } = options;
+        const recipientIndex = custody?index(options.recipientIndex ?? 0):graphRecipientIndex(options.recipientIndex ?? 0), { beforeSign, onSigned } = options;
         const selectedRoute = fixedRoute ?? graphRoute(recipientIndex);
         need(custody === (selectedRoute.name !== null), 'BITCOIN_RUNTIME_ROUTE_PROFILE');
         if (payout) bitcoinPayoutController.assertNativeClaimBitcoinPayoutSendToken(options.payoutSendToken, runtime, selectedRoute.name);
@@ -343,7 +385,7 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
         try {
           await health();
           const { source, sourceScript, sourceWallet, recipient, recipientScript, recipientWallet, changeAddress, changeScript } = selectedRoute;
-          need((await addressInfo(recipient, recipientWallet)).scriptPubKey === recipientScript, 'BITCOIN_RECIPIENT_SCRIPT_CHANGED');
+          need((await recipientInfo(selectedRoute)).scriptPubKey === recipientScript, 'BITCOIN_RECIPIENT_SCRIPT_CHANGED');
           const unspent = await rpc('listunspent', [custody ? BITCOIN_TRANSFER_LIMITS.minimumConfirmations : 1, 9999999, [source]], sourceWallet);
           need(Array.isArray(unspent), 'BITCOIN_INVALID_UNSPENT_RESULT');
           const coin = unspent.find(item => item.spendable === true && item.solvable === true && item.safe === true && item.scriptPubKey === sourceScript && BigInt(bitcoinSatoshiFromAmount(item.amount)) > amount + BigInt(BITCOIN_TRANSFER_LIMITS.maximumFeeSatoshi));
@@ -492,6 +534,12 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
             need(Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 30_000, 'BITCOIN_SEND_NATIVE_OBSERVATION_TOO_OLD');
           }
           try {
+            if(!custody&&Object.hasOwn(options,'beforeSend')){
+              need(typeof options.beforeSend==='function','BITCOIN_GRAPH_FINAL_SEND_CALLBACK');
+              need(await options.beforeSend(signedPayload,clone(activePrepared))===undefined,'BITCOIN_GRAPH_FINAL_SEND_ASSERT_ONLY');
+              live();need(!observationBusy&&!inventoryBusy&&activeRoute===selectedRoute,'BITCOIN_GRAPH_FINAL_SEND_STATE');
+              need(record.broadcastAttempts===1&&record.rawTransaction===signedPayload.nativeWire,'BITCOIN_GRAPH_FINAL_SEND_IDENTITY');
+            }
             const returned = await rpc('sendrawtransaction', [record.rawTransaction]);
             need(returned === record.txid, 'BITCOIN_BROADCAST_IDENTITY_MISMATCH'); record.phase = 'BROADCAST'; return clone(record);
           } catch (cause) { const error = new Error('BITCOIN_BROADCAST_UNKNOWN_OBSERVE_EXACT_TXID'); error.rpcCode = cause.rpcCode ?? null; throw error; }
@@ -531,7 +579,7 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
           const sourceTransaction = await rpc('getrawtransaction', [record.intent.sourceTxid, true]);
           const walletTransaction = await rpc('gettransaction', [txid], retainedRoute.sourceWallet);
           need((await addressInfo(record.source, retainedRoute.sourceWallet)).scriptPubKey === record.intent.sourceScript, 'BITCOIN_SOURCE_SCRIPT_CHANGED');
-          need((await addressInfo(record.recipient, retainedRoute.recipientWallet)).scriptPubKey === record.intent.recipientScript, 'BITCOIN_RECIPIENT_SCRIPT_CHANGED');
+          need((await recipientInfo(retainedRoute)).scriptPubKey === record.intent.recipientScript, 'BITCOIN_RECIPIENT_SCRIPT_CHANGED');
           const headerAgain = await rpc('getblockheader', [transaction.blockhash]), canonicalAgain = await rpc('getblockhash', [header.height]), tipHeader = await rpc('getblockheader', [tipBefore]), tipAfter = await rpc('getbestblockhash');
           if (tipBefore !== tipAfter || header.confirmations !== headerAgain.confirmations || header.height !== headerAgain.height || canonical !== canonicalAgain) continue;
           const fact = validateBitcoinTransferObservation({ expected: record, transaction, sourceTransaction, header, headerAgain, canonical, canonicalAgain, block, tipBefore, tipAfter, tipHeader, walletTransaction });
@@ -614,7 +662,7 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
       function adapter(options) {
         exactOptions(options, custody ? ['asset', 'route'] : ['asset', 'recipientIndex'], custody ? ['asset', 'route'] : ['asset']);
         const { asset, recipientIndex = 0 } = options;
-        bindNativeAsset(asset); const selectedRoute = custody ? custodyRoute(options.route) : graphRoute(index(recipientIndex));
+        bindNativeAsset(asset); const selectedRoute = custody ? custodyRoute(options.route) : graphRoute(graphRecipientIndex(recipientIndex));
         const slot = selectedRoute.recipientIndex;
         const binding = immutable({ family: '1', genesis: BITCOIN_REGTEST_GENESIS, asset,
           sourceEndpoint: selectedRoute.sourceScript, destinationEndpoint: selectedRoute.recipientScript, changeEndpoint: selectedRoute.changeScript });
@@ -623,7 +671,8 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
             exactOptions(request, ['amount', 'wireKeyCommitment'], ['amount', 'wireKeyCommitment']);
             const payout = custody && selectedRoute.name !== 'deposit';
             const names = ['beforeSign', 'onSigned', ...(payout ? ['payoutSendToken'] : [])];
-            exactOptions(callbacks, names, names);
+            exactOptions(callbacks, [...names,...(!custody ? ['beforeSend'] : [])], names);
+            if(Object.hasOwn(callbacks,'beforeSend'))need(!custody&&typeof callbacks.beforeSend==='function','BITCOIN_GRAPH_FINAL_SEND_CALLBACK');
             const sent = await transfer(request.amount, { recipientIndex: slot,
               wireKeyCommitment: request.wireKeyCommitment, ...callbacks }, selectedRoute);
             return { nativeId: sent.txid, transactionSHA256: sent.transactionSHA256 };
@@ -659,8 +708,8 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
         return Object.freeze({ async observe(request) {
           exactOptions(request, ['family', 'recipientIndex', 'nativeId'], ['family', 'recipientIndex', 'nativeId']);
           need(request.family === '1', 'BITCOIN_FACT_FAMILY');
-          need(typeof request.recipientIndex === 'string'
-            && /^(0|1)$/.exec(request.recipientIndex)?.[0] === request.recipientIndex, 'BITCOIN_FACT_RECIPIENT');
+          need(typeof request.recipientIndex === 'string'&&/^(0|[1-9][0-9]?)$/.test(request.recipientIndex)
+            &&Number(request.recipientIndex)<(custody?2:64),'BITCOIN_FACT_RECIPIENT');
           hex32(request.nativeId);
           const record = records.get(request.nativeId);
           if (!record) return { status: 'unknown', reason: 'OWNED_IDENTITY_NOT_RETAINED' };
@@ -747,10 +796,11 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
         ...(solver ? { syntheticFunding } : {}),
         ...(custody ? { roles, inventory, syntheticPrefunding, payoutFinalSendProfile: BITCOIN_PAYOUT_FINAL_SEND_PROFILE } : { source, sourceScript, changeAddress, changeScript,
           recipient: recipients[0], recipientScript: recipientScripts[0], recipients: Object.freeze([...recipients]),
-          recipientScripts: Object.freeze([...recipientScripts]), transfer: (amount, options) => transfer(amount, options) }),
+          recipientScripts: Object.freeze([...recipientScripts]), registerPagedRecipient, transfer: (amount, options) => transfer(amount, options) }),
         adapter, factReader, observe, confirm, health, processStatus, close,
         get transfers() { return clone([...records.values()]); } });
       if(custody&&!combined)originalBitcoinRecoveryCapturesV1.set(runtime,()=>recoveryCapture());
+      if(!custody&&!combined)originalPagedBitcoinRecoveryCapturesV3.set(runtime,()=>recoveryCapture());
       if(custody&&!combined)originalBitcoinRetentionArmsV1.set(runtime,()=>{live();need(processGeneration===0&&initialPrivateRecord&&!busy&&allRecords.size===0,'BITCOIN_RETENTION_BEFORE_NATIVE_EFFECTS');recoveryRetained=true;return clone({schema:'OWNED_NATIVE_INITIAL_RETENTION_V1',family:'bitcoin',cwd,processGeneration,initialPrivateRecord});});
       ownedBitcoinRuntimes.add(runtime); ownedBitcoinLiveness.set(runtime, live);
       ownedBitcoinAuditStates.set(runtime, () => {
@@ -777,9 +827,9 @@ async function createOwnedBitcoinRuntimeProfile(custody, combined = false,recove
       const head=await recoveryRpc('getblockchaininfo'),network=await recoveryRpc('getnetworkinfo');need(head.chain==='regtest'&&network.networkactive===false&&network.connections===0,'BITCOIN_RECOVERY_ISOLATION');need(await recoveryRpc('getblockhash',[0])===BITCOIN_REGTEST_GENESIS,'BITCOIN_RECOVERY_GENESIS');
       const profiles={};for(const [name,take]of Object.entries(recoveryProfiles)){const row=take();row.locked={};for(const wallet of row.wallets)row.locked[wallet]=await recoveryRpc('listlockunspent',[],wallet);profiles[name]=row;}
       need((await recoveryRpc('getblockchaininfo')).bestblockhash===head.bestblockhash,'BITCOIN_RECOVERY_HEAD_CHANGED');
-      const state={schema:'OWNED_FIXED_BITCOIN_PRIVATE_RECOVERY_V1',family:'bitcoin',cwd,genesis:BITCOIN_REGTEST_GENESIS,runtimePins:clone(bitcoinRuntimePins),processGeneration,originalProcessId:handle.child.pid,rpcPassword:password,head,mempool,profiles,signingUnresolved,nativeAsset,nativePersistenceFailed,nativeIsolationFailed,mutationGeneration:mutationGeneration.toString()};
+      const state={schema:'OWNED_FIXED_BITCOIN_PRIVATE_RECOVERY_V1',family:'bitcoin',...(!custody&&!combined?{pagedProfile:'PAGED_GRAPH_ONLY_V3'}:{}),cwd,genesis:BITCOIN_REGTEST_GENESIS,runtimePins:clone(bitcoinRuntimePins),processGeneration,originalProcessId:handle.child.pid,rpcPassword:password,head,mempool,profiles,signingUnresolved,nativeAsset,nativePersistenceFailed,nativeIsolationFailed,mutationGeneration:mutationGeneration.toString()};
       const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);await close();need(closeResult.ownedProcessStopped===true&&closeResult.forced===false,'BITCOIN_RECOVERY_REQUIRES_GRACEFUL_TERMINAL');
-      const files=await sealStoppedNativeFilesV1(cwd),captured={schema:'OWNED_FIXED_BITCOIN_CAPTURE_V1',family:'bitcoin',cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false},processGeneration,genesis:BITCOIN_REGTEST_GENESIS};await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);recoveryCaptureResult=captured;return clone(captured);
+      const files=await sealStoppedNativeFilesV1(cwd),captured={schema:'OWNED_FIXED_BITCOIN_CAPTURE_V1',family:'bitcoin',...(!custody&&!combined?{pagedProfile:'PAGED_GRAPH_ONLY_V3'}:{}),cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false},processGeneration,genesis:BITCOIN_REGTEST_GENESIS};await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);recoveryCaptureResult=captured;return clone(captured);
     } catch(error){try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'BITCOIN_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}
     };
     const primary = await createProfile(custody, SOURCE_WALLET, RECIPIENT_WALLETS);

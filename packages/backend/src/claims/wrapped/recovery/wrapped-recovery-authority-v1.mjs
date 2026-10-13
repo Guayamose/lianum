@@ -1,6 +1,7 @@
 /** Canonical fixed-attempt recovery composition. The original resource owners
  * and lazy loaders are bound once here; no canonical setter or registry writer
  * escapes. Public methods retain their original signatures and guards. */
+import assert from 'node:assert/strict';
 import { buildWrappedRecoveryAuthorityV1 } from "./wrapped-recovery-backend-v1.mjs";
 import { buildExternalDefiBootstrapRecoveryV1 } from "./external-bootstrap-recovery-backend-v1.mjs";
 import * as externalBootstrapSystem from "../../../operations/deployments/system/deploy-system.mjs";
@@ -34,6 +35,13 @@ import {
   openClaimRecordStore,
   observeClaimRecordStoreV1,
 } from "@lianum/engine/storage/records";
+// These fixed loaders also serve the existing recovery owner below. The Paged
+// birth path only creates isolated ledgers; it does not enter recovery or mint
+// recovery capabilities.
+const ownedNativeRuntimeLoaders = Object.freeze({
+  bitcoin: () => import("../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs"),
+  solana: () => import("../../../chains/solana/runtime/owned-solana-runtime.mjs"),
+});
 const originalRecovery = buildWrappedRecoveryAuthorityV1(
   Object.freeze({
     dependencies: Object.freeze({
@@ -63,10 +71,8 @@ const originalRecovery = buildWrappedRecoveryAuthorityV1(
       observeClaimRecordStoreV1,
     }),
     load: Object.freeze({
-      ownedBitcoinRuntime: () =>
-        import("../../../chains/bitcoin/runtime/owned-bitcoin-runtime.mjs"),
-      ownedSolanaRuntime: () =>
-        import("../../../chains/solana/runtime/owned-solana-runtime.mjs"),
+      ownedBitcoinRuntime: ownedNativeRuntimeLoaders.bitcoin,
+      ownedSolanaRuntime: ownedNativeRuntimeLoaders.solana,
       ownedTronNativeValueRuntime: () =>
         import(
           "../../../chains/tron/runtime/owned-tron-native-value-runtime.mjs"
@@ -184,6 +190,95 @@ const originalRecovery = buildWrappedRecoveryAuthorityV1(
     }),
   }),
 );
+
+/** Fixed original three-ledger birth. No injected runtime, loader, guard or
+ * recovery token is accepted. Each port retains its runtime's original guard. */
+const originalPagedCohortsV3=new WeakMap();
+export async function createOwnedOriginalPagedNativeRuntimesV3() {
+  if (arguments.length !== 0) throw new TypeError("PAGED_NATIVE_FIXED_RUNTIME_BIRTH");
+  return createOriginalPagedCohortV3(false);
+}
+export async function createOwnedOriginalPagedDurableNativeRuntimesV3(){assert.equal(arguments.length,0);return createOriginalPagedCohortV3(true);}
+async function createOriginalPagedCohortV3(durable){
+  const [bitcoin, solana] = await Promise.all([
+    ownedNativeRuntimeLoaders.bitcoin(),
+    ownedNativeRuntimeLoaders.solana(),
+  ]);
+  const started = await Promise.allSettled([
+    durable?canonicalEvmRuntime.createOwnedPagedNativeDurableEvmV3():canonicalEvmRuntime.createOwnedLocalPagedNativeEvmV3(),
+    bitcoin.createOwnedFlatBitcoinRuntime(),
+    solana.createOwnedSolanaCohortRuntime(),
+  ]);
+  const failed = started.find(result => result.status === "rejected");
+  if (failed) {
+    await Promise.allSettled(started.filter(result => result.status === "fulfilled").map(result => result.value.close()));
+    throw failed.reason;
+  }
+  const [evmRuntime, bitcoinRuntime, solanaRuntime] = started.map(result => result.value);
+  const ports = [
+    { family: "EVM", runtime: evmRuntime, assertLive: () => canonicalEvmRuntime.assertOwnedLocalPagedNativeEvmV3(evmRuntime) },
+    { family: "BTC", runtime: bitcoinRuntime, assertLive: () => bitcoin.assertOwnedBitcoinRuntimeLive(bitcoinRuntime) },
+    { family: "SOL", runtime: solanaRuntime, assertLive: () => solana.assertOwnedSolanaRuntimeLive(solanaRuntime) },
+  ];
+  try {
+    for (const port of ports) port.assertLive();
+    const cohort=Object.freeze(ports.map(port => Object.freeze(port)));originalPagedCohortsV3.set(cohort,{bitcoin,solana,ports});return cohort;
+  } catch (error) {
+    await Promise.allSettled(ports.map(port => port.runtime.close()));
+    throw error;
+  }
+}
+/** Fixed cold cohort. Only one-use tokens from the authenticated supervisor
+ * enter each runtime's own private reopening path. No supplied runtime/guard. */
+export async function reopenOwnedOriginalPagedNativeRuntimesV3(tokens) {
+  assert.equal(arguments.length,1);assert.deepEqual(Reflect.ownKeys(tokens).sort(),['BTC','EVM','SOL']);
+  const [bitcoin,solana]=await Promise.all([ownedNativeRuntimeLoaders.bitcoin(),ownedNativeRuntimeLoaders.solana()]);
+  const started=await Promise.allSettled([canonicalEvmRuntime.reopenOwnedPagedNativeEvmV3(tokens.EVM),bitcoin.reopenOwnedPagedBitcoinRecoveryV3(tokens.BTC),solana.reopenOwnedPagedSolanaRecoveryV3(tokens.SOL)]);
+  const failed=started.find(result=>result.status==='rejected');if(failed){await Promise.allSettled(started.filter(result=>result.status==='fulfilled').map(result=>result.value.close()));throw failed.reason;}
+  const [evmRuntime,bitcoinRuntime,solanaRuntime]=started.map(result=>result.value),ports=[{family:'EVM',runtime:evmRuntime,assertLive:()=>canonicalEvmRuntime.assertOwnedLocalPagedNativeEvmV3(evmRuntime)},{family:'BTC',runtime:bitcoinRuntime,assertLive:()=>bitcoin.assertOwnedBitcoinRuntimeLive(bitcoinRuntime)},{family:'SOL',runtime:solanaRuntime,assertLive:()=>solana.assertOwnedSolanaRuntimeLive(solanaRuntime)}];
+  for(const port of ports)port.assertLive();const cohort=Object.freeze(ports.map(port=>Object.freeze(port)));originalPagedCohortsV3.set(cohort,{bitcoin,solana,ports});return cohort;
+}
+export async function captureOwnedOriginalPagedNativeRuntimesV3(cohort){
+ assert.equal(arguments.length,1);const original=originalPagedCohortsV3.get(cohort);assert.ok(original,'PAGED_NATIVE_ORIGINAL_COHORT');for(const port of original.ports)port.assertLive();
+ const [evm,bitcoin,solana]=original.ports.map(port=>port.runtime),captured=await Promise.allSettled([canonicalEvmRuntime.captureOwnedPagedEvmRecoveryV3(evm),original.bitcoin.captureOwnedPagedBitcoinRecoveryV3(bitcoin),original.solana.captureOwnedPagedSolanaRecoveryV3(solana)]);const failed=captured.find(result=>result.status==='rejected');if(failed)throw failed.reason;
+ return {graphNative:captured[0].value,bitcoin:captured[1].value,solana:captured[2].value};
+}
+
+/** Closed before-birth composition from original handles, never supplied
+ * callbacks. The returned mechanical methods retain those exact ownership joins. */
+export async function openOriginalPagedUniswapConstructionV3(originals){
+ assert.equal(arguments.length,1);const u={...originals};
+ const [account,observer]=await Promise.all([import('../../../accounts/authority/device-external-flat-note-authority-v1.mjs'),import('../../../chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs')]);
+ function current(){canonicalEvmRuntime.assertOwnedDeviceExternalFlatReceiverLiveV1(u.runtime);externalBootstrapSystem.assertOwnedFlatSystem(u.runtime,u.system);externalBootstrapProtocols.assertOfficialProtocolFixture(u.runtime,u.protocolFixture);externalBootstrapRouters.assertOwnedPrivateExternalRouterV1(u.router,{runtime:u.runtime,system:u.system,poolIndex:1});observer.assertOwnedUniswapGraphDeliveryObserverV1(u.observer,{runtime:u.runtime,system:u.system,poolIndex:1});return account.assertOriginalDeviceExternalFlatShareNoteAuthorityV1(u.targetAccount,{runtime:u.runtime,system:u.system,poolIndex:1,deliveryObserver:u.observer});}
+ current();return Object.freeze({assertLive:current,readD27(){current();return account.readOriginalDeviceExternalFlatD27PreparationV3(u.targetAccount,{runtime:u.runtime,system:u.system,poolIndex:1,deliveryObserver:u.observer});},consumeProof(terms){assert.deepEqual(Reflect.ownKeys(terms).sort(),['shareAmount','validFrom','validUntil']);current();return account.consumeOriginalDeviceExternalFlatShareProofV1(u.targetAccount,{runtime:u.runtime,system:u.system,poolIndex:1,deliveryObserver:u.observer,...terms});},descriptor(route,ownerPublicInputs){current();return observer.prepareOwnedUniswapGraphDescriptorV1({observer:u.observer,router:u.router,route,ownerPublicInputs});},bindGraph(descriptor){current();return account.bindOriginalDeviceExternalFlatShareGraphV1(u.targetAccount,{runtime:u.runtime,system:u.system,router:u.router,deliveryObserver:u.observer,descriptor});},assertPrepared(prepared,intent){current();return u.observer.assertPrepared({prepared,intent});},observeFacts(query){current();return u.observer.observeFacts(query);},assertFacts(facts){current();observer.assertOwnedUniswapGraphDeliveryFactsV1(facts,{observer:u.observer});},readEconomicFacts(facts){current();return observer.readOriginalEvmGraphDeliveryEconomicFactsV1(facts,u.observer);}});
+}
+
+// Mixed recovery has its own original cohort and one-use receiver tokens.
+// Neither a plain section nor a caller-selected bootstrap can issue these.
+const pagedUniswapRetentions=new WeakMap(),pagedUniswapCaptures=new WeakMap(),pagedUniswapRuntimeSections=new WeakMap();
+export async function armOriginalPagedUniswapRuntimeRetentionV3(originals){
+ assert.equal(arguments.length,1);const u={...originals};await openOriginalPagedUniswapConstructionV3(u);
+ canonicalEvmRuntime.assertOwnedDeviceExternalFlatReceiverV1(u.runtime);
+ const account=await import('../../../accounts/authority/device-external-flat-note-authority-v1.mjs');
+ const descriptor=account.assertOriginalRetainedDeviceExternalFlatNoteAuthorityV1(u.targetAccount);
+ const token=Object.freeze(Object.create(null));pagedUniswapRetentions.set(token,{runtime:u.runtime,descriptor,used:false});return token;
+}
+export async function captureOriginalPagedUniswapRuntimeV3(runtime,retention){
+ assert.equal(arguments.length,2);const s=pagedUniswapRetentions.get(retention);assert.ok(s&&!s.used&&s.runtime===runtime,'PAGED_UNISWAP_ORIGINAL_RETENTION');canonicalEvmRuntime.assertOwnedDeviceExternalFlatReceiverV1(runtime);s.used=true;
+ const token=Object.freeze(Object.create(null));pagedUniswapCaptures.set(token,{profile:'ORIGINAL_PAGED_UNISWAP_RUNTIME_CAPTURE_V3',genesis:runtime.metadata.evmGenesis,lifetime:s.descriptor.lifetime});
+ try{return await canonicalEvmRuntime.captureOwnedDeviceExternalFlatReceiverV1(runtime,token);}finally{pagedUniswapCaptures.delete(token);pagedUniswapRetentions.delete(retention);}
+}
+export async function reopenOriginalPagedUniswapRuntimeV3(token){
+ assert.equal(arguments.length,1);const {consumeOriginalPagedRuntimeRecoveryV3}=await import('../../../operations/recovery/paged-runtime-recovery-authority-v3.mjs');
+ const section=consumeOriginalPagedRuntimeRecoveryV3(token,'uniswap'),one=Object.freeze(Object.create(null));pagedUniswapRuntimeSections.set(one,section);
+ try{return await canonicalEvmRuntime.reopenOwnedDeviceExternalFlatReceiverV1(one);}finally{pagedUniswapRuntimeSections.delete(one);}
+}
+export async function reopenOriginalPagedUniswapBootstrapV3(token,runtime){
+ assert.equal(arguments.length,2);canonicalEvmRuntime.assertOwnedDeviceExternalFlatReceiverV1(runtime);
+ const {consumeOriginalPagedComponentRecoveryV3}=await import('../../../operations/recovery/paged-runtime-recovery-authority-v3.mjs');
+ const record=consumeOriginalPagedComponentRecoveryV3(token,'uniswap');assert.equal(record.profile,'ORIGINAL_PAGED_UNISWAP_CONTEXT_COLD_RETENTION_V3');assert.equal(record.genesis,runtime.metadata.evmGenesis);assert.equal(record.directory,runtime.metadata.scratchDirectory);assert.deepEqual(record.runtimeAccounts,runtime.accounts);
+ return originalRecovery.reopenPagedUniswapBootstrapPartsV3({runtime,record});
+}
 
 export function createWrappedRecoveryAuthorityV1(input) {
   return originalRecovery.createWrappedRecoveryAuthorityV1(...arguments);
@@ -723,6 +818,7 @@ export function assertDeviceExternalFlatRecoveryAuthorityV1(authority) {
 }
 
 export function deviceExternalFlatReceiverCaptureIdentityV1(token) {
+  const original=pagedUniswapCaptures.get(token);if(original){assert.equal(arguments.length,1);return structuredClone(original);}
   return originalRecovery.deviceExternalFlatReceiverCaptureIdentityV1(
     ...arguments,
   );
@@ -744,6 +840,7 @@ export function assertDeviceExternalFlatAccountCaptureAuthorityV1(
 }
 
 export function consumeDeviceExternalFlatReceiverRuntimeSectionV1(token) {
+  const original=pagedUniswapRuntimeSections.get(token);if(original){assert.equal(arguments.length,1);pagedUniswapRuntimeSections.delete(token);return original;}
   return originalRecovery.consumeDeviceExternalFlatReceiverRuntimeSectionV1(
     ...arguments,
   );
