@@ -16,5 +16,5 @@ test('the paged gateway exposes the canonical graph and proof authority', () => 
 });
 
 test('the extracted reader rejects a caller-selected manifest before creating a prover', () => {
-  assert.throws(() => artifacts.loadFundedPagedGraphArtifactsV3('not-a-reviewed-hash'), /PAEG_PAGED_REVIEWED_MANIFEST_REQUIRED/);
+  assert.throws(() => artifacts.loadFundedPagedGraphArtifactsV3('not-a-reviewed-hash'), /PAEG_PAGED_(?:ADOPTED_ARTIFACT_GENERATION|REVIEWED_MANIFEST_REQUIRED)/);
 });

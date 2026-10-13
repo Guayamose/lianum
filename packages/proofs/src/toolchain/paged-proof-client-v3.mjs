@@ -11,6 +11,7 @@ import {PAEG_PAGED_ROOT_V3,PAEG_PAGED_WORDS_V3,loadFundedPagedGraphArtifactsV3} 
 import {sealPrivateProofJobV1,wipePrivateProofInputsV1,privateProofAuthorizationBindingV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import {readOriginalFundedPagedGraphProofJobV3,closeFundedPagedGraphProofJobV3} from '@lianum/engine/execution/graph/funded-graph-paged-v3';
 import {PRIVATE_RESOURCE_POLICY as limits} from '@lianum/components/resources/private-resource-policy';
+import {pagedNativeProofResourcesV3} from './paged-native-prover-v3.mjs';
 const clients=new WeakMap(),results=new WeakMap();
 const relation=mode=>'funded_graph_paged_'+mode;
 const roles=Object.freeze({reserve:'owner',fold:'owner',terminal:'owner',admission:'local',withdraw:'recipient'});
@@ -34,7 +35,8 @@ export function createFundedPagedGraphProofClientV3(manifestSHA256){
     consentSHA256:sha(JSON.stringify({profile:manifest.profile,manifestSHA256,mode,expected})),witnessSHA256:sha(clear)});clear.fill(0);
    s.busy=true;let child,closed=false,returned=null,failure=null,sent=false,readySeen=false,resolveStop;const done=new Promise(r=>{resolveStop=r;});
    const stop=code=>{failure??=code;if(child&&!closed){child.kill('SIGTERM');setTimeout(()=>{if(!closed)child.kill('SIGKILL');},5000).unref();}};
-   const check=()=>{const available=Number(/MemAvailable:\s+(\d+)/.exec(readFileSync('/proc/meminfo','utf8'))[1])*1024;const disk=statfsSync(PAEG_PAGED_ROOT_V3);assert.ok(available>=limits.floors.availableRAM&&disk.bavail*disk.bsize>=limits.floors.freeDisk,'PAEG_PAGED_RESOURCE_FLOOR');if(child&&!closed){let status;try{status=readFileSync('/proc/'+child.pid+'/status','utf8');}catch(e){if(e.code==='ENOENT')return;throw e;}assert.ok(Number(/VmRSS:\s+(\d+)/.exec(status)?.[1]??0)*1024<=limits.proofWorkerRSSLimit,'PAEG_PAGED_WORKER_RSS');}};
+   const nativeHistory=new Map();
+   const check=()=>{const available=Number(/MemAvailable:\s+(\d+)/.exec(readFileSync('/proc/meminfo','utf8'))[1])*1024;const disk=statfsSync(PAEG_PAGED_ROOT_V3);assert.ok(available>=limits.floors.availableRAM&&disk.bavail*disk.bsize>=limits.floors.freeDisk,'PAEG_PAGED_RESOURCE_FLOOR');if(child&&!closed){const measured=pagedNativeProofResourcesV3(child.pid,nativeHistory);assert.ok(measured.workerRSS<=limits.proofWorkerRSSLimit,'PAEG_PAGED_WORKER_RSS');}};
    let timer,monitor;
    try{
     check();child=spawn(process.execPath,['--max-old-space-size=384',fileURLToPath(new URL('./paged-proof-process-v3.mjs',import.meta.url)),mode,jobId,manifestSHA256],{stdio:['ignore','pipe','pipe','ipc'],serialization:'json',env:{...process.env,NODE_OPTIONS:undefined}});s.active={stop,done};
