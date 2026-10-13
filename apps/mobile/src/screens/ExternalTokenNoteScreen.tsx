@@ -2,16 +2,23 @@ import {sameDeviceRecoveryCheckpointV1 as sameRecoveryCheckpoint,verifyDeviceRec
 import {readDeviceMetaMorphoRedemptionStatusV2,readDeviceMorphoBlueRedemptionStatusV1,readDeviceAaveStaticRedemptionStatusV1,createDeviceMetaMorphoRedemptionApiV2,createDeviceMorphoBlueRedemptionApiV1,createDeviceAaveStaticRedemptionApiV1} from '../api/device-morpho-blue-redemption-api-v1.mjs';
 import type {DeviceMetaMorphoConsentV2,DeviceMetaMorphoStatusV2,DeviceMorphoBlueConsentV1,DeviceMorphoBlueStatusV1,DeviceAaveStaticConsentV1,DeviceAaveStaticStatusV1} from '../../../../packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
 import {useEffect,useRef,useState} from 'react';
-import {ActivityIndicator,Alert,AppState,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {Alert,AppState,StyleSheet,Text,TextInput,View} from 'react-native';
+import {WalletButton,WalletCard,WalletScreenLayout,WalletField,WalletStatus,WalletChoice,walletColors} from '../components/wallet-ui';
 import {fetch as expoFetch} from 'expo/fetch';
-import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1,signDeviceExternalFlatGraphOutputPermissionV1,signDeviceMetaMorphoRedemptionPermissionV2,signDeviceMorphoBlueRedemptionPermissionV1,signDeviceAaveStaticRedemptionPermissionV1} from '../custody/key-store';
-import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1,restoreDeviceExternalFlatNoteBackupV1} from '../custody/device-external-flat-note-vault-v1';
+import {createDeviceExternalFlatPinnedTransportV1,readDeviceExternalFlatConnectionClipboardV1} from '../api/device-paged-connection-transport-v3';
+import {approveWalletSessionExternalV1,closeWalletSessionAuthorizationV1,readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1,signDeviceExternalFlatPermissionV1,signDeviceExternalFlatGraphPermissionV1,signDeviceExternalFlatGraphOutputPermissionV1,signDeviceMetaMorphoRedemptionPermissionV2,signDeviceMorphoBlueRedemptionPermissionV1,signDeviceAaveStaticRedemptionPermissionV1} from '../custody/key-store';
+import {createDeviceExternalFlatNoteVaultV1,createDeviceExternalFlatRoutedNoteVaultV1,openExistingDeviceExternalFlatCustodyV1,restoreDeviceExternalFlatNoteBackupV1} from '../custody/device-external-flat-note-vault-v1';
 import type {DeviceExternalFlatSummary,DeviceExternalFlatPrepared} from '../custody/device-external-flat-note-vault-v1';
 import {createDeviceExternalFlatNoteApiV1,readDeviceExternalFlatQuoteV1} from '../api/device-external-flat-note-api-v1.mjs';
+import {observeDeviceExternalFlatReceptionV1} from '../api/device-external-flat-reception-observer-v1.mjs';
 import {createDeviceExternalFlatGraphApiV1,readDeviceExternalFlatGraphQuoteV1,readDeviceExternalFlatGraphPreparationV1} from '../api/device-external-flat-graph-api-v1.mjs';
 import {validateExternalFlatGraphFreshV1,wipeDeviceReservationWitnessV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
 import {DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1,normalizeExternalFlatDescriptorV1,externalFlatExactV1,externalFlatUintV1,externalFlatWipeV1,validateExternalFlatFreshV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import type {ExternalFlatAction,ExternalFlatConsent,ExternalFlatDraft,ExternalFlatStatus,ExternalFlatDescriptor} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
+import {deviceDefiAmountToAtomicV1,deviceDefiAmountFromAtomicV1,deviceDefiReceptionWindowV1,nextDeviceDefiOperationV1} from '../../../../packages/mobile-protocol/src/device-defi-operation-flow-v1.mjs';
+import type {DeviceDefiOperationDecisionV1} from '../../../../packages/mobile-protocol/src/device-defi-operation-flow-v1.mjs';
+import {normalizePublicWalletConnectionV1,publicWalletConnectionMatchesRouteV1} from '../state/public-connection-registry-v1.mjs';
+import type {PublicConnectionRegistryV1} from '../state/public-connection-registry-v1.mjs';
 
 type Client=ReturnType<typeof createDeviceExternalFlatNoteApiV1>;
 type Vault=Awaited<ReturnType<typeof createDeviceExternalFlatNoteVaultV1>>;
@@ -26,14 +33,19 @@ type GraphOutputRole='change'|'recovery';
 type GraphOutputAction='WITHDRAW_W39'|'OBSERVE_W39';
 type GraphOutputConsent=Parameters<GraphClient['outputSubmit']>[0];
 type GraphOutputPrepared=Awaited<ReturnType<Vault['prepareGraphOutputWithdrawal']>>;
-type GraphOutputReview={consent:GraphOutputConsent;witness:unknown|null};
+type GraphOutputReview={consent:GraphOutputConsent;witness:unknown|null;storage:SubmissionStorage};
 type GraphOutputView={noteRole:GraphOutputRole;amount:string;state:string;available:string|null};
 type BlueClient=ReturnType<typeof createDeviceMorphoBlueRedemptionApiV1>;
 type AaveClient=ReturnType<typeof createDeviceAaveStaticRedemptionApiV1>;
 type MetaClient=ReturnType<typeof createDeviceMetaMorphoRedemptionApiV2>;
-type Connection={redemptionRecipient:string|null;metaClient:MetaClient|null;aaveClient:AaveClient|null;blueClient:BlueClient|null;client:Client;graphClient:GraphClient|null;noteClosed:boolean;vault:Vault;descriptor:ExternalFlatDescriptor};
-type GraphReview={consent:GraphConsent;witness:unknown|null};
-type Review={consent:ExternalFlatConsent;witness:unknown|null};
+type PublicTls={origin:string;devicePublicKey:string;certificatePEM:string;certificateSHA256:string};
+type PinnedTransport=Awaited<ReturnType<typeof createDeviceExternalFlatPinnedTransportV1>>;
+type ReceptionScope={jobId:string;rootId:string;commitment:string};
+type Connection={transport:PinnedTransport|null;fetchImpl:typeof fetch;redemptionRecipient:string|null;metaClient:MetaClient|null;aaveClient:AaveClient|null;blueClient:BlueClient|null;client:Client;graphClient:GraphClient|null;noteClosed:boolean;vault:Vault;descriptor:ExternalFlatDescriptor;reception?:ReceptionScope};
+type GraphReview={consent:GraphConsent;witness:unknown|null;storage:SubmissionStorage};
+type Review={consent:ExternalFlatConsent;witness:unknown|null;storage:SubmissionStorage};
+type SubmissionStorage={selected:Connection;controller:AbortController;token:object|null;authorization?:object};
+const retainedDefiConnections:{profiles:Partial<Record<'UNISWAP'|'AAVE'|'MORPHO',string>>;current:string;protocol:'UNISWAP'|'AAVE'|'MORPHO'}={profiles:{},current:'',protocol:'UNISWAP'};
 type MetaFourDelivery={id:string;dependsOn:string[];origin:string;maximumInput:string;shareAmount:string;payoutAmount:string};
 type MetaFourPairing={profile:'DEVICE_EXTERNAL_FLAT_META_FOUR_PAIRING_V1'|'DEVICE_EXTERNAL_FLAT_META_FOUR_UNDERLYING_PAIRING_V2';redemptionRecipient?:string;source:ExternalFlatDescriptor;targets:ExternalFlatDescriptor[];deliveries:MetaFourDelivery[]};
 type MetaFourWindow={validFrom:string;validUntil:string;settleBefore:string};
@@ -69,26 +81,49 @@ function parseUniswapPairing(text:string):UniswapPairing{
  if(typeof text!=='string'||text.length===0||text.length>32768)throw Error('MOBILE_UNISWAP_PAIRING_INVALID');const p=externalFlatExactV1(JSON.parse(text),['profile','source','target']),source=normalizeExternalFlatDescriptorV1(p.source),target=normalizeExternalFlatDescriptorV1(p.target);
  if(p.profile!=='DEVICE_EXTERNAL_FLAT_UNISWAP_PAIRING_V1'||source.profile!==DEVICE_EXTERNAL_FLAT_NOTE_V1||target.profile!==DEVICE_EXTERNAL_FLAT_SHARE_V1||source.devicePublicKey!==target.devicePublicKey||source.origin!==target.origin||source.pairingId===target.pairingId||source.poolTerms.pool===target.poolTerms.pool||source.poolTerms.assetIdentity===target.poolTerms.assetIdentity||['genesis','hub','hubCodeHash','hubDomain'].some(k=>source.poolTerms[k as keyof ExternalFlatDescriptor['poolTerms']]!==target.poolTerms[k as keyof ExternalFlatDescriptor['poolTerms']]))throw Error('MOBILE_UNISWAP_PAIRING_INVALID');return {profile:p.profile,source,target};
 }
-function Button({label,onPress,disabled=false}:{label:string;onPress():void;disabled?:boolean}) {
- return <Pressable accessibilityRole="button" accessibilityState={{disabled}} disabled={disabled} onPress={onPress}
-  style={[styles.button,disabled&&styles.disabled]}><Text style={styles.buttonText}>{label}</Text></Pressable>;
-}
+function Button({label,onPress,disabled=false,loading=false,tone='primary'}:{label:string;onPress():void;disabled?:boolean;loading?:boolean;tone?:'primary'|'secondary'|'danger'}) {return <WalletButton label={label} onPress={onPress} disabled={disabled} loading={loading} tone={tone==='primary'&&/Cancelar|Ocultar|Consultar|Volver|Ver |Cerrar/.test(label)?'secondary':tone}/>;}
 function Fields({values}:{values:Record<string,string>}) {
  return <>{Object.entries(values).map(([label,value])=><View key={label}><Text style={styles.label}>{label}</Text><Text selectable style={styles.value}>{value}</Text></View>)}</>;
 }
 function amountText(amount:string|null,descriptor:ExternalFlatDescriptor|null) {
  if(amount===null||descriptor===null)return 'No disponible';
- const n=descriptor.assetMetadata.decimals,digits=amount.padStart(n+1,'0');
- const exact=n===0?digits:digits.slice(0,-n)+'.'+digits.slice(-n);
- return exact+' '+descriptor.assetMetadata.symbol;
+ return deviceDefiAmountFromAtomicV1(amount,descriptor.assetMetadata.decimals)+' '+descriptor.assetMetadata.symbol;
 }
-const actionText:Record<ExternalFlatAction,string>={PROVE_D26:'Generar prueba de financiación',FUND_D26:'Financiar esta nota',OBSERVE_D26:'Consultar esta financiación',PROVE_D27:'Autorizar recepción de nota',OBSERVE_D27:'Consultar recepción de nota',QUOTE_W39:'Preparar la retirada completa',PROVE_W39:'Generar prueba de retirada',WITHDRAW_W39:'Retirar esta nota',OBSERVE_W39:'Consultar esta retirada'};
-const stageText:Record<string,string>={PROVING:'Prueba pendiente de consultar',PROVED:'Prueba disponible',FUNDING_UNKNOWN:'Financiación pendiente de confirmar',DELIVERY_UNKNOWN:'Nota de destino pendiente de confirmar',WITHDRAWAL_UNKNOWN:'Retirada pendiente de confirmar',CONFIRMED:'Confirmada',RESERVING:'Registro de reserva en curso',RESERVATION_UNKNOWN:'Reserva pendiente de confirmar',RESERVED:'Reserva confirmada',FAILED:'Prueba no completada'};
-const graphActionText:Record<GraphAction,string>={PROVE_U:'Preparar la reserva privada',RESERVE_S:'Registrar la reserva',OBSERVE_S:'Consultar la reserva',EXECUTE_GRAPH:'Ejecutar la conversión',RECONCILE_GRAPH:'Consultar la conversión',RECOVER_GRAPH:'Recuperar la reserva vencida',CANCEL_GRAPH:'Liberar una reserva no enviada'};
-const graphOutputRoleText:Record<GraphOutputRole,string>={change:'Cambio',recovery:'Recuperación'};
-const graphOutputStateText:Record<string,string>={EMPTY:'Sin nota',UNISSUED:'No emitida',UNSPENT:'Disponible',LOCKED:'Bloqueada hasta resolución',SPENT:'Retirada',UNKNOWN:'Pendiente de confirmar'};
+function assetLabel(descriptor:ExternalFlatDescriptor|null|undefined) {
+ if(!descriptor)return 'Activo de esta cuenta';
+ return descriptor.assetMetadata.symbol+(descriptor.assetMetadata.symbol==='PALT'?' (demo)':'');
+}
+function pairedAssetLabels(pairing:{source:ExternalFlatDescriptor;target:ExternalFlatDescriptor}) {
+ const sameSymbol=pairing.source.assetMetadata.symbol===pairing.target.assetMetadata.symbol;
+ return {source:assetLabel(pairing.source)+(sameSymbol?' de origen':''),target:assetLabel(pairing.target)+(sameSymbol?' de destino':'')};
+}
+function conversionTitle(pairing:{source:ExternalFlatDescriptor;target:ExternalFlatDescriptor}|null,swap:boolean) {
+ if(!pairing)return swap?'Intercambiar activos':'Invertir activos';
+ const assets=pairedAssetLabels(pairing);
+ return swap?'Cambiar '+assets.source+' por '+assets.target:'Invertir '+assets.source+' y recibir '+assets.target;
+}
+const actionText:Record<ExternalFlatAction,string>={PROVE_D26:'Preparar ingreso',FUND_D26:'Confirmar ingreso',OBSERVE_D26:'Comprobar ingreso',PROVE_D27:'Autorizar recepción de tokens',OBSERVE_D27:'Comprobar tokens recibidos',QUOTE_W39:'Preparar la retirada completa',PROVE_W39:'Preparar retirada',WITHDRAW_W39:'Confirmar retirada',OBSERVE_W39:'Consultar esta retirada'};
+const stageText:Record<string,string>={PROVING:'Preparación por comprobar',PROVED:'Preparación lista',FUNDING_UNKNOWN:'Ingreso pendiente de confirmar',DELIVERY_UNKNOWN:'Recepción pendiente de confirmar',WITHDRAWAL_UNKNOWN:'Retirada pendiente de confirmar',CONFIRMED:'Confirmada',RESERVING:'Registro de reserva en curso',RESERVATION_UNKNOWN:'Reserva pendiente de confirmar',RESERVED:'Reserva confirmada',FAILED:'Prueba no completada'};
+const graphActionText:Record<GraphAction,string>={PROVE_U:'Preparar conversión',RESERVE_S:'Reservar fondos',OBSERVE_S:'Consultar la reserva',EXECUTE_GRAPH:'Ejecutar la conversión',RECONCILE_GRAPH:'Consultar la conversión',RECOVER_GRAPH:'Recuperar la reserva vencida',CANCEL_GRAPH:'Liberar una reserva no enviada'};
+const graphOutputRoleText:Record<GraphOutputRole,string>={change:'Saldo restante',recovery:'Saldo recuperado'};
+const graphOutputStateText:Record<string,string>={EMPTY:'Sin salida disponible',UNISSUED:'Pendiente de emisión',UNSPENT:'Disponible',LOCKED:'Bloqueada hasta resolución',SPENT:'Retirada',UNKNOWN:'Pendiente de confirmar'};
 const graphStageText:Record<string,string>={PREPARED:'Preparada',EXECUTION_UNKNOWN:'Ejecución pendiente de confirmar',RECOVERY_UNKNOWN:'Recuperación pendiente de confirmar',FULFILLED:'Conversión confirmada',RECOVERED:'Reserva recuperada',SOURCE_CANCELLED:'Reserva no enviada liberada'};
-export default function ExternalTokenNoteScreen({onObservation,onGraphObservation,onSourcePending}:{onObservation?(value:ExternalFlatStatus):void;onGraphObservation?(value:GraphStatus):void|Promise<void>;onSourcePending?(descriptor:ExternalFlatDescriptor,rootId:string):void}={}) {
+export type ExternalEntryActionV1={requestId:number;action:'swap'|'invest'};
+export type ExternalConnectionRequestV1={id:string;profile:string;requestId:number;select?:boolean;route?:Readonly<Record<string,string|number>>;reception?:ReceptionScope};
+export default function ExternalTokenNoteScreen({onObservation,onGraphObservation,onSourcePending,onOpenOperations,connectionRegistry,connectionRequest,active=true,onBusyChange,onTransportClosed,onConnectionRead,entryAction}:{onObservation?(value:ExternalFlatStatus):void;onGraphObservation?(value:GraphStatus):void|Promise<void>;onSourcePending?(descriptor:ExternalFlatDescriptor,rootId:string):void;onOpenOperations?():void;connectionRegistry?:PublicConnectionRegistryV1;connectionRequest?:ExternalConnectionRequestV1|null;active?:boolean;onBusyChange?(busy:boolean):void;onTransportClosed?():void;onConnectionRead?(requestId:number,ok:boolean):void;entryAction?:ExternalEntryActionV1|null}={}) {
+ const selectConnectionRef=useRef(true);
+ const receptionRequestRef=useRef<ReceptionScope|null>(null);
+ const activeRef=useRef(active),callbacks=useRef({onBusyChange,onTransportClosed});activeRef.current=active;callbacks.current={onBusyChange,onTransportClosed};
+ const previewAbort=useRef<AbortController|null>(null),beforePostCancellations=useRef(new WeakSet<object>());
+ const redemptionAuthorization=useRef<{token:object;controller:AbortController;kind:'BLUE'|'AAVE'|'META'}|null>(null);
+ const publicTls=useRef<PublicTls|null>(null),transportAbort=useRef<AbortController|null>(null);
+ const [tlsDisplay,setTlsDisplay]=useState<{origin:string;certificateSHA256:string}|null>(null);
+ const [settingsOpen,setSettingsOpen]=useState(false),[recoveryOpen,setRecoveryOpen]=useState(false),[noticeError,setNoticeError]=useState(false),[selectedProtocol,setSelectedProtocol]=useState<'UNISWAP'|'AAVE'|'MORPHO'>(retainedDefiConnections.protocol);
+ const knownConnections=useRef<Partial<Record<'UNISWAP'|'AAVE'|'MORPHO',string>>>(retainedDefiConnections.profiles);
+ const connectionRequestSeen=useRef<number|null>(null),entryActionSeen=useRef<number|null>(null);
+ const [flowConnectionText,setFlowConnectionText]=useState(retainedDefiConnections.current),[advanced,setAdvanced]=useState(false),[operationGoal,setOperationGoal]=useState<'CONVERT'|'WITHDRAW'>('CONVERT');
+ const [copyVisible,setCopyVisible]=useState(false);
+ const [fundingInput,setFundingInput]=useState(''),[destinationInput,setDestinationInput]=useState(''),[solverInput,setSolverInput]=useState(''),[budgetInput,setBudgetInput]=useState(''),[flowRecipient,setFlowRecipient]=useState(''),[windowSeconds,setWindowSeconds]=useState(3600);
  const [descriptorText,setDescriptorText]=useState(''),[recipient,setRecipient]=useState(''),[amount,setAmount]=useState(''),[validUntil,setValidUntil]=useState('');
  const [connected,setConnected]=useState(false),[summary,setSummary]=useState<DeviceExternalFlatSummary|null>(null);
  const [review,setReview]=useState<ExternalFlatConsent|null>(null),[status,setStatus]=useState<ExternalFlatStatus|null>(null);
@@ -101,7 +136,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const [graphOutputReview,setGraphOutputReview]=useState<GraphOutputConsent|null>(null);
  const [graphPreparationPending,setGraphPreparationPending]=useState(false);
  const [graphAssetAmount,setGraphAssetAmount]=useState(''),[graphShareAmount,setGraphShareAmount]=useState(''),[graphPayoutAmount,setGraphPayoutAmount]=useState(''),[graphValidFrom,setGraphValidFrom]=useState(''),[graphSettleBefore,setGraphSettleBefore]=useState('');
- const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Introduce la conexión privada entregada por tu operador.');
+ const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Elige intercambiar o invertir. Después abre la conexión de tus activos.');
  const [recoveryPassword,setRecoveryPassword]=useState(''),[recoveryInput,setRecoveryInput]=useState(''),[recoveryCopy,setRecoveryCopy]=useState('');
  const [recoveryPreparation,setRecoveryPreparation]=useState<RecoveryPreparation|null>(null);
  const [custodyRoute,setCustodyRoute]=useState<'LEGACY'|'ROUTED'>('LEGACY');
@@ -115,7 +150,18 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  const graphOutputReviewRef=useRef<GraphOutputReview|null>(null),graphOutputPreparedRef=useRef<GraphOutputPrepared|null>(null);
  const reviewRef=useRef<Review|null>(null),preparedRef=useRef<DeviceExternalFlatPrepared|null>(null),activeWitness=useRef<unknown|null>(null);
  const recoveryCut=useRef<{selected:Connection;kind:RecoveryPreparation;prepared:DeviceExternalFlatPrepared|GraphPrepared;checkpoint:RecoveryCheckpoint}|null>(null);
+ const submissionStorage=useRef<SubmissionStorage|null>(null);
+ function releaseSubmissionStorage(storage=submissionStorage.current){if(!storage)return;if(submissionStorage.current===storage)submissionStorage.current=null;storage.controller.abort();if(storage.authorization)closeWalletSessionAuthorizationV1(storage.authorization);if(storage.token)storage.selected.vault.endSubmissionStorage(storage.token);}
+ async function openSubmissionStorage(selected:Connection,kind:'NOTE'|'GRAPH'|'OUTPUT',draft:unknown,ticket:number){
+  if(submissionStorage.current)throw Error('MOBILE_EXTERNAL_FLAT_SUBMISSION_ARM');
+  const storage:SubmissionStorage={selected,controller:new AbortController(),token:null};submissionStorage.current=storage;
+  try{storage.token=await selected.vault.beginSubmissionStorage(kind,draft,storage.controller.signal);current(ticket,selected);if(storage.controller.signal.aborted||submissionStorage.current!==storage)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');return storage;}
+  catch(error){if(error instanceof Error&&error.message==='MOBILE_AUTHENTICATION_CANCELLED')beforePostCancellations.current.add(error);releaseSubmissionStorage(storage);throw error;}
+ }
  function clearReview() {
+  previewAbort.current?.abort();previewAbort.current=null;
+  const authorization=redemptionAuthorization.current;redemptionAuthorization.current=null;if(authorization){authorization.controller.abort();closeWalletSessionAuthorizationV1(authorization.token);}
+  releaseSubmissionStorage();
   metaReviewRef.current=null;if(mounted.current)setMetaReview(null);blueReviewRef.current=null;if(mounted.current)setBlueReview(null);aaveReviewRef.current=null;if(mounted.current)setAaveReview(null);
   recoveryCut.current=null;if(mounted.current)setRecoveryPreparation(null);
   signing.current?.abort();signing.current=null;
@@ -126,15 +172,15 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  }
  function hideRecovery(){setRecoveryPassword('');setRecoveryInput('');setRecoveryCopy('');}
  function closeConnection() {
-  epoch.current++;clearReview();if(mounted.current)hideRecovery();const selected=connection.current;connection.current=null;
+  epoch.current++;transportAbort.current?.abort();transportAbort.current=null;clearReview();if(mounted.current)hideRecovery();const selected=connection.current;connection.current=null;
   selected?.metaClient?.close();selected?.aaveClient?.close();selected?.blueClient?.close();selected?.graphClient?.close();selected?.client.close();const acquisition=acquiring.current;acquiring.current=null;
   const previous=closing.current;
-  const drain=Promise.allSettled([previous,selected?.vault.close(),acquisition?.then(v=>v.close())]);closing.current=drain;
+  const drain=Promise.allSettled([previous,selected?.transport?.close(),selected?.vault.close(),acquisition?.then(v=>v.close())]);closing.current=drain;
   if(mounted.current){setConnected(false);setStatus(null);setGraphStatus(null);setGraphPreparationPending(false);setBlueStatus(null);setAaveStatus(null);setMetaStatus(null);}
-  void drain.then(()=>{if(closing.current===drain)closing.current=null;});return drain;
+  void drain.then(results=>{if(closing.current===drain)closing.current=null;const transportResult=results[1];if(transportResult.status==='fulfilled')callbacks.current.onTransportClosed?.();else if(mounted.current){setNoticeError(true);setNotice('No pudimos cerrar la conexión. Bloquea la sesión antes de abrir otra operación.');}});return drain;
  }
  function current(ticket:number,selected:Connection) {
-  if(!mounted.current||AppState.currentState!=='active'||epoch.current!==ticket||connection.current!==selected)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
+  if(!mounted.current||!activeRef.current||AppState.currentState!=='active'||epoch.current!==ticket||connection.current!==selected)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
  }
  function requireConnection() {const selected=connection.current;if(!selected)throw Error('MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED');return selected;}
  function clearMetaFour(){metaFourRef.current=null;metaFourWindowRef.current=null;setMetaFour(null);setMetaFourWindow(null);setMetaFourReads([null,null,null,null]);}
@@ -151,24 +197,104 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  }
  function invalidateMetaFourStatus(descriptor:ExternalFlatDescriptor){const slot=metaFourSlot(descriptor);if(slot>=0)setMetaFourReads(previous=>previous.map((v,i)=>i===slot?null:v));}
  function clearMeta(){metaRef.current=null;metaWindowRef.current=null;setMetaPairing(null);}
- async function loadMeta(){
-  const p=parseMetaPairing(metaText),ticket=epoch.current,key=await readDevicePublicKey();if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');if(key!==p.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMetaFour();clearAave();clearUniswap();clearMeta();metaRef.current=p;setMetaPairing(p);setCustodyRoute('ROUTED');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(p.source));setSummary(null);await connect(JSON.stringify(p.source),'ROUTED');
+ async function loadMeta(rawText=metaText){
+  const p=parseMetaPairing(rawText),ticket=epoch.current,key=await readDevicePublicKey();if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');if(key!==p.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMetaFour();clearAave();clearUniswap();clearMeta();metaRef.current=p;setMetaPairing(p);setCustodyRoute('ROUTED');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(p.source));setSummary(null);await connect(JSON.stringify(p.source),'ROUTED');
  }
  async function selectMeta(role:'source'|'target'){
   const p=metaRef.current;if(!p)throw Error('MOBILE_META_PAIRING_INVALID');const descriptor=p[role],text=JSON.stringify(descriptor);setDescriptorText(text);setSummary(null);await connect(text,'ROUTED');const selected=requireConnection(),ticket=epoch.current;current(ticket,selected);if(JSON.stringify(selected.descriptor)!==text)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
   if(role==='target'){const value=await readStatus(selected,ticket),intent=value.jobs.find(v=>v.mode==='deposit_intent');if(intent){const t=intent.consentFields.statement;if(t.validFrom===undefined||t.validUntil===undefined)throw Error('MOBILE_META_RECEPTION_REQUIRED');const w={validFrom:t.validFrom,validUntil:t.validUntil,amount:t.amount};if(metaWindowRef.current&&JSON.stringify(metaWindowRef.current)!==JSON.stringify(w))throw Error('MOBILE_META_RECEPTION_CHANGED');metaWindowRef.current=w;setGraphShareAmount(w.amount);setGraphValidFrom(w.validFrom);setGraphSettleBefore((BigInt(w.validUntil)+60n).toString());}}
  }
  function clearAave(){aaveRef.current=null;aaveWindowRef.current=null;setAavePairing(null);}
- async function loadAave(){
-  const p=parseAavePairing(aaveText),ticket=epoch.current,key=await readDevicePublicKey();if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');if(key!==p.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMeta();clearMetaFour();clearAave();clearUniswap();aaveRef.current=p;setAavePairing(p);setCustodyRoute('ROUTED');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(p.source));setSummary(null);await connect(JSON.stringify(p.source),'ROUTED');
+ async function loadAave(rawText=aaveText){
+  const p=parseAavePairing(rawText),ticket=epoch.current,key=await readDevicePublicKey();if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');if(key!==p.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMeta();clearMetaFour();clearAave();clearUniswap();aaveRef.current=p;setAavePairing(p);setCustodyRoute('ROUTED');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(p.source));setSummary(null);await connect(JSON.stringify(p.source),'ROUTED');
  }
  async function selectAave(role:'source'|'target'){
   const p=aaveRef.current;if(!p)throw Error('MOBILE_AAVE_PAIRING_INVALID');const descriptor=p[role],text=JSON.stringify(descriptor);setDescriptorText(text);setSummary(null);await connect(text,'ROUTED');const selected=requireConnection(),ticket=epoch.current;current(ticket,selected);if(JSON.stringify(selected.descriptor)!==text)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
   if(role==='target'){const value=await readStatus(selected,ticket),intent=value.jobs.find(v=>v.mode==='deposit_intent');if(intent){const t=intent.consentFields.statement;if(t.validFrom===undefined||t.validUntil===undefined)throw Error('MOBILE_AAVE_RECEPTION_REQUIRED');const w={validFrom:t.validFrom,validUntil:t.validUntil,amount:t.amount};if(aaveWindowRef.current&&JSON.stringify(aaveWindowRef.current)!==JSON.stringify(w))throw Error('MOBILE_AAVE_RECEPTION_CHANGED');aaveWindowRef.current=w;setGraphShareAmount(w.amount);setGraphValidFrom(w.validFrom);setGraphSettleBefore((BigInt(w.validUntil)+60n).toString());}}
  }
  function clearUniswap(){uniswapRef.current=null;uniswapWindowRef.current=null;setUniswapPairing(null);}
- async function loadUniswap(){
-  const p=parseUniswapPairing(uniswapText),ticket=epoch.current,key=await readDevicePublicKey();if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');if(key!==p.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMeta();clearMetaFour();clearAave();clearUniswap();uniswapRef.current=p;setUniswapPairing(p);setCustodyRoute('ROUTED');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(p.source));setSummary(null);await connect(JSON.stringify(p.source),'ROUTED');
+ function pairedOperation(){return uniswapRef.current??aaveRef.current??metaRef.current;}
+ function pairedWindow(){return uniswapRef.current?uniswapWindowRef.current:aaveRef.current?aaveWindowRef.current:metaWindowRef.current;}
+ function retainPairedReception(value:ExternalFlatStatus){
+  const pairing=pairedOperation();if(!pairing||JSON.stringify(value.descriptor)!==JSON.stringify(pairing.target))return;
+  const intent=value.jobs.find(row=>row.mode==='deposit_intent'&&['PROVED','DELIVERY_UNKNOWN','CONFIRMED'].includes(row.stage));if(!intent)return;
+  const statement=intent.consentFields.statement;if(statement.validFrom===undefined||statement.validUntil===undefined)throw Error('MOBILE_DEFI_RECEPTION_REQUIRED');
+  const window={validFrom:statement.validFrom,validUntil:statement.validUntil,amount:statement.amount},previous=pairedWindow();
+  if(previous&&JSON.stringify(previous)!==JSON.stringify(window))throw Error('MOBILE_DEFI_RECEPTION_CHANGED');
+  if(uniswapRef.current)uniswapWindowRef.current=window;else if(aaveRef.current)aaveWindowRef.current=window;else metaWindowRef.current=window;
+  setGraphShareAmount(window.amount);setGraphValidFrom(window.validFrom);setGraphSettleBefore((BigInt(window.validUntil)+60n).toString());
+ }
+ async function selectPairedRole(role:'source'|'target'){
+  if(uniswapRef.current)return selectUniswap(role);if(aaveRef.current)return selectAave(role);if(metaRef.current)return selectMeta(role);
+  throw Error('MOBILE_DEFI_PAIRING_REQUIRED');
+ }
+ async function importPublicFlowConnection(){
+  const ticket=epoch.current,text=await readDeviceExternalFlatConnectionClipboardV1();
+  if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
+  setFlowConnectionText(text);await loadFlowConnection(text);
+ }
+ async function loadFlowConnection(rawText=flowConnectionText){
+  if(rawText.length===0||rawText.length>32768)throw Error('MOBILE_DEFI_CONNECTION_INVALID');
+  let packet=JSON.parse(rawText);publicTls.current=null;setTlsDisplay(null);
+  if(packet?.format==='DEVICE_EXTERNAL_FLAT_CONNECTION_V1'){
+   if(connectionRegistry)normalizePublicWalletConnectionV1(rawText,connectionRegistry.devicePublicKey);
+   const profile=externalFlatExactV1(packet,['format','pairing','transport']),transport=externalFlatExactV1(profile.transport,['type','certificatePEM','certificateSHA256']);
+   if(transport.type!=='ANDROID_PINNED_TLS_V1'||typeof transport.certificatePEM!=='string'||transport.certificatePEM.length===0||transport.certificatePEM.length>16384||typeof transport.certificateSHA256!=='string'||!/^[0-9a-f]{64}$/.test(transport.certificateSHA256))throw Error('MOBILE_DEFI_CONNECTION_INVALID');
+   packet=profile.pairing;const paired=['DEVICE_EXTERNAL_FLAT_UNISWAP_PAIRING_V1','DEVICE_EXTERNAL_FLAT_AAVE_PAIRING_V1','DEVICE_EXTERNAL_FLAT_METAMORPHO_UNDERLYING_PAIRING_V2'].includes(packet?.profile),descriptor=normalizeExternalFlatDescriptorV1(paired?packet.source:packet);
+   if(paired){const target=normalizeExternalFlatDescriptorV1(packet.target);if(target.origin!==descriptor.origin||target.devicePublicKey!==descriptor.devicePublicKey)throw Error('MOBILE_DEFI_CONNECTION_INVALID');}
+   publicTls.current={origin:descriptor.origin,devicePublicKey:descriptor.devicePublicKey,certificatePEM:transport.certificatePEM,certificateSHA256:transport.certificateSHA256};setTlsDisplay({origin:descriptor.origin,certificateSHA256:transport.certificateSHA256});
+  }
+  const pairingText=JSON.stringify(packet);setOperationGoal('CONVERT');
+  if(packet?.profile==='DEVICE_EXTERNAL_FLAT_UNISWAP_PAIRING_V1'){setUniswapText(pairingText);await loadUniswap(pairingText);knownConnections.current.UNISWAP=rawText;retainedDefiConnections.current=rawText;retainedDefiConnections.protocol='UNISWAP';setSelectedProtocol('UNISWAP');setSettingsOpen(false);await rememberPublicConnection(rawText);return;}
+  if(packet?.profile==='DEVICE_EXTERNAL_FLAT_AAVE_PAIRING_V1'){setAaveText(pairingText);await loadAave(pairingText);knownConnections.current.AAVE=rawText;retainedDefiConnections.current=rawText;retainedDefiConnections.protocol='AAVE';setSelectedProtocol('AAVE');setSettingsOpen(false);await rememberPublicConnection(rawText);return;}
+  if(packet?.profile==='DEVICE_EXTERNAL_FLAT_METAMORPHO_UNDERLYING_PAIRING_V2'){setMetaText(pairingText);await loadMeta(pairingText);knownConnections.current.MORPHO=rawText;retainedDefiConnections.current=rawText;retainedDefiConnections.protocol='MORPHO';setSelectedProtocol('MORPHO');setSettingsOpen(false);await rememberPublicConnection(rawText);return;}
+  const descriptor=normalizeExternalFlatDescriptorV1(packet);setOperationGoal('WITHDRAW');clearMeta();clearMetaFour();clearAave();clearUniswap();setDescriptorText(JSON.stringify(descriptor));setCustodyRoute('ROUTED');setSummary(null);await connect(JSON.stringify(descriptor),'ROUTED');retainedDefiConnections.current=rawText;setSettingsOpen(false);await rememberPublicConnection(rawText);
+ }
+ async function rememberPublicConnection(text:string){if(connectionRegistry&&JSON.parse(text)?.format==='DEVICE_EXTERNAL_FLAT_CONNECTION_V1')await connectionRegistry.remember(text,{select:selectConnectionRef.current});}
+ async function openRegisteredConnection(request:ExternalConnectionRequestV1){
+  const entry=normalizePublicWalletConnectionV1(request.profile,connectionRegistry?.devicePublicKey);if(entry.kind!=='EXTERNAL_FLAT'||request.route&&!publicWalletConnectionMatchesRouteV1(entry,request.route))throw Error('MOBILE_DEFI_CONNECTION_INVALID');
+  if(request.reception&&(entry.descriptors.length!==1||entry.descriptors[0].profile!==DEVICE_EXTERNAL_FLAT_SHARE_V1||Object.keys(request.reception).sort().join(',')!=='commitment,jobId,rootId'||Object.values(request.reception).some(value=>!/^[0-9a-f]{64}$/.test(value))))throw Error('MOBILE_EXTERNAL_FLAT_RECEPTION_BINDING');
+  receptionRequestRef.current=request.reception??null;
+  try{setFlowConnectionText(entry.profile);await loadFlowConnection(entry.profile);}finally{receptionRequestRef.current=null;}
+  if(request.route){const selected=entry.descriptors.find(descriptor=>descriptor.pairingId===request.route!.pairingId&&descriptor.poolTerms.pool===request.route!.pool);if(!selected)throw Error('MOBILE_DEFI_CONNECTION_INVALID');if(entry.descriptors.length===2&&selected===entry.descriptors[1])await selectPairedRole('target');setOperationGoal('WITHDRAW');}
+ }
+ async function chooseProtocol(protocol:'UNISWAP'|'AAVE'|'MORPHO'){
+  if(protocol===selectedProtocol&&connected)return;
+  setSelectedProtocol(protocol);const saved=knownConnections.current[protocol];if(saved){setFlowConnectionText(saved);await loadFlowConnection(saved);return;}
+  await closeConnection();clearMeta();clearMetaFour();clearAave();clearUniswap();publicTls.current=null;setTlsDisplay(null);setSummary(null);setFlowConnectionText('');setSettingsOpen(true);setNotice('Importa la conexión de '+(protocol==='MORPHO'?'Morpho':protocol==='AAVE'?'Aave':'Uniswap')+' para abrir ese servicio.');
+ }
+ function flowDecision(selected:Connection,local:DeviceExternalFlatSummary,note:ExternalFlatStatus|null,graph:GraphStatus|null):DeviceDefiOperationDecisionV1{
+  const pairing=pairedOperation(),role=pairing?(JSON.stringify(selected.descriptor)===JSON.stringify(pairing.source)?'SOURCE':'DESTINATION'):'NOTE';
+  return nextDeviceDefiOperationV1({descriptor:selected.descriptor,noteStatus:note,graphStatus:graph,goal:operationGoal,role,hasDestination:Boolean(pairing),destinationAuthorized:pairedWindow()!==null,notePending:local.pending,graphPending:local.graph?.pending??null,outputPending:local.graph?.withdrawalPending??[]});
+ }
+ /** Prepare the next original permission from the same durable operation. This
+  * never signs or submits the next spend; the review remains visible to its owner. */
+ async function openNextFlowReview(){
+  if(advanced)return;
+  const selected=requireConnection(),ticket=epoch.current,local=await selected.vault.summary();current(ticket,selected);
+  let note:ExternalFlatStatus|null=null,graph:GraphStatus|null=null;
+  if(local.graph!==null){graph=await readGraphStatus(selected,ticket);if(graph.jobs.length===0&&!selected.noteClosed)note=await readStatus(selected,ticket);}else note=await readStatus(selected,ticket);
+  const nextLocal=await selected.vault.summary();current(ticket,selected);const step=flowDecision(selected,nextLocal,note,graph);
+  setNotice(step.kind==='SETTLED'?step.label:'Paso completado. '+step.label+'.');
+ }
+ async function continueFlow(){
+  const selected=requireConnection();clearReview();const ticket=epoch.current,local=await selected.vault.summary();current(ticket,selected);
+  let note:ExternalFlatStatus|null=null,graph:GraphStatus|null=null;
+  if(local.graph!==null){graph=await readGraphStatus(selected,ticket);if(graph.jobs.length===0&&!selected.noteClosed)note=await readStatus(selected,ticket);}else note=await readStatus(selected,ticket);
+  const updated=await selected.vault.summary();current(ticket,selected);const step=flowDecision(selected,updated,note,graph);
+  if(step.kind==='NOTE_ACTION')return requestAction(step.action as ExternalFlatAction);
+  if(step.kind==='GRAPH_ACTION')return requestGraphAction(step.action as GraphAction);
+  if(step.kind==='OUTPUT_ACTION')return requestGraphOutput(step.noteRole as GraphOutputRole,step.action as GraphOutputAction);
+  if(step.kind==='OPEN_SOURCE')return selectPairedRole('source');
+  if(step.kind==='OPEN_DESTINATION')return selectPairedRole('target');
+  if(step.kind==='PREPARE_DEPOSIT')return prepareDeposit();
+  if(step.kind==='PREPARE_GRAPH')return prepareGraph();
+  if(step.kind==='PREPARE_WITHDRAWAL')return prepareWithdrawal();
+  if(step.kind==='PREPARE_OUTPUT_WITHDRAWAL')return prepareGraphOutput(step.noteRole as GraphOutputRole);
+  setNotice(step.kind==='SETTLED'?step.label:'Estado original consultado. Si sigue pendiente, consulta esta misma operación.');
+ }
+ async function loadUniswap(rawText=uniswapText){
+  const p=parseUniswapPairing(rawText),ticket=epoch.current,key=await readDevicePublicKey();if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');if(key!==p.source.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');const drain=closeConnection(),held=epoch.current;await drain;if(!mounted.current||epoch.current!==held||AppState.currentState!=='active')throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');clearMeta();clearMetaFour();clearAave();clearUniswap();uniswapRef.current=p;setUniswapPairing(p);setCustodyRoute('ROUTED');setGraphValidFrom('');setGraphSettleBefore('');setDescriptorText(JSON.stringify(p.source));setSummary(null);await connect(JSON.stringify(p.source),'ROUTED');
  }
  async function selectUniswap(role:'source'|'target'){
   const p=uniswapRef.current;if(!p)throw Error('MOBILE_UNISWAP_PAIRING_INVALID');const descriptor=p[role],text=JSON.stringify(descriptor);setDescriptorText(text);setSummary(null);await connect(text,'ROUTED');const selected=requireConnection(),ticket=epoch.current;current(ticket,selected);if(JSON.stringify(selected.descriptor)!==text)throw Error('MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED');
@@ -185,7 +311,10 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   const pairing=metaFourRef.current;if(!pairing||!Number.isInteger(slot)||slot< -1||slot>3)throw Error('MOBILE_META_FOUR_PAIRING_INVALID');
   const descriptor=slot===-1?pairing.source:pairing.targets[slot],text=JSON.stringify(descriptor);setDescriptorText(text);setSummary(null);await connect(text);
  }
- useEffect(()=>{mounted.current=true;const sub=AppState.addEventListener('change',value=>{if(value!=='active'){
+ useEffect(()=>{if(!active)void closeConnection();},[active]);
+ useEffect(()=>{if(!active||!connectionRegistry)return;let cancelled=false;void(async()=>{const rows=await connectionRegistry.list();for(const row of rows)if(row.kind==='EXTERNAL_FLAT'&&row.protocol)knownConnections.current[row.protocol]=row.profile;const selected=await connectionRegistry.selected('EXTERNAL_FLAT');if(cancelled)return;if(selected){if(selected.protocol)setSelectedProtocol(selected.protocol);if(!connection.current)setFlowConnectionText(selected.profile);}})().catch(()=>{if(!cancelled){setNoticeError(true);setNotice('La conexión guardada no pudo validarse. Importa de nuevo su perfil público.');}});return()=>{cancelled=true;};},[active,connectionRegistry]);
+ useEffect(()=>{if(active&&connectionRequest&&!busyRef.current&&connectionRequestSeen.current!==connectionRequest.requestId){const request=connectionRequest;connectionRequestSeen.current=request.requestId;let ok=false;void run(async()=>{selectConnectionRef.current=request.select!==false;try{await openRegisteredConnection(request);ok=true;}finally{selectConnectionRef.current=true;}}).finally(()=>onConnectionRead?.(request.requestId,ok));}},[active,connectionRequest,busy]);
+ useEffect(()=>{mounted.current=true;const sub=AppState.addEventListener('change',value=>{if(value==='background'){
   closeConnection();setMetaFourReads([null,null,null,null]);setNotice('Conexión cerrada. La nota y las operaciones pendientes se conservan en el dispositivo.');
  }});return()=>{mounted.current=false;closeConnection();sub.remove();};},[]);
  useEffect(()=>{if(!review)return;const selected=reviewRef.current,timer=setTimeout(()=>{if(mounted.current&&reviewRef.current===selected){
@@ -203,27 +332,30 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  useEffect(()=>{if(!graphStatus)return;const value=graphStatus,timer=setTimeout(()=>{if(mounted.current)setGraphStatus((current:GraphStatus|null)=>current===value?null:current);},Math.max(0,graphStatus.expiresAt-Date.now()));return()=>clearTimeout(timer);},[graphStatus]);
  useEffect(()=>{const pending=metaFourReads.filter((v):v is ExternalFlatStatus=>v!==null&&v.expiresAt>Date.now());if(!pending.length)return;const timer=setTimeout(()=>{if(mounted.current)setMetaFourReads(previous=>previous.map(v=>v&&v.expiresAt>Date.now()?v:null));},Math.max(0,Math.min(...pending.map(v=>v.expiresAt))-Date.now()));return()=>clearTimeout(timer);},[metaFourReads]);
  async function run(work:()=>Promise<void>,failureNotice='No se ha confirmado el resultado. Vuelve a conectar y consulta la misma operación; no repitas el envío.') {
-  if(busyRef.current||AppState.currentState!=='active')return;busyRef.current=true;setBusy(true);
-  try{await work();}catch{closeConnection();if(mounted.current)setNotice(failureNotice);}
-  finally{busyRef.current=false;if(mounted.current)setBusy(false);}
+  if(busyRef.current||!activeRef.current||AppState.currentState!=='active')return;busyRef.current=true;setBusy(true);callbacks.current.onBusyChange?.(true);setNoticeError(false);
+  try{await work();}catch(error){if(error instanceof Error&&(error.message==='MOBILE_EXTERNAL_FLAT_REVIEW_CANCELLED'||beforePostCancellations.current.has(error))){if(mounted.current){setNoticeError(false);setNotice('Operación cancelada. Puedes continuar la preparación guardada.');}}else{closeConnection();if(mounted.current){setNoticeError(true);setNotice(failureNotice);}}}
+  finally{busyRef.current=false;callbacks.current.onBusyChange?.(false);if(mounted.current)setBusy(false);}
  }
- async function sign(selected:Connection,value:ExternalFlatConsent|Awaited<ReturnType<Client['challenge']>>,ticket:number) {
+ async function sign(selected:Connection,value:ExternalFlatConsent|Awaited<ReturnType<Client['challenge']>>,ticket:number,authorization?:object) {
   current(ticket,selected);const controller=new AbortController();signing.current=controller;
-  try{const signature=await signDeviceExternalFlatPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);
+  try{const signature=await signDeviceExternalFlatPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal,authorization);
    current(ticket,selected);return signature;
   }finally{if(signing.current===controller)signing.current=null;}
  }
  async function readStatus(selected:Connection,ticket:number) {
   if(selected.noteClosed)throw Error('MOBILE_EXTERNAL_FLAT_SOURCE_RESERVED');
   const access=await selected.client.challenge();current(ticket,selected);
-  const signature=await sign(selected,access,ticket);const value=await selected.client.status(access,signature);current(ticket,selected);
-  const local=await selected.vault.reconcileOriginalStatus(value);current(ticket,selected);
-  recordMetaFourStatus(value);setSummary(local);setStatus(value);onObservation?.(value);return value;
+  const signature=await sign(selected,access,ticket);let value=await selected.client.status(access,signature);current(ticket,selected);
+  let local=await selected.vault.reconcileOriginalStatus(value);current(ticket,selected);
+  if(selected.reception){const row=value.jobs.find(row=>row.jobId===selected.reception!.jobId);if(!row||row.mode!=='deposit_intent'||row.consentFields.rootId!==selected.reception.rootId||row.consentFields.statement.output!==selected.reception.commitment||local.rootId!==selected.reception.rootId||local.commitment!==selected.reception.commitment)throw Error('MOBILE_EXTERNAL_FLAT_RECEPTION_BINDING');}
+  const signal=transportAbort.current?.signal;if(!signal)throw Error('MOBILE_EXTERNAL_FLAT_RECEPTION_BINDING');
+  const observed=await observeDeviceExternalFlatReceptionV1({descriptor:selected.descriptor,status:value,summary:local,vault:selected.vault,client:selected.client,sign:consent=>sign(selected,consent,ticket),signal,assertCurrent:()=>current(ticket,selected)});current(ticket,selected);value=observed.status;local=observed.summary;
+  recordMetaFourStatus(value);retainPairedReception(value);setSummary(local);setStatus(value);onObservation?.(value);return value;
  }
  function requireGraph(selected:Connection){if(!selected.graphClient)throw Error('MOBILE_EXTERNAL_FLAT_GRAPH_SOURCE_REQUIRED');return selected.graphClient;}
- async function signGraph(selected:Connection,value:GraphConsent,ticket:number){
+ async function signGraph(selected:Connection,value:GraphConsent,ticket:number,authorization?:object){
   current(ticket,selected);const controller=new AbortController();signing.current=controller;
-  try{const signature=await signDeviceExternalFlatGraphPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);current(ticket,selected);return signature;}
+  try{const signature=await signDeviceExternalFlatGraphPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal,authorization);current(ticket,selected);return signature;}
   finally{if(signing.current===controller)signing.current=null;}
  }
  async function readGraphStatus(selected:Connection,ticket:number){
@@ -234,12 +366,46 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   if(local.graph?.row?.graph.stage==='SOURCE_CANCELLED')await readReleasedSource(selected,ticket);return value;
  }
  async function readReleasedSource(selected:Connection,ticket:number){
-  current(ticket,selected);if(selected.noteClosed){selected.client=createDeviceExternalFlatNoteApiV1({descriptor:selected.descriptor,fetchImpl:expoFetch});selected.noteClosed=false;}
+  current(ticket,selected);if(selected.noteClosed){selected.client=createDeviceExternalFlatNoteApiV1({descriptor:selected.descriptor,fetchImpl:selected.fetchImpl});selected.noteClosed=false;}
   const original=await readStatus(selected,ticket);if(original.graphClaimed)throw Error('MOBILE_EXTERNAL_FLAT_RELEASE_UNCONFIRMED');return original;
  }
+ async function repairUnsubmittedReview(selected:Connection,value:Review|GraphReview|GraphOutputReview,ticket:number,armed:object){
+  const repaired=await selected.vault.recoverUnsubmittedStorage(armed,value.consent);current(ticket,selected);const saved=recoveryCut.current;
+  let kind:RecoveryPreparation|null=null,prepared:DeviceExternalFlatPrepared|GraphPrepared|null=null;
+  if(repaired.kind==='NOTE'&&repaired.draft.action.startsWith('PROVE_')){prepared={draft:repaired.draft,witness:value.witness};preparedRef.current=prepared;if(repaired.draft.action==='PROVE_D27')kind='SHARE';}
+  else if(repaired.kind==='GRAPH'&&repaired.draft.action==='PROVE_U'){prepared={draft:repaired.draft,witness:value.witness};graphPreparedRef.current=prepared;kind='GRAPH';}
+  else if(repaired.kind==='OUTPUT'&&repaired.draft.draft.action==='PROVE_W39')graphOutputPreparedRef.current={draft:repaired.draft,witness:value.witness};
+  // The verified repair plaintext is EXACTLY the state covered by this copy.
+  // Only its ciphertext revision changed; keep its witness/connection identity.
+  if(kind&&prepared){setRecoveryPreparation(kind);if(saved?.selected===selected&&saved.kind===kind&&saved.prepared.witness===value.witness&&JSON.stringify(saved.prepared.draft)===JSON.stringify(repaired.draft))recoveryCut.current={...saved,prepared,checkpoint:repaired.checkpoint};else recoveryCut.current=null;}
+  else{recoveryCut.current=null;setRecoveryPreparation(null);}
+  setNotice('La autorización no se envió. Se conserva la misma preparación; puedes continuar con una autorización nueva.');
+ }
+ async function continueUnsubmittedPreparation(){
+  const selected=requireConnection(),ticket=epoch.current;
+  if(graphPreparedRef.current||preparedRef.current?.draft.action==='PROVE_D27')return reviewBackedPreparation();
+  const note=preparedRef.current;if(note)return makeReview(selected,note.draft,ticket,note.witness);
+  const output=graphOutputPreparedRef.current;if(output)return makeGraphOutputReview(selected,output.draft,ticket,output.witness);
+  throw Error('MOBILE_EXTERNAL_FLAT_PREPARATION_REQUIRED');
+ }
+ async function approveBeforeAccess(kind:Parameters<typeof approveWalletSessionExternalV1>[0],descriptor:ExternalFlatDescriptor,draft:unknown,signal?:AbortSignal){try{return await approveWalletSessionExternalV1(kind,descriptor,draft,signal);}catch(error){if(error instanceof Error&&error.message==='MOBILE_AUTHENTICATION_CANCELLED')beforePostCancellations.current.add(error);throw error;}}
+ async function reviewLocalOperation(kind:'NOTE'|'GRAPH'|'OUTPUT'|'BLUE'|'AAVE'|'META',descriptor:ExternalFlatDescriptor,raw:any,ticket:number,selected:Connection){
+  current(ticket,selected);const draft=kind==='OUTPUT'?raw.draft:raw,action=draft.action;
+  if(action.startsWith('OBSERVE_')||action==='RECONCILE_GRAPH'||action==='QUOTE_W39')return;
+  const pairing=pairedOperation(),converting=kind==='GRAPH'&&['PROVE_U','RESERVE_S','EXECUTE_GRAPH'].includes(action);
+  const title=converting?conversionTitle(pairing,Boolean(uniswapRef.current)):kind==='GRAPH'?graphActionText[action as GraphAction]:kind==='BLUE'||kind==='AAVE'||kind==='META'?'Retirar inversión':actionText[action as ExternalFlatAction];
+  const reserve=kind==='GRAPH'?summary?.graph?.recoveryAmount??null:draft.statement?.amount??null;
+  const recipient=draft.recipient??selected.redemptionRecipient??summary?.recipient??null;
+  const lines=[reserve!==null?(kind==='GRAPH'?'Importe reservado de origen: ':'Importe: ')+amountText(reserve,descriptor):null,converting&&pairing&&pairedWindow()?'Importe destino autorizado: '+amountText(pairedWindow()!.amount,pairing.target):kind==='GRAPH'?'Activo de destino: '+assetLabel(pairing?.target):null,converting?'La recepción se confirma al completar la operación. La comisión de red se confirma con la transacción.':null,recipient?'Dirección para tus retiradas: 0x'+recipient:null,draft.minimumAssets!==undefined?'Mínimo a recibir: '+draft.minimumAssets+' unidades mínimas del activo de origen':null].filter(Boolean).join('\n');
+  const controller=new AbortController();previewAbort.current=controller;
+  try{await new Promise<void>((resolve,reject)=>{let done=false;const finish=(approved:boolean)=>{if(done)return;done=true;controller.signal.removeEventListener('abort',abort);approved?resolve():reject(Error('MOBILE_EXTERNAL_FLAT_REVIEW_CANCELLED'));};const abort=()=>finish(false);controller.signal.addEventListener('abort',abort,{once:true});Alert.alert(title,lines+'\n\nConfirma estos datos para autorizar la operación.',[{text:'Cancelar',style:'cancel',onPress:()=>finish(false)},{text:'Confirmar y autorizar',onPress:()=>finish(true)}],{cancelable:false});});current(ticket,selected);}
+  finally{if(previewAbort.current===controller)previewAbort.current=null;}
+ }
  async function makeGraphReview(selected:Connection,draft:GraphConsent['draft'],ticket:number,witness:unknown|null){
-  const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
-  const consent=await client.review(access,signature,draft);current(ticket,selected);graphReviewRef.current={consent,witness};graphPreparedRef.current=null;setGraphReview(consent);setNotice('Comprueba el importe reservado, el activo de destino y el plazo antes de autorizar.');
+  await reviewLocalOperation('GRAPH',selected.descriptor,draft,ticket,selected);const client=requireGraph(selected),storage=await openSubmissionStorage(selected,'GRAPH',draft,ticket);
+  try{if(!(['OBSERVE_S','RECONCILE_GRAPH'].includes(draft.action))){storage.authorization=await approveBeforeAccess('GRAPH',selected.descriptor,draft,storage.controller.signal);current(ticket,selected);}const access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
+   const consent=await client.review(access,signature,draft);current(ticket,selected);graphReviewRef.current={consent,witness,storage};graphPreparedRef.current=null;setGraphReview(consent);setNotice('Comprueba el importe reservado, el activo de destino y el plazo antes de autorizar.');const ready=graphReviewRef.current;if(!ready)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');await submitGraph(ready);
+  }catch(error){releaseSubmissionStorage(storage);throw error;}
  }
  async function prepareGraph(){
   const selected=requireConnection();clearReview();const ticket=epoch.current,value=await readStatus(selected,ticket);if(value.graphClaimed)throw Error('MOBILE_EXTERNAL_FLAT_SOURCE_RESERVED');
@@ -252,28 +418,36 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   if(metaRef.current){const w=metaWindowRef.current;if(!w||graphShareAmount!==w.amount||graphValidFrom!==w.validFrom||graphSettleBefore!==(BigInt(w.validUntil)+60n).toString())throw Error('MOBILE_META_RECEPTION_REQUIRED');}
   if(aaveRef.current){const w=aaveWindowRef.current;if(!w||graphShareAmount!==w.amount||graphValidFrom!==w.validFrom||graphSettleBefore!==(BigInt(w.validUntil)+60n).toString())throw Error('MOBILE_AAVE_RECEPTION_REQUIRED');}
   if(uniswapRef.current){const w=uniswapWindowRef.current;if(!w||graphShareAmount!==w.amount||graphValidFrom!==w.validFrom||graphSettleBefore!==(BigInt(w.validUntil)+60n).toString())throw Error('MOBILE_UNISWAP_RECEPTION_REQUIRED');}
-  const quote=await client.preparation(access,signature,{depositJobId:deposit.jobId,rootId:local.rootId,assetAmount:pairing?'400':graphAssetAmount,shareAmount:pairing?'400':graphShareAmount,payoutAmount:pairing?'400':graphPayoutAmount,validFrom:window?.validFrom??graphValidFrom,settleBefore:window?.settleBefore??graphSettleBefore});current(ticket,selected);
+  const sourceDecimals=selected.descriptor.assetMetadata.decimals,
+   exactInput=!advanced&&!pairing&&solverInput!==''?deviceDefiAmountToAtomicV1(solverInput,sourceDecimals):graphAssetAmount,
+   exactBudget=!advanced&&!pairing?(budgetInput!==''?deviceDefiAmountToAtomicV1(budgetInput,sourceDecimals):solverInput!==''?exactInput:graphPayoutAmount):graphPayoutAmount;
+  const quote=await client.preparation(access,signature,{depositJobId:deposit.jobId,rootId:local.rootId,assetAmount:pairing?'400':exactInput,shareAmount:pairing?'400':graphShareAmount,payoutAmount:pairing?'400':exactBudget,validFrom:window?.validFrom??graphValidFrom,settleBefore:window?.settleBefore??graphSettleBefore});current(ticket,selected);
   if(quote.profile==='DEVICE_EXTERNAL_FLAT_GRAPH_PREPARATION_V1'){const pending=readDeviceExternalFlatGraphPreparationV1(quote);setGraphPreparationPending(true);if(pending.stage!=='PREPARING')throw Error('MOBILE_META_FOUR_PREPARATION_'+pending.stage);setNotice('La preparación de las cuatro recepciones está en curso. Consulta esta misma preparación; no se repetirán las autorizaciones de recepción.');return;}setGraphPreparationPending(false);
   if(pairing){const q=readDeviceExternalFlatGraphQuoteV1(quote).quote;if(q.proposal.nodes.length!==4||q.proposal.nodes.some((n:any,slot:number)=>n.id!==pairing.deliveries[slot].id||JSON.stringify(n.dependsOn)!==JSON.stringify(pairing.deliveries[slot].dependsOn)||n.payout.value!==pairing.deliveries[slot].payoutAmount))throw Error('MOBILE_META_FOUR_ORIGINAL_QUOTE_CHANGED');}
   const prepared=await selected.vault.prepareSourceGraph(quote);graphPreparedRef.current=prepared;current(ticket,selected);const next=await selected.vault.summary();current(ticket,selected);setSummary(next);
-  setRecoveryPreparation('GRAPH');setNotice('Guarda una copia actualizada que incluya el cambio y la recuperación recién preparados. Después podrás revisar la autorización de la reserva.');
+  setRecoveryPreparation('GRAPH');setRecoveryOpen(true);setNotice('Guarda tu copia de seguridad antes de continuar. Te permitirá recuperar estos fondos si cambias de móvil.');
  }
  async function requestGraphAction(action:GraphAction){const selected=requireConnection();clearReview();const ticket=epoch.current,draft=await selected.vault.sourceGraphDraft(action);current(ticket,selected);await makeGraphReview(selected,draft,ticket,null);}
  async function submitGraph(value:GraphReview){
   const selected=requireConnection();if(graphReviewRef.current!==value)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');const ticket=epoch.current;current(ticket,selected);validateExternalFlatGraphFreshV1(value.consent);
-  graphReviewRef.current=null;activeWitness.current=value.witness;setGraphReview(null);
-  try{if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket);
-   const signature=await signGraph(selected,value.consent,ticket);if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket);
-   if(metaFourRef.current)setMetaFourReads([null,null,null,null]);onSourcePending?.(selected.descriptor,value.consent.draft.rootId);await selected.vault.latchSourceGraph(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
-   selected.client.close();selected.noteClosed=true;setStatus(null);setGraphStatus(null);const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
+  graphReviewRef.current=null;activeWitness.current=value.witness;setGraphReview(null);let armed:object|null=null,keepWitness=false;
+  try{if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket,value.storage.token!);
+   armed=await selected.vault.bindSubmissionStorage(value.storage.token!,value.consent);current(ticket,selected);
+   const signature=await signGraph(selected,value.consent,ticket,value.storage.authorization);if(value.consent.draft.action==='PROVE_U')await verifyRecoveryCut(selected,'GRAPH',value.witness,ticket,armed!);
+   if(metaFourRef.current)setMetaFourReads([null,null,null,null]);onSourcePending?.(selected.descriptor,value.consent.draft.rootId);recoveryCut.current=null;setRecoveryPreparation(null);
+   selected.client.close();selected.noteClosed=true;setStatus(null);setGraphStatus(null);current(ticket,selected);await selected.vault.consumeSubmissionArm(armed!,value.consent);
    const row=await requireGraph(selected).submit(value.consent,signature,value.witness);current(ticket,selected);const next=await selected.vault.acceptSourceGraph(row);current(ticket,selected);setSummary(next);
    if(row.graph.stage==='SOURCE_CANCELLED')await readReleasedSource(selected,ticket);
    setNotice(row.graph.stage==='SOURCE_CANCELLED'?'La reserva no enviada quedó liberada. La retirada original está disponible tras su nueva consulta.':row.graph.outcome==='FULFILLED'?'Conversión confirmada. Consulta la nota de destino en su conexión privada.':row.graph.outcome==='RECOVERED'?'Reserva recuperada. Su nota de recuperación conserva la clave en este dispositivo.':'Operación de reserva guardada. Consulta el mismo resultado antes de continuar.');
-  }finally{wipeDeviceReservationWitnessV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
+   releaseSubmissionStorage(value.storage);await openNextFlowReview();
+  }catch(error){if(armed){try{await repairUnsubmittedReview(selected,value,ticket,armed);keepWitness=value.witness!==null;return;}catch{}}throw error;}
+  finally{releaseSubmissionStorage(value.storage);if(!keepWitness)wipeDeviceReservationWitnessV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
  }
  async function makeGraphOutputReview(selected:Connection,draft:GraphOutputPrepared['draft'],ticket:number,witness:unknown|null){
-  const client=requireGraph(selected),access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
-  const consent=await client.outputReview(access,signature,draft);current(ticket,selected);graphOutputReviewRef.current={consent,witness};graphOutputPreparedRef.current=null;setGraphOutputReview(consent);setNotice('Comprueba la salida, el importe completo y la dirección fijada antes de autorizar.');
+  await reviewLocalOperation('OUTPUT',selected.descriptor,draft,ticket,selected);const client=requireGraph(selected),storage=await openSubmissionStorage(selected,'OUTPUT',draft,ticket);
+  try{if(!(draft.draft.action==='OBSERVE_W39')){storage.authorization=await approveBeforeAccess('OUTPUT',selected.descriptor,draft,storage.controller.signal);current(ticket,selected);}const access=await client.challenge();current(ticket,selected);const signature=await sign(selected,access,ticket);
+   const consent=await client.outputReview(access,signature,draft);current(ticket,selected);graphOutputReviewRef.current={consent,witness,storage};graphOutputPreparedRef.current=null;setGraphOutputReview(consent);setNotice('Comprueba la salida, el importe completo y la dirección fijada antes de autorizar.');const ready=graphOutputReviewRef.current;if(!ready)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');await submitGraphOutput(ready);
+  }catch(error){releaseSubmissionStorage(storage);throw error;}
  }
  async function prepareGraphOutput(noteRole:GraphOutputRole){
   const selected=requireConnection();clearReview();const ticket=epoch.current,fresh=await readGraphStatus(selected,ticket);
@@ -287,27 +461,29 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  async function requestGraphOutput(noteRole:GraphOutputRole,action:GraphOutputAction){
   const selected=requireConnection();clearReview();const ticket=epoch.current,draft=await selected.vault.graphOutputDraft(noteRole,action);current(ticket,selected);await makeGraphOutputReview(selected,draft,ticket,null);
  }
- async function signGraphOutput(selected:Connection,value:GraphOutputConsent,ticket:number){
+ async function signGraphOutput(selected:Connection,value:GraphOutputConsent,ticket:number,authorization?:object){
   current(ticket,selected);const controller=new AbortController();signing.current=controller;
-  try{const signature=await signDeviceExternalFlatGraphOutputPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);current(ticket,selected);return signature;}
+  try{const signature=await signDeviceExternalFlatGraphOutputPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal,authorization);current(ticket,selected);return signature;}
   finally{if(signing.current===controller)signing.current=null;}
  }
  async function submitGraphOutput(value:GraphOutputReview){
   const selected=requireConnection();if(graphOutputReviewRef.current!==value)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');const ticket=epoch.current;current(ticket,selected);validateExternalFlatFreshV1(value.consent.consent);
-  graphOutputReviewRef.current=null;activeWitness.current=value.witness;setGraphOutputReview(null);
-  try{const signature=await signGraphOutput(selected,value.consent,ticket);onSourcePending?.(selected.descriptor,value.consent.consent.rootId);await selected.vault.latchGraphOutput(value.consent);current(ticket,selected);
-   selected.client.close();selected.noteClosed=true;setStatus(null);setGraphStatus(null);const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
+  graphOutputReviewRef.current=null;activeWitness.current=value.witness;setGraphOutputReview(null);let armed:object|null=null,keepWitness=false;
+  try{armed=await selected.vault.bindSubmissionStorage(value.storage.token!,value.consent);current(ticket,selected);
+   const signature=await signGraphOutput(selected,value.consent,ticket,value.storage.authorization);current(ticket,selected);onSourcePending?.(selected.descriptor,value.consent.consent.rootId);
+   selected.client.close();selected.noteClosed=true;setStatus(null);setGraphStatus(null);current(ticket,selected);await selected.vault.consumeSubmissionArm(armed!,value.consent);
    const row=await requireGraph(selected).outputSubmit(value.consent,signature,value.witness);current(ticket,selected);const next=await selected.vault.acceptGraphOutput(row);current(ticket,selected);setSummary(next);
-   await readGraphStatus(selected,ticket);setNotice(row.row.stage==='CONFIRMED'?'Retirada de la salida confirmada en su dirección fijada.':row.row.stage==='PROVED'?'Prueba de retirada guardada. Revisa el envío de esta misma salida.':'Retirada pendiente. Consulta esta misma operación antes de continuar.');
-  }finally{externalFlatWipeV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
+   await readGraphStatus(selected,ticket);setNotice(row.row.stage==='CONFIRMED'?'Retirada de la salida confirmada en su dirección fijada.':row.row.stage==='PROVED'?'Prueba de retirada guardada. Revisa el envío de esta misma salida.':'Retirada pendiente. Consulta esta misma operación antes de continuar.');releaseSubmissionStorage(value.storage);await openNextFlowReview();
+  }catch(error){if(armed){try{await repairUnsubmittedReview(selected,value,ticket,armed);keepWitness=value.witness!==null;return;}catch{}}throw error;}
+  finally{releaseSubmissionStorage(value.storage);if(!keepWitness)externalFlatWipeV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
  }
  function confirmGraphOutputReview(){const value=graphOutputReviewRef.current;if(!value||busyRef.current)return;const consent=value.consent.consent;Alert.alert(consent.action==='PROVE_W39'?'Probar retirada del '+graphOutputRoleText[value.consent.noteRole].toLowerCase():consent.action==='WITHDRAW_W39'?'Retirar el '+graphOutputRoleText[value.consent.noteRole].toLowerCase():'Consultar la misma retirada',consent.action==='PROVE_W39'
   ?'La apertura de esta salida se enviará al trabajador temporal para probar su retirada completa. La dirección fijada se conserva; el envío requiere otra autorización.'
-  :'Autoriza sólo la operación y la dirección mostradas. Si falta la respuesta, consulta la misma retirada antes de actuar.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitGraphOutput(value));}}],{cancelable:false});}
+  :'Autoriza sólo la operación y la dirección mostradas. Si falta la respuesta, consulta la misma retirada antes de actuar.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar',onPress:()=>{void run(()=>submitGraphOutput(value));}}],{cancelable:false});}
  function confirmGraphOutputPreparation(noteRole:GraphOutputRole){if(busyRef.current)return;Alert.alert('Preparar retirada del '+graphOutputRoleText[noteRole].toLowerCase(),'Se comprobará el estado original de esta salida y su importe completo. Conserva su propia apertura y la dirección de retirada fijada al crear la nota.',[{text:'Cancelar',style:'cancel'},{text:'Continuar',onPress:()=>{void run(()=>prepareGraphOutput(noteRole));}}],{cancelable:false});}
  function confirmGraphReview(){const value=graphReviewRef.current;if(!value||busyRef.current)return;Alert.alert(graphActionText[value.consent.draft.action],value.consent.draft.action==='PROVE_U'
   ?'La apertura de esta nota se enviará al trabajador temporal para probar la reserva. El cambio y la recuperación conservan sus claves en este dispositivo. Cada envío posterior requiere otra autorización.'
-  :'Autoriza sólo la operación y el plazo mostrados. Si falta la respuesta, consulta la misma operación antes de actuar.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitGraph(value));}}],{cancelable:false});}
+  :'Autoriza sólo la operación y el plazo mostrados. Si falta la respuesta, consulta la misma operación antes de actuar.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar',onPress:()=>{void run(()=>submitGraph(value));}}],{cancelable:false});}
  function confirmGraphPreparation(){if(busyRef.current)return;Alert.alert('Preparar conversión privada','Debes haber autorizado la recepción de las participaciones en su conexión privada. Esta preparación usa esos importes y ese plazo originales; todavía no envía la reserva.',[{text:'Cancelar',style:'cancel'},{text:'Continuar',onPress:()=>{void run(prepareGraph);}}],{cancelable:false});}
  // Original signed READ fixes the holder before any D27 opening. This
  // projection is never a note balance or a replacement economic permission.
@@ -321,39 +497,45 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   if(JSON.stringify(checked.descriptor)!==JSON.stringify(selected.descriptor)||selected.redemptionRecipient!==null&&selected.redemptionRecipient!==checked.redemptionRecipient||selected.metaClient&&paired!==checked.redemptionRecipient)throw Error('MOBILE_DEFI_RECIPIENT_CHANGED');
   selected.redemptionRecipient=checked.redemptionRecipient;
  }
- async function blueSign(selected:Connection,value:Parameters<typeof signDeviceMorphoBlueRedemptionPermissionV1>[0],ticket:number){current(ticket,selected);const controller=new AbortController();signing.current=controller;try{const signature=await signDeviceMorphoBlueRedemptionPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);current(ticket,selected);return signature;}finally{if(signing.current===controller)signing.current=null;}}
+ async function blueSign(selected:Connection,value:Parameters<typeof signDeviceMorphoBlueRedemptionPermissionV1>[0],ticket:number,authorization?:object){current(ticket,selected);const controller=new AbortController();signing.current=controller;try{const signature=await signDeviceMorphoBlueRedemptionPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal,authorization);current(ticket,selected);return signature;}finally{if(signing.current===controller)signing.current=null;}}
  async function readBlueStatus(selected:Connection,ticket:number){const client=selected.blueClient;if(!client)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await blueSign(selected,access,ticket),value=await client.status(access,signature);current(ticket,selected);retainRedemptionRecipient(selected,value,ticket);setBlueStatus(value);return value;}
- async function requestBlue(action:'REDEEM_BLUE'|'OBSERVE_BLUE'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.blueClient;if(!client)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_BLUE_SHARE_WITHDRAWAL_REQUIRED');const blue=await readBlueStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_BLUE'&&(blue.observationOnly||previous))throw Error('MOBILE_BLUE_OBSERVE_ONLY');if(action==='OBSERVE_BLUE'&&!previous)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await blueSign(selected,access,ticket),consent=await client.review(access,signature,{action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??blueMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()});current(ticket,selected);blueReviewRef.current=consent;setBlueReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');}
- async function submitBlue(consent:DeviceMorphoBlueConsentV1){const selected=requireConnection(),client=selected.blueClient,ticket=epoch.current;if(!client||blueReviewRef.current!==consent)throw Error('MOBILE_BLUE_PERMISSION_CHANGED');const signature=await blueSign(selected,consent,ticket);current(ticket,selected);blueReviewRef.current=null;setBlueReview(null);setBlueStatus(null);await client.submit(consent,signature);current(ticket,selected);await readBlueStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
- function confirmBlue(){const value=blueReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_BLUE'?'Redimir participaciones Blue':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitBlue(value));}}],{cancelable:false});}
- async function metaSign(selected:Connection,value:Parameters<typeof signDeviceMetaMorphoRedemptionPermissionV2>[0],ticket:number){current(ticket,selected);const controller=new AbortController();signing.current=controller;try{const signature=await signDeviceMetaMorphoRedemptionPermissionV2(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);current(ticket,selected);return signature;}finally{if(signing.current===controller)signing.current=null;}}
+ async function requestBlue(action:'REDEEM_BLUE'|'OBSERVE_BLUE'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.blueClient;if(!client)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_BLUE_SHARE_WITHDRAWAL_REQUIRED');const blue=await readBlueStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_BLUE'&&(blue.observationOnly||previous))throw Error('MOBILE_BLUE_OBSERVE_ONLY');if(action==='OBSERVE_BLUE'&&!previous)throw Error('MOBILE_BLUE_REDEMPTION_REQUIRED');const draft={action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??blueMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()};await reviewLocalOperation('BLUE',selected.descriptor,draft,ticket,selected);if(action.startsWith('REDEEM_')){const controller=new AbortController();const token=await approveBeforeAccess('BLUE',selected.descriptor,draft,controller.signal);current(ticket,selected);redemptionAuthorization.current={kind:'BLUE',token,controller};}const access=await client.challenge();current(ticket,selected);const signature=await blueSign(selected,access,ticket),consent=await client.review(access,signature,draft);current(ticket,selected);blueReviewRef.current=consent;setBlueReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');await submitBlue(consent);}
+ async function submitBlue(consent:DeviceMorphoBlueConsentV1){const selected=requireConnection(),client=selected.blueClient,ticket=epoch.current;if(!client||blueReviewRef.current!==consent)throw Error('MOBILE_BLUE_PERMISSION_CHANGED');const signature=await blueSign(selected,consent,ticket,redemptionAuthorization.current?.kind==='BLUE'?redemptionAuthorization.current.token:undefined);current(ticket,selected);blueReviewRef.current=null;setBlueReview(null);setBlueStatus(null);await client.submit(consent,signature);current(ticket,selected);await readBlueStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
+ function confirmBlue(){const value=blueReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_BLUE'?'Redimir participaciones Blue':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar',onPress:()=>{void run(()=>submitBlue(value));}}],{cancelable:false});}
+ async function metaSign(selected:Connection,value:Parameters<typeof signDeviceMetaMorphoRedemptionPermissionV2>[0],ticket:number,authorization?:object){current(ticket,selected);const controller=new AbortController();signing.current=controller;try{const signature=await signDeviceMetaMorphoRedemptionPermissionV2(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal,authorization);current(ticket,selected);return signature;}finally{if(signing.current===controller)signing.current=null;}}
  async function readMetaStatus(selected:Connection,ticket:number){const client=selected.metaClient;if(!client)throw Error('MOBILE_META_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await metaSign(selected,access,ticket),value=await client.status(access,signature);current(ticket,selected);retainRedemptionRecipient(selected,value,ticket);setMetaStatus(value);return value;}
- async function requestMeta(action:'REDEEM_META'|'OBSERVE_META'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.metaClient;if(!client)throw Error('MOBILE_META_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_META_SHARE_WITHDRAWAL_REQUIRED');const blue=await readMetaStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_META'&&(blue.observationOnly||previous))throw Error('MOBILE_META_OBSERVE_ONLY');if(action==='OBSERVE_META'&&!previous)throw Error('MOBILE_META_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await metaSign(selected,access,ticket),consent=await client.review(access,signature,{action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??metaMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()});current(ticket,selected);metaReviewRef.current=consent;setMetaReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');}
- async function submitMeta(consent:DeviceMetaMorphoConsentV2){const selected=requireConnection(),client=selected.metaClient,ticket=epoch.current;if(!client||metaReviewRef.current!==consent)throw Error('MOBILE_META_PERMISSION_CHANGED');const signature=await metaSign(selected,consent,ticket);current(ticket,selected);metaReviewRef.current=null;setMetaReview(null);setMetaStatus(null);await client.submit(consent,signature);current(ticket,selected);await readMetaStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
- function confirmMeta(){const value=metaReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_META'?'Redimir participaciones Meta':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitMeta(value));}}],{cancelable:false});}
- async function aaveSign(selected:Connection,value:Parameters<typeof signDeviceAaveStaticRedemptionPermissionV1>[0],ticket:number){current(ticket,selected);const controller=new AbortController();signing.current=controller;try{const signature=await signDeviceAaveStaticRedemptionPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal);current(ticket,selected);return signature;}finally{if(signing.current===controller)signing.current=null;}}
+ async function requestMeta(action:'REDEEM_META'|'OBSERVE_META'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.metaClient;if(!client)throw Error('MOBILE_META_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_META_SHARE_WITHDRAWAL_REQUIRED');const blue=await readMetaStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_META'&&(blue.observationOnly||previous))throw Error('MOBILE_META_OBSERVE_ONLY');if(action==='OBSERVE_META'&&!previous)throw Error('MOBILE_META_REDEMPTION_REQUIRED');const draft={action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??metaMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()};await reviewLocalOperation('META',selected.descriptor,draft,ticket,selected);if(action.startsWith('REDEEM_')){const controller=new AbortController();const token=await approveBeforeAccess('META',selected.descriptor,draft,controller.signal);current(ticket,selected);redemptionAuthorization.current={kind:'META',token,controller};}const access=await client.challenge();current(ticket,selected);const signature=await metaSign(selected,access,ticket),consent=await client.review(access,signature,draft);current(ticket,selected);metaReviewRef.current=consent;setMetaReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');await submitMeta(consent);}
+ async function submitMeta(consent:DeviceMetaMorphoConsentV2){const selected=requireConnection(),client=selected.metaClient,ticket=epoch.current;if(!client||metaReviewRef.current!==consent)throw Error('MOBILE_META_PERMISSION_CHANGED');const signature=await metaSign(selected,consent,ticket,redemptionAuthorization.current?.kind==='META'?redemptionAuthorization.current.token:undefined);current(ticket,selected);metaReviewRef.current=null;setMetaReview(null);setMetaStatus(null);await client.submit(consent,signature);current(ticket,selected);await readMetaStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
+ function confirmMeta(){const value=metaReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_META'?'Redimir participaciones Meta':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar',onPress:()=>{void run(()=>submitMeta(value));}}],{cancelable:false});}
+ async function aaveSign(selected:Connection,value:Parameters<typeof signDeviceAaveStaticRedemptionPermissionV1>[0],ticket:number,authorization?:object){current(ticket,selected);const controller=new AbortController();signing.current=controller;try{const signature=await signDeviceAaveStaticRedemptionPermissionV1(value,selected.descriptor.origin,selected.descriptor.pairingId,controller.signal,authorization);current(ticket,selected);return signature;}finally{if(signing.current===controller)signing.current=null;}}
  async function readAaveStatus(selected:Connection,ticket:number){const client=selected.aaveClient;if(!client)throw Error('MOBILE_AAVE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await aaveSign(selected,access,ticket),value=await client.status(access,signature);current(ticket,selected);retainRedemptionRecipient(selected,value,ticket);setAaveStatus(value);return value;}
- async function requestAave(action:'REDEEM_AAVE'|'OBSERVE_AAVE'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.aaveClient;if(!client)throw Error('MOBILE_AAVE_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_AAVE_SHARE_WITHDRAWAL_REQUIRED');const blue=await readAaveStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_AAVE'&&(blue.observationOnly||previous))throw Error('MOBILE_AAVE_OBSERVE_ONLY');if(action==='OBSERVE_AAVE'&&!previous)throw Error('MOBILE_AAVE_REDEMPTION_REQUIRED');const access=await client.challenge();current(ticket,selected);const signature=await aaveSign(selected,access,ticket),consent=await client.review(access,signature,{action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??aaveMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()});current(ticket,selected);aaveReviewRef.current=consent;setAaveReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');}
- async function submitAave(consent:DeviceAaveStaticConsentV1){const selected=requireConnection(),client=selected.aaveClient,ticket=epoch.current;if(!client||aaveReviewRef.current!==consent)throw Error('MOBILE_AAVE_PERMISSION_CHANGED');const signature=await aaveSign(selected,consent,ticket);current(ticket,selected);aaveReviewRef.current=null;setAaveReview(null);setAaveStatus(null);await client.submit(consent,signature);current(ticket,selected);await readAaveStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
- function confirmAave(){const value=aaveReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_AAVE'?'Redimir participaciones Aave':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submitAave(value));}}],{cancelable:false});}
+ async function requestAave(action:'REDEEM_AAVE'|'OBSERVE_AAVE'){const selected=requireConnection();clearReview();const ticket=epoch.current,shareState=await readStatus(selected,ticket),client=selected.aaveClient;if(!client)throw Error('MOBILE_AAVE_REDEMPTION_REQUIRED');const withdrawal=shareState.jobs.find(r=>r.mode==='withdraw_balance'&&r.stage==='CONFIRMED');if(!withdrawal)throw Error('MOBILE_AAVE_SHARE_WITHDRAWAL_REQUIRED');const blue=await readAaveStatus(selected,ticket),previous=blue.operations.find(r=>r.withdrawalJobId===withdrawal.jobId);if(action==='REDEEM_AAVE'&&(blue.observationOnly||previous))throw Error('MOBILE_AAVE_OBSERVE_ONLY');if(action==='OBSERVE_AAVE'&&!previous)throw Error('MOBILE_AAVE_REDEMPTION_REQUIRED');const draft={action,withdrawalJobId:withdrawal.jobId,minimumAssets:previous?.minimumAssets??aaveMinimum,deadline:previous?.deadline??(BigInt(shareState.observed.timestamp)+180n).toString()};await reviewLocalOperation('AAVE',selected.descriptor,draft,ticket,selected);if(action.startsWith('REDEEM_')){const controller=new AbortController();const token=await approveBeforeAccess('AAVE',selected.descriptor,draft,controller.signal);current(ticket,selected);redemptionAuthorization.current={kind:'AAVE',token,controller};}const access=await client.challenge();current(ticket,selected);const signature=await aaveSign(selected,access,ticket),consent=await client.review(access,signature,draft);current(ticket,selected);aaveReviewRef.current=consent;setAaveReview(consent);setNotice('Revisa la redención de participaciones. Esta operación entrega underlying público en la misma dirección.');await submitAave(consent);}
+ async function submitAave(consent:DeviceAaveStaticConsentV1){const selected=requireConnection(),client=selected.aaveClient,ticket=epoch.current;if(!client||aaveReviewRef.current!==consent)throw Error('MOBILE_AAVE_PERMISSION_CHANGED');const signature=await aaveSign(selected,consent,ticket,redemptionAuthorization.current?.kind==='AAVE'?redemptionAuthorization.current.token:undefined);current(ticket,selected);aaveReviewRef.current=null;setAaveReview(null);setAaveStatus(null);await client.submit(consent,signature);current(ticket,selected);await readAaveStatus(selected,ticket);setNotice('Redención consultada en el journal original. Un resultado pendiente sólo permite consultar la misma operación.');}
+ function confirmAave(){const value=aaveReviewRef.current;if(!value||busyRef.current)return;Alert.alert(value.action==='REDEEM_AAVE'?'Redimir participaciones Aave':'Consultar la misma redención','La redención es pública y conserva la dirección de la retirada original. No crea un saldo privado de underlying. Si falta la respuesta, consulta la misma operación; no repitas el envío.',[{text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar',onPress:()=>{void run(()=>submitAave(value));}}],{cancelable:false});}
  async function connect(rawDescriptor:string=descriptorText,route?:'LEGACY'|'ROUTED') {
   const drain=closeConnection(),ticket=epoch.current;await drain;if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
   const descriptor=normalizeExternalFlatDescriptorV1(JSON.parse(rawDescriptor)),key=await readDevicePublicKey();
   if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active')return;
   if(key===null||key!==descriptor.devicePublicKey)throw Error('MOBILE_EXTERNAL_FLAT_DEVICE_REQUIRED');
-  const client=createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl:expoFetch});
-  const acquisition=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1||(route??custodyRoute)==='ROUTED'?createDeviceExternalFlatRoutedNoteVaultV1(descriptor):createDeviceExternalFlatNoteVaultV1();acquiring.current=acquisition;let vault:Vault;
-  try{vault=await acquisition;}catch(error){client.close();throw error;}
+  const binding=publicTls.current;if(binding&&(binding.origin!==descriptor.origin||binding.devicePublicKey!==descriptor.devicePublicKey))throw Error('MOBILE_DEFI_TLS_BINDING_CHANGED');
+  const controller=new AbortController();transportAbort.current=controller;
+  const transport=binding?await createDeviceExternalFlatPinnedTransportV1({descriptor,certificatePEM:binding.certificatePEM,certificateSHA256:binding.certificateSHA256,signal:controller.signal}):null;
+  if(!mounted.current||epoch.current!==ticket||AppState.currentState!=='active'){controller.abort();await transport?.close();return;}
+  const fetchImpl=transport?.fetchImpl??expoFetch;
+  let client:Client;try{client=createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl});}catch(error){controller.abort();await transport?.close();throw error;}
+  const reception=receptionRequestRef.current;
+  const acquisition=reception?openExistingDeviceExternalFlatCustodyV1(descriptor):descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1||(route??custodyRoute)==='ROUTED'?createDeviceExternalFlatRoutedNoteVaultV1(descriptor):createDeviceExternalFlatNoteVaultV1();acquiring.current=acquisition;let vault:Vault;
+  try{vault=await acquisition;}catch(error){client.close();controller.abort();await transport?.close();throw error;}
   if(acquiring.current!==acquisition||!mounted.current||epoch.current!==ticket||AppState.currentState!=='active'){
-   client.close();await vault.close();return;
+   client.close();controller.abort();await transport?.close();await vault.close();return;
   }
-  let graphClient:GraphClient|null;try{graphClient=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?null:createDeviceExternalFlatGraphApiV1({descriptor,fetchImpl:expoFetch});}catch(error){client.close();await vault.close();throw error;}
-  acquiring.current=null;const selected:Connection={redemptionRecipient:null,metaClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&((metaRef.current&&JSON.stringify(metaRef.current.target)===JSON.stringify(descriptor))||(metaFourRef.current?.redemptionRecipient&&metaFourSlot(descriptor)>=0))?createDeviceMetaMorphoRedemptionApiV2({descriptor,fetchImpl:expoFetch}):null,aaveClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&aaveRef.current&&JSON.stringify(aaveRef.current.target)===JSON.stringify(descriptor)?createDeviceAaveStaticRedemptionApiV1({descriptor,fetchImpl:expoFetch}):null,blueClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&descriptor.assetMetadata.symbol==='OMB1'?createDeviceMorphoBlueRedemptionApiV1({descriptor,fetchImpl:expoFetch}):null,client,graphClient,noteClosed:false,vault,descriptor};connection.current=selected;
+  let graphClient:GraphClient|null;try{graphClient=descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?null:createDeviceExternalFlatGraphApiV1({descriptor,fetchImpl});}catch(error){client.close();controller.abort();await transport?.close();await vault.close();throw error;}
+  acquiring.current=null;const selected:Connection={transport,fetchImpl,redemptionRecipient:null,metaClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&((metaRef.current&&JSON.stringify(metaRef.current.target)===JSON.stringify(descriptor))||(metaFourRef.current?.redemptionRecipient&&metaFourSlot(descriptor)>=0))?createDeviceMetaMorphoRedemptionApiV2({descriptor,fetchImpl}):null,aaveClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&aaveRef.current&&JSON.stringify(aaveRef.current.target)===JSON.stringify(descriptor)?createDeviceAaveStaticRedemptionApiV1({descriptor,fetchImpl}):null,blueClient:descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&descriptor.assetMetadata.symbol==='OMB1'?createDeviceMorphoBlueRedemptionApiV1({descriptor,fetchImpl}):null,client,graphClient,noteClosed:false,vault,descriptor,...(reception?{reception}: {})};connection.current=selected;
   const local=await vault.summary();current(ticket,selected);
   if(local.descriptor!==null&&JSON.stringify(local.descriptor)!==JSON.stringify(descriptor))throw Error('MOBILE_EXTERNAL_FLAT_BINDING_CHANGED');
-  setSummary(local);setConnected(true);const metaRecipient=metaRef.current?.redemptionRecipient??metaFourRef.current?.redemptionRecipient??null;if(selected.metaClient&&local.recipient!==null&&local.recipient!==metaRecipient)throw Error('MOBILE_META_RECIPIENT_CHANGED');setRecipient(local.recipient===null?(selected.metaClient&&metaRecipient?'0x'+metaRecipient:''):'0x'+local.recipient);setAmount(local.amount??(metaFourRef.current?(metaFourSlot(descriptor)>=0?'100':'500'):''));
+  setSummary(local);setConnected(true);const metaRecipient=metaRef.current?.redemptionRecipient??metaFourRef.current?.redemptionRecipient??null;if(selected.metaClient&&local.recipient!==null&&local.recipient!==metaRecipient)throw Error('MOBILE_META_RECIPIENT_CHANGED');setRecipient(local.recipient===null?(selected.metaClient&&metaRecipient?'0x'+metaRecipient:flowRecipient):'0x'+local.recipient);setAmount(local.amount??(metaFourRef.current?(metaFourSlot(descriptor)>=0?'100':'500'):''));
   if(metaFourRef.current)setValidUntil(metaFourWindowRef.current?.validUntil??'');
-  if(local.graph!==null){if(local.recoveryFence.source)await readStatus(selected,ticket);await readGraphStatus(selected,ticket);}else await readStatus(selected,ticket);if(selected.blueClient)await readBlueStatus(selected,ticket);if(selected.aaveClient)await readAaveStatus(selected,ticket);if(selected.metaClient)await readMetaStatus(selected,ticket);if(selected.redemptionRecipient!==null){if(local.recipient!==null&&local.recipient!==selected.redemptionRecipient)throw Error('MOBILE_DEFI_RECIPIENT_CHANGED');setRecipient('0x'+selected.redemptionRecipient);}setNotice('Conexión y nota comprobadas. Cada operación requiere su propia autorización.');
+  if(local.graph!==null){if(local.recoveryFence.source)await readStatus(selected,ticket);await readGraphStatus(selected,ticket);}else await readStatus(selected,ticket);if(selected.blueClient)await readBlueStatus(selected,ticket);if(selected.aaveClient)await readAaveStatus(selected,ticket);if(selected.metaClient)await readMetaStatus(selected,ticket);if(selected.redemptionRecipient!==null){if(local.recipient!==null&&local.recipient!==selected.redemptionRecipient)throw Error('MOBILE_DEFI_RECIPIENT_CHANGED');setRecipient('0x'+selected.redemptionRecipient);}setSettingsOpen(false);setNotice('Wallet conectada. Elige el importe y revisa el siguiente paso.');
  }
  async function exportRecovery(){
   const selected=requireConnection(),sharePrepared=selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&preparedRef.current?.draft.action==='PROVE_D27'?preparedRef.current:null,graphPrepared=graphPreparedRef.current;
@@ -374,8 +556,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    setRecoveryCopy(copy);setNotice(prepared?'Guarda esta copia completa y su contraseña fuera del dispositivo. Incluye las nuevas aperturas; una copia anterior no las recupera. Confirma que la has guardado para revisar la autorización.':'Copia cifrada de tu identidad, esta nota y sus operaciones actuales. Guárdala fuera del dispositivo junto con tu contraseña. Las aperturas creadas después requieren una copia nueva.');
   }finally{password='';if(signing.current===controller)signing.current=null;}
  }
- async function verifyRecoveryCut(selected:Connection,kind:RecoveryPreparation,witness:unknown,ticket:number){
-  return verifyDeviceRecoveryCopyV1(selected,kind,witness,ticket,{readCopy:()=>recoveryCut.current,assertCurrent:current});
+ async function verifyRecoveryCut(selected:Connection,kind:RecoveryPreparation,witness:unknown,ticket:number,storageToken?:object){
+  return verifyDeviceRecoveryCopyV1(selected,kind,witness,ticket,{readCopy:()=>recoveryCut.current,assertCurrent:current,...(storageToken?{readCheckpoint:()=>selected.vault.submissionRecoveryCheckpoint(storageToken)}:{})});
  }
  async function reviewBackedPreparation(){
   return reviewDeviceRecoveryPreparationV1(requireConnection(),epoch.current,{readCopy:()=>recoveryCut.current,assertCurrent:current,
@@ -406,10 +588,12 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  function confirmRecoveryExport(){if(busyRef.current)return;Alert.alert('Guardar una copia de recuperación','La copia contiene tu identidad y las claves de esta nota protegidas por la contraseña indicada. Guárdala completa fuera del dispositivo.',[{text:'Cancelar',style:'cancel'},{text:'Crear con biometría',onPress:()=>{void run(exportRecovery,'No se ha creado la copia. Comprueba la contraseña y vuelve a abrir la custodia.');}}],{cancelable:false});}
  function confirmRecoveryRestore(){if(busyRef.current)return;Alert.alert('Recuperar esta custodia','Se recuperarán la misma identidad, nota y operaciones de esta conexión. Después debes consultar su estado original; la recuperación no mueve fondos.',[{text:'Cancelar',style:'cancel'},{text:'Recuperar con biometría',onPress:()=>{void run(restoreRecovery,'No se ha confirmado la recuperación. Comprueba la copia, la contraseña y la conexión original.');}}],{cancelable:false});}
  async function makeReview(selected:Connection,draft:ExternalFlatDraft,ticket:number,witness:unknown|null) {
-  const access=await selected.client.challenge();current(ticket,selected);
-  const signature=await sign(selected,access,ticket);const consent=await selected.client.review(access,signature,draft);current(ticket,selected);
-  reviewRef.current={consent,witness};preparedRef.current=null;setReview(consent);
-  setNotice('Comprueba el activo, el importe y la dirección antes de confirmar.');
+  await reviewLocalOperation('NOTE',selected.descriptor,draft,ticket,selected);const storage=await openSubmissionStorage(selected,'NOTE',draft,ticket);
+  try{if(!(draft.action.startsWith('OBSERVE_'))){storage.authorization=await approveBeforeAccess('NOTE',selected.descriptor,draft,storage.controller.signal);current(ticket,selected);}const access=await selected.client.challenge();current(ticket,selected);
+   const signature=await sign(selected,access,ticket);const consent=await selected.client.review(access,signature,draft);current(ticket,selected);
+   reviewRef.current={consent,witness,storage};preparedRef.current=null;setReview(consent);
+   setNotice('Comprueba el activo, el importe y la dirección antes de confirmar.');const ready=reviewRef.current;if(!ready)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');await submit(ready);
+  }catch(error){releaseSubmissionStorage(storage);throw error;}
  }
  async function prepareDeposit() {
   const selected=requireConnection();clearReview();const ticket=epoch.current,value=await readStatus(selected,ticket);
@@ -422,9 +606,14 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   if(slot>=0&&!metaFourWindowRef.current){const start=value.observed.timestamp;retainMetaFourWindow({validFrom:start,validUntil:(BigInt(start)+28740n).toString(),settleBefore:(BigInt(start)+28800n).toString()});}
   const window=slot>=0?metaFourWindowRef.current:null;
   if(window&&(BigInt(value.observed.timestamp)<BigInt(window.validFrom)||BigInt(value.observed.timestamp)>=BigInt(window.validUntil)))throw Error('MOBILE_META_FOUR_WINDOW_EXPIRED');
-  const prepared=await selected.vault.prepareDeposit(selected.descriptor,address,amount,window?.validFrom??value.observed.timestamp,selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?(window?.validUntil??validUntil):undefined);preparedRef.current=prepared;current(ticket,selected);
+  const isShare=selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1,humanAmount=isShare?destinationInput:fundingInput,
+   exactAmount=!advanced&&!pairing&&humanAmount!==''?deviceDefiAmountToAtomicV1(humanAmount,selected.descriptor.assetMetadata.decimals):amount,
+   receptionWindow=!advanced&&isShare&&!pairing?(pairedWindow()??deviceDefiReceptionWindowV1(value.observed.timestamp,windowSeconds)):null,
+   receptionUntil=window?.validUntil??receptionWindow?.validUntil??validUntil;
+  setAmount(exactAmount);if(isShare)setValidUntil(receptionUntil);
+  const prepared=await selected.vault.prepareDeposit(selected.descriptor,address,exactAmount,window?.validFrom??receptionWindow?.validFrom??value.observed.timestamp,isShare?receptionUntil:undefined);preparedRef.current=prepared;current(ticket,selected);
   const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
-  if(selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1){setRecoveryPreparation('SHARE');setNotice('Guarda una copia actualizada de esta participación antes de autorizar su recepción. Después podrás revisar la autorización.');}
+  if(selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1){setRecoveryPreparation('SHARE');setRecoveryOpen(true);setNotice('Guarda tu copia de seguridad para poder recuperar el activo que vas a recibir.');}
   else await makeReview(selected,prepared.draft,ticket,prepared.witness);
  }
  async function requestAction(action:ExternalFlatAction) {
@@ -444,43 +633,141 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  async function submit(value:Review) {
   const selected=requireConnection();if(reviewRef.current!==value)throw Error('MOBILE_EXTERNAL_FLAT_PERMISSION_CHANGED');
   const ticket=epoch.current;current(ticket,selected);validateExternalFlatFreshV1(value.consent);
-  // Remove the expiring review before the long proof wait. Permission freshness
-  // is checked again by the protected signer, durable latch and fixed SDK.
-  reviewRef.current=null;activeWitness.current=value.witness;setReview(null);
-  try{if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket);
-   const signature=await sign(selected,value.consent,ticket);if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket);
-   invalidateMetaFourStatus(selected.descriptor);await selected.vault.latch(value.consent);current(ticket,selected);recoveryCut.current=null;setRecoveryPreparation(null);
-   const local=await selected.vault.summary();current(ticket,selected);setSummary(local);
+  // Persist the original reviewed operation before its final signature. The
+  // one-use public CAS arm performs no protected ROOT access after signing.
+  reviewRef.current=null;activeWitness.current=value.witness;setReview(null);let armed:object|null=null,keepWitness=false;
+  try{if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket,value.storage.token!);
+   armed=await selected.vault.bindSubmissionStorage(value.storage.token!,value.consent);current(ticket,selected);
+   const signature=await sign(selected,value.consent,ticket,value.storage.authorization);if(value.consent.action==='PROVE_D27')await verifyRecoveryCut(selected,'SHARE',value.witness,ticket,armed!);
+   invalidateMetaFourStatus(selected.descriptor);onSourcePending?.(selected.descriptor,value.consent.rootId);recoveryCut.current=null;setRecoveryPreparation(null);
+   current(ticket,selected);await selected.vault.consumeSubmissionArm(armed!,value.consent);
    const row=await selected.client.submit(value.consent,signature,value.witness);current(ticket,selected);
    if('quote' in row)throw Error('MOBILE_EXTERNAL_FLAT_ROW_REQUIRED');
    const next=await selected.vault.accept(row);current(ticket,selected);setSummary(next);setStatus(null);
    setNotice(row.stage==='CONFIRMED'?'Operación confirmada por el servicio original.':selected.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'Autorización de participación guardada. Consulta su recepción; no se envían fondos desde esta nota.':'Prueba guardada. Financiar o retirar requiere una nueva autorización.');
-  }finally{externalFlatWipeV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
+   releaseSubmissionStorage(value.storage);await openNextFlowReview();
+  }catch(error){if(armed){try{await repairUnsubmittedReview(selected,value,ticket,armed);keepWitness=value.witness!==null;return;}catch{}}throw error;}
+  finally{releaseSubmissionStorage(value.storage);if(!keepWitness)externalFlatWipeV1(value.witness);if(activeWitness.current===value.witness)activeWitness.current=null;}
  }
  function confirmReview() {
   const value=reviewRef.current;if(!value||busyRef.current)return;
   const proving=value.consent.action.startsWith('PROVE_');
   Alert.alert(actionText[value.consent.action],proving
-   ?'Para generar esta prueba, una apertura de esta nota se enviará al trabajador temporal del servicio. La clave raíz permanece en este dispositivo. Esto no autoriza financiar ni retirar.'
+   ?'Para comprobar esta operación se enviarán sus datos privados al trabajador temporal del servicio. La clave que protege tu wallet permanece en el móvil. Este paso todavía no ingresa ni retira fondos.'
    :'Autoriza únicamente la operación y la dirección mostradas. Si se pierde la respuesta, consulta su estado; no se repetirá el envío.',[
-   {text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar con biometría',onPress:()=>{void run(()=>submit(value));}},
+   {text:'Cancelar',style:'cancel',onPress:clearReview},{text:'Confirmar',onPress:()=>{void run(()=>submit(value));}},
   ],{cancelable:false});
  }
  function confirmPreparation(withdrawal=false) {
-  if(busyRef.current)return;Alert.alert(withdrawal?'Preparar retirada completa':'Preparar nota ERC20',withdrawal
-   ?'Se consultará la nota financiada y se preparará su retirada completa a la dirección fijada al crearla. La consulta no mueve fondos.'
-   :'La dirección de retirada y el importe quedarán fijados para esta nota antes de financiarla.',[
+  if(busyRef.current)return;Alert.alert(withdrawal?'Preparar retirada completa':'Preparar ingreso de tokens',withdrawal
+   ?'Se comprobará el saldo y se preparará su retirada completa a la dirección que guardaste al ingresar. Esta consulta todavía no mueve fondos.'
+   :'La dirección de retirada y el importe quedarán guardados para esta operación antes de confirmar el ingreso.',[
    {text:'Cancelar',style:'cancel'},{text:'Continuar',onPress:()=>{void run(withdrawal?prepareWithdrawal:prepareDeposit);}},
   ],{cancelable:false});
  }
+ useEffect(()=>setCopyVisible(false),[recoveryCopy]);
  const deposit=summary?.jobs.find(row=>row.mode!=='withdraw_balance'),withdrawal=summary?.jobs.find(row=>row.mode==='withdraw_balance');
  const graph=summary?.graph??null,graphRow=graph?.row??null,graphPending=graph?.pending??null;
  const outputPending=graph?.withdrawalPending??[],available=summary?.storageAvailable===true,uncertain=(summary?.pending!==null&&summary?.pending!==undefined)||graphPending!==null||outputPending.length>0;
  const share=connection.current?.descriptor.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1;
  const canPrepare=connected&&available&&!uncertain&&!deposit;
- return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-  <Text style={styles.title}>{share?'Participación DeFi':'Nota ERC20'}</Text>
-  <Text style={styles.muted}>Guarda la clave de una nota en este dispositivo. El servicio conectado ejecuta únicamente la financiación o retirada que autorices.</Text>
+ const activePairing=uniswapPairing??aavePairing??metaPairing;
+ const reviewing=Boolean(review||graphReview||graphOutputReview||blueReview||aaveReview||metaReview||recoveryPreparation);
+ const protocolLabel=selectedProtocol==='MORPHO'?'Morpho':selectedProtocol==='AAVE'?'Aave':'Uniswap';
+ const swapSelected=selectedProtocol==='UNISWAP',operationTitle=conversionTitle(activePairing,Boolean(uniswapPairing)),pairAssets=activePairing?pairedAssetLabels(activePairing):null;
+ const displayTitle=connected?activePairing?operationTitle:share?'Tu activo recibido':'Tus activos':swapSelected?'Intercambiar':'Invertir';
+ const hasPrepared=Boolean(preparedRef.current||graphPreparedRef.current||graphOutputPreparedRef.current);
+ const hasRetainedOperation=Boolean(hasPrepared||summary?.pending||summary?.graph?.pending||summary?.graph?.withdrawalPending.length||summary?.jobs.some(row=>['PROVING','FUNDING_UNKNOWN','DELIVERY_UNKNOWN','WITHDRAWAL_UNKNOWN'].includes(row.stage))||summary?.graph?.row&&!['FULFILLED','RECOVERED','SOURCE_CANCELLED'].includes(summary.graph.row.graph.stage));
+ const statusTitle=busy?'Procesando tu operación':noticeError?'Necesitamos comprobar el resultado':uncertain?'Resultado pendiente':recoveryPreparation?'Guarda tu copia de seguridad':reviewing?'Revisa y confirma':connected?'Wallet conectada':'Conecta tu wallet';
+ let nextFlow:DeviceDefiOperationDecisionV1|null=null;
+ if(connected&&connection.current&&summary){try{nextFlow=flowDecision(connection.current,summary,status,graphStatus);}catch{nextFlow=null;}}
+ const primaryLabel=nextFlow?.kind==='PREPARE_DEPOSIT'?(share?'Revisar recepción':'Revisar ingreso'):nextFlow?.kind==='PREPARE_GRAPH'?(uniswapPairing?'Revisar intercambio':'Revisar inversión'):nextFlow?.kind==='OPEN_SOURCE'?'Continuar con el importe de entrada':nextFlow?.kind==='OPEN_DESTINATION'?(graphRow?.graph.stage==='FULFILLED'?'Ver el activo recibido':'Elegir importe a recibir'):nextFlow?.label??'Actualizar para continuar';
+ const freshNote=connected&&status&&status.expiresAt>Date.now()?status:null;
+ const freshGraph=connected&&graphStatus&&graphStatus.expiresAt>Date.now()?graphStatus:null;
+ const readyConversion=Boolean(activePairing&&!share&&deposit?.stage==='CONFIRMED'&&(graph===null||graph.row===null));
+ const nextStep=recoveryPreparation?'Guarda tu copia para continuar':hasPrepared?'Continúa tu preparación guardada':uncertain?'Comprueba el resultado':primaryLabel;
+ const nextStepDetail=recoveryPreparation?'La copia protege el activo que recibirás. Después revisarás la autorización.':uncertain?'Actualiza esta misma operación para saber qué se confirmó.':hasPrepared?'Conservas el importe y el destino originales. La autorización se revisa de nuevo.':undefined;
+ useEffect(()=>{
+  if(!active||!entryAction||entryActionSeen.current===entryAction.requestId||busyRef.current)return;
+  entryActionSeen.current=entryAction.requestId;
+  if(reviewing||hasRetainedOperation){setNotice('Tienes una operación preparada o pendiente. Continúa o comprueba su resultado antes de abrir otra.');return;}
+  const protocol=entryAction.action==='swap'?'UNISWAP':selectedProtocol==='MORPHO'?'MORPHO':'AAVE';
+  void run(()=>chooseProtocol(protocol),'No se ha abierto la conexión de tus activos. Comprueba la conexión guardada.');
+ },[active,entryAction?.requestId,busy]);
+ return <WalletScreenLayout title={displayTitle} subtitle="Activos privados del entorno local">
+  {(!connected||activePairing||!share)&&<WalletCard title="¿Qué quieres hacer?" subtitle={swapSelected?'Entrega un activo y recibe otro. Revisarás ambos importes antes de autorizar.':'Aporta un activo y recibe participaciones. Revisarás el importe y las condiciones antes de autorizar.'}>
+   <View style={styles.choices}><WalletChoice label="Intercambiar" selected={swapSelected} disabled={busy||reviewing||hasRetainedOperation||uncertain} onPress={()=>{void run(()=>chooseProtocol('UNISWAP'));}}/><WalletChoice label="Invertir" selected={!swapSelected} disabled={busy||reviewing||hasRetainedOperation||uncertain} onPress={()=>{void run(()=>chooseProtocol(selectedProtocol==='MORPHO'?'MORPHO':'AAVE'));}}/></View>
+  </WalletCard>}
+  <WalletStatus kind={noticeError?'error':uncertain||recoveryPreparation?'warning':'info'} title={statusTitle} detail={notice}/>
+  {!connected&&<WalletCard title={swapSelected?'Abre tus activos para intercambiar':'Abre tus activos para invertir'} subtitle={flowConnectionText?'Tu conexión guardada conserva los mismos activos.':'Importa la conexión pública del ordenador. Ahí están definidos los activos disponibles en esta demo.'}>
+   <WalletButton label={flowConnectionText?'Abrir conexión guardada':'Conectar mis activos'} disabled={busy||reviewing} onPress={()=>run(flowConnectionText?()=>loadFlowConnection(flowConnectionText):importPublicFlowConnection,'No se ha abierto el servicio. Comprueba su conexión y la identidad de tu wallet.')}/>
+  </WalletCard>}
+  {graphOutputReview&&<View style={styles.card}><Text style={styles.heading}>{graphOutputReview.consent.action==='PROVE_W39'?'Preparar retirada':graphOutputReview.consent.action==='WITHDRAW_W39'?'Retirar esta salida':'Consultar esta retirada'}</Text>
+   <Fields values={{Salida:graphOutputRoleText[graphOutputReview.noteRole],Importe:amountText(graphOutputReview.consent.statement.amount,graphOutputReview.consent.descriptor),'Recibirás los fondos en':'0x'+graphOutputReview.consent.recipient,...(advanced?{Servicio:graphOutputReview.consent.descriptor.origin,'Operación original':graphOutputReview.consent.jobId}:{})}}/>
+   <Button label="Confirmar retirada" disabled={busy} onPress={confirmGraphOutputReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/>
+  </View>}
+  {graphReview&&<View style={styles.card}><Text style={styles.heading}>{['PROVE_U','RESERVE_S','EXECUTE_GRAPH'].includes(graphReview.draft.action)?operationTitle:graphActionText[graphReview.draft.action]}</Text><Fields values={{'Importe reservado de origen':amountText(summary?.graph?.recoveryAmount??null,graphReview.descriptor),'Importe destino autorizado':activePairing&&pairedWindow()?amountText(pairedWindow()!.amount,activePairing.target):'Consulta la recepción autorizada','Activo de destino':pairAssets?.target??'Activo de destino',...(advanced?{Servicio:graphReview.descriptor.origin,'Vencimiento original':graphReview.draft.statement.settleBefore,'Operación original':graphReview.draft.jobId}:{})}}/><Button label="Confirmar operación" disabled={busy} onPress={confirmGraphReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
+  {review&&<View style={styles.card}><Text style={styles.heading}>{actionText[review.action]}</Text>
+   <Fields values={{Importe:amountText(review.statement.amount,review.descriptor),'Dirección de retirada':'0x'+review.recipient,...(advanced?{Servicio:review.descriptor.origin,Activo:'0x'+review.descriptor.poolTerms.asset,'Contrato de la nota':'0x'+review.descriptor.poolTerms.pool,'Operación original':review.jobId}:{}),...(review.action==='PROVE_D27'?{'Inicio de recepción':String((review.statement as {validFrom:string}).validFrom),'Fin de recepción':String((review.statement as {validUntil:string}).validUntil)}:{})}}/>
+   <Button label="Confirmar operación" disabled={busy} onPress={confirmReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/>
+  </View>}
+  {connected&&!review&&!graphReview&&!graphOutputReview&&!recoveryPreparation&&(preparedRef.current||graphPreparedRef.current||graphOutputPreparedRef.current)&&<WalletCard title={nextStep} subtitle={nextStepDetail}><Button label="Continuar con la operación preparada" disabled={busy} loading={busy} onPress={()=>{void run(continueUnsubmittedPreparation);}}/></WalletCard>}
+  {(advanced||recoveryOpen||recoveryPreparation)&&<WalletCard title={recoveryPreparation?"Guarda tu copia para continuar":"Copia de seguridad"} subtitle="Guárdala fuera del móvil para recuperar estos fondos si pierdes el dispositivo.">
+   {!recoveryPreparation&&<WalletButton label={recoveryOpen?'Ocultar opciones de copia':'Guardar o recuperar una copia'} tone="secondary" disabled={busy} onPress={()=>setRecoveryOpen(value=>!value)}/>}
+   {(recoveryOpen||recoveryPreparation)&&<>
+   <Text style={styles.muted}>Crea una copia nueva cuando prepares activos nuevos. Necesitarás el archivo completo y su contraseña para recuperarlos.</Text>
+   {recoveryPreparation&&<Text style={styles.muted}>{recoveryPreparation==='GRAPH'?'Tus fondos de cambio y recuperación están preparados.':'El activo que recibirás está preparado.'} Guarda esta copia antes de confirmar.</Text>}
+   <TextInput accessibilityLabel="Contraseña de la copia cifrada" style={styles.input} value={recoveryPassword} onChangeText={setRecoveryPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024} editable={!busy} placeholder="Contraseña de al menos 12 caracteres" placeholderTextColor="#9fb7bd"/>
+   <Button label="Crear copia cifrada" disabled={busy||!connected||recoveryPassword.length<12} onPress={confirmRecoveryExport}/>
+   {recoveryCopy!==''&&<><WalletStatus kind="success" title="Copia cifrada preparada" detail="Guarda el contenido completo y la contraseña fuera del móvil."/><WalletButton compact label={copyVisible?'Ocultar contenido cifrado':'Ver copia completa para guardarla'} tone="secondary" disabled={busy} onPress={()=>setCopyVisible(value=>!value)}/>{copyVisible&&<Text selectable accessibilityLabel="Copia cifrada de esta custodia ERC20" style={[styles.value,styles.copy]}>{recoveryCopy}</Text>}<Button label="Descartar esta copia de la pantalla" disabled={busy} onPress={hideRecovery}/></>}
+   {recoveryPreparation&&recoveryCopy!==''&&recoveryCut.current&&<Button label="He guardado la copia; revisar autorización" disabled={busy} onPress={confirmBackedPreparation}/>}
+   {!recoveryPreparation&&<><TextInput accessibilityLabel="Copia cifrada de recuperación de la nota" style={[styles.input,styles.descriptor]} value={recoveryInput} onChangeText={setRecoveryInput} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={196608} editable={!busy} placeholder="Pega tu copia cifrada" placeholderTextColor="#9fb7bd"/>
+   <Button label="Recuperar fondos desde una copia" disabled={busy||recoveryInput.length===0||recoveryPassword.length<12||descriptorText.length===0} onPress={confirmRecoveryRestore}/></>}
+   </>}
+  </WalletCard>}
+  {connected&&!advanced&&<WalletCard title={recoveryPreparation?'Preparación guardada':activePairing?operationTitle:share?(freshNote?.note?.state==='LIVE'?'Activo recibido':'Recibir un activo'):'Preparar tus activos'} subtitle={nextStepDetail}>
+   {!reviewing&&<Text style={styles.step}>{nextStep}</Text>}
+   <Fields values={pairAssets?{'Activo de origen':pairAssets.source,'Activo de destino':pairAssets.target}:{Activo:assetLabel(connection.current?.descriptor)}}/>
+   {connection.current?.descriptor.assetMetadata.symbol==='PALT'&&<Text style={styles.muted}>PALT es un token de demostración del entorno local.</Text>}
+   {canPrepare&&<>
+    <WalletField label="Dirección para recibir tus retiradas" value={recipient} editable={!busy&&connection.current?.redemptionRecipient===null&&summary?.recipient===null} onChangeText={value=>{setRecipient(value);setFlowRecipient(value);}} help="La dirección queda guardada para esta operación. Revísala antes de continuar."/>
+    <WalletField label={(share?'Importe de destino que recibirás':'Importe de origen a ingresar')+' ('+connection.current?.descriptor.assetMetadata.symbol+')'} value={share?destinationInput:fundingInput} keyboardType="decimal-pad" editable={!busy&&!metaFour} onChangeText={share?setDestinationInput:setFundingInput} placeholder="0.00"/>
+    {share&&<><Text style={styles.label}>Plazo para recibir el activo</Text>{([{seconds:900,label:'15 minutos'},{seconds:3600,label:'1 hora'},{seconds:28800,label:'8 horas'}] as const).map(option=><Button key={option.seconds} label={(windowSeconds===option.seconds?'✓ ':'')+option.label} disabled={busy||pairedWindow()!==null} onPress={()=>setWindowSeconds(option.seconds)}/>)}<Text style={styles.muted}>El importe y el plazo quedarán fijados cuando autorices esta recepción.</Text></>}
+   </>}
+   {readyConversion&&activePairing&&<>
+    <WalletField label={'Importe máximo de origen ('+activePairing.source.assetMetadata.symbol+')'} value={solverInput} keyboardType="decimal-pad" editable={!busy&&!reviewing&&!uncertain} onChangeText={setSolverInput} placeholder="0.00"/>
+    <WalletField label={'Importe a reservar ('+activePairing.source.assetMetadata.symbol+')'} value={budgetInput} keyboardType="decimal-pad" editable={!busy&&!reviewing&&!uncertain} onChangeText={setBudgetInput} placeholder="Igual al importe máximo" help="Este importe se reserva mientras se completa la conversión."/>
+    {pairedWindow()&&<Fields values={{'Importe destino autorizado':amountText(pairedWindow()!.amount,activePairing.target)}}/>}
+   </>}
+   {(readyConversion||graphRow)&&<WalletStatus kind="info" title="Resultado y coste" detail={(pairedWindow()&&activePairing?(freshGraph&&graphRow?.graph.stage==='FULFILLED'?'Recepción prevista: ':'Recibirás ')+amountText(pairedWindow()!.amount,activePairing.target)+'. ':'')+(freshGraph&&graphRow?.graph.stage==='FULFILLED'?'La operación está confirmada. Consulta el activo de destino para ver su saldo.':'La reserva mantiene fondos bloqueados mientras se confirma la operación.')+' La comisión de red se confirma con la transacción.'}/>}
+   {!recoveryPreparation&&!hasPrepared&&nextFlow?.kind!=='SETTLED'&&<Button label={primaryLabel} disabled={busy||reviewing||!available} loading={busy} onPress={()=>{void run(continueFlow);}}/>}
+   {reviewing&&<Text style={styles.muted}>{recoveryPreparation?'Guarda la copia de seguridad para continuar.':'Comprueba los datos y confirma tu operación.'}</Text>}
+   {deposit?.stage==='CONFIRMED'&&!withdrawal&&operationGoal==='CONVERT'&&<Button label={share?'Retirar el activo recibido':'Retirar fondos o salidas disponibles'} disabled={busy||reviewing} onPress={()=>{setOperationGoal('WITHDRAW');setNotice('Retirada seleccionada. Continúa para preparar y revisar el movimiento.');}}/>}
+   {operationGoal==='WITHDRAW'&&activePairing&&<Button label={uniswapPairing?'Volver al intercambio':'Volver a la inversión'} disabled={busy||reviewing} onPress={()=>setOperationGoal('CONVERT')}/>}
+   {activePairing&&<Button label={share?'Ver activo de origen':'Ver activo de destino'} disabled={busy||reviewing} onPress={()=>{void run(()=>selectPairedRole(share?'source':'target'));}}/>}
+  </WalletCard>}
+  {connected&&<WalletCard title="Estado de tus fondos">
+   <Fields values={{Importe:amountText(summary?.amount??null,summary?.descriptor??null),'Saldo disponible':freshNote?.note?amountText(freshNote.note.available,freshNote.descriptor):'Consulta para actualizar','Ingreso':deposit?stageText[deposit.stage]??deposit.stage:'No confirmado',...(withdrawal?{Retirada:stageText[withdrawal.stage]??withdrawal.stage}:{}),...(graphRow?{Operación:freshGraph?graphStageText[graphRow.graph.stage]??'Pendiente de comprobar':'Consulta para actualizar'}:{}),'Resultado pendiente':uncertain?'Consulta la misma operación':'Ninguno retenido'}}/>
+   {!available&&<Text style={styles.muted}>No se ha podido abrir la información guardada. Reconecta esta misma cuenta antes de preparar una operación.</Text>}
+   {uncertain&&<Text style={styles.muted}>Consultar recupera el resultado de la misma operación y no repite el envío.</Text>}
+   <Button label="Actualizar este resultado" disabled={busy||reviewing} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();if(selected.noteClosed)await readGraphStatus(selected,epoch.current);else await readStatus(selected,epoch.current);setNotice('Estado original consultado. Una operación pendiente no se reenvía.');});}}/>
+  </WalletCard>}
+  <WalletButton label={advanced?'Volver al recorrido sencillo':'Opciones avanzadas y conexión'} tone="secondary" disabled={busy||reviewing} onPress={()=>setAdvanced(value=>!value)}/>
+  {advanced&&<>
+  <WalletCard title="Servicio que ejecuta la operación" subtitle="El servicio es el proveedor; los activos de origen y destino se muestran en el recorrido principal.">
+   <Fields values={{Servicio:protocolLabel}}/>
+   <View style={styles.choices}>{([{id:'UNISWAP',label:'Uniswap'},{id:'AAVE',label:'Aave'},{id:'MORPHO',label:'Morpho'}] as const).map(item=><WalletChoice key={item.id} label={item.label} selected={selectedProtocol===item.id} disabled={busy||reviewing||hasRetainedOperation||uncertain} onPress={()=>{void run(()=>chooseProtocol(item.id));}}/>)}</View>
+   <Text style={styles.muted}>Uniswap permite intercambiar. Aave y Morpho permiten invertir y recibir participaciones.</Text>
+  </WalletCard>
+  <WalletCard title="Conexión de este servicio">
+   <Button label="Importar conexión del ordenador" disabled={busy||reviewing} onPress={()=>{void run(importPublicFlowConnection,'No se ha importado la conexión. Copia el perfil público DeFi del ordenador y usa la identidad de esta wallet.');}}/>
+   <WalletButton label={settingsOpen?'Ocultar ajustes de conexión':'Ajustes de conexión'} tone="secondary" disabled={busy||reviewing} onPress={()=>setSettingsOpen(value=>!value)}/>
+   {settingsOpen&&<>
+    {tlsDisplay&&<Fields values={{Servidor:tlsDisplay.origin,'Huella del certificado':tlsDisplay.certificateSHA256}}/>}
+    <TextInput accessibilityLabel="Conexión de operación DeFi" multiline style={[styles.input,styles.descriptor]} value={flowConnectionText} autoCapitalize="none" autoCorrect={false} editable={!busy} maxLength={32768} onChangeText={text=>{closeConnection();publicTls.current=null;setTlsDisplay(null);setSummary(null);setFlowConnectionText(text);}}/>
+    <Button label="Abrir operación DeFi" disabled={busy||flowConnectionText.length===0} onPress={()=>{void run(()=>loadFlowConnection(),'No se ha abierto la operación. Comprueba la conexión y la identidad de tu wallet.');}}/>
+   </>}
+  </WalletCard>
   <View style={styles.card}><Text style={styles.heading}>Conexión privada</Text>
    <Text style={styles.label}>Descriptor entregado por tu operador</Text>
   <TextInput accessibilityLabel="Descriptor privado de la nota ERC20" multiline style={[styles.input,styles.descriptor]} value={descriptorText} autoCapitalize="none" autoCorrect={false} editable={!busy}
@@ -524,7 +811,8 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
     <Text style={styles.muted}>Prepara y autoriza cada recepción antes de volver a la fuente para U, S y la ejecución del mismo grafo. Cada resultado pendiente se consulta en su conexión. Los importes disponibles sólo proceden de consultas originales vigentes.</Text>
    </>}
   </View>
-  {connected&&<View style={styles.card}><Text style={styles.heading}>Crear nota</Text>
+  </>}
+  {connected&&advanced&&<View style={styles.card}><Text style={styles.heading}>Crear nota</Text>
    <Text style={styles.label}>Dirección de retirada</Text><TextInput accessibilityLabel="Dirección de retirada ERC20" style={styles.input} value={recipient} autoCapitalize="none" autoCorrect={false} editable={canPrepare&&summary?.recipient===null&&!busy&&connection.current?.redemptionRecipient===null} onChangeText={setRecipient}/>
    {connection.current?.redemptionRecipient&&<Text style={styles.muted}>La dirección procede de la consulta original de la posición. SHARE W39 y su redención de underlying conservan ese mismo holder.</Text>}
    <Text style={styles.label}>Importe en unidades atómicas</Text><TextInput accessibilityLabel="Importe ERC20 en unidades atómicas" style={styles.input} value={amount} keyboardType="number-pad" editable={canPrepare&&summary?.amount===null&&!busy&&!metaFour} onChangeText={setAmount}/>
@@ -533,7 +821,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    <Button label={share?(uniswapPairing?'Preparar recepción del token de destino':'Preparar recepción de participación'):'Preparar prueba de financiación'} disabled={busy||!canPrepare} onPress={()=>confirmPreparation()}/>
   </View>}
   {connected&&!share&&deposit?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Conversión y reserva privadas</Text>
-   {(graph===null||graph.row===null&&graph.pending===null)&&!status?.graphClaimed&&<><Text style={styles.muted}>Autoriza primero la recepción en la conexión de participaciones. Usa aquí sus importes y el mismo inicio de plazo; la recuperación conserva una nota propia.</Text>
+   {advanced&&(graph===null||graph.row===null&&graph.pending===null)&&!status?.graphClaimed&&<><Text style={styles.muted}>Autoriza primero la recepción en la conexión de participaciones. Usa aquí sus importes y el mismo inicio de plazo; la recuperación conserva una nota propia.</Text>
     <Text style={styles.label}>Activo que recibe la inversión, unidades atómicas</Text><TextInput accessibilityLabel="Importe invertido" style={styles.input} value={graphAssetAmount} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphAssetAmount}/>
     <Text style={styles.label}>{uniswapPairing?'Token de destino autorizado, unidades atómicas':'Participaciones autorizadas, unidades atómicas'}</Text><TextInput accessibilityLabel="Importe de destino autorizado" style={styles.input} value={graphShareAmount} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphShareAmount}/>
     <Text style={styles.label}>Importe reservado, unidades atómicas</Text><TextInput accessibilityLabel="Importe reservado" style={styles.input} value={graphPayoutAmount} keyboardType="number-pad" editable={!busy&&!uncertain&&!metaFour} onChangeText={setGraphPayoutAmount}/>
@@ -542,12 +830,12 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
     <Button label={graphPreparationPending?"Consultar preparación de las recepciones":"Preparar reserva y conversión"} disabled={busy||uncertain||!available||Boolean(withdrawal)} onPress={confirmGraphPreparation}/></>}
    <Fields values={{Reserva:graphRow?stageText[graphRow.reservation.stage]??graphRow.reservation.stage:'No disponible',Conversión:graphRow?graphStageText[graphRow.graph.stage]:'No disponible','Cambio retenido':amountText(graph?.changeAmount??null,summary?.descriptor??null),'Recuperación retenida':amountText(graph?.recoveryAmount??null,summary?.descriptor??null),'Resultado pendiente':graphPending?'Consultar la misma operación':'Ninguno retenido'}}/>
    <Button label="Consultar reserva y conversión" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readGraphStatus(selected,epoch.current);setNotice('Estado de la reserva consultado sin repetir envíos.');});}}/>
-   {graphRow?.reservation.stage==='FAILED'&&graphRow.graph.stage!=='SOURCE_CANCELLED'&&<Button label="Liberar reserva que no se envió" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('CANCEL_GRAPH'));}}/>}
-   {graphRow?.reservation.stage==='PROVED'&&!graphPending&&<Button label="Revisar registro de la reserva" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RESERVE_S'));}}/>}
-   {graphRow&&['RESERVING','RESERVATION_UNKNOWN'].includes(graphRow.reservation.stage)&&<Button label="Consultar reserva pendiente" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('OBSERVE_S'));}}/>}
-   {graphRow?.reservation.stage==='RESERVED'&&graphRow.graph.stage==='PREPARED'&&!graphPending&&<Button label="Revisar ejecución de la conversión" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('EXECUTE_GRAPH'));}}/>}
-   {graphRow&&(['EXECUTION_UNKNOWN','RECOVERY_UNKNOWN'].includes(graphRow.graph.stage)||graphPending)&&<Button label="Conciliar la misma conversión" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RECONCILE_GRAPH'));}}/>}
-   {graphRow?.reservation.stage==='RESERVED'&&graphRow.graph.stage==='PREPARED'&&!graphPending&&graphStatus&&graphStatus.expiresAt>Date.now()&&BigInt(graphStatus.observed.timestamp)>=BigInt(graphRow.reservation.statement.settleBefore)&&<Button label="Revisar recuperación de reserva vencida" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RECOVER_GRAPH'));}}/>}
+   {advanced&&graphRow?.reservation.stage==='FAILED'&&graphRow.graph.stage!=='SOURCE_CANCELLED'&&<Button label="Liberar reserva que no se envió" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('CANCEL_GRAPH'));}}/>}
+   {advanced&&graphRow?.reservation.stage==='PROVED'&&!graphPending&&<Button label="Revisar registro de la reserva" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RESERVE_S'));}}/>}
+   {advanced&&graphRow&&['RESERVING','RESERVATION_UNKNOWN'].includes(graphRow.reservation.stage)&&<Button label="Consultar reserva pendiente" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('OBSERVE_S'));}}/>}
+   {advanced&&graphRow?.reservation.stage==='RESERVED'&&graphRow.graph.stage==='PREPARED'&&!graphPending&&<Button label="Revisar ejecución de la conversión" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('EXECUTE_GRAPH'));}}/>}
+   {advanced&&graphRow&&(['EXECUTION_UNKNOWN','RECOVERY_UNKNOWN'].includes(graphRow.graph.stage)||graphPending)&&<Button label="Conciliar la misma conversión" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RECONCILE_GRAPH'));}}/>}
+   {advanced&&graphRow?.reservation.stage==='RESERVED'&&graphRow.graph.stage==='PREPARED'&&!graphPending&&graphStatus&&graphStatus.expiresAt>Date.now()&&BigInt(graphStatus.observed.timestamp)>=BigInt(graphRow.reservation.statement.settleBefore)&&<Button label="Revisar recuperación de reserva vencida" disabled={busy} onPress={()=>{void run(()=>requestGraphAction('RECOVER_GRAPH'));}}/>}
   </View>}
   {connected&&!share&&graph!==null&&(['change','recovery'] as const).map(noteRole=>{
    const fresh=graphStatus&&graphStatus.expiresAt>Date.now()?graphStatus:null,output=fresh?.jobs[0]?.outputs.find((value:GraphOutputView)=>value.noteRole===noteRole);
@@ -561,18 +849,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
     {output&&['LOCKED','UNKNOWN'].includes(output.state)&&<Text style={styles.muted}>Esta salida no tiene un importe disponible confirmado. Consultar conserva las operaciones originales.</Text>}
    </View>;
   })}
-  {graphOutputReview&&<View style={styles.card}><Text style={styles.heading}>{graphOutputReview.consent.action==='PROVE_W39'?'Generar prueba de retirada':graphOutputReview.consent.action==='WITHDRAW_W39'?'Retirar esta salida':'Consultar esta retirada'}</Text>
-   <Fields values={{Salida:graphOutputRoleText[graphOutputReview.noteRole],Servicio:graphOutputReview.consent.descriptor.origin,Activo:'0x'+graphOutputReview.consent.descriptor.poolTerms.asset,Importe:amountText(graphOutputReview.consent.statement.amount,graphOutputReview.consent.descriptor),'Unidades atómicas':graphOutputReview.consent.statement.amount,'Dirección de retirada':'0x'+graphOutputReview.consent.recipient,'Operación original':graphOutputReview.consent.jobId}}/>
-   <Button label="Autorizar esta retirada" disabled={busy} onPress={confirmGraphOutputReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/>
-  </View>}
-  {graphReview&&<View style={styles.card}><Text style={styles.heading}>{graphActionText[graphReview.draft.action]}</Text><Fields values={{Servicio:graphReview.descriptor.origin,Activo:'0x'+graphReview.descriptor.poolTerms.asset,'Importe reservado':amountText(summary?.graph?.recoveryAmount??null,graphReview.descriptor),'Vencimiento original':graphReview.draft.statement.settleBefore,'Operación original':graphReview.draft.jobId}}/><Button label="Autorizar esta operación" disabled={busy} onPress={confirmGraphReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
-  {review&&<View style={styles.card}><Text style={styles.heading}>{actionText[review.action]}</Text>
-   <Fields values={{Servicio:review.descriptor.origin,Activo:'0x'+review.descriptor.poolTerms.asset,'Contrato de la nota':'0x'+review.descriptor.poolTerms.pool,
-    Importe:amountText(review.statement.amount,review.descriptor),'Unidades atómicas':review.statement.amount,'Dirección de retirada':'0x'+review.recipient,
-    'Red original':review.descriptor.poolTerms.genesis,'Operación original':review.jobId,...(review.action==='PROVE_D27'?{'Inicio original de recepción':String((review.statement as {validFrom:string}).validFrom),'Fin original de recepción':String((review.statement as {validUntil:string}).validUntil)}:{})}}/>
-   <Button label="Autorizar esta operación" disabled={busy} onPress={confirmReview}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/>
-  </View>}
-  <View style={styles.card}><Text style={styles.heading}>Nota y operaciones</Text>
+  {connected&&advanced&&<View style={styles.card}><Text style={styles.heading}>Estado técnico y acciones manuales</Text>
    <Fields values={{'Importe original de la nota':amountText(summary?.amount??null,summary?.descriptor??null),
     'Participaciones disponibles':connected&&status?.note&&status.expiresAt>Date.now()?amountText(status.note.available,status.descriptor):'No disponible',
     'Dirección fijada':summary?.recipient?'0x'+summary.recipient:'No disponible','Financiación':deposit?stageText[deposit.stage]:'No confirmada',
@@ -581,51 +858,39 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
    {!available&&<Text style={styles.muted}>La información local no está disponible. No se puede preparar ni enviar una operación.</Text>}
    {uncertain&&<Text style={styles.muted}>El resultado está pendiente. Consultar conserva la operación original y no vuelve a enviar fondos.</Text>}
    {connected&&<Button label="Consultar operaciones originales" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();if(selected.noteClosed)await readGraphStatus(selected,epoch.current);else await readStatus(selected,epoch.current);setNotice('Estado original consultado. Una operación pendiente no se reenvía.');});}}/>}
-   {connected&&!share&&deposit?.stage==='PROVED'&&!uncertain&&!withdrawal&&<Button label="Revisar financiación" disabled={busy} onPress={()=>{void run(()=>requestAction('FUND_D26'));}}/>}
-   {connected&&share&&deposit&&['PROVED','DELIVERY_UNKNOWN'].includes(deposit.stage)&&<Button label="Consultar recepción de participación" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_D27'));}}/>}
-   {connected&&deposit?.stage==='FUNDING_UNKNOWN'&&<Button label="Consultar financiación pendiente" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_D26'));}}/>}
-   {connected&&deposit?.stage==='CONFIRMED'&&!withdrawal&&!uncertain&&(graph===null||graphRow?.graph.stage==='SOURCE_CANCELLED')&&!status?.graphClaimed&&<Button label="Preparar retirada completa" disabled={busy} onPress={()=>confirmPreparation(true)}/>}
-   {connected&&withdrawal?.stage==='PROVED'&&!uncertain&&<Button label="Revisar retirada" disabled={busy} onPress={()=>{void run(()=>requestAction('WITHDRAW_W39'));}}/>}
-   {connected&&withdrawal?.stage==='WITHDRAWAL_UNKNOWN'&&<Button label="Consultar retirada pendiente" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_W39'));}}/>}
-  </View>
-  {connected&&connection.current?.blueClient&&withdrawal?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Redención de participaciones Blue</Text>
+   {advanced&&connected&&!share&&deposit?.stage==='PROVED'&&!uncertain&&!withdrawal&&<Button label="Revisar financiación" disabled={busy} onPress={()=>{void run(()=>requestAction('FUND_D26'));}}/>}
+   {advanced&&connected&&share&&deposit&&['PROVED','DELIVERY_UNKNOWN'].includes(deposit.stage)&&<Button label="Consultar recepción de participación" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_D27'));}}/>}
+   {advanced&&connected&&deposit?.stage==='FUNDING_UNKNOWN'&&<Button label="Consultar financiación pendiente" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_D26'));}}/>}
+   {advanced&&connected&&deposit?.stage==='CONFIRMED'&&!withdrawal&&!uncertain&&(graph===null||graphRow?.graph.stage==='SOURCE_CANCELLED')&&!status?.graphClaimed&&<Button label="Preparar retirada completa" disabled={busy} onPress={()=>confirmPreparation(true)}/>}
+   {advanced&&connected&&withdrawal?.stage==='PROVED'&&!uncertain&&<Button label="Revisar retirada" disabled={busy} onPress={()=>{void run(()=>requestAction('WITHDRAW_W39'));}}/>}
+   {advanced&&connected&&withdrawal?.stage==='WITHDRAWAL_UNKNOWN'&&<Button label="Consultar retirada pendiente" disabled={busy} onPress={()=>{void run(()=>requestAction('OBSERVE_W39'));}}/>}
+  </View>}
+  {connected&&connection.current?.blueClient&&withdrawal?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Retirar mi inversión</Text><Text style={styles.muted}>Servicio: Morpho Blue</Text>
    <Text style={styles.muted}>La retirada original entrega participaciones en tu dirección fijada. Redimirlas es otra operación y entrega underlying público, sin crear un saldo privado.</Text>
    <Fields values={{Estado:blueStatus&&blueStatus.expiresAt>Date.now()?blueStatus.operations[0]?.stage??'Sin redención admitida':'Consultar estado original','Underlying recibido, unidades atómicas':blueStatus&&blueStatus.expiresAt>Date.now()?blueStatus.operations[0]?.redeemedUnderlying??'No confirmado':'No disponible','Gas aprobación, wei':blueStatus?.operations[0]?.nativeGas.approvalWei??'No confirmado','Gas redención, wei':blueStatus?.operations[0]?.nativeGas.redemptionWei??'No confirmado'}}/>
    <Button label="Consultar redención original" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readBlueStatus(selected,epoch.current);});}}/>
    {blueStatus&&blueStatus.expiresAt>Date.now()&&!blueStatus.observationOnly&&blueStatus.operations.length===0&&<><TextInput accessibilityLabel="Mínimo de underlying Blue, unidades atómicas" style={styles.input} value={blueMinimum} onChangeText={setBlueMinimum} keyboardType="number-pad" editable={!busy} placeholder="Mínimo de underlying, unidades atómicas" placeholderTextColor="#9fb7bd"/><Button label="Revisar redención de estas participaciones" disabled={busy||blueMinimum===''} onPress={()=>{void run(()=>requestBlue('REDEEM_BLUE'));}}/></>}
    {blueStatus?.operations.some(r=>r.stage==='REDEMPTION_UNKNOWN')&&<Button label="Revisar consulta de la misma redención" disabled={busy} onPress={()=>{void run(()=>requestBlue('OBSERVE_BLUE'));}}/>}
   </View>}
-  {blueReview&&<View style={styles.card}><Text style={styles.heading}>{blueReview.action==='REDEEM_BLUE'?'Redimir participaciones Blue':'Consultar la misma redención'}</Text><Fields values={{Participaciones:blueReview.shares,'Mínimo underlying, unidades atómicas':blueReview.minimumAssets,'Dirección fijada':'0x'+blueReview.recipient,'Underlying':'0x'+blueReview.underlying,'Plazo original, segundos Unix':blueReview.deadline}}/><Button label="Autorizar esta operación" disabled={busy} onPress={confirmBlue}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
-  {connected&&connection.current?.metaClient&&withdrawal?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Redención de participaciones MetaMorpho</Text>
+  {blueReview&&<View style={styles.card}><Text style={styles.heading}>{blueReview.action==='REDEEM_BLUE'?'Retirar mi inversión':'Consultar la misma retirada'}</Text><Fields values={{Participaciones:blueReview.shares,'Mínimo underlying, unidades atómicas':blueReview.minimumAssets,'Dirección fijada':'0x'+blueReview.recipient,'Underlying':'0x'+blueReview.underlying,'Plazo original, segundos Unix':blueReview.deadline}}/><Button label="Confirmar operación" disabled={busy} onPress={confirmBlue}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
+  {connected&&connection.current?.metaClient&&withdrawal?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Retirar mi inversión</Text><Text style={styles.muted}>Servicio: Morpho</Text>
    <Text style={styles.muted}>La retirada original entrega participaciones en tu dirección fijada. Redimirlas es otra operación y entrega underlying público, sin crear un saldo privado.</Text>
    <Fields values={{Estado:metaStatus&&metaStatus.expiresAt>Date.now()?metaStatus.operations[0]?.stage??'Sin redención admitida':'Consultar estado original','Underlying recibido, unidades atómicas':metaStatus&&metaStatus.expiresAt>Date.now()?metaStatus.operations[0]?.redeemedUnderlying??'No confirmado':'No disponible','Gas aprobación, wei':metaStatus?.operations[0]?.nativeGas.approvalWei??'No confirmado','Gas redención, wei':metaStatus?.operations[0]?.nativeGas.redemptionWei??'No confirmado'}}/>
    <Button label="Consultar redención original" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readMetaStatus(selected,epoch.current);});}}/>
    {metaStatus&&metaStatus.expiresAt>Date.now()&&!metaStatus.observationOnly&&metaStatus.operations.length===0&&<><TextInput accessibilityLabel="Mínimo de underlying MetaMorpho, unidades atómicas" style={styles.input} value={metaMinimum} onChangeText={setMetaMinimum} keyboardType="number-pad" editable={!busy} placeholder="Mínimo de underlying, unidades atómicas" placeholderTextColor="#9fb7bd"/><Button label="Revisar redención de estas participaciones" disabled={busy||metaMinimum===''} onPress={()=>{void run(()=>requestMeta('REDEEM_META'));}}/></>}
    {metaStatus?.operations.some(r=>r.stage==='REDEMPTION_UNKNOWN')&&<Button label="Revisar consulta de la misma redención" disabled={busy} onPress={()=>{void run(()=>requestMeta('OBSERVE_META'));}}/>}
   </View>}
-  {metaReview&&<View style={styles.card}><Text style={styles.heading}>{metaReview.action==='REDEEM_META'?'Redimir participaciones MetaMorpho':'Consultar la misma redención'}</Text><Fields values={{Participaciones:metaReview.shares,'Mínimo underlying, unidades atómicas':metaReview.minimumAssets,'Dirección fijada':'0x'+metaReview.recipient,'Underlying':'0x'+metaReview.underlying,'Plazo original, segundos Unix':metaReview.deadline}}/><Button label="Autorizar esta operación" disabled={busy} onPress={confirmMeta}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
-  {connected&&connection.current?.aaveClient&&withdrawal?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Redención de participaciones Aave</Text>
+  {metaReview&&<View style={styles.card}><Text style={styles.heading}>{metaReview.action==='REDEEM_META'?'Retirar mi inversión':'Consultar la misma retirada'}</Text><Fields values={{Participaciones:metaReview.shares,'Mínimo underlying, unidades atómicas':metaReview.minimumAssets,'Dirección fijada':'0x'+metaReview.recipient,'Underlying':'0x'+metaReview.underlying,'Plazo original, segundos Unix':metaReview.deadline}}/><Button label="Confirmar operación" disabled={busy} onPress={confirmMeta}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
+  {connected&&connection.current?.aaveClient&&withdrawal?.stage==='CONFIRMED'&&<View style={styles.card}><Text style={styles.heading}>Retirar mi inversión</Text><Text style={styles.muted}>Servicio: Aave</Text>
    <Text style={styles.muted}>La retirada original entrega participaciones en tu dirección fijada. Redimirlas es otra operación y entrega underlying público, sin crear un saldo privado.</Text>
    <Fields values={{Estado:aaveStatus&&aaveStatus.expiresAt>Date.now()?aaveStatus.operations[0]?.stage??'Sin redención admitida':'Consultar estado original','Underlying recibido, unidades atómicas':aaveStatus&&aaveStatus.expiresAt>Date.now()?aaveStatus.operations[0]?.redeemedUnderlying??'No confirmado':'No disponible','Gas aprobación, wei':aaveStatus?.operations[0]?.nativeGas.approvalWei??'No confirmado','Gas redención, wei':aaveStatus?.operations[0]?.nativeGas.redemptionWei??'No confirmado'}}/>
    <Button label="Consultar redención original" disabled={busy} onPress={()=>{void run(async()=>{const selected=requireConnection();clearReview();await readAaveStatus(selected,epoch.current);});}}/>
    {aaveStatus&&aaveStatus.expiresAt>Date.now()&&!aaveStatus.observationOnly&&aaveStatus.operations.length===0&&<><TextInput accessibilityLabel="Mínimo de underlying Aave, unidades atómicas" style={styles.input} value={aaveMinimum} onChangeText={setAaveMinimum} keyboardType="number-pad" editable={!busy} placeholder="Mínimo de underlying, unidades atómicas" placeholderTextColor="#9fb7bd"/><Button label="Revisar redención de estas participaciones" disabled={busy||aaveMinimum===''} onPress={()=>{void run(()=>requestAave('REDEEM_AAVE'));}}/></>}
    {aaveStatus?.operations.some(r=>r.stage==='REDEMPTION_UNKNOWN')&&<Button label="Revisar consulta de la misma redención" disabled={busy} onPress={()=>{void run(()=>requestAave('OBSERVE_AAVE'));}}/>}
   </View>}
-  {aaveReview&&<View style={styles.card}><Text style={styles.heading}>{aaveReview.action==='REDEEM_AAVE'?'Redimir participaciones Aave':'Consultar la misma redención'}</Text><Fields values={{Participaciones:aaveReview.shares,'Mínimo underlying, unidades atómicas':aaveReview.minimumAssets,'Dirección fijada':'0x'+aaveReview.recipient,'Underlying':'0x'+aaveReview.underlying,'Plazo original, segundos Unix':aaveReview.deadline}}/><Button label="Autorizar esta operación" disabled={busy} onPress={confirmAave}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
-  <View style={styles.card}><Text style={styles.heading}>Copia de recuperación</Text>
-   <Text style={styles.muted}>La copia recupera tu identidad y las aperturas y operaciones guardadas al crearla. Una copia anterior no recupera el cambio, la recuperación o las participaciones que prepares después. Guarda una copia nueva antes de autorizarlos.</Text>
-   {recoveryPreparation&&<Text style={styles.muted}>{recoveryPreparation==='GRAPH'?'El cambio y la recuperación ya están preparados.':'La participación ya está preparada.'} Crea la copia y guárdala antes de revisar la autorización.</Text>}
-   <TextInput accessibilityLabel="Contraseña de la copia cifrada" style={styles.input} value={recoveryPassword} onChangeText={setRecoveryPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024} editable={!busy} placeholder="Contraseña de al menos 12 caracteres" placeholderTextColor="#9fb7bd"/>
-   <Button label="Crear copia cifrada" disabled={busy||!connected||recoveryPassword.length<12} onPress={confirmRecoveryExport}/>
-   {recoveryCopy!==''&&<><Text selectable style={styles.value}>{recoveryCopy}</Text><Button label="Ocultar copia" disabled={busy} onPress={hideRecovery}/></>}
-   {recoveryPreparation&&recoveryCopy!==''&&recoveryCut.current&&<Button label="He guardado la copia; revisar autorización" disabled={busy} onPress={confirmBackedPreparation}/>}
-   <TextInput accessibilityLabel="Copia cifrada de recuperación de la nota" style={[styles.input,styles.descriptor]} value={recoveryInput} onChangeText={setRecoveryInput} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={196608} editable={!busy} placeholder="Pega tu copia cifrada" placeholderTextColor="#9fb7bd"/>
-   <Button label="Recuperar custodia desde la copia" disabled={busy||recoveryInput.length===0||recoveryPassword.length<12||descriptorText.length===0} onPress={confirmRecoveryRestore}/>
-  </View>
-  {busy&&<ActivityIndicator accessibilityLabel="Procesando operación ERC20" color="#9de3be"/>}<Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>
- </ScrollView></SafeAreaView>;
+  {aaveReview&&<View style={styles.card}><Text style={styles.heading}>{aaveReview.action==='REDEEM_AAVE'?'Retirar mi inversión':'Consultar la misma retirada'}</Text><Fields values={{Participaciones:aaveReview.shares,'Mínimo underlying, unidades atómicas':aaveReview.minimumAssets,'Dirección fijada':'0x'+aaveReview.recipient,'Underlying':'0x'+aaveReview.underlying,'Plazo original, segundos Unix':aaveReview.deadline}}/><Button label="Confirmar operación" disabled={busy} onPress={confirmAave}/><Button label="Cancelar revisión" disabled={busy} onPress={clearReview}/></View>}
+
+  {onOpenOperations&&<Button label="Volver a mis operaciones" disabled={busy} onPress={onOpenOperations}/> }
+ </WalletScreenLayout>;
 }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:'#101c22'},content:{padding:20,paddingBottom:48,gap:14},title:{color:'#eaf3f1',fontSize:26,fontWeight:'700'},
- muted:{color:'#b8c8cd',fontSize:13,lineHeight:20},card:{backgroundColor:'#192b33',borderRadius:12,padding:16,gap:10},heading:{color:'#eaf3f1',fontSize:17,fontWeight:'600'},
- label:{color:'#9fb7bd',fontSize:12,marginTop:6},value:{color:'#eaf3f1',fontSize:14,lineHeight:21},input:{backgroundColor:'#101c22',color:'#eaf3f1',padding:12,borderRadius:8},descriptor:{minHeight:100},
- button:{backgroundColor:'#9de3be',padding:12,borderRadius:8,alignItems:'center'},buttonText:{color:'#10231c',fontWeight:'700'},disabled:{opacity:0.45},notice:{color:'#c8dce0',lineHeight:21}});
+const styles=StyleSheet.create({muted:{color:walletColors.muted,fontSize:14,lineHeight:22,marginVertical:6},card:{backgroundColor:walletColors.surface,borderRadius:18,padding:18,gap:10,borderWidth:1,borderColor:walletColors.border,marginBottom:16},heading:{color:walletColors.text,fontSize:19,fontWeight:'700'},label:{color:walletColors.muted,fontSize:13,marginTop:7},value:{color:walletColors.text,fontSize:15,lineHeight:22},input:{backgroundColor:walletColors.surface,color:walletColors.text,padding:12,minHeight:50,borderRadius:12,borderWidth:1,borderColor:walletColors.border,fontSize:16},descriptor:{minHeight:100},step:{color:walletColors.primary,fontSize:14,fontWeight:'600',marginBottom:10},choices:{flexDirection:'row',gap:8},serviceRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:12},copy:{fontSize:12,lineHeight:18,backgroundColor:walletColors.background,padding:12,borderRadius:12}});
