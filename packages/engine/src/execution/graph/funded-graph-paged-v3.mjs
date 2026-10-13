@@ -5,10 +5,11 @@ import assert from 'node:assert/strict';
 import {createHash,createPublicKey,verify,randomBytes} from 'node:crypto';
 import {types} from 'node:util';
 import {pagedSparseEmptyLeafV3,pagedSparseLeafV3,pagedSparseBranchV3} from './funded-graph-paged-trees-v3.mjs';
+import {graph64HashV2} from './funded-graph-64-v2.mjs';
 import {walletNoteCommitment,balanceWithdrawFrame,encodeWalletPoolInputs} from '../../wallet/notes/private-wallet-note-encoding.mjs';
 import {nullifier,uintBE} from '../../notes/private-note-encoding.mjs';
 import {nativeReceiptReadOpening,nativeReceiptCommitment,nativeReceiptNullifier,nativeReceiptToNoir,RECEIPT_HASH_FIELDS,canonicalNativeEffectId,nativeEffectToNoir} from '../native/state/native-receipt.mjs';
-import {nativeAdmissionRegistryToNoir,nativeAdmissionRuleToNoir,nativeAdmissionObservationToNoir,nativeAdmissionRuleCommitment,nativeAdmissionRuleRoot,nativeAdmissionChainDomain,nativeProviderIdentity,nativeDispatchStatementFrame,nativeDispatchStatementDigest,nativeAttestationStatementFrame} from '../native/dispatch/native-admission.mjs';
+import {nativeAdmissionRegistryToNoir,nativeAdmissionRuleToNoir,nativeAdmissionObservationToNoir,nativeAdmissionRuleCommitment,nativeAdmissionRuleRoot,nativeAdmissionChainDomain,nativeProviderIdentity,nativeDispatchStatementFrame,nativeDispatchStatementDigest,nativeAttestationStatementFrame,NATIVE_ADMISSION_LOSS_CLAUSE} from '../native/dispatch/native-admission.mjs';
 import {nativeActionToNoir,nativeTransferActionCommitment} from '../native/dispatch/native-capsules.mjs';
 import {wipePrivateProofInputsV1} from '../../crypto/private-proof-transit-v1.mjs';
 import {normalizeNativeQuorumRegistry,nativeQuorumRegistryCommitment,createNativeQuorumHostVerifier} from '../../evidence/native-quorum.mjs';
@@ -24,6 +25,15 @@ function note(v,zero=false){exact(v,['type','rho','x','y','value','secret']);nee
 export function pagedGraphFrameV3(tag,parts){need(typeof tag==='string'&&/^[a-z-]+$/.test(tag),'PAEG_PAGED_TAG');const rows=[Buffer.from('LIANUM/PAEG/paged/'+tag+'/3'),Buffer.from(FUNDED_GRAPH_PAGED_V3.id),...parts];rows.forEach(b=>need(Buffer.isBuffer(b)&&b.length<=65536,'PAEG_PAGED_PART'));return Buffer.concat(rows.flatMap(b=>[uintBE(b.length,4),b]));}
 export const pagedGraphHashV3=(tag,parts)=>h(pagedGraphFrameV3(tag,parts));
 const scoped=s=>['scope','policy','asset','hubDomain','registryCommitment'].map(k=>hex(s[k]));
+/** The original Paged admission circuit deliberately reuses this exact 64
+ * delivery-risk frame. A four-slot risk commitment is a different statement. */
+export function fundedPagedGraphDeliveryRiskCommitmentV3(terms){
+ need(arguments.length===1,'PAEG_PAGED_ARITY');
+ exact(terms,['scope','policy','asset','hubDomain','registryCommitment','chainDomain','sourceCommitment','destinationCommitment','amount','payoutCommitment','settleBefore','salt']);
+ const hashes=['chainDomain','sourceCommitment','destinationCommitment','payoutCommitment','salt'];hashes.forEach(k=>hex(terms[k]));
+ need(typeof terms.amount==='string'&&/^[1-9][0-9]{0,38}$/.test(terms.amount)&&BigInt(terms.amount)<(1n<<128n),'PAEG_PAGED_NATIVE_UINT128');amount(terms.settleBefore);
+ return graph64HashV2('delivery-risk',[Buffer.from(NATIVE_ADMISSION_LOSS_CLAUSE),...scoped(terms),...['chainDomain','sourceCommitment','destinationCommitment'].map(k=>hex(terms[k])),uintBE(terms.amount,16),hex(terms.payoutCommitment),uintBE(terms.settleBefore,8),hex(terms.salt)]);
+}
 const chain=(tag,previous,index,digest)=>pagedGraphHashV3(tag,[hex(previous),uintBE(index,8),hex(digest)]);
 // Fixed depth addresses u64 ordinals, not a graph-size enum. The owner signs
 // these roots so a role proves only its own node/page without disclosing a tail.
@@ -131,6 +141,52 @@ function retainProgress(compiled,p){const r=signed(compiled);assertProgress(p);c
 function ownProgress(compiled,handle){signed(compiled);const r=privateStates.get(handle);need(r?.compiled===compiled&&r.progress,'PAEG_PAGED_ORIGINAL_PRIVATE_PROGRESS');return r;}
 export function readFundedPagedGraphProgressWitnessV3(compiled,handle){need(arguments.length===2,'PAEG_PAGED_ARITY');const r=ownProgress(compiled,handle);return{progress:structuredClone(r.progress),blinding:[...r.blinding],readyBlinding:[...r.readyBlinding]};}
 export function readOriginalFundedPagedGraphNextProgressV3(compiled,originalJob){need(arguments.length===2,'PAEG_PAGED_ARITY');signed(compiled);const r=jobs.get(originalJob);need(r?.compiled===compiled&&r.nextProgress,'PAEG_PAGED_ORIGINAL_PROOF_JOB');ownProgress(compiled,r.nextProgress);return r.nextProgress;}
+/** Private preparation material for an authenticated retention owner. Neither
+ * exporting nor rebuilding this material proves a transition or native effect. */
+export function retainFundedPagedGraphPreparationV3(builder,compiled,handles){
+ need(arguments.length===3,'PAEG_PAGED_ARITY');const s=builders.get(builder);
+ need(s&&!s.closed&&(!s.sealed||sealed.get(compiled)?.s===s),'PAEG_PAGED_ORIGINAL_BUILDER');
+ list(handles,0,3);const r=compiled===null?null:sealed.get(compiled);
+ const pages=s.pages.map(p=>({pageIndex:p.public.pageIndex,firstNode:p.public.firstNode,salt:p.salt,nodes:p.records.map(n=>({
+  ...Object.fromEntries(['idDigest','chainDomain','evidencePolicy','actionCommitment','localCommitment','dispatchId','receiptKeyCommitment','receiptRho'].map(k=>[k,n.node[k]])),
+  dependsOn:structuredClone(n.dependsOn),payout:{...Object.fromEntries(['x','y','value','secret'].map(k=>[k,n.payout[k]])),randomness:n.payoutRandomness}
+ }))}));
+ const witness=h=>h===null?null:{...readFundedPagedGraphProgressWitnessV3(compiled,h),commitment:h.commitment,readyCommitment:h.readyCommitment};
+ return{profile:'FUNDED_PAGED_PRIVATE_PREPARATION_RETENTION_V3',raw:structuredClone(s.raw),pages,sealed:s.sealed,
+  statement:compiled===null?null:structuredClone(compiled.statement),ownerSignature:r?.signature??null,
+  invoices:[...s.nodes.values()].filter(n=>n.invoiceSignature!==null).map(n=>({ordinal:n.node.ordinal,signature:n.invoiceSignature})),
+  initial:r?.s.initialProgress?witness(r.s.initialProgress):null,progress:handles.map(witness)};
+}
+/** Recompute the same preparation and verify every retained signature and
+ * blinded commitment. The caller must authenticate storage and join the
+ * resulting commitments to its original ledger before allowing execution. */
+export function reopenFundedPagedGraphPreparationV3(raw){
+ need(arguments.length===1,'PAEG_PAGED_ARITY');exact(raw,['profile','raw','pages','sealed','statement','ownerSignature','invoices','initial','progress']);
+ need(raw.profile==='FUNDED_PAGED_PRIVATE_PREPARATION_RETENTION_V3'&&typeof raw.sealed==='boolean','PAEG_PAGED_RETENTION_PROFILE');
+ list(raw.pages,0,4096);list(raw.invoices,0,262144);list(raw.progress,0,3);
+ const builder=createFundedPagedGraphBuilderV3(raw.raw);let compiled=null;
+ try{
+  for(const page of raw.pages)appendFundedPagedGraphPageV3(builder,page);
+  if(raw.sealed){compiled=sealFundedPagedGraphV3(builder);assert.deepEqual(compiled.statement,raw.statement,'PAEG_PAGED_RETENTION_STATEMENT');}
+  else need(raw.statement===null&&raw.ownerSignature===null&&raw.invoices.length===0&&raw.initial===null&&raw.progress.length===0,'PAEG_PAGED_RETENTION_UNSIGNED');
+  if(raw.ownerSignature!==null)attachFundedPagedGraphOwnerSignatureV3(compiled,raw.ownerSignature);
+  for(const invoice of raw.invoices){exact(invoice,['ordinal','signature']);attachFundedPagedGraphInvoiceSignatureV3(compiled,invoice.ordinal,invoice.signature);}
+  const rebuild=value=>{
+   if(value===null)return null;exact(value,['progress','blinding','readyBlinding','commitment','readyCommitment']);signed(compiled);assertProgress(value.progress);
+   const s=compiled.statement,p=value.progress;need(BigInt(p.nextNode)<=BigInt(s.nodes)&&BigInt(p.nextPage)<=BigInt(s.pages)&&BigInt(p.payoutSum)<=BigInt(s.budget),'PAEG_PAGED_RETENTION_CURSOR');
+   const bytes=v=>{list(v,32,32);need(v.every(x=>Number.isInteger(x)&&x>=0&&x<=255)&&v.some(x=>x!==0),'PAEG_PAGED_RETENTION_BLINDING');return Buffer.from(v);};
+   const blinding=bytes(value.blinding),readyBlinding=bytes(value.readyBlinding);let installed=false;
+   try{const commitment=progressCommitment(s,p,blinding),readyCommitment=privateReady(s,commitment,readyBlinding);
+    need(commitment===value.commitment&&readyCommitment===value.readyCommitment,'PAEG_PAGED_RETENTION_COMMITMENT');
+    const handle=freeze({profile:FUNDED_GRAPH_PAGED_V3.id,commitment,readyCommitment});privateStates.set(handle,{compiled,progress:structuredClone(p),blinding,readyBlinding});
+    sealed.get(compiled).s.privateStates??=new Set();sealed.get(compiled).s.privateStates.add(handle);installed=true;return handle;
+   }finally{if(!installed){blinding.fill(0);readyBlinding.fill(0);}}
+  };
+  const initial=rebuild(raw.initial);if(initial)sealed.get(compiled).s.initialProgress=initial;
+  const progress=raw.progress.map(value=>value!==null&&raw.initial!==null&&value.commitment===raw.initial.commitment?(assert.deepEqual(value,raw.initial),initial):rebuild(value));
+  return Object.freeze({builder,compiled,progress});
+ }catch(error){closeFundedPagedGraphPreparationV3(builder);throw error;}
+}
 function job(compiled,mode,inputs,expected,nextProgress=null){const result=Object.freeze({});jobs.set(result,{compiled,mode,inputs,expected,nextProgress});const r=signed(compiled);r.s.proofJobs??=new Set();r.s.proofJobs.add(result);return result;}
 export function readOriginalFundedPagedGraphProofJobV3(compiled,originalJob){need(arguments.length===2,'PAEG_PAGED_ARITY');signed(compiled);const r=jobs.get(originalJob);need(r?.compiled===compiled,'PAEG_PAGED_ORIGINAL_PROOF_JOB');return{mode:r.mode,inputs:structuredClone(r.inputs),expectedPublicInputs:[...r.expected]};}
 export function closeFundedPagedGraphProofJobV3(originalJob){need(arguments.length===1,'PAEG_PAGED_ARITY');const r=jobs.get(originalJob);need(r,'PAEG_PAGED_ORIGINAL_PROOF_JOB');jobs.delete(originalJob);sealed.get(r.compiled)?.s.proofJobs?.delete(originalJob);wipePrivateProofInputsV1(r.inputs);r.inputs=null;r.expected=null;}
@@ -166,9 +222,10 @@ const admissionFields=['ordinal','readyProgress','readyFrom','readyUntil','regis
  * Ready digest is explicitly V3 and must already exist in the SAME state.
  * Host signature checks still do not establish chain finality. */
 export function createFundedPagedGraphAdmissionJobV3(compiled,input){
- need(arguments.length===2,'PAEG_PAGED_ARITY');const r=signed(compiled),s=compiled.statement;exact(input,admissionFields);amount(input.ordinal,true);const n=r.s.nodes.get(input.ordinal);need(n,'PAEG_PAGED_NODE');const privateState=ownProgress(compiled,input.readyProgress),readyProgress=privateState.progress;need(readyProgress.nextNode===input.ordinal&&readyProgress.activeNodeDigest===n.digest&&readyProgress.activeDependencyRoot===n.node.dependencies&&readyProgress.activeDependencyCount===n.node.dependencyCount&&readyProgress.nextEdge===n.node.dependencyCount&&readyProgress.edgeChain===n.node.dependencies,'PAEG_PAGED_INCOMPLETE_DEPENDENCIES');for(const k of ['readyFrom','readyUntil','dispatchSignedAt','revocationSequence','admissionFrom','admissionUntil'])amount(input[k],true);need(BigInt(input.readyFrom)<BigInt(input.readyUntil)&&BigInt(input.readyUntil)<=BigInt(s.settleBefore)&&BigInt(input.readyFrom)>=BigInt(readyProgress.maxReceiptFrom)&&BigInt(input.readyUntil)<=BigInt(readyProgress.minReceiptUntil)&&input.revocationSequence===readyProgress.revocationSequence&&BigInt(input.readyFrom)<=BigInt(input.admissionFrom)&&BigInt(input.admissionUntil)<=BigInt(input.readyUntil),'PAEG_PAGED_READY_WINDOW');
+ need(arguments.length===2,'PAEG_PAGED_ARITY');const r=signed(compiled),s=compiled.statement;exact(input,admissionFields);amount(input.ordinal,true);const n=r.s.nodes.get(input.ordinal);need(n,'PAEG_PAGED_NODE');const privateState=ownProgress(compiled,input.readyProgress),readyProgress=privateState.progress;need(readyProgress.nextNode===input.ordinal&&readyProgress.activeNodeDigest===n.digest&&readyProgress.activeDependencyRoot===n.node.dependencies&&readyProgress.activeDependencyCount===n.node.dependencyCount&&readyProgress.nextEdge===n.node.dependencyCount&&readyProgress.edgeChain===n.node.dependencies,'PAEG_PAGED_INCOMPLETE_DEPENDENCIES');for(const k of ['readyFrom','readyUntil','dispatchSignedAt','revocationSequence','admissionFrom','admissionUntil'])amount(input[k],true);need(BigInt(input.readyFrom)<BigInt(input.readyUntil)&&BigInt(input.readyUntil)<=BigInt(s.settleBefore)&&BigInt(input.readyFrom)>=BigInt(readyProgress.maxReceiptFrom)&&BigInt(input.readyUntil)<=BigInt(readyProgress.minReceiptUntil)&&input.revocationSequence===readyProgress.revocationSequence&&BigInt(input.readyFrom)<=BigInt(input.admissionFrom)&&BigInt(input.admissionUntil)<=BigInt(input.readyUntil),'PAEG_PAGED_READY_WINDOW');need(BigInt(input.readyFrom)<=BigInt(input.dispatchSignedAt)&&BigInt(input.dispatchSignedAt)<BigInt(input.readyUntil),'PAEG_PAGED_DISPATCH_WINDOW');
  const registry=normalizeNativeQuorumRegistry(input.registry);need(registry.hubDomain===s.hubDomain&&nativeQuorumRegistryCommitment(registry)===s.registryCommitment,'PAEG_PAGED_ORIGINAL_REGISTRY');const rule=nativeAdmissionRuleToNoir(input.rule),ruleCM=nativeAdmissionRuleCommitment(input.rule);need(nativeAdmissionRuleRoot(input.rule,input.rulePath)===registry.rulesRoot&&ruleCM===n.node.evidencePolicy&&nativeAdmissionChainDomain(input.rule)===n.node.chainDomain,'PAEG_PAGED_ORIGINAL_RULE');
  const action=nativeActionToNoir(input.action),effect=nativeEffectToNoir(input.effect),opening=nativeReceiptReadOpening(input.opening),observed=nativeAdmissionObservationToNoir(input.observation),gid=canonicalNativeEffectId(input.effect);need(nativeTransferActionCommitment(input.action)===n.node.actionCommitment&&input.action.chainDomain===n.node.chainDomain&&nativeProviderIdentity(input.providerKey)===input.action.signerIdentity,'PAEG_PAGED_ORIGINAL_ACTION');for(const k of [...RECEIPT_HASH_FIELDS,'receiptKeyCommitment','receiptRho'])need(opening[k]===(k==='globalEffectId'?gid:s[k]??n.node[k]),'PAEG_PAGED_RECEIPT_SUBSTITUTION');need(opening.validFrom===input.observation.evidenceFrom&&opening.validUntil===input.observation.evidenceUntil,'PAEG_PAGED_RECEIPT_WINDOW');
+ need(input.action.deliveryRiskCommitment===fundedPagedGraphDeliveryRiskCommitmentV3({...Object.fromEntries(['scope','policy','asset','hubDomain','registryCommitment'].map(k=>[k,s[k]])),...Object.fromEntries(['chainDomain','sourceCommitment','destinationCommitment','amount','settleBefore'].map(k=>[k,input.action[k]])),payoutCommitment:n.node.payoutCommitment,salt:input.deliveryRiskSalt}),'PAEG_PAGED_ORIGINAL_DELIVERY_RISK');
  const ready=input.readyProgress.readyCommitment;const dispatch={hubDomain:s.hubDomain,registryCommitment:s.registryCommitment,readyStatement:ready,localCommitment:n.node.localCommitment,dispatchId:n.node.dispatchId,actionCommitment:n.node.actionCommitment,globalEffectId:gid,deliveryRiskCommitment:input.action.deliveryRiskCommitment,signedAt:input.dispatchSignedAt};signatureBytes(input.dispatchSignature);exact(input.providerKey,['x','y']);const provider=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:hex(input.providerKey.x).toString('base64url'),y:hex(input.providerKey.y).toString('base64url')}});need(verify('sha256',nativeDispatchStatementFrame(dispatch),{key:provider,dsaEncoding:'ieee-p1363'},Buffer.from(input.dispatchSignature,'hex')),'PAEG_PAGED_PROVIDER_SIGNATURE');
  const receiptCM=nativeReceiptCommitment(opening);list(input.attesterIndexes,3,3);list(input.attesterSignatures,3,3);input.attesterSignatures.forEach(signatureBytes);input.attesterIndexes.forEach(v=>{amount(v,true);need(BigInt(v)<4n,'PAEG_PAGED_ATTESTER_INDEX');});const quorum=createNativeQuorumHostVerifier({registry,expectedRegistryCommitment:s.registryCommitment});quorum.assertQuorumForMessage({messageBytes:nativeAttestationStatementFrame({hubDomain:s.hubDomain,registryCommitment:s.registryCommitment,ruleCommitment:ruleCM,readyStatement:ready,dispatchStatement:nativeDispatchStatementDigest(dispatch),receiptCommitment:receiptCM,globalEffectId:gid,observation:input.observation}),indexes:input.attesterIndexes.map(v=>Number(v)),signatures:input.attesterSignatures});
  const expected=[domain(s),s.authorizationRoot,n.digest,ready,n.node.localCommitment,n.node.dispatchId,receiptCM,gid,pagedGraphHashV3('admission-nullifier',[hex(s.hubDomain),hex(gid)])].flatMap(words).concat([input.revocationSequence,input.admissionFrom,input.admissionUntil,opening.validFrom,opening.validUntil],words(input.readyProgress.commitment));

@@ -2,6 +2,8 @@
  * No caller paths, artifacts or pins are accepted. Loading reads and checks
  * retained files; it never starts a compiler, backend, prover, RPC or EVM. */
 import assert from 'node:assert/strict';
+import {hasAdoptedSourceGeneration,assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
+import {inspectRetainedNodeArtifactsForPreparationV1} from '@lianum/proofs/tooling/retained-node-artifacts-v1';
 import { join } from 'node:path';
 import { ROOT, FLAT, GOLDEN, relation } from '@lianum/proofs/catalog';
 import { regular, hash, resourceModuleURL, circuitIdentity, versionDirectory,
@@ -241,7 +243,19 @@ async function flatLineage(role, row, build, toolchain, crs) {
   const sourceVersion = hash(JSON.stringify(identity));
   assert.equal(sourceVersion, row.lineage.sourceVersion, 'FLAT_ARTIFACT_CURRENT_SOURCE_VERSION');
   const context = { spec, toolchain, identity, sourceVersion, directory: versionDirectory(spec, sourceVersion) };
-  const compiled = await loadCompiled(context), prepared = await loadPrepared(context, compiled, crs);
+  let compiled, prepared;
+  if (spec.name === 'node' && hasAdoptedSourceGeneration()) {
+    // The N32 compiler/key receipt authenticates its original archived host
+    // evidence. Current deployment code is authenticated by the adoption.
+    // Keep the complete program, key, statistics and Solidity checks below.
+    assertAdoptedSourceGeneration();
+    ({compiled, prepared} = await inspectRetainedNodeArtifactsForPreparationV1());
+    assert.deepEqual(prepared.provenance.toolchain, toolchain, 'FLAT_ARTIFACT_TOOLCHAIN');
+    assert.deepEqual(prepared.provenance.crs, crs, 'FLAT_ARTIFACT_CRS');
+  } else {
+    compiled = await loadCompiled(context);
+    prepared = await loadPrepared(context, compiled, crs);
+  }
   if (Object.hasOwn(row.lineage, 'abiSHA256')) {
     // Generation IDs/timings may differ on another machine. Current generation
     // receipts are still fully validated by loadCompiled/loadPrepared; reviewed
