@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { types } from 'node:util';
-import { assertFlatAccountSession, flatAccountErrorCode } from './flat-account-session.mjs';
+import { assertFlatAccountSession, flatAccountErrorCode } from './flat-account-session-owner-v1.mjs';
 
 export const FLAT_ACCOUNT_BODY_LIMIT = 4096;
 const prefix = '/api/flat-account';

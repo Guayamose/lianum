@@ -1,3 +1,4 @@
+import {createNativeSourceRecordValidatorV1, ORIGINAL_NATIVE_SOURCE_PROFILE_V1} from './source-journal/record-validator-v1.mjs';
 import { createNativeSourceStateCipherV1 } from "./source-journal/native-state-cipher-v1.mjs";
 import {
   genericAccountIdentity,
@@ -31,8 +32,7 @@ import { join, resolve } from "node:path";
 import { canonical } from "@lianum/engine/crypto/privacy";
 import { exactRecord } from "@lianum/components/encoding/commitments";
 
-export const ORIGINAL_NATIVE_SOURCE_PROFILE_V1 =
-  "NATIVE_VALUE_DURABLE_SOURCE_RECOVERY_V1";
+export { ORIGINAL_NATIVE_SOURCE_PROFILE_V1 };
 /** Fixed binding names only; this data exposes no canonical instance or issuer. */
 export const SOURCE_LIFECYCLE_LOADERS_V1 = Object.freeze([
   "nativeOriginalSourcePartsV1",
@@ -108,31 +108,8 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
   const BASE = join(ROOT, ".local/original-native-source-durable-operator-v1");
   const LOCATOR = join(BASE, "source.json"),
     MAX_RECORD = 64 * 1024 * 1024;
-  const SECTIONS = Object.freeze([
-    "receiver",
-    "graphNative",
-    "bootstrap",
-    "system",
-    "provider",
-    "owner",
-    "executor",
-    "account",
-    "session",
-    "actor",
-  ]);
-  const FAMILIES = Object.freeze(["receiver", "graphNative"]);
-  const SECTION_SCHEMAS = Object.freeze({
-    receiver: "ORIGINAL_NATIVE_SOURCE_RUNTIME_V1",
-    graphNative: "ORIGINAL_NATIVE_SOURCE_RUNTIME_V1",
-    bootstrap: "ORIGINAL_NATIVE_BOOTSTRAP_DURABLE_SOURCE_V1",
-    system: "ORIGINAL_NATIVE_SYSTEM_DURABLE_SOURCE_V1",
-    provider: "ORIGINAL_NATIVE_PROVIDER_DURABLE_SOURCE_V1",
-    owner: "ORIGINAL_NATIVE_OWNER_DURABLE_SOURCE_V1",
-    executor: "ORIGINAL_NATIVE_EXECUTOR_DURABLE_SOURCE_V1",
-    account: "ORIGINAL_NATIVE_SOURCE_ACCOUNT_SECTION_V1",
-    session: "ORIGINAL_NATIVE_SOURCE_SESSION_SECTION_V1",
-    actor: "ORIGINAL_NATIVE_ACTOR_DURABLE_SOURCE_V1",
-  });
+  const {SECTIONS, FAMILIES, SECTION_SCHEMAS, validateIdentity, validateSection, validate, validateNativePin} =
+    createNativeSourceRecordValidatorV1(BASE);
   const authorities = new WeakMap(),
     writes = new WeakMap(),
     reads = new WeakMap(),
@@ -158,154 +135,6 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
   const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
   const hex = (value) =>
     typeof value === "string" && /^[0-9a-f]{64}$/.exec(value)?.[0] === value;
-  function validateIdentity(value) {
-    exactRecord(value, [
-      "profile",
-      "directory",
-      "runId",
-      "sourceSHA256",
-      "deadlineMs",
-    ]);
-    assert.equal(value.profile, ORIGINAL_NATIVE_SOURCE_PROFILE_V1);
-    assert.ok(
-      typeof value.runId === "string" &&
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.exec(
-          value.runId,
-        )?.[0] === value.runId,
-    );
-    assert.equal(value.directory, join(BASE, "realms", "realm-" + value.runId));
-    assert.ok(
-      hex(value.sourceSHA256) &&
-        Number.isSafeInteger(value.deadlineMs) &&
-        value.deadlineMs > 0,
-    );
-  }
-  function validateSection(value, identity, section) {
-    exactRecord(value, [
-      "schema",
-      "sourceSHA256",
-      "ownedProcesses",
-      "confirmed",
-      "candidate",
-    ]);
-    assert.equal(
-      value.schema,
-      SECTION_SCHEMAS[section],
-      "NATIVE_SOURCE_SECTION_SCHEMA",
-    );
-    assert.equal(
-      value.sourceSHA256,
-      identity.sourceSHA256,
-      "NATIVE_SOURCE_SECTION_CLOSURE",
-    );
-    assert.ok(
-      Array.isArray(value.ownedProcesses) && value.ownedProcesses.length <= 16,
-    );
-    value.ownedProcesses.forEach(validateProcess);
-    assert.ok(
-      value.confirmed &&
-        typeof value.confirmed === "object" &&
-        !Array.isArray(value.confirmed),
-    );
-    assert.ok(
-      value.candidate === null ||
-        (value.candidate &&
-          typeof value.candidate === "object" &&
-          !Array.isArray(value.candidate)),
-    );
-  }
-  function validate(record, identity) {
-    exactRecord(record, ["revision", "data"]);
-    assert.ok(Number.isSafeInteger(record.revision) && record.revision >= 0);
-    const d = record.data;
-    exactRecord(d, [
-      "schema",
-      "identity",
-      "phase",
-      "generation",
-      "creator",
-      "sections",
-      "native",
-      "clockSecond",
-    ]);
-    assert.ok(
-      typeof d.clockSecond === "string" &&
-        /^(?:0|[1-9][0-9]{0,19})$/.exec(d.clockSecond)?.[0] === d.clockSecond,
-      "NATIVE_SOURCE_ORIGINAL_CLOCK_CHECKPOINT",
-    );
-    assert.equal(d.schema, SCHEMA);
-    assert.deepEqual(d.identity, identity);
-    validateIdentity(identity);
-    assert.ok(["SEEDING", "CONFIRMED", "OPENING", "UNKNOWN"].includes(d.phase));
-    assert.ok(
-      Number.isSafeInteger(d.generation) &&
-        d.generation >= 0 &&
-        d.generation < 16,
-    );
-    validateProcess(d.creator);
-    exactRecord(d.sections, SECTIONS);
-    exactRecord(d.native, FAMILIES);
-    for (const name of SECTIONS)
-      if (d.sections[name] !== null)
-        validateSection(d.sections[name], identity, name);
-    for (const name of FAMILIES) {
-      const row = d.native[name];
-      if (row === null) continue;
-      exactRecord(row, [
-        "pending",
-        "confirmed",
-        ...(Object.hasOwn(row, "candidate") ? ["candidate"] : []),
-      ]);
-      assert.ok(
-        row.pending === null ||
-          (Number.isSafeInteger(row.pending) && row.pending > 0),
-      );
-      if (row.confirmed !== null) validateNativePin(row.confirmed, name);
-      if (row.candidate !== undefined && row.candidate !== null) {
-        exactRecord(row.candidate, ["revision", "confirmed"]);
-        assert.equal(
-          row.candidate.revision,
-          row.pending,
-          "NATIVE_SOURCE_ORIGINAL_NATIVE_CANDIDATE",
-        );
-        validateNativePin(row.candidate.confirmed, name);
-        assert.notEqual(
-          row.candidate.confirmed.path,
-          row.confirmed?.path,
-          "NATIVE_SOURCE_ORIGINAL_NATIVE_CANDIDATE",
-        );
-      }
-    }
-  }
-  function validateNativePin(pin, family) {
-    exactRecord(pin, [
-      "path",
-      "bytes",
-      "sha256",
-      "stateSHA256",
-      "generation",
-      "genesis",
-      "head",
-    ]);
-    assert.ok(
-      [
-        family + "-confirmed.aead",
-        family + "-confirmed-0.aead",
-        family + "-confirmed-1.aead",
-      ].includes(pin.path),
-      "NATIVE_SOURCE_ORIGINAL_NATIVE_PATH",
-    );
-    assert.ok(
-      Number.isSafeInteger(pin.bytes) &&
-        pin.bytes > 0 &&
-        pin.bytes <= MAX_RECORD &&
-        hex(pin.sha256) &&
-        hex(pin.stateSHA256) &&
-        Number.isSafeInteger(pin.generation) &&
-        pin.generation >= 0 &&
-        pin.generation < 16,
-    );
-  }
   async function readNativeState(s, family, pin) {
     validateNativePin(pin, family);
     const bytes = await readPrivate(
@@ -1502,6 +1331,8 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
           return Object.freeze({
             openOriginalPagedNativeDispatchV3:
               module0.openOriginalPagedNativeDispatchV3,
+            openOriginalPagedUniswapProviderDispatchV3:
+              module0.openOriginalPagedUniswapProviderDispatchV3,
           });
         },
         async native() {
@@ -1564,6 +1395,11 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
     reemitOwnedOriginalNativeRecoveryV1,
     armOwnedEvmRecoveryRetentionV1,
     captureOwnedEvmRecoveryV1,
+    captureOwnedPagedEvmRecoveryV3,
+    reopenOwnedPagedHubEvmV3,
+    reopenOwnedPagedNativeEvmV3,
+    createOwnedPagedHubDurableEvmV3,
+    createOwnedPagedNativeDurableEvmV3,
     reopenOwnedReceiverRecoveryV1,
     reopenOwnedNativeD26ObservationReceiverV1,
     reopenOwnedNativeEconomicReceiverV1,
@@ -1609,6 +1445,7 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
     checkpointOwnedDeviceExternalFlatSourceReceiverV2,
     reopenOwnedDeviceExternalFlatSourceReceiverV2,
     assertOwnedDeviceExternalFlatReceiverV1,
+    assertOwnedDeviceExternalFlatReceiverLiveV1,
     captureOwnedDeviceExternalFlatReceiverV1,
     abortOwnedDeviceExternalFlatReceiverCaptureV1,
     isOwnedNativeEconomicRuntimeV2,
@@ -2148,6 +1985,11 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
     reemitOwnedOriginalNativeRecoveryV1,
     armOwnedEvmRecoveryRetentionV1,
     captureOwnedEvmRecoveryV1,
+    captureOwnedPagedEvmRecoveryV3,
+    reopenOwnedPagedHubEvmV3,
+    reopenOwnedPagedNativeEvmV3,
+    createOwnedPagedHubDurableEvmV3,
+    createOwnedPagedNativeDurableEvmV3,
     reopenOwnedReceiverRecoveryV1,
     reopenOwnedNativeD26ObservationReceiverV1,
     reopenOwnedNativeEconomicReceiverV1,
@@ -2193,6 +2035,7 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
     checkpointOwnedDeviceExternalFlatSourceReceiverV2,
     reopenOwnedDeviceExternalFlatSourceReceiverV2,
     assertOwnedDeviceExternalFlatReceiverV1,
+    assertOwnedDeviceExternalFlatReceiverLiveV1,
     captureOwnedDeviceExternalFlatReceiverV1,
     abortOwnedDeviceExternalFlatReceiverCaptureV1,
     isOwnedNativeEconomicRuntimeV2,

@@ -23,7 +23,7 @@ import {ORIGINAL_ECONOMIC_STATE_V1, ORIGINAL_ECONOMIC_STATE_MAX_AGE_MS, validate
 import {readOriginalNativeClaimPortfolioViewV1} from '../../claims/operations/portfolio-view.mjs';
 import {originalNativeClaimAssetUnitsV1} from '../../claims/operations/native-claim-asset-units-v1.mjs';
 import {claimDomainCommitment} from '@lianum/engine/claims/framing';
-import {assertOriginalNativeClaimEconomicSessionV1,readOriginalNativeClaimEconomicSnapshotV1} from '../../api/accounts/flat-account-session.mjs';
+import {assertOriginalNativeClaimEconomicSessionV1,readOriginalNativeClaimEconomicSnapshotV1} from '../../claims/operations/portfolio-view.mjs';
 import {assertOriginalDeviceRootClaimIntakeV2,readOriginalDeviceRootClaimIntakeContextV2,readOriginalDeviceRootClaimEconomicSnapshotV2} from '../../claims/controller/controller.mjs';
 const owned = new WeakMap();
 const need = (ok, code) => assert.ok(ok, 'ORIGINAL_ECONOMIC_STATE_' + code);

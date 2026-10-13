@@ -8,7 +8,7 @@ import { assertOwnedNativeValueAccountAuthority } from '../../accounts/authority
 import { assertOwnedNativeValueWalletSystem } from '../../operations/deployments/native-value/native-value-system-v2.mjs';
 import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
-import { validateFlatAccountPrepare } from '../../api/accounts/flat-account-session.mjs';
+import { validateFlatAccountPrepare } from '@lianum/engine/accounts/account-prepare-contract';
 
 import { genericAccountIdentity, sha } from '@lianum/engine/accounts/journal';
 import { validateNativeValueManualReview, validateNativeValueManualRecords } from '@lianum/custody/preparation/native-value-owner-manual-binding-v1';

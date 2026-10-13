@@ -13,7 +13,7 @@ import { ALL_ACTIONS, accountActionContext } from '@lianum/mobile-protocol/walle
 import { createExactActionCapabilities, exactActionCapabilityBody, EXACT_ACTION_DEFAULT_TTL_MS } from './http/exact-action-capabilities.mjs';
 import { flatManualGraphReviews, flatManualGraphActionTarget, flatManualGraphHandoffBindings, flatManualWrappedGraphActionTarget } from '@lianum/backend/accounts/manual-graph';
 import { flatManualNativeNoteReviews, flatManualNativeNoteActionTarget } from '@lianum/backend/operations/recovery/native-original-source-lifecycle-v1';
-import { assertFlatAccountSession, validateFlatAccountPrepare } from '@lianum/backend/accounts/session';
+import { assertFlatAccountSession, validateFlatAccountPrepare } from '../accounts/flat-account-session-owner-v1.mjs';
 import { assertWalletClaimSession as assertNativeClaimSession, walletClaimSessionIdentity as nativeClaimSessionIdentity } from '@lianum/backend/claims/session';
 import { createHttpPortfolioRegistry } from '@lianum/backend/portfolio/http';
 import { normalizePortfolioRequest } from '@lianum/backend/portfolio/requests';

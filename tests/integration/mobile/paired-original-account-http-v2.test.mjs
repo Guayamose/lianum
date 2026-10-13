@@ -1,3 +1,4 @@
+import {createNativeSourceTlsTransportV1} from '../wallet/native/native-source-tls-transport-v1.mjs';
 /** Actual owned loopback HTTP / direct TLS + Noble signatures + genuine original
  * account/approval/session/journal over the explicit synthetic native fixture.
  * HTTP cases translate URLs; TLS cases use their exact HTTPS origin and ephemeral
@@ -21,8 +22,8 @@ import { privateStateAccessMessageV1, privateStateReviewMessageV1 }
 // Framework sources stay in their actual app directory. This host test is run
 // through ./dev after build and public apps/mobile dependencies are installed.
 const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
-assert.ok(filename.includes(marker), 'HOST_TEST_REQUIRES_GENERATED_WORKSPACE');
-const root = filename.slice(0, filename.lastIndexOf(marker));
+const root = filename.includes(marker) ? filename.slice(0, filename.lastIndexOf(marker))
+  : fileURLToPath(new URL('../../../', import.meta.url));
 const fromApp = path => import(pathToFileURL(join(root, 'apps/mobile/src', path)).href);
 const { createOriginalAccountApiV2 } = await fromApp('api/original-account-api-v2.mjs');
 const { createOriginalAccountLeaseV2 } = await fromApp('custody/original-account-lease-v2.mjs');
@@ -114,23 +115,17 @@ async function post(server, path, body, selectedOrigin = origin) {
     method: 'POST', headers: { 'content-type': 'application/json', origin: selectedOrigin }, body: JSON.stringify(body) });
   return { status: response.status, body: await response.json() };
 }
-// Exercise SOURCE's actual bounded transport closure without importing its
+// Exercise SOURCE's actual bounded transport module without importing its
 // financial run()/birth. The original actor/server/SDK above remain unmocked.
 test('SOURCE first original SDK access uses explicit UTF-8 framing over exact TLS', async t => {
   const c = await tlsSetup(t, { execute: false });
-  const source = await readFile(join(root,
-    'tests/integration/wallet/native/native-original-source-abrupt-flow-v1.mjs'), 'utf8');
-  const start = source.indexOf(' const fetch=async(target,options)=>');
-  const end = source.indexOf('\n const fromApp=', start);
-  assert.ok(start >= 0 && end > start, 'HOST_SOURCE_FETCH_CLOSURE_REQUIRED');
   const transport = { posts: {}, tlsVersion: null }, frames = [];
   const request = (target, options, receive) => {
     frames.push(options.headers);
     return httpsRequest(target, options, receive);
   };
-  const direct = new Function('assert', 'httpsRequest', 'active', 'origin', 'certificate', 'transport',
-    source.slice(start, end) + '\nreturn fetch;')(assert, request, () => {},
-    c.descriptor.origin, c.material.certificate, transport);
+  const direct = createNativeSourceTlsTransportV1({request, active: () => {}, origin: c.descriptor.origin,
+    certificate: c.material.certificate, transport});
   const api = createOriginalAccountApiV2({ descriptor: c.descriptor, fetchImpl: direct });
   const access = await api.challenge('read');
   assert.equal(access.pairingId, c.descriptor.pairingId); assert.equal(access.action, 'read');

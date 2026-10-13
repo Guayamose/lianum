@@ -8,7 +8,8 @@ import { ALL_ACTIONS, ACCOUNT_ACTIONS, DEFI_ACTIONS, NATIVE_IDENTITY_PROFILE, cr
 import { EXACT_BROWSER_ACTIONS, exactBrowserReview } from '../../../../packages/mobile-protocol/src/wallet/contracts/exact-action-browser-review.mjs';
 import { bindManualActionConsent } from '../../src/client/features/accounts/manual-action-dom.mjs';
 import { inertDocument } from '../helpers/inert-dom.mjs';
-import { validateFlatAccountPrepare } from '../../../../packages/backend/src/api/accounts/flat-account-session.mjs';
+import * as originalSessionOwner from '../../../../packages/backend/src/api/accounts/flat-account-session-owner-v1.mjs';
+const {validateFlatAccountPrepare} = originalSessionOwner;
 import { createWalletApplicationClient } from '../../../../packages/backend/src/api/wallet/wallet-application-client.mjs';
 
 const nativeSet = new WeakSet(), accountSet = new WeakSet(), defiMap = new WeakMap();
@@ -23,7 +24,8 @@ mock.module('../../../../packages/backend/src/api/claims/native-claim-session.mj
   assertNativeClaimSession(value) { if (!nativeSet.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED'); },
   nativeClaimSessionIdentity(value) { if (!nativeSet.has(value)) throw error('NATIVE_CLAIM_ORIGINAL_SESSION_REQUIRED'); return identity; },
 } });
-mock.module('../../../../packages/backend/src/api/accounts/flat-account-session.mjs', { exports: {
+mock.module('../../../../packages/backend/src/api/accounts/flat-account-session-owner-v1.mjs', { exports: {
+  ...originalSessionOwner,
   validateFlatAccountPrepare,
   assertFlatAccountSession(value) { if (!accountSet.has(value)) throw error('FLAT_ACCOUNT_ORIGINAL_SESSION_REQUIRED'); },
 } });

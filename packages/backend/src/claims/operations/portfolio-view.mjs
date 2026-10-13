@@ -1,6 +1,8 @@
 /** Owner-facing private claim balances with an explicit native-custody layer.
  * A wrapper note is never relabeled as a spendable native self-custody balance. */
 import assert from 'node:assert/strict';
+import { types } from 'node:util';
+import {assertFlatAccountSessionOwnerViewV1,assertFlatAccountOwnerSessionBindingV1,readFlatAccountOwnerSessionSnapshotV1} from '../../api/accounts/flat-account-session-owner-v1.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
 import { privateFailureDiagnostic } from '../../execution/account/reconciliation/failure-diagnostics.mjs';
 import { assertOwnedFlatPortfolio } from '../../accounts/authority/flat-portfolio-authority.mjs';
@@ -91,4 +93,25 @@ export function createNativeClaimPortfolioView(input) {
     check(); return { ...view, nativeClaims: positions };
   };
   originalViews.set(ownerView, {runtime, claims, portfolio, check}); return ownerView;
+}
+
+function claimSessionNeed(condition, code) { if (!condition) throw Object.assign(new Error(code), {code}); }
+function claimSessionRecord(value, fields, code) {
+  claimSessionNeed(value && !types.isProxy(value) && Object.getPrototypeOf(value) === Object.prototype, code);
+  const keys = Reflect.ownKeys(value);
+  claimSessionNeed(keys.length === fields.length && fields.every(key => Object.hasOwn(Object.getOwnPropertyDescriptor(value, key) ?? {}, 'value')), code);
+}
+export function assertOriginalNativeClaimEconomicSessionV1(session, expected) {
+  claimSessionNeed(arguments.length === 2, 'FLAT_ACCOUNT_ORIGINAL_CLAIM_SESSION_REQUIRED');
+  claimSessionRecord(expected, ['runtime', 'view'], 'FLAT_ACCOUNT_ORIGINAL_CLAIM_SESSION_REQUIRED');
+  assertFlatAccountSessionOwnerViewV1(session, expected.view);
+  const view = readOriginalNativeClaimPortfolioViewV1(expected.view, expected.runtime);
+  assertFlatAccountOwnerSessionBindingV1(session, {ownerView: expected.view, config: view.portfolio.config, authority: view.portfolio.authority});
+}
+export async function readOriginalNativeClaimEconomicSnapshotV1(session, expected) {
+  claimSessionNeed(arguments.length === 2, 'FLAT_ACCOUNT_ORIGINAL_CLAIM_SESSION_REQUIRED');
+  assertOriginalNativeClaimEconomicSessionV1(session, expected);
+  const view = readOriginalNativeClaimPortfolioViewV1(expected.view, expected.runtime);
+  const result = await readFlatAccountOwnerSessionSnapshotV1(session, {ownerView: expected.view, config: view.portfolio.config, authority: view.portfolio.authority});
+  assertOriginalNativeClaimEconomicSessionV1(session, expected); return result;
 }

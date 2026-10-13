@@ -43,19 +43,17 @@ test('HOST real native and wrapped session factories retain pending state and re
   assertOwnedNativeValueAccountAuthority(value,expected){const row=natives.get(value);assert.ok(row&&row.runtime===expected.runtime&&row.system===expected.system);},
   assertOriginalNativeAccountSourceV1:no,nativeValueAccountManualGraphDetails:no,assertNativeValueAccountManualGraphExecution:no,
   nativeValueAccountManualNoteDetails:noteDetails,
+  wrappedWalletAccountManualGraphDetailsV1:noteDetails,assertWrappedWalletAccountManualGraphExecutionV1:noteDetails,
  });
  install('accounts/portfolio/wrapped-wallet-portfolio-v1.mjs',{
   assertOwnedWrappedWalletPortfolioV1(runtime,value){assert.equal(wrapped.get(value)?.runtime,runtime);},
   assertOwnedWrappedWalletPortfolioAccountV1(portfolio,value){assert.equal(value,portfolio);assert.ok(wrapped.has(portfolio));},
   claimWrappedWalletPortfolioJournalV1(runtime,value){const row=wrapped.get(value);assert.equal(row?.runtime,runtime);assert.equal(row.claimed,false);row.claimed=true;},
  });
- install('accounts/authority/wrapped-wallet-account-authority-v1.mjs',{
-  wrappedWalletAccountManualGraphDetailsV1:noteDetails,assertWrappedWalletAccountManualGraphExecutionV1:noteDetails,
- });
  unused('accounts/authority/flat-portfolio-authority.mjs',['assertOwnedFlatPortfolio','assertOwnedFlatPortfolioAccount']);
  unused('accounts/authority/flat-account-authority.mjs',['flatAccountManualGraphDetails','assertFlatAccountManualGraphExecution']);
  unused('accounts/storage/flat-journal-catalogue.mjs',['assertOwnedFlatJournalCatalogue','assertOwnedFlatJournalCatalogueAccount']);
- unused('claims/operations/portfolio-view.mjs',['readOriginalNativeClaimPortfolioViewV1']);
+ unused('claims/operations/portfolio-view.mjs',['readOriginalNativeClaimPortfolioViewV1','assertOriginalNativeClaimEconomicSessionV1','readOriginalNativeClaimEconomicSnapshotV1']);
  unused('claims/operations/native-claim-asset-units-v1.mjs',['originalNativeClaimAssetUnitsV1']);
  unused('claims/controller/controller.mjs',['assertOriginalDeviceRootClaimIntakeV2','readOriginalDeviceRootClaimIntakeContextV2','readOriginalDeviceRootClaimEconomicSnapshotV2']);
  unused('defi/withdrawals/generation-private-vault-exit.mjs',['generationPrivateVaultExitBinding','assertGenerationPrivateVaultExitSession','generationPrivateVaultExitActionTarget']);
@@ -90,11 +88,11 @@ test('HOST real native and wrapped session factories retain pending state and re
  // exact instance through the mocked composition never fabricates membership.
  const {buildNativeManualSessionV1}=await import('../../../src/api/accounts/native-manual-session-backend-v1.mjs');
  const recovery=lowerModules.get('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs');
- const native=buildNativeManualSessionV1({format:{genericAccountIdentity,sha},account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
+ const native=buildNativeManualSessionV1({format:{genericAccountIdentity,sha},account:Object.fromEntries(['assertOwnedNativeValueAccountAuthority','assertOriginalNativeAccountSourceV1','nativeValueAccountManualGraphDetails','assertNativeValueAccountManualGraphExecution','nativeValueAccountManualNoteDetails'].map(name=>[name,lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs')[name]])),
   economic:{assertNativeEconomicRecoveryCaptureV1:recovery.assertNativeEconomicRecoveryCaptureV1,nativeEconomicRecoverySectionIdentityV1:recovery.nativeEconomicRecoverySectionIdentityV1,
    consumeNativeEconomicRecoverySectionV1:recovery.consumeNativeEconomicRecoverySectionV1,...lowerModules.get('operations/deployments/native-value/native-value-system-v2.mjs')},
   source:sourcePorts,resources:{loadDurableKeeper:()=>import('../../../src/accounts/storage/durable-generic-account-keeper.mjs'),
-   loadAccountSession:()=>import('../../../src/api/accounts/flat-account-session.mjs'),loadEconomicState:()=>import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs')}});
+   loadAccountSession:()=>import('../../../src/api/accounts/flat-account-session-owner-v1.mjs'),loadEconomicState:()=>import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs')}});
  install('operations/recovery/native-original-source-lifecycle-v1.mjs',{...sourcePorts,...native});
  const APIs={...native,...await import('../../../src/api/accounts/flat-manual-graph-session.mjs')};
  const {reopenOriginalWalletEconomicStateAfterCrashV1,originalWalletEconomicStateBindingsV1}=await import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs');

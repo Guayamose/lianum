@@ -205,7 +205,7 @@ export async function createFlatManualGraphAccountSession(input) {
     assertOwnedFlatManualPortfolioKeeper,
   } = await import("../../accounts/portfolio/flat-manual-portfolio-keeper.mjs");
   const { createFlatAccountSession } = await import(
-    "./flat-account-session.mjs"
+    "./flat-account-session-owner-v1.mjs"
   );
   const keeper = await createFlatManualPortfolioKeeper({
     runtime,
@@ -265,7 +265,7 @@ export async function createFlatManualGraphCatalogueSession(input) {
   );
   catalogueSessions.add(catalogue);
   const { createFlatAccountSession } = await import(
-    "./flat-account-session.mjs"
+    "./flat-account-session-owner-v1.mjs"
   );
   const session = await createFlatAccountSession({
     keeper: catalogue.keeper,
@@ -360,7 +360,7 @@ async function wrappedGraphSession(input, recovery) {
     reopenDurableGenericAccountKeeperV1,
   } = await import("../../accounts/storage/durable-generic-account-keeper.mjs");
   const { createFlatAccountSession } = await import(
-    "./flat-account-session.mjs"
+    "./flat-account-session-owner-v1.mjs"
   );
   const lifetimeRegistry = await import(
       "../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs"

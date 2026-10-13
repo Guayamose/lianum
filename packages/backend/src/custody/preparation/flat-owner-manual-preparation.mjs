@@ -8,7 +8,7 @@ import { assertOwnedFlatAccountAuthority } from '../../accounts/authority/flat-a
 import { assertOwnedFlatSystem } from '../../operations/deployments/system/deploy-system.mjs';
 import { assertLocalEvm } from '../../chains/evm/runtime/local-evm-ownership.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
-import { validateFlatAccountPrepare } from '../../api/accounts/flat-account-session.mjs';
+import { validateFlatAccountPrepare } from '@lianum/engine/accounts/account-prepare-contract';
 
 import { genericAccountIdentity, sha } from '@lianum/engine/accounts/journal';
 import { validateFlatManualReview, validateFlatManualRecords } from '@lianum/custody/preparation/flat-owner-manual-binding';

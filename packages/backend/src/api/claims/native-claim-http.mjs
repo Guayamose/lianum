@@ -309,7 +309,7 @@ async function createFixedClaimMobileLocalOperator(config,index) {
   const {decodeDepositIntentInputs}=await import('@lianum/engine/execution/inputs/deposit-intent');
   const {createFlatAccountAuthority}=await import('../../accounts/authority/flat-account-authority.mjs');
   const {createGenericAccountKeeper}=await import('@lianum/engine/accounts/keeper');
-  const {createFlatAccountSession}=await import('../accounts/flat-account-session.mjs');
+  const {createFlatAccountSession}=await import('../accounts/flat-account-session-owner-v1.mjs');
   const secret=()=>randomBytes(32).toString('hex'),bare=value=>value.slice(2);
   const base=join(ROOT,'.local/native-claim-mobile-v1');await mkdir(base,{recursive:true,mode:0o700});
   const {lstat,realpath}=await import('node:fs/promises');const stat=await lstat(base);

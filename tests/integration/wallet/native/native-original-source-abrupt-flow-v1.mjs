@@ -8,7 +8,7 @@ import {mkdirSync,chmodSync,readFileSync,writeFileSync,existsSync,realpathSync,r
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createServer} from 'node:net';
-import {request as httpsRequest} from 'node:https';
+import {createNativeSourceTlsTransportV1} from './native-source-tls-transport-v1.mjs';
 import {ROOT,FLAT,GOLDEN,LOCAL} from '@lianum/proofs/catalog';
 import {NATIVE_FLOW_LIMITS} from '../../native/native-flow-supervisor.mjs';
 import {readNativeFlowRegularV1,nativeProcStatV1} from '../../native/native-flow-owned-files-v1.mjs';
@@ -62,12 +62,7 @@ async function run(){
  const portServer=createServer();await new Promise((resolveDone,rejectDone)=>{portServer.once('error',rejectDone);portServer.listen(0,'127.0.0.1',resolveDone);});const port=portServer.address().port;await new Promise((resolveDone,rejectDone)=>portServer.close(error=>error?rejectDone(error):resolveDone()));
  execFileSync('/usr/bin/openssl',['req','-x509','-newkey','ec','-pkeyopt','ec_paramgen_curve:prime256v1','-sha256','-days','2','-nodes','-subj','/CN=localhost','-addext','subjectAltName=DNS:localhost','-addext','basicConstraints=critical,CA:FALSE','-keyout',keyPath,'-out',certificatePath],{cwd:ROOT,env:{PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stdio:'ignore',timeout:5000});chmodSync(certificatePath,0o600);chmodSync(keyPath,0o600);
  const origin='https://localhost:'+port,certificate=readFileSync(certificatePath,'utf8');const transport={posts:{},tlsVersion:null};
- const fetch=async(target,options)=>{active();const url=new URL(target);assert.equal(url.origin,origin);assert.ok(url.pathname.startsWith('/v1/mobile/')||url.pathname.startsWith('/v2/mobile/'));assert.equal(url.search,'');assert.equal(url.hash,'');
-  const headers={...options.headers};if(options.body!==undefined)headers['Content-Length']=Buffer.byteLength(options.body,'utf8');
-  return new Promise((resolveDone,rejectDone)=>{const request=httpsRequest(url,{method:options.method,headers,ca:certificate,family:4,agent:false,minVersion:'TLSv1.3',maxVersion:'TLSv1.3'},response=>{
-   transport.tlsVersion=response.socket.getProtocol();const chunks=[];let size=0;response.on('data',chunk=>{size+=chunk.length;if(size>1048576){response.destroy(Error('NATIVE_SOURCE_TLS_RESPONSE_BOUND'));return;}chunks.push(chunk);});response.once('error',rejectDone);response.once('end',()=>{const r=new Response(Buffer.concat(chunks),{status:response.statusCode,headers:response.headers});Object.defineProperty(r,'url',{value:url.href});resolveDone(r);});});
-   const abort=()=>request.destroy(Error('NATIVE_SOURCE_TLS_ABORTED'));options.signal?.addEventListener('abort',abort,{once:true});request.once('close',()=>options.signal?.removeEventListener('abort',abort));request.once('error',rejectDone);
-   if(options.method==='POST')transport.posts[url.pathname]=(transport.posts[url.pathname]??0)+1;request.end(options.body);});};
+ const fetch=createNativeSourceTlsTransportV1({active,origin,certificate,transport});
  const fromApp=path=>import(pathToFileURL(join(resolve(FLAT,'../../../apps/mobile'),'src',path)).href);
  try{save();await stage('SOURCE-product-born-before-original-device-funding');
   const signing=await fromApp('custody/signing.mjs');for(let attempt=0;attempt<16&&!deviceKey;attempt++){const bytes=randomBytes(32);try{deviceKey=signing.privateKeyFromHex(bytes.toString('hex'));}catch{}finally{bytes.fill(0);}}assert.ok(deviceKey);

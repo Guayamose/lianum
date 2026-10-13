@@ -48,6 +48,7 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
     assertOwnedNativeValueAccountAuthority(value,binding){assert.equal(value,account);assert.equal(binding.runtime,runtime);assert.equal(binding.system,system);assert.equal(binding.poolIndex,0);if(binding.owner!==undefined)assert.equal(binding.owner,owner);},
     assertOriginalNativeAccountSourceV1(value,binding){assert.equal(value,account);assert.deepEqual(binding,identity);},
     nativeValueAccountManualGraphDetails:forbidden,assertNativeValueAccountManualGraphExecution:forbidden,
+    wrappedWalletAccountManualGraphDetailsV1:forbidden,assertWrappedWalletAccountManualGraphExecutionV1:forbidden,
     nativeValueAccountManualNoteDetails(value){assert.equal(value,approval);return{account,body:sourceRequest,review:{fixture:'lower-original-note-consent'}};},
   });
   const sourcePorts={
@@ -67,7 +68,6 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
   unused('accounts/authority/flat-portfolio-authority.mjs',['assertOwnedFlatPortfolio','assertOwnedFlatPortfolioAccount']);
   unused('accounts/authority/flat-account-authority.mjs',['flatAccountManualGraphDetails','assertFlatAccountManualGraphExecution']);
   unused('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',['assertNativeEconomicRecoveryCaptureV1','nativeEconomicRecoverySectionIdentityV1','consumeNativeEconomicRecoverySectionV1']);
-  unused('accounts/authority/wrapped-wallet-account-authority-v1.mjs',['wrappedWalletAccountManualGraphDetailsV1','assertWrappedWalletAccountManualGraphExecutionV1']);
   unused('accounts/portfolio/wrapped-wallet-portfolio-v1.mjs',['assertOwnedWrappedWalletPortfolioV1','assertOwnedWrappedWalletPortfolioAccountV1','claimWrappedWalletPortfolioJournalV1']);
   unused('claims/operations/portfolio-view.mjs',['readOriginalNativeClaimPortfolioViewV1']);
   const economic=Object.freeze({async close(){return{closed:true};}});let economicInput;
@@ -82,10 +82,10 @@ test('HOST SOURCE original session retains keeper candidates before CAS and its 
     async createDurableGenericAccountKeeperV1(input){assert.equal(keeper,undefined);keeper=await createDurableGenericAccountKeeperV1(input);return keeper;},
   });
   const {buildNativeManualSessionV1}=await import('../../../src/api/accounts/native-manual-session-backend-v1.mjs');
-  const actual=buildNativeManualSessionV1({format:{genericAccountIdentity,sha},account:lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs'),
+  const actual=buildNativeManualSessionV1({format:{genericAccountIdentity,sha},account:Object.fromEntries(['assertOwnedNativeValueAccountAuthority','assertOriginalNativeAccountSourceV1','nativeValueAccountManualGraphDetails','assertNativeValueAccountManualGraphExecution','nativeValueAccountManualNoteDetails'].map(name=>[name,lowerModules.get('accounts/authority/native-value-account-authority-v2.mjs')[name]])),
     economic:{...lowerModules.get('claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs'),...lowerModules.get('operations/deployments/native-value/native-value-system-v2.mjs')},
     source:sourcePorts,resources:{loadDurableKeeper:()=>import('../../../src/accounts/storage/durable-generic-account-keeper.mjs'),
-      loadAccountSession:()=>import('../../../src/api/accounts/flat-account-session.mjs'),loadEconomicState:()=>import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs')}});
+      loadAccountSession:()=>import('../../../src/api/accounts/flat-account-session-owner-v1.mjs'),loadEconomicState:()=>import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs')}});
   install('operations/recovery/native-original-source-lifecycle-v1.mjs',{...sourcePorts,...actual});
   const joined=await actual.createOriginalNativeSourceGraphAccountSessionV1(token,{runtime,system,poolIndex:0,account,journal,owner});
   session=joined.session;
