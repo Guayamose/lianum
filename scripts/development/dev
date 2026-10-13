@@ -60,6 +60,10 @@ case "$task_command" in
     python3 -B "$task_helpers/source_runtime.py" --quiet
     exec "$task_node_dir/node" --max-old-space-size=384 "$task_helpers/static-check.mjs" "$@" ;;
   platform)
+    case "${1:-}" in
+      paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen)
+        exec python3 -B "$task_helpers/paged_platform_process.py" "$@" ;;
+    esac
     exec "$task_node_dir/node" --max-old-space-size=384 "$task_root/apps/platform/src/entry.mjs" "$@" ;;
   pins) exec python3 -B "$task_helpers/source_pins.py" "$@" ;;
   resources) exec python3 -B "$task_helpers/local_resources.py" "$@" ;;

@@ -16,7 +16,11 @@
     "local:start": "node scripts/local.mjs start",
     "local:stop": "node scripts/local.mjs stop",
     "start:original": "node --max-old-space-size=384 src/entry.mjs original-native-new",
-    "reopen:original": "node --max-old-space-size=384 src/entry.mjs original-native-reopen"
+    "reopen:original": "node --max-old-space-size=384 src/entry.mjs original-native-reopen",
+    "start:paged-native": "node --max-old-space-size=384 src/entry.mjs paged-native-new",
+    "start:paged-mixed": "node --max-old-space-size=384 src/entry.mjs paged-mixed-new",
+    "reopen:paged-native": "node --max-old-space-size=384 src/entry.mjs paged-native-reopen",
+    "reopen:paged-mixed": "node --max-old-space-size=384 src/entry.mjs paged-mixed-reopen"
   },
   "dependencies": {
     "pg": "8.23.1"

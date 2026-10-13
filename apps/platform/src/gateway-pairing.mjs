@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 const fields = ['dev', 'ino', 'uid', 'mode', 'nlink', 'size', 'mtimeMs', 'ctimeMs'];
 export async function readPrivateGatewayRecord(directory, name) {
-  assert.ok(['operator.json', 'paired-descriptor.json'].includes(name), 'PLATFORM_ORIGINAL_GATEWAY_FILE');
+  assert.ok(['operator.json', 'paired-descriptor.json', 'startup.json'].includes(name), 'PLATFORM_ORIGINAL_GATEWAY_FILE');
   const parent = await lstat(directory);
   assert.ok(parent.isDirectory() && !parent.isSymbolicLink() && parent.uid === process.getuid()
     && (parent.mode & 0o777) === 0o700 && await realpath(directory) === directory, 'PLATFORM_ORIGINAL_GATEWAY_PRIVATE_DIRECTORY');
