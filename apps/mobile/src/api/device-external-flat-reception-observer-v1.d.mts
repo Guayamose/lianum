@@ -1,0 +1,4 @@
+import type {ExternalFlatDescriptor,ExternalFlatStatus,ExternalFlatAccess,ExternalFlatConsent} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
+import type {DeviceExternalFlatSummary,createDeviceExternalFlatRoutedNoteVaultV1} from '../custody/device-external-flat-note-vault-v1';
+import type {createDeviceExternalFlatNoteApiV1} from './device-external-flat-note-api-v1.mjs';
+export function observeDeviceExternalFlatReceptionV1(input:{descriptor:ExternalFlatDescriptor;status:ExternalFlatStatus;summary:DeviceExternalFlatSummary;vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>;client:ReturnType<typeof createDeviceExternalFlatNoteApiV1>;sign(value:ExternalFlatAccess|ExternalFlatConsent):Promise<string>;signal:AbortSignal;assertCurrent():void}):Promise<{status:ExternalFlatStatus;summary:DeviceExternalFlatSummary;observed:boolean}>;

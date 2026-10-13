@@ -22,7 +22,7 @@ function canonical(value: unknown): string {
 const same = (a: unknown, b: unknown) => canonical(a) === canonical(b);
 async function sha(bytes: Uint8Array) {
   const owned = new Uint8Array(bytes.length); owned.set(bytes);
-  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned.buffer)), b => b.toString(16).padStart(2, '0')).join(''); }
+  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned)), b => b.toString(16).padStart(2, '0')).join(''); }
   finally { owned.fill(0); }
 }
 export async function createDeviceOwnerExecutionApiV1(descriptor: OriginalAccountDescriptorV2) {

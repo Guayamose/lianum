@@ -28,7 +28,7 @@ const uint = (raw: unknown): string => {
 };
 async function sha(bytes: Uint8Array): Promise<string> {
   const owned = new Uint8Array(bytes.byteLength); owned.set(bytes);
-  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned.buffer)),
+  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned)),
     value => value.toString(16).padStart(2, '0')).join(''); }
   finally { owned.fill(0); }
 }

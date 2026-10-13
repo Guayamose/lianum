@@ -9,7 +9,7 @@ const observations = new WeakMap<object, { live(): void; displayLive(): void; va
 function bad(): never { throw Error('MOBILE_DEVICE_OUTPUT_BALANCE_RESPONSE_INVALID'); }
 async function sha(bytes: Uint8Array) {
   const owned = new Uint8Array(bytes.length); owned.set(bytes);
-  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned.buffer)), byte => byte.toString(16).padStart(2, '0')).join(''); }
+  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned)), byte => byte.toString(16).padStart(2, '0')).join(''); }
   finally { owned.fill(0); }
 }
 async function verifyPath(path: DeviceOutputBalancePathV1) {

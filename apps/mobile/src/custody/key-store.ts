@@ -1,3 +1,6 @@
+import * as WalletSession from './wallet-session-v1.ts';
+export {approveWalletSessionExternalV1,closeWalletSessionAuthorizationV1} from './wallet-session-v1.ts';
+import {devicePagedNowV3} from '@lianum/mobile-protocol/device/paged-owner-v3';
 import * as blueRedemption from '../../../../packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
 import {sealDeviceCustodyBackupV1,unsealDeviceCustodyBackupV1,DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1} from './sealed-custody-backup-v1.mjs';
 import {validateExternalFlatGraphOutputFreshV1,externalFlatGraphOutputPermissionMessageV1} from '../../../../packages/mobile-protocol/src/device-external-flat-graph-v1.mjs';
@@ -8,7 +11,7 @@ import {validateDeviceRecoveryArmConsentFreshV1,deviceRecoveryArmConsentMessageV
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Crypto from 'expo-crypto';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { mobileAuthorizationMessage, validateMobileChallenge, mobileReceiptMessage,
   validateMobileReceiptReview, type MobileChallenge, type MobileReceiptReview } from '@lianum/mobile-protocol';
 import { normalizeOriginalAccountAccessV2, normalizeOriginalAccountReviewV2,
@@ -56,6 +59,7 @@ async function identityCustodyWork<T>(work: () => Promise<T>): Promise<T> {
 }
 export async function createDeviceIdentity(): Promise<string> {
  return identityCustodyWork(async () => {
+  if(WalletSession.walletSessionStatusV1().managed)WalletSession.lockWalletSessionV1();
   await assertProtectedStorage();
   const approval = await LocalAuthentication.authenticateAsync({
     promptMessage: 'Crear o recuperar tu identidad local de Lianum',
@@ -305,6 +309,7 @@ export async function signDeviceDefiPositionReadV1(raw: import('../../../../pack
 }
 async function signDeviceDefiPositionPermissionV1(raw: import('../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs').DeviceDefiPositionAccessV1 | import('../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs').DeviceDefiPositionReadV1,
   expectedOrigin: string, expectedPairingId: string, read: boolean, signal?: AbortSignal): Promise<string> {
+  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionDefiPositionV1(raw,expectedOrigin,expectedPairingId,signal);
   const protocol = defiPositionReadProtocol;
   const value = read ? protocol.normalizeDeviceDefiPositionReadV1(raw) : protocol.normalizeDeviceDefiPositionAccessV1(raw);
   const descriptor = protocol.normalizeDeviceDefiPositionDescriptorV1({ origin: expectedOrigin, pairingId: expectedPairingId, devicePublicKey: value.devicePublicKey });
@@ -324,7 +329,8 @@ async function signDeviceDefiPositionPermissionV1(raw: import('../../../../packa
 }
 
 /** Separate fixed external source-note domain, never NativeValue EXECUTE/F. */
-export async function signDeviceExternalFlatPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDeviceExternalFlatPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('NOTE',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=validateExternalFlatFreshV1(raw);
  await assertProtectedStorage();const publicKey=await readDevicePublicKey();
  if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
@@ -337,7 +343,8 @@ export async function signDeviceExternalFlatPermissionV1(raw:unknown,expectedOri
 }
 
 /** Fixed device SOURCE graph domain; opens only this device permission key. */
-export async function signDeviceExternalFlatGraphPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDeviceExternalFlatGraphPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('GRAPH',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=validateExternalFlatGraphFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatGraphFreshV1(value),subject=v.descriptor;if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
  const consent=check(),approved=await LocalAuthentication.authenticateAsync({promptMessage:`${consent.draft.action}: presupuesto ${consent.draft.statement.budget ?? 'del grafo'}; vencimiento ${consent.draft.statement.settleBefore}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
@@ -345,7 +352,8 @@ export async function signDeviceExternalFlatGraphPermissionV1(raw:unknown,expect
 }
 
 /** Fixed GRAPH-output W39 role permission; the protected note root never leaves. */
-export async function signDeviceExternalFlatGraphOutputPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDeviceExternalFlatGraphOutputPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('OUTPUT',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=validateExternalFlatGraphOutputFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatGraphOutputFreshV1(value),subject=v.consent.descriptor;if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};const reviewed=check(),c=reviewed.consent,approved=await LocalAuthentication.authenticateAsync({promptMessage:`${c.action}: salida ${reviewed.noteRole}, ${c.statement.amount} unidades a ${c.recipient}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=externalFlatGraphOutputPermissionMessageV1(check());return signDeviceMessage(privateKey,frame);}finally{frame?.fill(0);privateKey.fill(0);retained=null;}
 }
 
@@ -355,6 +363,7 @@ export async function exportDeviceIdentityBackupV1(passphrase: string, expectedP
   if (arguments.length !== 2 && arguments.length !== 3) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
   identityBackupPublicKey(expectedPublicKey); const current = () => identityBackupCurrent(signal);
   return identityCustodyWork(async () => {
+    if(WalletSession.walletSessionStatusV1().managed)return WalletSession.exportWalletSessionIdentityBackupV1(passphrase,expectedPublicKey,signal);
     let retained: string | null = null, privateKey: Uint8Array | undefined, clear: Uint8Array | undefined;
     try {
       current(); await assertProtectedStorage(); current();
@@ -389,18 +398,23 @@ function identityBackupSnapshot(clear: Uint8Array, expectedPublicKey: string): U
 /** Restores only the same authenticated identity. Existing different identities
  * are never overwritten; a partial write can only be retried with the same key.
  * No pairing, note, SDK permission or economic state is created here. */
-export async function importDeviceIdentityBackupV1(sealedJSON: string, passphrase: string, expectedPublicKey: string, signal?: AbortSignal): Promise<{devicePublicKey:string;restored:true}> {
-  if (arguments.length !== 3 && arguments.length !== 4) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
+export async function importDeviceIdentityBackupV1(sealedJSON: string, passphrase: string, expectedPublicKey: string, signal?: AbortSignal,recoveryAuthorization?:object): Promise<{devicePublicKey:string;restored:true}> {
+  if (arguments.length !== 3 && arguments.length !== 4 && arguments.length !== 5) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
   identityBackupPublicKey(expectedPublicKey);
   if (typeof sealedJSON !== 'string' || sealedJSON.length > DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1) throw Error('MOBILE_CUSTODY_BACKUP_INVALID');
-  const current=()=>identityBackupCurrent(signal);
+  let recoveryCheck:(()=>void)|undefined;const current=()=>{identityBackupCurrent(signal);recoveryCheck?.();};
   return identityCustodyWork(async () => {
+    const session=WalletSession.walletSessionStatusV1();
+    if(session.managed&&!session.active){if(!recoveryAuthorization||!(signal instanceof AbortSignal))throw Error('MOBILE_WALLET_SESSION_LOCKED');recoveryCheck=WalletSession.consumeWalletSessionJointIdentityRecoveryV1(recoveryAuthorization,sealedJSON,expectedPublicKey,signal);}
+    if(session.managed&&session.active){
+      if(session.publicKey!==expectedPublicKey)throw Error('MOBILE_CUSTODY_BACKUP_CONFLICT');
+      return WalletSession.verifyWalletSessionIdentityBackupV1(sealedJSON,passphrase,expectedPublicKey,signal);
+    }
     let clear:Uint8Array|undefined,privateKey:Uint8Array|undefined,existingKey:Uint8Array|undefined;
     let beforePrivate:string|null=null,imported:string|null=null;
     try {
       current();await assertProtectedStorage();current();
-      const approval=await LocalAuthentication.authenticateAsync({promptMessage:'Restaurar la misma identidad desde tu copia cifrada; no sustituir otra identidad existente',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
-      current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');
+      if(!recoveryCheck){const approval=await LocalAuthentication.authenticateAsync({promptMessage:'Restaurar la misma identidad desde tu copia cifrada; no sustituir otra identidad existente',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');}
       const beforePublic=await SecureStore.getItemAsync(PUBLIC_KEY,publicOptions);current();
       if(beforePublic!==null&&beforePublic!==expectedPublicKey)throw Error('MOBILE_CUSTODY_BACKUP_CONFLICT');
       beforePrivate=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();
@@ -421,7 +435,8 @@ export async function importDeviceIdentityBackupV1(sealedJSON: string, passphras
 }
 
 /** Separate manual Blue redemption after the SAME original SHARE withdrawal. */
-export async function signDeviceMorphoBlueRedemptionPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDeviceMorphoBlueRedemptionPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('BLUE',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=blueRedemption.validateDeviceMorphoBlueRedemptionFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceMorphoBlueRedemptionFreshV1(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
  const reviewed=check(),prompt=reviewed.action==='ACCESS_BLUE'?'Consultar la redención Blue original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
@@ -430,7 +445,8 @@ export async function signDeviceMorphoBlueRedemptionPermissionV1(raw:unknown,exp
 }
 
 /** Separate manual Aave redemption after the SAME original SHARE withdrawal. */
-export async function signDeviceAaveStaticRedemptionPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDeviceAaveStaticRedemptionPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('AAVE',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=blueRedemption.validateDeviceAaveStaticRedemptionFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceAaveStaticRedemptionFreshV1(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
  const reviewed=check(),prompt=reviewed.action==='ACCESS_AAVE'?'Consultar la redención Aave original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
@@ -479,7 +495,8 @@ export async function signDeviceRootNativeClaimExitPermissionV3(raw:unknown,expe
 }
 
 /** Prospectively paired Paged device domain, independent of RootNote/Claims. */
-export async function signDevicePagedOwnerPermissionV3(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDevicePagedOwnerPermissionV3(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionPagedOwnerV1(raw,expectedOrigin,expectedPairingId,signal,authorization);
  const protocol=await import('../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs'),value=protocol.validateDevicePagedConsentFreshV3(raw);
  const current=()=>{if(signal?.aborted)throw Error('MOBILE_PAGED_CANCELLED');const c=protocol.validateDevicePagedConsentFreshV3(value);if(c.descriptor.origin!==expectedOrigin||c.descriptor.pairingId!==expectedPairingId)throw Error('MOBILE_PAGED_BINDING');return c;};current();await assertProtectedStorage();current();const publicKey=await readDevicePublicKey();current();if(publicKey===null||publicKey!==value.descriptor.devicePublicKey)throw Error('MOBILE_KEY_REQUIRED');
  const approved=await LocalAuthentication.authenticateAsync({promptMessage:`${value.action}: nota Paged de este servicio`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
@@ -487,7 +504,8 @@ export async function signDevicePagedOwnerPermissionV3(raw:unknown,expectedOrigi
 }
 
 /** MetaMorpho permission remains separate from SHARE W39 and Graph. */
-export async function signDeviceMetaMorphoRedemptionPermissionV2(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDeviceMetaMorphoRedemptionPermissionV2(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('META',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=blueRedemption.validateDeviceMetaMorphoRedemptionFreshV2(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceMetaMorphoRedemptionFreshV2(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
  const reviewed=check(),prompt=reviewed.action==='ACCESS_META'?'Consultar la redención MetaMorpho original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
@@ -496,9 +514,54 @@ export async function signDeviceMetaMorphoRedemptionPermissionV2(raw:unknown,exp
 }
 
 /** Prospectively paired Paged device domain, independent of RootNote/Claims. */
-export async function signDevicePagedGraphPermissionV3(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
+export async function signDevicePagedGraphPermissionV3(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:{authorization:object;command:unknown}):Promise<string>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionPagedGraphV1(raw,expectedOrigin,expectedPairingId,signal,authorization);
  const protocol=await import('../../../../packages/mobile-protocol/src/device-paged-graph-v3.mjs'),value=protocol.validateDevicePagedGraphConsentFreshV3(raw);
  const current=()=>{if(signal?.aborted)throw Error('MOBILE_PAGED_CANCELLED');const c=protocol.validateDevicePagedGraphConsentFreshV3(value);if(c.descriptor.origin!==expectedOrigin||c.descriptor.pairingId!==expectedPairingId)throw Error('MOBILE_PAGED_BINDING');return c;};current();await assertProtectedStorage();current();const publicKey=await readDevicePublicKey();current();if(publicKey===null||publicKey!==value.descriptor.devicePublicKey)throw Error('MOBILE_KEY_REQUIRED');
  const approved=await LocalAuthentication.authenticateAsync({promptMessage:`${value.action}: grafo Paged de este servicio`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
  try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');current();const {signDevicePagedGraphConsentV3}=await import('./device-paged-permission-v3.mjs');current();return signDevicePagedGraphConsentV3(key,current());}finally{key?.fill(0);retained=null;}
+}
+
+
+/** One explicit economic review opens a finite foreground signing lease.
+ * Fresh server PoP, statement bindings and the original graph are unchanged.
+ * Withdrawals, deposits and other graphs require their own authorization. */
+const pagedExecutionClosers=new WeakMap<object,()=>void>();
+let activePagedExecution:object|null=null;
+export async function openDevicePagedGraphExecutionSessionV3(rawReview:unknown,signal?:AbortSignal,refreshOriginalReview?:()=>Promise<unknown>):Promise<object>{
+ if(WalletSession.walletSessionStatusV1().managed)return WalletSession.openWalletSessionPagedExecutionV1(rawReview,signal,refreshOriginalReview);
+ // Refreshing original reads here requires the already-open managed identity;
+ // the historical protected-key path keeps its existing two-argument contract.
+ if(refreshOriginalReview!==undefined)throw Error('MOBILE_PAGED_EXECUTION_REVIEW');
+ return identityCustodyWork(async()=>{
+  const custody=await import('./device-paged-note-vault-v3.ts'),permission=await import('./device-paged-permission-v3.mjs');
+  const review=custody.readDevicePagedExecutionReviewV3(rawReview),current=()=>{if(signal?.aborted||AppState.currentState==='background')throw Error('MOBILE_PAGED_CANCELLED');custody.assertDevicePagedExecutionReviewActiveV3(rawReview);};
+  current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();
+  if(publicKey!==review.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
+  const approval=await LocalAuthentication.authenticateAsync({promptMessage:`Autorizar ${review.steps.length} pagos y reservar ${review.budget} unidades de esta nota. Sesión de hasta 15 minutos con la app abierta.`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+  current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');
+  let retained:string|null=null,key:Uint8Array|undefined,session:object|undefined;
+  try{
+   retained=await SecureStore.getItemAsync(PRIVATE_KEY,{...privateOptions,authenticationPrompt:'Abrir la clave para ejecutar sólo esta operación autorizada'});current();
+   if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);
+   if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
+   custody.readDevicePagedExecutionReviewV3(rawReview);current();
+   if(activePagedExecution)closeDevicePagedGraphExecutionSessionV3(activePagedExecution);
+   session=permission.createDevicePagedGraphExecutionSessionV3(key,{descriptor:review.descriptor,rootId:review.rootId,graphId:review.graphId,authorizationRoot:review.authorizationRoot,reserveNullifier:review.reserveNullifier,budget:review.budget,settleBefore:review.settleBefore,deadlineMs:Math.min(devicePagedNowV3()+15*60*1000,review.descriptor.deadlineMs)},()=>{current();if(AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');});
+   const opened=session,onAbort=()=>closeDevicePagedGraphExecutionSessionV3(opened),subscription=AppState.addEventListener('change',state=>{if(state==='background')closeDevicePagedGraphExecutionSessionV3(opened);});
+   const timer=setTimeout(onAbort,permission.readDevicePagedGraphExecutionSessionV3(opened).deadlineMs-devicePagedNowV3());
+   signal?.addEventListener('abort',onAbort,{once:true});
+   pagedExecutionClosers.set(opened,()=>{clearTimeout(timer);subscription.remove();signal?.removeEventListener('abort',onAbort);permission.closeDevicePagedGraphExecutionSessionV3(opened);if(activePagedExecution===opened)activePagedExecution=null;});
+   activePagedExecution=opened;current();return opened;
+  }catch(error){if(session){closeDevicePagedGraphExecutionSessionV3(session);permission.closeDevicePagedGraphExecutionSessionV3(session);}throw error;}
+  finally{key?.fill(0);retained=null;}
+ });
+}
+export function closeDevicePagedGraphExecutionSessionV3(session:object):void{WalletSession.closeWalletSessionPagedExecutionV1(session);pagedExecutionClosers.get(session)?.();pagedExecutionClosers.delete(session);}
+export async function signDevicePagedGraphExecutionPermissionV3(session:object,rawConsent:unknown,signal?:AbortSignal):Promise<string>{
+ const permission=await import('./device-paged-permission-v3.mjs'),binding=permission.readDevicePagedGraphExecutionSessionV3(session);
+ if(signal?.aborted||AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');
+ await assertProtectedStorage();if(await readDevicePublicKey()!==binding.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
+ if(signal?.aborted||AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');
+ return permission.signDevicePagedGraphSessionConsentV3(session,rawConsent);
 }

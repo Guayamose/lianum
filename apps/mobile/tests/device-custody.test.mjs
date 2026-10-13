@@ -51,7 +51,7 @@ mock.module('expo-crypto', { exports: {
   async aesDecryptAsync(sealed,key,options){assert.equal(options.output,'bytes');const b=sealed.bytes,d=createDecipheriv('aes-256-gcm',key.bytes,b.subarray(0,12));try{d.setAAD(options.additionalData);d.setAuthTag(b.subarray(b.length-16));const clear=new Uint8Array(Buffer.concat([d.update(b.subarray(12,-16)),d.final()]));control.afterBackupDecrypt?.();return clear;}finally{key.bytes.fill(0);}},
   async getRandomBytesAsync(length) { control.randomness++; assert.equal(length, 32); return new Uint8Array(32).fill(10+control.randomness); },
 } });
-mock.module('react-native', { exports: { Platform: { OS: 'ios' } } });
+mock.module('react-native', { exports: { Platform: { OS: 'ios' }, AppState:{currentState:'active',addEventListener:()=>({remove(){}})} } });
 mock.module(new URL('../src/custody/signing.mjs', import.meta.url).href, { exports: {
   ...signing,
   privateKeyFromHex(value) { const bytes = signing.privateKeyFromHex(value); privateBuffers.push(bytes); return bytes; },

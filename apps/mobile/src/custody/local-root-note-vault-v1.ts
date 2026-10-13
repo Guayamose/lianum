@@ -1,3 +1,5 @@
+import {walletSessionStatusV1,readWalletSessionSecret,writeWalletSessionSecret} from './wallet-session-v1.ts';
+import {decryptExpoAesBase64V1} from './expo-aes-base64-v1.mjs';
 /** Device-local protected encryption root + one PC23 source and its retained
  * change/recovery custody. No network, native send, U/S proof or backend brand.
  * SecureStore is not a transaction or anti-rollback store. Uncertain writes
@@ -68,6 +70,16 @@ const PRIVATE: SecureStore.SecureStoreOptions = { requireAuthentication: true,
 const DATA: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   keychainService: 'org.lianum.wallet.note.encrypted-record.v1', };
+function readRootSecret():Promise<string|null>{
+  return walletSessionStatusV1().managed ? readWalletSessionSecret(ROOT,PRIVATE) : SecureStore.getItemAsync(ROOT,PRIVATE);
+}
+async function writeStoredValue(key:string,raw:string,options:SecureStore.SecureStoreOptions){
+  if(key===ROOT&&options===PRIVATE&&walletSessionStatusV1().managed)await writeWalletSessionSecret(key,raw,options);
+  else await SecureStore.setItemAsync(key,raw,options);
+}
+function readStoredValue(key:string,options:SecureStore.SecureStoreOptions){
+  return key===ROOT&&options===PRIVATE ? readRootSecret() : SecureStore.getItemAsync(key,options);
+}
 const MAX_STORED_BYTES = 2048;
 const MAX_CLEAR_BYTES = 65536, MAX_ENVELOPE_BYTES = 98304, CHUNK_BYTES = 1800, MAX_CHUNKS = 55;
 const CHUNK_PROFILE = 'LIANUM_DEVICE_ENCRYPTED_CHUNKS_V1';
@@ -546,7 +558,7 @@ async function protectedConsent(prompt: string, scope: Pick<RootOperationScope, 
 function localRootOperationScope() {
   let closed = false, active = false, writing = false;
   const scope: RootOperationScope = {
-    current() { if (closed) bad(active && writing ? 'MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN' : 'MOBILE_LOCAL_NOTE_OPERATION_REVOKED'); },
+    current() { if (closed) bad(active && writing ? 'MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN' : 'MOBILE_LOCAL_NOTE_OPERATION_REVOKED');const session=walletSessionStatusV1();if(session.managed&&!session.active)bad('MOBILE_WALLET_SESSION_LOCKED'); },
     writeStarted() { scope.current(); writing = true; },
   };
   async function run<T>(work: () => Promise<T>): Promise<T> {
@@ -587,26 +599,26 @@ async function sealedRecord(key: Crypto.AESEncryptionKey, value: State): Promise
   } finally { clear.fill(0); }
 }
 async function decrypted(key: Crypto.AESEncryptionKey, raw: string): Promise<State> {
-  const e = envelope(raw), sealed = Crypto.AESSealedData.fromCombined(e.sealed, { ivLength: 12, tagLength: 16 });
-  const clear = await Crypto.aesDecryptAsync(sealed, key, { output: 'bytes', additionalData: binding(e) });
+  const e = envelope(raw);
+  const clear = await decryptExpoAesBase64V1(e.sealed, key, { output: 'bytes', additionalData: binding(e) }, MAX_ENVELOPE_BYTES);
   try { return await state(clear, e); } finally { clear.fill(0); }
 }
 async function writeChecked(key: string, raw: string, options: SecureStore.SecureStoreOptions): Promise<void> {
-  await SecureStore.setItemAsync(key, raw, options);
-  if (await SecureStore.getItemAsync(key, options) !== raw) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
+  await writeStoredValue(key, raw, options);
+  if (await readStoredValue(key, options) !== raw) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
 }
 async function writeCheckedScoped(scope: RootOperationScope, key: string, raw: string,
   options: SecureStore.SecureStoreOptions): Promise<void> {
   scope.current(); scope.writeStarted();
-  await checked(scope, () => SecureStore.setItemAsync(key, raw, options));
-  const observed = await checked(scope, () => SecureStore.getItemAsync(key, options));
+  await checked(scope, () => writeStoredValue(key, raw, options));
+  const observed = await checked(scope, () => readStoredValue(key, options));
   if (observed !== raw) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
 }
 async function initialize(scope: RootOperationScope, root: Uint8Array): Promise<Readonly<{ rootId: string; note: null }>> {
   scope.current();
   if (root.length !== 32 || root.every(byte => byte === 0)) bad('MOBILE_ENTROPY_FAILED');
   if ([await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), await readStoredRecord(scope),
-    await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE))].some(value => value !== null)) bad('MOBILE_LOCAL_NOTE_ALREADY_EXISTS');
+    await checked(scope, () => readRootSecret())].some(value => value !== null)) bad('MOBILE_LOCAL_NOTE_ALREADY_EXISTS');
   const rootId = await checked(scope, () => rootIdentity(root)), rootHex = bytesToHex(root);
   const creating: Pointer = { version: 1, rootId, revision: 0, recordSHA256: '0'.repeat(64), state: 'CREATING' };
   await writeCheckedScoped(scope, POINTER, JSON.stringify(creating), DATA);
@@ -693,13 +705,13 @@ async function recoverWithinScope(scope: RootOperationScope, rootHex: string, ex
       if (raw === null) {
         if (p.state !== 'CREATING' || p.revision !== 0 || expectedRevision !== 0
           || p.recordSHA256 !== '0'.repeat(64)) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
-        const originalRoot = await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE));
+        const originalRoot = await checked(scope, () => readRootSecret());
         if (originalRoot !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
         const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
         const emptyRaw = await checked(scope, () => sealedRecord(activeKey, { version: 1, rootId: p.rootId, revision: 0, note: null }));
         if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
           || await readStoredRecord(scope) !== null
-          || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot)
+          || await checked(scope, () => readRootSecret()) !== originalRoot)
           bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
         try {
           await writeStoredRecord(scope, emptyRaw);
@@ -707,7 +719,7 @@ async function recoverWithinScope(scope: RootOperationScope, rootHex: string, ex
           if (value.note !== null || value.revision !== 0) bad();
           if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
             || await readStoredRecord(scope) !== emptyRaw
-            || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot)
+            || await checked(scope, () => readRootSecret()) !== originalRoot)
             bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           await writeCheckedScoped(scope, POINTER, JSON.stringify({ ...p, state: 'ACTIVE',
             recordSHA256: await checked(scope, () => digest(encoded(envelope(emptyRaw)))) }), DATA);
@@ -790,7 +802,7 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string,
         const value = await checked(scope, () => decrypted(activeKey, raw)); // Authenticate and validate the original opening before any write.
         const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)),
           originalPhysical = await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)),
-          originalRoot = await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE));
+          originalRoot = await checked(scope, () => readRootSecret());
         let originalRecord: string | null, missingOriginalChunks = false;
         try { originalRecord = await readStoredRecord(scope); }
         catch (cause) {
@@ -822,7 +834,7 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string,
           || (missingOriginalChunks
             ? await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== originalPhysical
             : await readStoredRecord(scope) !== originalRecord)
-          || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== originalRoot) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+          || await checked(scope, () => readRootSecret()) !== originalRoot) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
         const target = { version: 1 as const, rootId, revision, recordSHA256: hex(b.recordSHA256), state: 'ACTIVE' as const };
         try {
           const retainedPointer = before ?? JSON.stringify({ ...target, state: 'CREATING' });
@@ -830,7 +842,7 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string,
           if (originalRoot === null) await writeCheckedScoped(scope, ROOT, bytesToHex(root), PRIVATE);
           if (originalRecord === null || missingOriginalChunks) await writeStoredRecord(scope, raw);
           if (await readStoredRecord(scope) !== raw
-            || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)
+            || await checked(scope, () => readRootSecret()) !== bytesToHex(root)
             || await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== retainedPointer) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           await writeCheckedScoped(scope, POINTER, JSON.stringify(target), DATA);
           scope.current(); return Object.freeze({ rootId, revision, note: summary(value) });
@@ -847,7 +859,7 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string,
  * an older backup/other device can lack it. Pools/nullifiers/ledger remain mandatory. */
 export function openLocalRootNoteVaultV1(expectedRootId: string) {
   let closed = false, active = false, writing = false;
-  const current = () => { if (closed) bad(active && writing ? 'MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN' : 'MOBILE_LOCAL_NOTE_CLOSED'); };
+  const current = () => { if (closed) bad(active && writing ? 'MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN' : 'MOBILE_LOCAL_NOTE_CLOSED');const session=walletSessionStatusV1();if(session.managed&&!session.active)bad('MOBILE_WALLET_SESSION_LOCKED'); };
   const scope: RootOperationScope = { current, writeStarted() { current(); writing = true; } };
   const reviews = new WeakMap<LocalDepositReviewV1, LocalDepositChoiceV1>();
   const reservationReviews = new WeakMap<LocalDeviceReservationReviewV1, { createdAt: number; frameSHA256: string }>();
@@ -882,18 +894,19 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
   const discardReview = () => { if (pendingReview) reviews.delete(pendingReview); pendingReview = null;
     if (pendingReservation) reservationReviews.delete(pendingReservation); pendingReservation = null; };
   hex(expectedRootId);
+  function sessionRead<T>(prompt:string,work:(value:State,key:Crypto.AESEncryptionKey,originalPointer:string,originalRecord:string,originalRoot:Uint8Array)=>Promise<T>){return original(prompt,work,false);}
   async function original<T>(prompt: string, work: (value: State, key: Crypto.AESEncryptionKey, originalPointer: string,
-    originalRecord: string, originalRoot: Uint8Array) => Promise<T>): Promise<T> {
+    originalRecord: string, originalRoot: Uint8Array) => Promise<T>,requireApproval=true): Promise<T> {
     return serial(async () => {
       active = true; writing = false;
       try {
-      current(); await protectedConsent(prompt, { current }); current();
+      current();const session=walletSessionStatusV1();if(session.managed&&!session.active)bad('MOBILE_WALLET_SESSION_LOCKED');if(requireApproval||!session.managed)await protectedConsent(prompt, { current });current();
       const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), raw = await readStoredRecord(scope);
       if (before === null || raw === null) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
       const p = pointer(before), e = envelope(raw);
       if (p.state !== 'ACTIVE' || p.rootId !== expectedRootId || e.rootId !== p.rootId || e.revision !== p.revision
         || await checked(scope, () => digest(encoded(e))) !== p.recordSHA256) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
-      let retained: string | null = await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE));
+      let retained: string | null = await checked(scope, () => readRootSecret());
       if (retained === null) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
       const root = localNoteHexBytesV1(retained); retained = null;
       let key: Crypto.AESEncryptionKey | null = null;
@@ -922,7 +935,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     const nextRaw = await checked(scope, () => sealedRecord(key, candidate));
     if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
       || await readStoredRecord(scope) !== raw
-      || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+      || await checked(scope, () => readRootSecret()) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
     try {
       await writeStoredRecord(scope, nextRaw);
       const stored = await readStoredRecord(scope);
@@ -930,7 +943,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       const readback = await checked(scope, () => decrypted(key, stored));
       if (JSON.stringify(readback) !== JSON.stringify(candidate)) bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');
       if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
-        || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+        || await checked(scope, () => readRootSecret()) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
       const nextPointer = JSON.stringify({ version: 1, rootId: next.rootId, revision: next.revision,
         recordSHA256: await checked(scope, () => digest(encoded(envelope(nextRaw)))), state: 'ACTIVE' });
       await writeCheckedScoped(scope, POINTER, nextPointer, DATA);
@@ -1049,7 +1062,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         });
   }
   return Object.freeze({
-    readPreparedNote: () => original('Leer tu nota local preparada; todavía no es saldo disponible', async value => summary(value)),
+    readPreparedNote: () => sessionRead('Leer tu nota local preparada; todavía no es saldo disponible', async value => summary(value)),
     /** Only ciphertext leaves this capability. RootNote has its own rootId;
      * no unrelated device PoP identity is required or invented for its backup. */
     exportBackup(passphrase: string, signal?: AbortSignal) {
@@ -1066,7 +1079,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
               { profile: 'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1', rootId: value.rootId }, signal));
             if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
               || await readStoredRecord(scope) !== raw
-              || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root))
+              || await checked(scope, () => readRootSecret()) !== bytesToHex(root))
               bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
             current(); if (signal?.aborted) bad('MOBILE_CUSTODY_BACKUP_CANCELLED');
             return sealed;
@@ -1171,7 +1184,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
               const nextRaw = await checked(signing, () => sealedRecord(key, next));
               if (await checked(signing, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
                 || await readStoredRecord(signing) !== raw
-                || await checked(signing, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root))
+                || await checked(signing, () => readRootSecret()) !== bytesToHex(root))
                 bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
               try {
                 await writeStoredRecord(signing, nextRaw);
@@ -1188,7 +1201,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             }
             if (await checked(signing, () => SecureStore.getItemAsync(POINTER, DATA)) !== finalPointer
               || await readStoredRecord(signing) !== finalRaw
-              || await checked(signing, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+              || await checked(signing, () => readRootSecret()) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
             if (!finalValue.note) bad();
             signing.current(); secretKey = privateKeyFromHex(finalValue.note.privateKey);
             const signature = signDeviceMessage(secretKey, frame); signing.current();
@@ -1257,7 +1270,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           const nextRaw = await checked(scope, () => sealedRecord(key, next));
           if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
             || await readStoredRecord(scope) !== raw
-            || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            || await checked(scope, () => readRootSecret()) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           try {
             await writeStoredRecord(scope, nextRaw);
             const nextPointer = JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
@@ -1318,7 +1331,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         return checked(scope,()=>sealOriginalDeviceRootClaimWitnessV2(p,signature,row.witness,null));
       }).finally(()=>wipeClaim(row.witness));
     },
-    deviceRootClaimIngressWitnessHashV2: () => original('Leer sólo el hash de la apertura original para CI51, sin revelar la raíz', async value => {
+    deviceRootClaimIngressWitnessHashV2: () => sessionRead('Leer sólo el hash de la apertura original para CI51, sin revelar la raíz', async value => {
       if (!value.note || !value.rootClaim || value.rootClaim.ci51JobId !== null) bad('MOBILE_LOCAL_CLAIM_CUSTODY_REQUIRED');
       const n=value.note.opening, opening={rho:n.rho,x:n.x,y:n.y,value:n.value,noteSecret:n.secret}, bytes=deviceRootClaimDataBytesV2(opening);
       try {return await checked(scope,()=>digest(bytes));} finally {bytes.fill(0);externalFlatWipeV1(opening);}
@@ -1418,13 +1431,13 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           status:observation.note?.state??observation.deposit?.status??'UNKNOWN',availableBalance:observation.note?.state==='LIVE'?observation.note.available:null,nativeEffectsEstablished:false as const});
       });
     },
-    readDeviceRootClaimCustodyV2: () => original('Leer los identificadores de la custodia de claim retenida, sin permisos ni apertura',async value=>{
+    readDeviceRootClaimCustodyV2: () => sessionRead('Leer los identificadores de la custodia de claim retenida, sin permisos ni apertura',async value=>{
       const c=value.rootClaim;if(!c)return null;let status='UNKNOWN';
       if(liveClaimObservation){try{status=readOriginalDeviceRootClaimObservationV2(liveClaimObservation).deposit?.status??'UNKNOWN';}catch{liveClaimObservation=null;}}
       return Object.freeze({descriptor:c.descriptor,rootId:value.rootId,noteRevision:c.noteRevision,commitment:c.statement.output,
         d27JobId:c.d27JobId,ci51JobId:c.ci51JobId,exit:c.exit?{phase:c.exit.phase,jobId:c.exit.jobId}:null,redemption:c.redemption??null,status,availableBalance:null,nativeSelfCustody:false as const});
     }),
-    readDeviceOutputBalanceSubject: () => original('Leer sólo los identificadores de estas dos notas; no revelar aperturas ni autorizar W39', async value => {
+    readDeviceOutputBalanceSubject: () => sessionRead('Leer sólo los identificadores de estas dos notas; no revelar aperturas ni autorizar W39', async value => {
       const note = value.note, spend = value.spend;
       if (!note?.deviceJob || !note.funding || !spend?.proofJob || !spend.reservation) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_REQUIRED');
       return Object.freeze({ parentJobId: spend.proofJob.jobId, rootId: value.rootId, noteRevision: value.revision,
@@ -1468,7 +1481,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       });
     },
     forgetDeviceOutputBalanceObservation() { current(); forgetOutputs(); liveInclusion = null; },
-    readDeviceNote: () => original('Consultar el estado de tu nota local y su envío original', async value => {
+    readDeviceNote: () => sessionRead('Consultar el estado de tu nota local y su envío original', async value => {
       const note = value.note; if (!note) return null;
       let observation = null;
       try { observation = liveInclusion ? readDeviceDepositInclusionV1(liveInclusion) : null; } catch { liveInclusion = null; }
@@ -1562,7 +1575,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             // the ephemeral handle. Preserve ciphertext, revision and intent.
             if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
               || await readStoredRecord(scope) !== raw
-              || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+              || await checked(scope, () => readRootSecret()) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
             current(); readDeviceDepositInclusionV1(capability); liveInclusion = capability;
             return { commitment: note.commitment, availableBalance: !value.spend ? note.opening.value : null,
               nativeEffectsEstablished: true, observedHead: inclusion.head.hash };
@@ -1572,7 +1585,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           const nextRaw = await checked(scope, () => sealedRecord(key, next));
           if (await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)) !== before
             || await readStoredRecord(scope) !== raw
-            || await checked(scope, () => SecureStore.getItemAsync(ROOT, PRIVATE)) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
+            || await checked(scope, () => readRootSecret()) !== bytesToHex(root)) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
           try {
             readDeviceDepositInclusionV1(capability); await writeStoredRecord(scope, nextRaw);
             const nextPointer = JSON.stringify({ version: 1, rootId: value.rootId, revision: next.revision,
@@ -1855,7 +1868,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         } catch (cause) { wipeExit(row.witness); throw cause; }
       }).catch(cause => { wipeExit(row.witness); throw cause; });
     },
-    readDeviceExitIntent: (role: DeviceExitRoleV1) => original('Consultar el trabajo W39 durable original; no regenerar/reintentar salida', async value => {
+    readDeviceExitIntent: (role: DeviceExitRoleV1) => sessionRead('Consultar el trabajo W39 durable original; no regenerar/reintentar salida', async value => {
       if(!['deposit','change','recovery'].includes(role))bad('MOBILE_LOCAL_EXIT_ROLE');const row=role==='deposit'?value.sourceExit:value.spend?.exits?.[role];
       return row ? Object.freeze({ parentJobId: row.parentJobId, nativeBindingSHA256: row.nativeBindingSHA256, jobId: row.jobId,
         quoteId: row.quoteId, rootId: row.rootId, noteRevision: row.noteRevision, noteRole: role, phase: row.phase,
@@ -1917,7 +1930,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           return Object.freeze({ jobId: job.jobId, action: consent.action, consentSHA256, availableBalance: null, serverAdmissionEstablished: false });
         });
     },
-    readDeviceExecutionIntent: () => original('Consultar la intención nativa original; no ejecutar ni recuperar de nuevo', async value => {
+    readDeviceExecutionIntent: () => sessionRead('Consultar la intención nativa original; no ejecutar ni recuperar de nuevo', async value => {
       const row = value.spend?.execution; return row ? Object.freeze({ jobId: row.jobId, rootId: value.rootId,
         nativeBindingSHA256: row.nativeBindingSHA256, reservationTransactionHash: row.reservationTransactionHash,
         executeAttemptRetained: !!row.execute, recoveryAttemptRetained: !!row.recovery, outcome: row.reorganizationPending ? null : row.terminal?.outcome ?? null,
@@ -1998,7 +2011,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             availableBalance: null, localOpeningsPreserved: true, independentCanonicalRpc: false });
         });
     },
-    readDeviceReservationIntent: () => original('Consultar el identificador de tu prueba/reserva original; no generar otra ni reenviar',
+    readDeviceReservationIntent: () => sessionRead('Consultar el identificador de tu prueba/reserva original; no generar otra ni reenviar',
       async value => value.spend?.proofJob ? Object.freeze({ ...value.spend.proofJob, rootId: value.rootId,
         operationId: value.spend.proposal.operationId, nativeEffectsEstablished: false as const }) : null),
     close() { discardReview(); closed = true; liveInclusion = null; liveOutputBalances = null; liveClaimObservation = null;

@@ -11,7 +11,7 @@ function bad(): never { throw Error('MOBILE_DEVICE_EXIT_RESPONSE_INVALID'); }
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 async function sha(bytes: Uint8Array) {
   const owned = new Uint8Array(bytes.length); owned.set(bytes);
-  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned.buffer)), b => b.toString(16).padStart(2, '0')).join(''); }
+  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned)), b => b.toString(16).padStart(2, '0')).join(''); }
   finally { owned.fill(0); }
 }
 async function pathRoot(path: DeviceExitQuoteV1['path']) {

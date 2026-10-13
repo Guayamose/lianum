@@ -6,7 +6,8 @@ import { DEVICE_EXTERNAL_FLAT_SHARE_V1, normalizeExternalFlatDescriptorV1, norma
   normalizeExternalFlatSignatureV1, externalFlatExactV1, externalFlatWitnessV1,
   externalFlatWitnessBytesV1, externalFlatWipeV1, externalFlatPrivateProofTranscriptBytesV2, externalFlatPrivateWalletTranscriptBytesV3, DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3, validateExternalFlatFreshV1 }
   from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
-const rows = new WeakMap(), statuses = new WeakMap(), quotes = new WeakMap();
+import { awaitDevicePagedIssuedTimeV3 } from '@lianum/mobile-protocol/device/paged-owner-v3';
+const rows = new WeakMap(), statuses = new WeakMap(), quotes = new WeakMap(), reviews = new WeakMap();
 const fail = () => { throw Error('MOBILE_EXTERNAL_FLAT_RESPONSE_REJECTED'); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const fields = ['action', 'jobId', 'rootId', 'noteRevision', 'recipient', 'statement', 'path', 'witnessSHA256'];
@@ -34,7 +35,7 @@ function snapshot(raw) {
 }
 async function digest(bytes) {
   const owned = new Uint8Array(bytes.length); owned.set(bytes);
-  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned.buffer)), b => b.toString(16).padStart(2, '0')).join(''); }
+  try { return Array.from(new Uint8Array(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, owned)), b => b.toString(16).padStart(2, '0')).join(''); }
   finally { owned.fill(0); }
 }
 function freshStatus(value) {
@@ -48,13 +49,21 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
   let closed = false;
   const accesses = new WeakMap(), consents = new WeakMap(), controllers = new Set();
   function live() { if (closed) fail(); }
-  function accessScope(value) {
-    live(); validateExternalFlatFreshV1(value);
+  function accessScope(value, fresh = true) {
+    live(); if (fresh) validateExternalFlatFreshV1(value);
     for (const name of ['origin', 'pairingId', 'devicePublicKey']) if (value[name] !== original[name]) fail();
   }
   function consentScope(value, fresh = true) {
     live(); if (!same(value.descriptor, original)) fail();
     if (fresh) validateExternalFlatFreshV1(value);
+  }
+  // Wait for the original peer's issuance time without changing its expiry.
+  // This controller remains owned by the API after the HTTP reader has closed.
+  async function awaitIssued(issuedAt) {
+    live(); if (issuedAt <= Date.now()) return;
+    const controller = new AbortController(); controllers.add(controller);
+    try { await awaitDevicePagedIssuedTimeV3(issuedAt, controller.signal); live(); }
+    finally { controllers.delete(controller); }
   }
   async function post(path, payload, originalResultResponse = false) {
     live(); const target = original.origin + (original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
@@ -111,7 +120,8 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
   const client = Object.freeze({ descriptor: original,
     async challenge() {
       if (arguments.length !== 0) fail();
-      const value = normalizeExternalFlatAccessV1(await post('challenges', {})); accessScope(value);
+      const value = normalizeExternalFlatAccessV1(await post('challenges', {})); accessScope(value, false);
+      await awaitIssued(value.expiresAt - 15000); accessScope(value);
       accesses.set(value, { consumed: false }); return value;
     },
     async review(access, signature, rawDraft) {
@@ -120,19 +130,21 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
       signature = normalizeExternalFlatSignatureV1(signature);
       const draft = externalFlatExactV1(snapshot(rawDraft), fields); entry.consumed = true;
       const response = externalFlatExactV1(await post('reviews', { access, signature, draft }), ['consent']);
-      const value = normalizeExternalFlatConsentV1(response.consent); consentScope(value);
+      const value = normalizeExternalFlatConsentV1(response.consent); consentScope(value, false);
       for (const name of ['action', 'rootId', 'noteRevision', 'recipient']) if (value[name] !== draft[name]) fail();
       if (draft.action === 'QUOTE_W39') { if (value.depositJobId !== draft.jobId) fail(); }
       else {
         if (draft.jobId !== null && value.jobId !== draft.jobId) fail();
         for (const name of ['statement', 'path', 'witnessSHA256']) if (!same(value[name], draft[name])) fail();
       }
+      await awaitIssued(value.expiresAt - 15000); consentScope(value);
       if(value.privateProof){if(await digest(value.privateProof.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3?externalFlatPrivateWalletTranscriptBytesV3(value):externalFlatPrivateProofTranscriptBytesV2(value))!==value.privateProof.transcriptSHA256)fail();consentScope(value);}
-      consents.set(value, { consumed: false }); return value;
+      const consentEntry={consumed:false,submitInvoked:false};consents.set(value,consentEntry);reviews.set(value,{live,consentScope,entry:consentEntry});return value;
     },
     async submit(consent, signature, rawWitness = null) {
+      const entry = consents.get(consent); if (entry) entry.submitInvoked = true;
       if (arguments.length !== 3) fail();
-      const entry = consents.get(consent); if (!entry || entry.consumed) fail(); consentScope(consent);
+      if (!entry || entry.consumed) fail(); consentScope(consent);
       signature = normalizeExternalFlatSignatureV1(signature);
       let witness = null, bytes;
       try {
@@ -159,7 +171,8 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
       const entry = accesses.get(access); if (!entry || entry.consumed) fail(); accessScope(access);
       signature = normalizeExternalFlatSignatureV1(signature); entry.consumed = true;
       const parsed = normalizeExternalFlatStatusV1(await post('status', { access, signature })); live();
-      if (!same(parsed.descriptor, original)) fail(); freshStatus(parsed);
+      if (!same(parsed.descriptor, original)) fail();
+      await awaitIssued(parsed.observedAt); live(); freshStatus(parsed);
       const value = Object.freeze({ ...parsed, jobs: Object.freeze(parsed.jobs.map(row => originalRow(row))) });
       statuses.set(value, { live, descriptor: original }); return value;
     },
@@ -177,4 +190,20 @@ export function readDeviceExternalFlatStatusV1(value) {
 }
 export function readDeviceExternalFlatQuoteV1(value) {
   const entry = quotes.get(value); if (!entry) fail(); entry.live(); validateExternalFlatFreshV1(value); return value;
+}
+
+/** Same live, unconsumed original review only; copies cannot arm custody. */
+export function readDeviceExternalFlatConsentV1(value){
+ const original=reviews.get(value);if(!original||original.entry.consumed)fail();original.live();original.consentScope(value);return value;
+}
+
+/** Local non-submission evidence only; never a fresh signing permission. */
+export function readDeviceExternalFlatUnsubmittedConsentV1(value) {
+ const original=reviews.get(value); if(!original||original.entry.consumed&&!original.entry.retired||original.entry.submitInvoked)fail();
+ original.live();original.consentScope(value,false);return value;
+}
+
+/** Retire only an original local handle that has never entered submit. */
+export function retireDeviceExternalFlatUnsubmittedConsentV1(value) {
+ readDeviceExternalFlatUnsubmittedConsentV1(value);const entry=reviews.get(value).entry;if(entry.retired)fail();entry.retired=true;entry.consumed=true;
 }

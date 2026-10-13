@@ -1,4 +1,4 @@
-export function createDevicePagedGraphApiV3(input:{descriptor:unknown;fetchImpl:typeof fetch}):{descriptor:any;pairing():Promise<any>;challenge(action:string,graphId:string,jobId:string,rootId:string,revision:number,command:unknown):Promise<any>;submit(consent:unknown,signature:string,command:unknown):Promise<any>;close():Promise<void>};
+export function createDevicePagedGraphApiV3(input:{descriptor:unknown;fetchImpl:typeof fetch}):{descriptor:any;isUnconfirmedReply(error:unknown):boolean;pairing():Promise<any>;challenge(action:string,graphId:string,jobId:string,rootId:string,revision:number,command:unknown):Promise<any>;submit(consent:unknown,signature:string,command:unknown):Promise<any>;close():Promise<void>};
 export function readDevicePagedGraphConsentV3(raw:unknown):any;
 export function readDevicePagedGraphStatusV3(raw:unknown):any;
 export function readDevicePagedGraphReplyV3(raw:unknown):any;

@@ -9,3 +9,12 @@ export function readDeviceExternalFlatGraphOutputQuoteV1(value:object):any;
 export function readDeviceExternalFlatGraphOutputRowV1(value:object):any;
 
 export function readDeviceExternalFlatGraphPreparationV1(value:object):any;
+
+export function readDeviceExternalFlatGraphConsentV1(value:unknown):ExternalFlatGraphConsent;
+export function readDeviceExternalFlatGraphOutputConsentV1(value:unknown):ExternalFlatGraphOutputConsent;
+
+export function readDeviceExternalFlatGraphUnsubmittedConsentV1(value:unknown):ExternalFlatGraphConsent;
+export function readDeviceExternalFlatGraphOutputUnsubmittedConsentV1(value:unknown):ExternalFlatGraphOutputConsent;
+
+export function retireDeviceExternalFlatGraphUnsubmittedConsentV1(value:unknown):void;
+export function retireDeviceExternalFlatGraphOutputUnsubmittedConsentV1(value:unknown):void;

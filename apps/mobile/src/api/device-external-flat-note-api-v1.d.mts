@@ -11,3 +11,9 @@ export function createDeviceExternalFlatNoteApiV1(input:{descriptor:ExternalFlat
 export function readDeviceExternalFlatRowV1(row:ExternalFlatRow):ExternalFlatRow;
 export function readDeviceExternalFlatStatusV1(status:ExternalFlatStatus):ExternalFlatStatus;
 export function readDeviceExternalFlatQuoteV1(quote:ExternalFlatConsent):ExternalFlatConsent;
+
+export function readDeviceExternalFlatConsentV1(value:unknown):ExternalFlatConsent;
+
+export function readDeviceExternalFlatUnsubmittedConsentV1(value:unknown):ExternalFlatConsent;
+
+export function retireDeviceExternalFlatUnsubmittedConsentV1(value:unknown):void;

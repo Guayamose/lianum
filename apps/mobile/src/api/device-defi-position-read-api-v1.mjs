@@ -12,6 +12,13 @@ export function readDeviceDefiPositionObservationV1(value){
  const expiresAt=observations.get(value);if(expiresAt===undefined||Date.now()>=expiresAt)fail();
  validateDeviceDefiPositionHeadsFreshV1(value.positions);return value;
 }
+/** Display DATA only. The original review and head deadlines remain fixed;
+ * closing a transport does not turn an accepted read into a spending grant. */
+export function readDeviceDefiPositionObservationWindowV1(value){
+ readDeviceDefiPositionObservationV1(value);const original=observations.get(value);
+ const heads=value.positions.positions.flatMap(row=>[row.ownership,row.valuation]).filter(row=>row.status==='LIVE').map(row=>row.observed.observedAt+15000);
+ return Object.freeze({issuedAt:original-15000,expiresAt:Math.min(original,...heads)});
+}
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 export function createDeviceDefiPositionReadApiV1({descriptor,fetchImpl=globalThis.fetch}={}){
  const original=normalizeDeviceDefiPositionDescriptorV1(descriptor);if(typeof fetchImpl!=='function')fail();let closed=false;
