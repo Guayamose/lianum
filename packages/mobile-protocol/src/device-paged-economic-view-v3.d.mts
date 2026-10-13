@@ -1,0 +1,20 @@
+export const DEVICE_PAGED_ECONOMIC_VIEW_V3:'DEVICE_PAGED_ECONOMIC_VIEW_V3';
+export type DevicePagedEconomicProviderV3=Readonly<{publicKey:string;signerIdentity:string;address:string}>;
+export type DevicePagedEconomicRequestV3=Readonly<{outputs:readonly Readonly<{id:string;nullifier:string}>[]}>;
+export type DevicePagedEconomicFeeV3=Readonly<{status:'OBSERVED'|'UNKNOWN';asset:string;unit:'wei'|'satoshi'|'lamport';amount:string|null}>;
+export type DevicePagedEconomicConservationV3=Readonly<{status:'UNKNOWN';balanced:null;crossAssetValueConservation:false}>|Readonly<{status:'OBSERVED';kind:'NATIVE_ACCOUNT';balanced:true;amount:string;fee:string;sourceBefore:string;sourceAfter:string;recipientBefore:string;recipientAfter:string;crossAssetValueConservation:false}>|Readonly<{status:'OBSERVED';kind:'BITCOIN_UTXO';balanced:true;input:string;amount:string;change:string;fee:string;changeAddress:string;crossAssetValueConservation:false}>|Readonly<{status:'OBSERVED';kind:'UNISWAP_EXACT_OUTPUT';balanced:true;inputAsset:string;inputSpent:string;inputCeiling:string;unusedInputCeiling:string;outputAsset:string;outputDelivered:string;targetBacking:Readonly<{held:string;liabilities:string;surplus:string;deficit:'0'}>;protocolFeeRateMillionths:string;protocolFeeSeparatelyValuedAtomic:null;protocolFeeAddedToInputSpent:false;crossAssetValueConservation:false}>;
+export type DevicePagedEconomicNativeV3=Readonly<{family:'EVM'|'BTC'|'SOL'|'UNISWAP';chainDomain:string;genesis:string;asset:string;amount:string;source:string;destination:string;nativeId:string;status:'OBSERVED'|'UNKNOWN'|'ADVERSE';finalityKind:'1'|'2'|'3';confirmations:string|null;fee:DevicePagedEconomicFeeV3;conservation:DevicePagedEconomicConservationV3}>;
+/** The beneficiary controls the provider receipt-signing point. Payout values
+ * are preparation declarations; the original Vault must compare its note. */
+export type DevicePagedEconomicSettlementRowV3=Readonly<{profile:'ORIGINAL_PAGED_NATIVE_ECONOMIC_SETTLEMENT_V3';classification:'LOCAL_SYNTHETIC_COMMON_OPERATOR_3_OF_4';descriptor:any;providerIdentity:string;checkpoint:Readonly<{profile:'ORIGINAL_PAGED_NATIVE_PROVIDER_CHECKPOINT_V3';providerIdentity:string;configurationSHA256:string;revision:number;dataSHA256:string}>;id:string;authorizationRoot:string;actionCommitment:string;signerIdentity:string;payoutCommitment:string;payoutAmount:string;beneficiary:Readonly<{chainId:string;genesis:string;assetIdentity:string;address:string;publicKey:string}>;native:DevicePagedEconomicNativeV3}>;
+/** Public nullifiers came from the OWNER request. This DATA is not evidence
+ * that an arbitrary nullifier belongs to a commitment; private Vault joins it. */
+export type DevicePagedEconomicOutputV3=Readonly<{role:'payout';id:string;amount:string;commitment:string;nullifier:string;withdrawn:boolean}>;
+export type DevicePagedEconomicLedgerV3=Readonly<{blockHash:string;blockNumber:string;heldAmount:string;backedAmount:string;beneficiaryBalance:string;spentNullifiers:readonly Readonly<{nullifier:string;spent:boolean}>[]}>;
+export type DevicePagedEconomicViewV3=Readonly<{type:'economic-settlement';profile:typeof DEVICE_PAGED_ECONOMIC_VIEW_V3;descriptor:any;graphId:string;authorizationRoot:string;rows:readonly DevicePagedEconomicSettlementRowV3[];outputs:readonly DevicePagedEconomicOutputV3[];ledger:DevicePagedEconomicLedgerV3}>;
+export function devicePagedEconomicProviderV3(publicKey:unknown):DevicePagedEconomicProviderV3;
+export function normalizeDevicePagedEconomicRequestV3(raw:unknown):DevicePagedEconomicRequestV3;
+export function normalizeDevicePagedEconomicSettlementRowV3(raw:unknown,descriptor:unknown):DevicePagedEconomicSettlementRowV3;
+/** SDK/OWNER must separately validate the graph status and require this ledger
+ * head to equal that same original status. This normalizer creates no brand. */
+export function normalizeDevicePagedEconomicViewV3(raw:unknown,descriptor:unknown):DevicePagedEconomicViewV3;

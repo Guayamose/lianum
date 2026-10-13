@@ -1,0 +1,5 @@
+export const DEVICE_PAGED_UNISWAP_INTENT_V3:'UNISWAP_V3_EXACT_OUTPUT_SINGLE';
+export type DevicePagedUniswapIntentV3=Readonly<{kind:typeof DEVICE_PAGED_UNISWAP_INTENT_V3;depositJobId:string;rootId:string;outputCommitment:string;maximumInput:string;outputAmount:string;validFrom:string;validUntil:string}>;
+export function normalizeDevicePagedUniswapIntentV3(raw:unknown):DevicePagedUniswapIntentV3;
+export type DevicePagedUniswapPreparationV3=Readonly<{configuration:Readonly<{family:'EVM';label:string;chainDomain:string;evidencePolicy:string;assetSymbol:string;decimals:number;destinations:readonly never[]}>;template:Readonly<{maximumInput:'200';outputAmount:'100';recipient:string;inputAsset:Readonly<{asset:string;assetIdentity:string;symbol:string;decimals:number}>}>;targetConnection:Readonly<{format:'DEVICE_EXTERNAL_FLAT_CONNECTION_V1';descriptor:any;transport:Readonly<{type:'ANDROID_PINNED_TLS_V1';certificatePEM:string;certificateSHA256:string}>}>}>;
+export function normalizeDevicePagedUniswapPreparationV3(raw:unknown,rawPagedDescriptor:unknown):DevicePagedUniswapPreparationV3;

@@ -1,0 +1,11 @@
+export const DEVICE_PAGED_PAYOUT_SETTLEMENT_V3:'DEVICE_PAGED_OWNER_PAYOUT_SETTLEMENT_V3';
+export type DevicePagedPayoutV3=Readonly<{id:string;amount:string;commitment:string;nullifier:string}>;
+export type DevicePagedPayoutSettlementPlanV3=Readonly<{profile:typeof DEVICE_PAGED_PAYOUT_SETTLEMENT_V3;descriptor:any;graphId:string;authorizationRoot:string;depositAmount:string;changeAmount:string;beneficiary:string;payouts:readonly DevicePagedPayoutV3[]}>;
+export type DevicePagedPayoutLedgerV3=Readonly<{blockHash:string;blockNumber:string;heldAmount:string;backedAmount:string;beneficiaryBalance:string;spentNullifiers:readonly Readonly<{nullifier:string;spent:boolean}>[]}>;
+export type DevicePagedPayoutWithdrawalV3=Readonly<{id:string;amount:string;nullifier:string;jobId:string;proofSHA256:string;transactionHash:string}>;
+export type DevicePagedPayoutSettlementResultV3=Readonly<{profile:typeof DEVICE_PAGED_PAYOUT_SETTLEMENT_V3;type:'complete';ownerAuthorized:true;solverAutonomousClaim:false;graphId:string;authorizationRoot:string;assetIdentity:string;beneficiary:string;depositAmount:string;changeAmount:string;payoutAmount:string;collectedThisRun:string;completed:string;total:string;withdrawals:readonly DevicePagedPayoutWithdrawalV3[];before:DevicePagedPayoutLedgerV3;after:DevicePagedPayoutLedgerV3;nativeRatesApplied:false}>;
+export function normalizeDevicePagedPayoutSettlementV3(raw:unknown):DevicePagedPayoutSettlementPlanV3;
+/** Original SDK and custody ports own every authorization and proof. The
+ * approval callback accepts only the explicit OWNER payout review; it does
+ * not replace fresh consent. Effects are chosen by NEXT_COMMAND, never retry. */
+export function runDevicePagedPayoutSettlementV3(input:{plan:unknown;command:(action:string,body:unknown)=>Promise<any>;readState:()=>Promise<{status:any;ledger:DevicePagedPayoutLedgerV3}>;readOutputs:()=>Promise<readonly Readonly<{role:string;id:string|null;amount:string;nullifier:string;withdrawn:boolean}>[]>;prepareWithdrawal:()=>Promise<any>;approve:(plan:DevicePagedPayoutSettlementPlanV3)=>Promise<void>;onProgress?:(value:{completed:string;total:string;id:string})=>void|Promise<void>;signal?:AbortSignal}):Promise<DevicePagedPayoutSettlementResultV3>;

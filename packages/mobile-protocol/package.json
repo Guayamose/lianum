@@ -40,6 +40,14 @@
     "./device/native-reservation-v2": "./src/device-native-private-reservation-v2.mjs",
     "./device/paged-owner-v3": "./src/device-paged-owner-v3.mjs",
     "./device/paged-graph-v3": "./src/device-paged-graph-v3.mjs",
+    "./device/paged-operation-runner-v3": {
+      "types": "./src/device-paged-operation-runner-v3.d.mts",
+      "default": "./src/device-paged-operation-runner-v3.mjs"
+    },
+    "./device/paged-uniswap-v3": {
+      "types": "./src/device-paged-uniswap-v3.d.mts",
+      "default": "./src/device-paged-uniswap-v3.mjs"
+    },
     "./device-defi-position-read-v1": "./src/device-defi-position-read-v1.mjs",
     "./device-deposit-consent-v1": "./src/device-deposit-consent-v1.mjs",
     "./device-execution-consent-v1": "./src/device-execution-consent-v1.mjs",
@@ -48,7 +56,23 @@
     "./device-output-balance-v1": "./src/device-output-balance-v1.mjs",
     "./device-recovery-arm-consent-v1": "./src/device-recovery-arm-consent-v1.mjs",
     "./device-reservation-consent-v1": "./src/device-reservation-consent-v1.mjs",
-    "./original-account-private-state-v1": "./src/original-account-private-state-v1.mjs"
+    "./original-account-private-state-v1": "./src/original-account-private-state-v1.mjs",
+    "./device/defi-operation-flow-v1": {
+      "types": "./src/device-defi-operation-flow-v1.d.mts",
+      "default": "./src/device-defi-operation-flow-v1.mjs"
+    },
+    "./device/paged-payout-settlement-v3": {
+      "types": "./src/device-paged-payout-settlement-v3.d.mts",
+      "default": "./src/device-paged-payout-settlement-v3.mjs"
+    },
+    "./device/paged-economic-view-v3": {
+      "types": "./src/device-paged-economic-view-v3.d.mts",
+      "default": "./src/device-paged-economic-view-v3.mjs"
+    },
+    "./device/paged-wallet-portfolio-v3": {
+      "types": "./src/device-paged-wallet-portfolio-v3.d.mts",
+      "default": "./src/device-paged-wallet-portfolio-v3.mjs"
+    }
   },
   "types": "./src/authorization.d.mts",
   "dependencies": {}

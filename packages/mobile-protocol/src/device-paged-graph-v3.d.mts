@@ -4,6 +4,8 @@ export function devicePagedGraphProvesV3(action:string):boolean;
 export function devicePagedGraphEffectsV3(action:string):boolean;
 export function normalizeDevicePagedGraphDraftV3(raw:unknown):any;
 export function normalizeDevicePagedGraphConsentV3(raw:unknown):any;
+export type DevicePagedGraphConsentFreshnessCodeV3='MOBILE_PAGED_GRAPH_CONSENT_CLOCK_INVALID'|'MOBILE_PAGED_GRAPH_CONSENT_DEADLINE'|'MOBILE_PAGED_GRAPH_CONSENT_FUTURE'|'MOBILE_PAGED_GRAPH_CONSENT_EXPIRED';
+export type DevicePagedGraphConsentFreshnessErrorV3=Error&Readonly<{code:DevicePagedGraphConsentFreshnessCodeV3}>;
 export function validateDevicePagedGraphConsentFreshV3(raw:unknown,now?:number):any;
 export function devicePagedGraphPermissionMessageV3(raw:unknown):Uint8Array;
 export function normalizeDevicePagedGraphPublicV3(raw:unknown):any;
@@ -11,3 +13,9 @@ export function validateDevicePagedGraphPublicFreshV3(raw:unknown,now?:number):a
 export function normalizeDevicePagedGraphReplyV3(raw:unknown):any;
 export function snapshotDevicePagedGraphCommandV3(raw:unknown):any;
 export function normalizeDevicePagedGraphHealthV3(raw:unknown):any;
+export type DevicePagedNativeNetworkV3=Readonly<{family:'EVM'|'BTC'|'SOL';label:string;chainDomain:string;evidencePolicy:string;assetSymbol:string;decimals:number;destinations:readonly Readonly<{id:string;address:string;label:string}>[]}>;
+export function normalizeDevicePagedNativePreparationV3(raw:unknown,rawPagedDescriptor?:unknown):Readonly<{family:'EVM';chainDomain:string;evidencePolicy:string;networks?:readonly DevicePagedNativeNetworkV3[];uniswap?:import('./device-paged-uniswap-v3.mjs').DevicePagedUniswapPreparationV3}>;
+export function normalizeDevicePagedNativePageRequestV3(raw:unknown):any;
+
+export {normalizeDevicePagedUniswapIntentV3,normalizeDevicePagedUniswapPreparationV3,DEVICE_PAGED_UNISWAP_INTENT_V3} from './device-paged-uniswap-v3.mjs';
+export type {DevicePagedUniswapIntentV3,DevicePagedUniswapPreparationV3} from './device-paged-uniswap-v3.mjs';

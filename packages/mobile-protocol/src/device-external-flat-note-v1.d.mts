@@ -28,6 +28,8 @@ export function normalizeExternalFlatIntentStatementV1(raw:unknown):ExternalFlat
 export function normalizeExternalFlatPathV1(raw:unknown):ExternalFlatPath;
 export function normalizeExternalFlatSignatureV1(raw:unknown):string;
 export function validateExternalFlatFreshV1(raw:unknown,now?:number):ExternalFlatAccess|ExternalFlatConsent;
+/** Finite error provenance only; no frame or signing permission is returned. */
+export function readExternalFlatFreshFailureV1(error:unknown):'CLOCK_FUTURE'|'CLOCK_EXPIRED'|null;
 export function externalFlatPermissionMessageV1(raw:unknown):Uint8Array;
 export function externalFlatWitnessV1(mode:'deposit_balance'|'deposit_intent'|'withdraw_balance',raw:unknown):any;
 export function externalFlatWitnessBytesV1(mode:'deposit_balance'|'deposit_intent'|'withdraw_balance',raw:unknown):Uint8Array;

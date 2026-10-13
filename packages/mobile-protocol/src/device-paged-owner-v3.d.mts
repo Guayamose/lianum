@@ -1,5 +1,7 @@
 export const DEVICE_PAGED_OWNER_V3:string,DEVICE_PAGED_CUSTODY_V3:string,DEVICE_PAGED_GRAPH_V3:string,DEVICE_PAGED_SPARSE_V3:string;
+export {devicePagedNowV3,devicePagedWallNowV3,assertDevicePagedFrameElapsedV3,awaitDevicePagedIssuedTimeV3} from './device-paged-clock-v3.mjs';
 export function normalizeDevicePagedDescriptorV3(raw:unknown):any;
+export function assertDevicePagedGraphDeadlineV3(raw:unknown,settleBefore:string):void;
 export function normalizeDevicePagedConsentV3(raw:unknown):any;
 export function validateDevicePagedConsentFreshV3(raw:unknown,now?:number):any;
 export function normalizeDevicePagedDraftV3(raw:unknown):any;
@@ -11,3 +13,8 @@ export function pagedOwnerExactV3(raw:unknown,keys:string[]):any;
 export function pagedOwnerHexV3(raw:unknown,zero?:boolean):string;
 export function pagedOwnerUintV3(raw:unknown,zero?:boolean):string;
 export function pagedOwnerWipeV3(value:unknown):void;
+
+export function devicePagedWordsHexV3(raw:readonly string[],offset:number):string;
+
+/** Bounded detached DATA; this snapshot carries no original authority. */
+export function snapshotDevicePagedWitnessV3(input:unknown):any;
