@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { ownSpawnedBuildGroup,buildProcessFailureDiagnosticV1 } from './owned-build-process.mjs';
 import { nativeProcStatV1 } from '@lianum/proofs/host/process-files';
 import nativeBuildLimits from '../plugins/with-native-build-limits.cjs';
+import {nativeWalletPublicConfigurationV1} from '../src/native-wallet/native-wallet-public-configuration-v1.ts';
 
 const mobile = fileURLToPath(new URL('../', import.meta.url));
 const project = fileURLToPath(new URL('../../../', import.meta.url));
@@ -62,6 +63,13 @@ const report = {format:verificationOnly?'LIANUM_MOBILE_ANDROID_STANDALONE_LOCAL_
   variant,standaloneLocal,distributionProduction:false,noteCustodyOnDevice:false,
   biometricHardwareTested:false,tlsOnDeviceTested:false};
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+const publicWalletConfigurationPath='apps/mobile/src/native-wallet/native-wallet-public-configuration-v1.ts';
+if(!verificationOnly)report.publicWalletConfiguration={
+  ...nativeWalletPublicConfigurationV1,
+  source:publicWalletConfigurationPath,
+  sourceSHA256:sha256(readFileSync(join(project,publicWalletConfigurationPath))),
+  embeddedSourceVerified:false,
+};
 function publicSourceInputs() {
   const sources = [];
   function retain(path) {
@@ -74,8 +82,9 @@ function publicSourceInputs() {
   for (const path of ['apps/mobile/App.tsx','apps/mobile/index.ts','apps/mobile/app.json',
     'apps/mobile/package.json','apps/mobile/package-lock.json','apps/mobile/metro.config.cjs',
     'apps/mobile/src','apps/mobile/scripts','apps/mobile/plugins','packages/mobile-protocol/package.json',
-    'packages/mobile-protocol/src',
-    'apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs']) retain(join(project, path));
+    'packages/mobile-protocol/src','packages/crypto/package.json','packages/crypto/src/native-wallet-v1.mjs',
+    'packages/crypto/src/native-wallet-auth-v1.mjs','package-lock.json',
+    'packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs']) retain(join(project, path));
   return sources.sort((a,b)=>a.path.localeCompare(b.path));
 }
 const save=()=>writeFileSync(join(reportDirectory,reportName),JSON.stringify(report,null,2)+'\n',{mode:0o600});
@@ -231,7 +240,7 @@ try {
   }
   if (!verificationOnly) {
   save();report.phase='prebuild';
-  await run(process.execPath,[join(mobile,'node_modules/expo/bin/cli'),'prebuild','--no-install','--platform','android'],mobile);
+  await run(process.execPath,[join(mobile,'node_modules/expo/bin/cli'),'prebuild','--no-clean','--no-install','--platform','android'],mobile);
   for (const path of ['android/app/build.gradle', 'android/build.gradle']) {
     const generated = readFileSync(join(mobile, path), 'utf8');
     for (const argument of nativeCmakeArguments) {
@@ -325,13 +334,53 @@ try {
       'apps/mobile/src/screens/DefiPositionsScreen.tsx',
       'apps/mobile/src/api/device-defi-position-read-api-v1.mjs',
       'packages/mobile-protocol/src/device-defi-position-read-v1.mjs',
-      'apps/wallet/src/client/features/portfolio/generation-position-state-v2.mjs',
+      'packages/mobile-protocol/src/wallet/contracts/generation-position-state-v2.mjs',
       'packages/mobile-protocol/src/device-external-flat-note-v1.mjs',
       'apps/mobile/src/api/device-external-flat-note-api-v1.mjs',
       'apps/mobile/src/screens/ExternalTokenNoteScreen.tsx',
       'apps/mobile/src/custody/device-external-flat-note-vault-v1.ts',
       'apps/mobile/src/state/private-wallet-state-v1.mjs',
-      'apps/mobile/src/screens/PrivateWalletStateScreen.tsx');
+      'apps/mobile/src/screens/PrivateWalletStateScreen.tsx',
+      'apps/mobile/src/screens/DevicePagedNoteScreen.tsx',
+      'apps/mobile/src/screens/DevicePagedGraphScreen.tsx',
+      'apps/mobile/src/screens/device-paged-operation-form-v3.ts',
+      'apps/mobile/src/screens/device-paged-guided-preparation-v3.mjs',
+      'apps/mobile/src/components/wallet-ui.tsx',
+      'apps/mobile/src/components/wallet-actions.tsx',
+      'apps/mobile/src/screens/NativeWalletScreen.tsx',
+      'apps/mobile/src/native-wallet/NativeWalletQr.tsx',
+      'apps/mobile/src/native-wallet/native-wallet-controller.ts',
+      publicWalletConfigurationPath,
+      'apps/mobile/src/native-wallet/native-wallet-form-v1.mjs',
+      'apps/mobile/src/custody/native-wallet-custody-v1.ts',
+      'packages/crypto/src/native-wallet-v1.mjs',
+      'packages/crypto/src/native-wallet-auth-v1.mjs',
+      'apps/mobile/src/state/wallet-navigation-v1.mjs',
+      'apps/mobile/src/custody/device-paged-note-vault-v3.ts',
+      'apps/mobile/src/api/device-paged-owner-api-v3.mjs',
+      'apps/mobile/src/api/device-paged-graph-api-v3.mjs',
+      'apps/mobile/src/api/device-paged-read-retry-v3.mjs',
+      'apps/mobile/src/api/device-paged-operation-runner-v3.mjs',
+      'packages/mobile-protocol/src/device-paged-operation-runner-v3.mjs',
+      'packages/mobile-protocol/src/device-paged-uniswap-v3.mjs',
+      'packages/mobile-protocol/src/device-paged-payout-settlement-v3.mjs',
+      'packages/mobile-protocol/src/device-paged-economic-view-v3.mjs',
+      'apps/mobile/src/api/device-paged-uniswap-preparation-v3.ts',
+      'apps/mobile/src/api/device-external-flat-reception-observer-v1.mjs',
+      'apps/mobile/src/state/wallet-observation-window-v1.mjs',
+      'apps/mobile/src/state/wallet-portfolio-v1.mjs',
+      'packages/mobile-protocol/src/device-paged-wallet-portfolio-v3.mjs',
+      'apps/mobile/src/state/wallet-connection-read-plan-v1.mjs',
+      'apps/mobile/src/screens/WalletRecoveryScreen.tsx',
+      'apps/mobile/src/custody/wallet-recovery-package-v1.mjs',
+      'apps/mobile/src/custody/wallet-recovery-native-v1.ts',
+      'apps/mobile/src/custody/wallet-session-v1.ts',
+      'apps/mobile/src/custody/device-paged-custody-views-v3.mjs',
+      'apps/mobile/src/state/public-connection-registry-v1.mjs',
+      'apps/mobile/src/state/public-connection-store-v1.ts',
+      'apps/mobile/src/api/device-paged-connection-transport-v3.ts',
+      'packages/mobile-protocol/src/device-paged-owner-v3.mjs',
+      'packages/mobile-protocol/src/device-paged-graph-v3.mjs');
     report.embeddedSourceJoins=required.map(path=>{
       const suffix=path.startsWith('apps/mobile/')?path.slice('apps/mobile/'.length)
         :path.startsWith('apps/wallet/')?path.slice('apps/'.length):path;
@@ -345,6 +394,12 @@ try {
     });
     report.embeddedJavaScript={asset:'assets/index.android.bundle',bytes:bundle.length,sha256:sha256(bundle),
       hermesBytecodeVersion:bundle.readUInt32LE(8),packagerSourceMapSHA256:sha256(mapBytes)};
+    if(!verificationOnly){
+      const configurationJoin=report.embeddedSourceJoins.find(row=>row.path===publicWalletConfigurationPath);
+      assert.equal(configurationJoin.sha256,report.publicWalletConfiguration.sourceSHA256,
+        'MOBILE_BUILD_PUBLIC_WALLET_CONFIGURATION_JOIN');
+      report.publicWalletConfiguration.embeddedSourceVerified=true;
+    }
     report.phase='verifying-development-signature';save();
     const signer=await run(join(sdk,'build-tools/36.0.0/apksigner'),['verify','--verbose','--print-certs',apk],mobile,true);
     assert.ok(signer.includes('Number of signers: 1') && signer.includes('Verified using v2 scheme (APK Signature Scheme v2): true')

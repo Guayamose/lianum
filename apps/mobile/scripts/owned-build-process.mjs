@@ -72,7 +72,7 @@ export function ownSpawnedBuildGroup(child,{allowDetachedDescendants=false}={}) 
       else if(group.length)assert.ok(group.some(stat=>same(stat,identities.get(stat.pid))),
         'MOBILE_BUILD_GROUP_CONTINUITY_UNCONFIRMED');
       if(allowDetachedDescendants){
-        const owned=new Map();
+        const owned=new Map(),endedCandidates=new Map();
         for(const [pid,identity]of identities){
           const current=all.get(pid);if(!current)continue;
           assert.ok(same(identity,current),'MOBILE_BUILD_PROCESS_IDENTITY_CHANGED');
@@ -90,7 +90,7 @@ export function ownSpawnedBuildGroup(child,{allowDetachedDescendants=false}={}) 
         while(changed){
           changed=false;
           for(const stat of all.values()){
-            if(owned.has(stat.pid))continue;
+            if(owned.has(stat.pid)||!live(stat)||same(stat,endedCandidates.get(stat.pid)))continue;
             const parent=owned.get(stat.ppid);if(!parent||!live(parent))continue;
             assert.ok(stat.session===parent.session||(stat.session===stat.pid&&stat.pgrp===stat.pid),
               'MOBILE_BUILD_DESCENDANT_SESSION_UNCONFIRMED');
@@ -98,16 +98,22 @@ export function ownSpawnedBuildGroup(child,{allowDetachedDescendants=false}={}) 
             // detached child to resource accounting or individual signals.
             let text;at('PROCESS_STATUS',stat.pid);try{text=status(stat.pid);}catch(error){if(['ENOENT','ESRCH'].includes(error.code))continue;throw error;}
             at('PROCESS_UID',stat.pid);uidOf(text);at('PROCESS_ANCESTRY',stat.pid);const after=nativeProcStatV1(stat.pid);
-            if(!after)continue;
-            assert.ok(same(stat,after)&&after.ppid===parent.pid&&after.pgrp===stat.pgrp
-              &&after.session===stat.session&&same(parent,nativeProcStatV1(parent.pid)),
+            // A newly discovered child can exit or perform the SAME permitted
+            // setsid transition between samples. A terminal/absent candidate
+            // grants no ownership; reuse, live reparenting and foreign groups
+            // still fail closed. Never signal a candidate from this exclusion.
+            if(!after||(same(stat,after)&&!live(after))){endedCandidates.set(stat.pid,stat);continue;}
+            const parentAfter=nativeProcStatV1(parent.pid),stableSession=after.pgrp===stat.pgrp&&after.session===stat.session;
+            const ownNewSession=stat.pgrp===parent.pgrp&&stat.session===parent.session&&after.pgrp===after.pid&&after.session===after.pid;
+            assert.ok(same(stat,after)&&after.ppid===parent.pid&&(stableSession||ownNewSession)
+              &&same(parent,parentAfter)&&live(parentAfter??{state:'X'}),
               'MOBILE_BUILD_DESCENDANT_ANCESTRY_CHANGED');
             owned.set(after.pid,after);changed=true;
           }
         }
         // An unknown member of our original group must have demonstrable
         // ancestry; no process is admitted merely because it has a numeric PGID.
-        for(const stat of group)assert.ok(owned.has(stat.pid),'MOBILE_BUILD_GROUP_ANCESTRY_UNCONFIRMED');
+        for(const stat of group)if(live(stat)&&!same(stat,endedCandidates.get(stat.pid)))assert.ok(owned.has(stat.pid),'MOBILE_BUILD_GROUP_ANCESTRY_UNCONFIRMED');
         group.splice(0,group.length,...owned.values());
       }
       const processes=[];

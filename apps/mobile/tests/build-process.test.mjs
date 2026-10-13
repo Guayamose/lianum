@@ -110,3 +110,27 @@ test('original build monitor retains its first finite FS or parser cause before 
     }
   }
 });
+
+// Explicit /proc race ports: the launcher is an actual owned ChildProcess;
+// the synthetic candidate is never a real target and receives no signal.
+test('new build descendants can complete setsid or exit between samples without relaxing live identity checks',linux,async()=>{
+ const guardian=readFileSync(new URL('../scripts/owned-build-process.mjs',import.meta.url),'utf8'),proc=readFileSync(new URL('../../../packages/proofs/src/host/process-files.mjs',import.meta.url),'utf8');
+ const plain=source=>source.replace(/^import[\s\S]*?;\n/gm,'').replace(/^export /gm,'');
+ for(const kind of ['SETSID','EXITED','ABSENT','REPARENTED','REUSED','PARENT_EXITED']){
+  const owned=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'}),closed=once(owned,'close');await once(owned,'spawn');
+  const candidate=2147483000;let reads=0,enabled=false;
+  const fakeStat=()=>{const after=reads++>0,fields=Array(43).fill('0');fields[0]=after&&kind==='EXITED'?'Z':'R';fields[1]=String(after&&['EXITED','REPARENTED'].includes(kind)?1:owned.pid);fields[2]=fields[3]=String(after&&kind==='SETSID'?candidate:owned.pid);fields[19]=after&&kind==='REUSED'?'22':'21';return candidate+' (inert-candidate) '+fields.join(' ');};
+  const environment={assert,Error,ChildProcess:owned.constructor,types,process,readdirSync(path){const values=readdirSync(path);return enabled&&path==='/proc'?[...values,String(candidate)]:values;},
+   readFileSync(path,...options){
+    if(path===`/proc/${candidate}/stat`){if(reads>0&&kind==='ABSENT')throw Object.assign(new Error('inert exited'),{code:'ENOENT'});return fakeStat();}
+    if(path===`/proc/${candidate}/status`)return`Uid:\t${process.getuid()}\t${process.getuid()}\t${process.getuid()}\t${process.getuid()}\nVmRSS:\t1 kB\n`;
+    if(enabled&&kind==='PARENT_EXITED'&&reads>1&&path===`/proc/${owned.pid}/stat`){const text=readFileSync(path,...options),end=text.lastIndexOf(') ');return text.slice(0,end+2)+'Z'+text.slice(end+3);}
+    return readFileSync(path,...options);
+   }};
+  try{
+   const api=runInNewContext(plain(proc)+'\n'+plain(guardian)+'\n({ownSpawnedBuildGroup})',environment),guard=api.ownSpawnedBuildGroup(owned,{allowDetachedDescendants:true});enabled=true;
+   if(['SETSID','EXITED','ABSENT'].includes(kind)){const sample=guard.snapshot();assert.equal(sample.liveCount,kind==='SETSID'?2:1);assert.equal(guard.firstFailure(),null);if(kind==='SETSID'){const enrolled=sample.processes.find(row=>row.pid===candidate);assert.equal(enrolled.pgrp,candidate);assert.equal(enrolled.session,candidate);}else assert.equal(sample.processes.some(row=>row.pid===candidate),false);}
+   else{assert.throws(()=>guard.snapshot(),/MOBILE_BUILD_DESCENDANT_ANCESTRY_CHANGED/);assert.equal(guard.firstFailure().ownedPID,null);assert.equal(guard.signal('SIGTERM').unconfirmed,true);}
+  }finally{owned.kill('SIGTERM');await closed;}
+ }
+});
