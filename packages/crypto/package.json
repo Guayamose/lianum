@@ -6,12 +6,23 @@
   "description": "Implementación candidata Poseidon",
   "exports": {
     "./framing": "./src/framing.mjs",
-    "./portable-poseidon2": "./src/portable/poseidon2-bn254-v1.mjs"
+    "./portable-poseidon2": "./src/portable/poseidon2-bn254-v1.mjs",
+    "./native-wallet-v1": "./src/native-wallet-v1.mjs",
+    "./native-wallet-auth-v1": "./src/native-wallet-auth-v1.mjs"
   },
   "lianum": {
     "status": "candidate"
   },
   "dependencies": {
-    "@lianum/components": "file:../components"
+    "@lianum/components": "file:../components",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@scure/base": "2.4.0",
+    "@scure/bip32": "2.4.0",
+    "@scure/bip39": "2.4.0",
+    "@scure/btc-signer": "2.4.1",
+    "micro-eth-signer": "0.20.1",
+    "micro-key-producer": "0.10.2",
+    "micro-sol-signer": "0.8.2"
   }
 }
