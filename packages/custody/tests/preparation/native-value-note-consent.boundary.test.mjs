@@ -22,8 +22,8 @@ test('real native brands reject copied, legacy-shaped, wrapped-shaped and caller
   assert.equal(touched, false);
 });
 test('native consent keeps original native vault path and checkpoint, owns a new record namespace, and never exports owner secrets or ambient grants', async () => {
-  const process = await source('./native-value-owner-process-v2.mjs'), custody = await source('./native-value-owner-custody-v3.mjs');
-  const bridge = await source('./native-value-owner-manual-preparation-v1.mjs');
+  const process = await source('../../../backend/src/custody/processes/native-value-owner-process-v2.mjs'), custody = await source('../../src/signing/native-value-owner-custody-v3.mjs');
+  const bridge = await source('../../../backend/src/custody/preparation/native-value-owner-manual-preparation-v1.mjs');
   assert.match(process, /native-value-owner-v2\.vault/); assert.match(process, /create, checkpoint, processIdentitySHA256, processGeneration: generation/);
   assert.match(process, /const OWNER = \['prepareNativeNotePreparation'/);
   assert.doesNotMatch(process, /['"]prepareManualPreparation['"]|['"]reauthorizeManualPreparation['"]|['"]manualPreparations['"]/);
@@ -35,14 +35,16 @@ test('native consent keeps original native vault path and checkpoint, owns a new
   assert.match(bridge, /if \(readOnly\) \{ delete adapter.review; delete adapter.cancelReview; delete adapter.confirm; \}/);
 });
 test('same SDK, HTTP routes and proof identities; no consent transport circuit, factory release or key regeneration hook', async () => {
-  const native = await source('../wallet-platform/modules/global-state/native-value-account-authority-v2.mjs');
-  const shared = await source('../wallet-platform/modules/api/flat-manual-graph-session.mjs');
-  const server = await source('../wallet-app/server.mjs');
-  assert.match(native, /'deposit_balance' : 'withdraw_balance'/); assert.match(native, /if \(manual\).*requireFixedManualEpoch/);
-  assert.match(shared, /createDurableGenericAccountKeeperV1\(\{ config: account.config, journal, authority: account.authority \}\)/);
+  const native = await source('../../../backend/src/accounts/authority/native-value/native-value-authority-operations.mjs');
+  const shared = await source('../../../backend/src/api/accounts/native-manual-session-backend-v1.mjs');
+  const server = await source('../../../backend/src/api/wallet/http-service.mjs');
+  assert.match(native, /'deposit_balance' : 'withdraw_balance'/); assert.match(native, /if \(manual\)\s*await requireFixedManualEpoch/);
+  assert.match(shared, /createDurableGenericAccountKeeperV1\(\{\s*config: account.config,\s*journal,\s*authority: account.authority,\s*\}\)/);
   assert.match(shared, /flatManualNativeNoteActionTarget/); assert.match(server, /WALLET_NATIVE_NOTE_EXACT_ACCESS_REQUIRED/);
   assert.doesNotMatch(server, /prepareNativeNotePreparation|ownerProof|native-value-owner-custody|rootKey|privateKey/);
-  const nativeSession = shared.slice(shared.indexOf('export async function createNativeValueManualGraphAccountSession'), shared.indexOf('export async function createWrappedWalletManualGraphSessionV1'));
+  const start = shared.indexOf('async function nativeGraphSession'), end = shared.indexOf('function assertNativeWalletEconomicSessionV1');
+  assert.ok(start >= 0 && end > start, 'CANONICAL_NATIVE_SESSION_SCOPE');
+  const nativeSession = shared.slice(start, end);
   assert.doesNotMatch(nativeSession, /claimsEnabled === true|assertOwnedWrapped|assertOwnedFlatSystem\(runtime, system\)/);
   assert.match(nativeSession, /system.claimsEnabled === false/);
 });

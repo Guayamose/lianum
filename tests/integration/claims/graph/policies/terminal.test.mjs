@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { encodeWalletPoolInputs } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import { encodeFlatTransaction } from '../../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 const owned = new WeakSet();
-mock.module('../../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs', {
+mock.module('../../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs', {
   exports: { assertLocalEvm: async runtime => assert.ok(owned.has(runtime), 'TEST_ORIGINAL_RUNTIME_REQUIRED') },
 });
 const { readClaimGraphReplayState, assertClaimGraphPayoutReplay } = await import('../validation/native-claim-graph-terminal-checks.mjs');
@@ -32,7 +32,7 @@ function evidence(reason = 'ASSET_INSUFFICIENT_BACKING', backing = '0') {
   return { original, originalReceipt, replay, receipt, before, after, nullifier, proof, actualReason: reason };
 }
 test('backing-first and spent-N rejection require the same full economic invariants', () => {
-  const source = readFileSync(new URL('../../contracts/PrivateFlatAssetNotePool.sol', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../../contracts/wallet/PrivateFlatAssetNotePool.sol', import.meta.url), 'utf8');
   const body = source.slice(source.indexOf('    function _withdraw('), source.indexOf('    /// @notice Verify all four'));
   assert.ok(body.indexOf('require(backedAmount >= amount') < body.indexOf('_availableNullifier(nullifier)'));
   for (const [reason, backing] of [['ASSET_INSUFFICIENT_BACKING', '0'], ['NOTE_ALREADY_SPENT', '2000000']]) {

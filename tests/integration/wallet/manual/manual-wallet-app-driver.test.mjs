@@ -16,7 +16,7 @@ import { buildActionBody, accountReviewDetails } from '../../../../packages/mobi
 const accounts = new WeakMap(), portfolios = new WeakMap(), approvals = new WeakMap(), controls = new WeakMap();
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const frozen = value => { if (value && typeof value === 'object') { Object.values(value).forEach(frozen); Object.freeze(value); } return value; };
-mock.module('../wallet-platform/modules/global-state/flat-account-authority.mjs', { exports: {
+mock.module('../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs', { exports: {
   assertOwnedFlatAccountAuthority,
   assertFlatAccountManualGraphExecution(value) {
     const data = approvals.get(value);
@@ -29,7 +29,7 @@ mock.module('../wallet-platform/modules/global-state/flat-account-authority.mjs'
     return data;
   },
 } });
-mock.module('../wallet-platform/modules/global-state/flat-portfolio-authority.mjs', { exports: {
+mock.module('../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs', { exports: {
   bindFlatPortfolioChildRequest, // Preserve the actual shared export needed by the wrapped portfolio import.
   assertOwnedFlatPortfolio(runtime, value) {
     if (!portfolios.has(value) || portfolios.get(value).runtime !== runtime) fail('FLAT_PORTFOLIO_OWNED_CAPABILITY_REQUIRED');
@@ -39,7 +39,7 @@ mock.module('../wallet-platform/modules/global-state/flat-portfolio-authority.mj
   },
 } });
 const originalMixedKeepers = new WeakMap();
-mock.module('../wallet-platform/modules/global-state/flat-manual-portfolio-keeper.mjs', { exports: {
+mock.module('../../../../packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs', { exports: {
   async createFlatManualPortfolioKeeper({ runtime, portfolio }) {
     const c = controls.get(portfolio.config); assert.equal(portfolio.authority, c.authority); c.creations++;
     originalMixedKeepers.set(c.keeper, { runtime, portfolio }); return c.keeper;
@@ -51,7 +51,7 @@ mock.module('../wallet-platform/modules/global-state/flat-manual-portfolio-keepe
   },
 } });
 const syntheticCatalogues = new WeakMap();
-mock.module('../wallet-platform/modules/global-state/flat-journal-catalogue.mjs', { exports: {
+mock.module('../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs', { exports: {
   assertOwnedFlatJournalCatalogue(catalogue, expected) {
     assert.equal(syntheticCatalogues.get(catalogue)?.runtime, expected.runtime, 'SYNTHETIC_ORIGINAL_CATALOGUE_REQUIRED');
     assert.ok(syntheticCatalogues.has(catalogue), 'SYNTHETIC_ORIGINAL_CATALOGUE_REQUIRED');

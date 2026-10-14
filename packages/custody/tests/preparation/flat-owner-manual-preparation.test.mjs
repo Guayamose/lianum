@@ -6,10 +6,10 @@ const worlds = new WeakMap();
 const h = c => c.repeat(64), address = c => c.repeat(40);
 const clone = value => structuredClone(value);
 const paths = {
-  owner: new URL('./flat-owner-process.mjs', import.meta.url),
-  account: new URL('../wallet-platform/modules/global-state/flat-account-authority.mjs', import.meta.url),
-  system: new URL('../wallet-platform/modules/ops/deploy-system.mjs', import.meta.url),
-  runtime: new URL('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs', import.meta.url),
+  owner: new URL('../../../backend/src/custody/processes/flat-owner-process.mjs', import.meta.url),
+  account: new URL('../../../backend/src/accounts/authority/flat-account-authority.mjs', import.meta.url),
+  system: new URL('../../../backend/src/operations/deployments/system/deploy-system.mjs', import.meta.url),
+  runtime: new URL('../../../backend/src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url),
 };
 mock.module(paths.owner.href, { exports: { assertOwnedFlatOwnerProcess(owner, expected) {
   const w = worlds.get(expected.runtime); assert.ok(w?.owners.has(owner), 'FIXTURE_ORIGINAL_OWNER_REQUIRED');

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {assertAavePrivateGraphResultV1,AAVE_PRIVATE_GRAPH_RELATIONS_V1} from './aave-private-graph-policy-v1.mjs';
 import {sha as canonicalJournalSHA} from '@lianum/engine/accounts/journal';
 import {exactRecord} from '@lianum/components/encoding/commitments';
+import {projectFlatAdmissionBudgetV1} from '../../../../packages/backend/src/accounts/storage/flat-admission-budget-v1.mjs';
 // SOURCE REVIEW ONLY: enables the two fixed local genuine callers below.
 // It is neither an economic receipt nor GRAPH/abrupt-crash recovery acceptance.
 export const EXTERNAL_VAULT_EXIT_RECOVERY_RELEASE_V1=Object.freeze({profile:'ORIGINAL_RETAINED_OFFICIAL_VAULT_EXIT_BACKEND_V1',protocols:Object.freeze(['OFFICIAL_METAMORPHO_V1','OFFICIAL_AAVE_STATIC_V1']),localOnly:true,fakeFundsOnly:true,sourceReviewOnly:true,privateGraphRecoveryEstablished:false,abruptCrashRecoveryEstablished:false,publicNetwork:false});
@@ -13,7 +14,8 @@ const digest=value=>assert.match(value,/^[0-9a-f]{64}$/);
 // reopen. Commit every status field; only that mandatory false -> true change
 // has a second fixed preimage. These hashes grant no catalogue/keeper authority.
 function assertOriginalCatalogueTransitionStatusV1(status,admissionFault){
- exactRecord(status,['profile','generations','current','bindings','storageFault','admissionFault','uncertainWrite','pendingGenerationId','pendingReview','pendingOwnerPreparation','keeperRestart','originalBindingsRewritten']);
+ exactRecord(status,['profile','generations','current','bindings','storageFault','admissionFault','uncertainWrite','pendingGenerationId','pendingReview','pendingOwnerPreparation','keeperRestart','originalBindingsRewritten',...(Object.hasOwn(status,'admissionBudget')?['admissionBudget']:[])]);
+ if(Object.hasOwn(status,'admissionBudget'))assert.deepEqual(status.admissionBudget,projectFlatAdmissionBudgetV1({bindings:status.bindings,generations:status.generations}),'EXTERNAL_VAULT_ORIGINAL_ADMISSION_BUDGET');
  assert.equal(status.profile,'FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2');
  assert.equal(status.admissionFault,admissionFault,'EXTERNAL_VAULT_ORIGINAL_ADMISSION_FENCE');
  for(const name of ['storageFault','uncertainWrite','keeperRestart','originalBindingsRewritten'])assert.equal(status[name],false,'EXTERNAL_VAULT_ORIGINAL_CATALOGUE_UNCERTAIN');

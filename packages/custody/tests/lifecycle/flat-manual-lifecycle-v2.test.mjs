@@ -5,63 +5,81 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Vault } from '@lianum/engine/crypto/vault';
-import { FLAT_TRANSACTION_METHODS } from '../../../backend/src/execution/encoding/transaction-codec.mjs';
+import { decodeFlatWords } from '../../../backend/src/execution/encoding/flat-words.mjs';
 import { createHash } from 'node:crypto';
-import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
-import { genericAccountIdentity, bindGenericAccountRequest, sha } from '@lianum/engine/accounts/journal';
+import {FLAT_MINIMUM_PROFILE} from '../../../backend/src/operations/deployments/system/append-only-build-v3.mjs';
 const h = s => createHash('sha256').update(s).digest('hex');
 const worlds = new WeakMap(), systemWorlds = new WeakMap(), ownerWorlds = new WeakMap();
 const url = p => new URL(p, import.meta.url).href;
-mock.module(url('../wallet-platform/modules/ops/deploy-system.mjs'), { exports: {
+mock.module(url('../../../backend/src/accounts/authority/flat-pool-admission-policy.mjs'), { exports: {
+  assertOwnedFlatPoolAdmissionPolicy() { throw Error('HOST_POOL_ADMISSIONS_NOT_SUPPLIED'); }
+} });
+mock.module(url('../../../backend/src/operations/deployments/system/deploy-system.mjs'), { exports: {
+  ...Object.fromEntries(['appendFlatPoolSuccessor', 'assertOwnedFlatSystem', 'captureOwnedFlatSystemRecoveryV1', 'deployFlatAppendOnlySystem', 'deployFlatSystem', 'describeOwnedFlatPoolRegistry', 'flatRecoveryViewDataV1', 'reopenOwnedFlatSystemRecoveryV1'].map(name => [name, () => { throw Error('HOST_UNUSED_ORIGINAL_PORT'); }])),
   assertOwnedFlatSystem(runtime, system) { assert.equal(worlds.get(runtime)?.system, system); }
 } });
-mock.module(url('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs'), { exports: {
-  async assertLocalEvm(runtime) { assert.ok(worlds.has(runtime)); }
+mock.module(url('../../../backend/src/chains/evm/runtime/local-evm-ownership.mjs'), { exports: {
+  async assertLocalEvm(runtime) { assert.ok(worlds.has(runtime)); },
+  async assertLocalEvmDeploymentProfile() { throw Error('HOST_DEPLOYMENT_NOT_SUPPLIED'); }
 } });
-mock.module(url('../wallet-platform/modules/chain-adapters/owned-pool-asset.mjs'), { exports: {
-  assertOwnedPoolAsset(runtime, value) { assert.equal(worlds.get(runtime)?.poolCapability, value); }
+mock.module(url('../../../backend/src/chains/shared/contracts/owned-pool-asset.mjs'), { exports: {
+  ...Object.fromEntries(['assertOwnedPoolAsset', 'createNativePoolAsset', 'createOwnedPoolAsset'].map(name => [name, () => { throw Error('HOST_UNUSED_ORIGINAL_PORT'); }])),
+  assertOwnedPoolAsset(runtime, value) { assert.equal(worlds.get(runtime)?.poolCapability, value); },
+  createOwnedPoolAsset() { throw Error('HOST_ASSET_CREATION_NOT_SUPPLIED'); }
 } });
-mock.module(url('./flat-owner-process.mjs'), { exports: {
-  assertOwnedFlatOwnerProcess(owner, expected) { assert.equal(ownerWorlds.get(owner)?.runtime, expected.runtime); }
+mock.module(url('../../../backend/src/custody/processes/flat-owner-process.mjs'), { exports: {
+  assertOwnedFlatOwnerProcess(owner, expected) { assert.equal(ownerWorlds.get(owner)?.runtime, expected.runtime); },
+  assertOwnedNativeClaimIngressHandoff() { throw Error('HOST_NATIVE_CLAIMS_NOT_SUPPLIED'); },
+  assertOwnedPrivateNativeClaimIngressHandoffV2() { throw Error('HOST_NATIVE_CLAIMS_NOT_SUPPLIED'); }
 } });
-mock.module(url('./flat-owner-observer.mjs'), { exports: {
+mock.module(url('../../../backend/src/custody/observers/flat-owner-observer.mjs'), { exports: {
   async createFlatOwnerObserver({ runtime }) { return worlds.get(runtime).observer; },
   assertOwnedFlatOwnerObserver(observer, { runtime }) { assert.equal(observer, worlds.get(runtime).observer); }
 } });
-mock.module(url('../wallet-platform/modules/paeg/flat-system-state.mjs'), { exports: {
+mock.module(url('../../../backend/src/execution/account/reconciliation/flat-system-state.mjs'), { exports: {
+  decodeFlatWords,
   async createFlatSystemStateReader({ runtime }) { return worlds.get(runtime).reader; }
 } });
-mock.module(url('../wallet-platform/modules/paeg/flat-native-execution.mjs'), { exports: { assertOwnedFlatNativeExecution() { throw Error('no native executor in synthetic fixture'); }, ownedFlatManualEvmGraphReview() { throw Error('no graph review in this fixture'); } } });
+mock.module(url('../../../backend/src/execution/account/execution/flat-native-execution.mjs'), { exports: { assertOwnedFlatNativeExecution() { throw Error('no native executor in synthetic fixture'); }, ownedFlatManualEvmGraphReview() { throw Error('no graph review in this fixture'); } } });
 const hostScopedProofTools = {
   createFlatProofRunner() { return { async close() {}, async abort() {} }; },
   withFlatHash() { throw Error('no proof/hash work in synthetic fixture'); }
 };
-mock.module(url('../proof-workers/scoped-proof-tools.mjs'), { exports: hostScopedProofTools });
+mock.module(url('../../../proofs/src/tooling/scoped-proof-tools.mjs'), { exports: hostScopedProofTools });
 mock.module(import.meta.resolve('@lianum/backend/proving/roles/scoped-proof-runner'), {exports: {
   createFlatProofRunner: hostScopedProofTools.createFlatProofRunner,
 }});
-mock.module(url('../wallet-platform/modules/paeg/flat-terminal-observer.mjs'), { exports: {
+mock.module(url('../../../backend/src/execution/account/reconciliation/flat-terminal-observer.mjs'), { exports: {
   createFlatTerminalObserver() { throw Error('no terminal observation'); }, decodeFlatTerminalCalldata() { throw Error('no terminal decode'); }
 } });
 const proofControl = { calls: 0, async hook() {} };
-mock.module(url('../../../omnichain-product/src/paeg/proof-process.mjs'), { exports: {
+mock.module(url('../../../proofs/src/execution/proof-process.mjs'), { exports: {
   createProofProcess() { return { async prove(mode, inputs, publicInputs) { proofControl.calls++; await proofControl.hook();
     return { proof: Buffer.alloc(32, 1), publicInputs, metrics: { acceptedResult: true } }; }, async close() {} }; }
 } });
+const { Vault } = await import('@lianum/engine/crypto/vault');
+const { derivePrivateAssetIdentity } = await import('@lianum/engine/notes/private-asset-runtime');
+const { genericAccountIdentity, bindGenericAccountRequest, sha } = await import('@lianum/engine/accounts/journal');
+const { PrivateNoteTree, privateSpentDigest } = await import('@lianum/engine/notes/private-note-tree');
+const { openTrustedFlatOwnerCustody, ownerDigest } = await import('../../src/signing/flat-owner-custody.mjs');
+const { createFlatAccountSession } = await import('@lianum/backend/accounts/session');
+const { WALLET_PROFILE, validateWalletState, projectWalletState, accountActionContext } = await import('../../../mobile-protocol/src/wallet/client/view-model.mjs');
+const { FLAT_TRANSACTION_METHODS } = await import('../../../backend/src/execution/encoding/transaction-codec.mjs');
 const { createFlatManualAccountKeeper } = await import('../../../backend/src/accounts/storage/flat-manual-account-keeper.mjs');
 const { createFlatAccountAuthority, assertOwnedFlatAccountAuthority } = await import('../../../backend/src/accounts/authority/flat-account-authority.mjs');
-async function setup(t, { custody = false } = {}) {
+async function setup(t, { custody = false, legacy = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'manual-account-test-')); t.after(() => rm(directory, { recursive: true, force: true }));
   const domain = Object.fromEntries(['scope', 'policy', 'asset', 'hubDomain', 'registryCommitment', 'verifierSetCommitment', 'ledgerNamespace'].map(k => [k, h(k)]));
   domain.ledgerNamespace = domain.hubDomain; domain.asset = derivePrivateAssetIdentity(31337, '0x' + '0'.repeat(40), '0x' + '0'.repeat(64)).slice(2);
   const identity = { pool: '12'.repeat(20), domain, domainCommitment: '01'.repeat(32) };
   let timestamp = '6000', sendCalls = 0, commitments = [];
   const runtime = { async time() { return BigInt(timestamp); }, async send() { sendCalls++; throw Error('synthetic lost dispatch result'); }, metadata: { chainId: '31337', evmGenesis: '0x' + h('genesis'), scratchDirectory: directory } };
-  const poolCapability = {}, system = { bootstrap: 'fixture', pools: [{ address: '0x' + identity.pool, asset: '0x' + '0'.repeat(40),
-    codeHash: '0x' + h('code'), artifact: {}, assetCapability: poolCapability, assetMetadata: null }] };
+  const poolCapability = {}, system = { bootstrap: 'fixture', ...(legacy?{}:{deploymentProfile:FLAT_MINIMUM_PROFILE}), pools: [{ address: '0x' + identity.pool, asset: '0x' + '0'.repeat(40),
+    codeHash: '0x' + h('code'), minimumDepositAtomic:'10', runtimeCode:'0x6000', async call(method,args,tag){assert.equal(method,'minimumDepositAmount()');assert.deepEqual(args,[]);assert.equal(tag,'0x1');return '0x'+10n.toString(16).padStart(64,'0');}, artifact: {}, assetCapability: poolCapability, assetMetadata: null }] };
+  runtime.block=async()=>({number:'0x1',hash:'0x'+h('minimum-fixture-head'),timestamp:'0x1770'});runtime.code=async(pool,tag)=>{assert.equal(pool,'0x'+identity.pool);assert.equal(tag,'0x1');return '0x6000';};runtime.assertCanonical=async head=>assert.equal(head.hash,'0x'+h('minimum-fixture-head'));
   let summaryReads = 0;
   const owner = { publicView: { async summary() { summaryReads++; return { identitySHA256: sha(identity), operations: { deposit: 'PREPARED', withdraw_source: 'PREPARED' } }; } } };
+  owner.ownerProof={deposit:async()=>({statement:{amount:'50'}})};
   let ownerCheckpointHook = async () => {}, reauthorizeCalls = 0;
   let localCustody, ownerCheckpoint, termsCount = 0, termsFailure = -1, preparedReplyFailure = false, prepareCalls = 0;
   const ownerConfig = { path: join(directory, 'owner.vault'), password: 'synthetic-local-test', identity,
@@ -115,8 +133,6 @@ async function setup(t, { custody = false } = {}) {
       localCustody.close(); localCustody = await openTrustedFlatOwnerCustody({ ...ownerConfig, create: false, checkpoint: ownerCheckpoint }, deps);
     } };
 }
-import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
-import { openTrustedFlatOwnerCustody, ownerDigest } from '../../src/signing/flat-owner-custody.mjs';
 const { createFlatOwnerManualPreparation, restoreFlatOwnerManualPreparation } = await import('@lianum/backend/custody/preparation/flat-owner-manual-preparation');
 const ZERO = '0'.repeat(64), p = v => '0x' + v;
 const word = v => typeof v === 'string' && v.startsWith('0x') ? v.slice(2).padStart(64, '0') : BigInt(v).toString(16).padStart(64, '0');
@@ -286,7 +302,8 @@ for (const after of [false, true]) test('keeper no-dispatch checkpoint failure '
 });
 test('owner reauthorization write acknowledgement loss reconciles retained history without replaying owner mutation', async t => {
   const { f, keeper, id } = await lifecycle(t); f.timestamp = '6600'; await keeper.execute(id); await keeper.reviewReauthorization(id);
-  let lost = false; f.ownerCheckpointHook = async cp => { if (!lost && !cp.pending && cp.acknowledged.revision === 3) { lost = true; throw Error('lost owner ack'); } };
+  const beforeOwnerRevision=(await new Vault(f.ownerPath).read('synthetic-local-test')).revision;
+  let lost = false; f.ownerCheckpointHook = async cp => { if (!lost && !cp.pending && cp.acknowledged.revision === beforeOwnerRevision+1) { lost = true; throw Error('lost owner ack'); } };
   await assert.rejects(keeper.confirmReauthorization()); assert.equal(lost, true); assert.equal(f.reauthorizeCalls, 1);
   assert.equal((await keeper.privateStatus()).requests[0].phase, 'UNKNOWN');
   f.ownerCheckpointHook = async () => {}; await f.restartSyntheticOwner();
@@ -324,8 +341,6 @@ test('new keeper refuses an existing legacy journal and another live keeper with
     account: f.account, path: join(f.directory, 'second-manual.vault'), password: 'synthetic-keeper-password', onCheckpoint: async () => {} }), /ALREADY_BOUND/);
   assert.equal((await keeper.privateStatus()).requests.length, 1);
 });
-import { createFlatAccountSession } from '@lianum/backend/accounts/session';
-import { WALLET_PROFILE, validateWalletState, projectWalletState, accountActionContext } from '../../../mobile-protocol/src/wallet/client/view-model.mjs';
 test('real FlatAccountSession and wallet view model display typed stop safely and require separate manual reauthorization', async t => {
   const { f, keeper, id } = await lifecycle(t), session = await createFlatAccountSession({ keeper, ownerHandoff: { ownerView: f.account.ownerView } });
   const wallet = snapshot => ({ version: 1, profile: WALLET_PROFILE, connection: 'CONNECTED', nativeClaims: null,
@@ -349,3 +364,5 @@ test('real FlatAccountSession and wallet view model display typed stop safely an
   session.restartCoordinator(); await session.idle(); assert.equal((await session.snapshot()).phase, 'READY');
   assert.equal(await keeper.confirmReauthorization(), false); assert.equal(f.sendCalls, 0);
 });
+
+test('HOST legacy V1 fresh TOP_UP stays fenced before owner signing or account write',async t=>{const f=await setup(t,{legacy:true}),before=await readFile(f.path),calls=f.summaryReads;await assert.rejects(f.account.ownerActions.registerTopUp(f.review.request.ownerOperationRef),/FLAT_LEGACY_FRESH_DEPOSIT_DISABLED/);assert.deepEqual(await readFile(f.path),before);assert.equal(f.summaryReads,calls+1);});

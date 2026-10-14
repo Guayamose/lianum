@@ -50,7 +50,7 @@ test('funded gate propagates original signing failures and rejects changing head
 });
 
 test('funded preflight follows issuance and precedes graph execution and U/S preparation', () => {
-  const source = readFileSync(new URL('./native-claim-flow.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../lifecycle/native-claim-flow.mjs', import.meta.url), 'utf8');
   const gate = source.indexOf("stage('preflight-funded-claim-graph-before-u-s')");
   assert.ok(gate > source.indexOf('result.acceptance.originalNotesCreditedOnce = true'));
   assert.ok(gate < source.indexOf('graphExecution = await createFlatNativeExecution'));

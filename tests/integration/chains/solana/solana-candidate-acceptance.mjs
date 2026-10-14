@@ -1,3 +1,4 @@
+import {projectRoot} from '@lianum/environment';
 import { createRuntimeOnlyFinalSendChecks } from './host-send-checks.mjs';
 /** Reviewed, fixed runtime-only candidate acceptance. No node starts on import
  * or without BOTH source review activation and the exact opt-in.
@@ -17,8 +18,9 @@ import { ACCEPTANCE_AMOUNTS, checkBootstrap, checkCandidateMetadata, checkCustod
 import { validateSolanaBindingTransaction } from '@lianum/engine/native/native-receipt-binding';
 import { validateSolanaNonceBindingTransaction } from '../../../../packages/backend/src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { SOLANA_PAYOUT_FINAL_SEND_PROFILE } from "../../../../packages/backend/src/chains/solana/runtime/solana-profiles.mjs";
-const HERE = fileURLToPath(import.meta.url), ROOT = resolve(dirname(HERE), '..');
-const RECOVERY = resolve(ROOT, '../..'), LOCAL = join(ROOT, '.local/solana-candidate-acceptance');
+const HERE = fileURLToPath(import.meta.url), ROOT = projectRoot;
+const RECOVERY = projectRoot, LOCAL = join(ROOT, '.local/solana-candidate-acceptance');
+const sourceRoots = ['packages', 'tests/integration'].map(path => resolve(projectRoot,path)+sep);
 const sha = value => createHash('sha256').update(value).digest('hex');
 const ASSET = sha('LIANUM_SOLANA_CANDIDATE_FUNCTIONAL_FAKE_ASSET_V1');
 const KEYS = Object.freeze(Object.fromEntries(['deposit', 'redeem', 'solver'].map(kind =>
@@ -41,14 +43,14 @@ function sourceHashes() {
   const files = new Map();
   function visit(path) {
     if (files.has(path)) return;
-    assert.ok(path.startsWith(RECOVERY + sep), 'SOLANA_CANDIDATE_SOURCE_ESCAPE');
+    assert.ok(sourceRoots.some(root => path.startsWith(root)), 'SOLANA_CANDIDATE_SOURCE_ESCAPE');
     assert.equal(realpathSync(path), path, 'SOLANA_CANDIDATE_SOURCE_SYMLINK');
     const bytes = readFileSync(path); files.set(path, sha(bytes));
     const source = bytes.toString('utf8');
     for (const match of source.matchAll(/(?:from\s*|import\s*\()(['"])(\.[^'"\n]+)\1/g))
       if (match[2].endsWith('.mjs')) visit(resolve(dirname(path), match[2]));
   }
-  visit(HERE); visit(join(ROOT, 'wallet-platform/modules/chain-adapters/owned-solana-runtime.mjs'));
+  visit(HERE); visit(join(ROOT, 'packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs'));
   return Object.fromEntries([...files].sort(([a], [b]) => a.localeCompare(b)).map(([path, hash]) => [relative(RECOVERY, path), hash]));
 }
 

@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {createSplTransferJournal} from '../../../../packages/backend/src/chains/solana/transfers/spl-transfer-journal.mjs';
 import {claimTicketSecret} from '@lianum/engine/claims/framing';
 import {receiptKeyCommitment} from '@lianum/engine/native/native-receipt-binding';
 const expected='7fc4fb20c2b8734f0e48b9089e91afab2f28ae4b09e571b8d1408532f5b450b6';
@@ -21,14 +22,13 @@ test('expired original SPL preparation is rejected before broadcast admission wh
  const source=await readFile(sourceUrl,'utf8');
  const body=(start,end)=>{const i=source.indexOf(start),j=source.indexOf(end,i);assert.ok(i>=0&&j>i);return source.slice(i,j);};
  const budgetBody=body(' function activeBudget(prepared)','\n function account(');
- const sendBody=body(' async function latchAndSend(record,authority=null,prepared=null)','\n async function infrastructureSend(');
  const prepared=Object.freeze({unsignedWire:'ORIGINAL_HOST_WIRE'}),preparedState=new WeakMap();
  let now=30001,writes=0,stateWrites=0,sends=0,liveChecks=0;const events=[];
  preparedState.set(prepared,{prepared,started:0});
  const activeBudget=new Function('assert','preparedState','performance',`return (${budgetBody.trim()});`)(assert,preparedState,{now:()=>now});
  let lost=false;const ctx={async persistTransfer(record){writes++;events.push('record:'+record.phase);},async sendOnce(wire){sends++;assert.equal(wire,'ORIGINAL_HOST_WIRE');events.push('send');if(lost)throw new Error('HOST_ORIGINAL_SEND_REPLY_LOST');return 'ORIGINAL_HOST_SIGNATURE';}};
  const persist=async()=>{stateWrites++;events.push('state');},live=()=>{liveChecks++;events.push('live');};
- const send=new Function('assert','ctx','persist','activeBudget','live',`return (${sendBody.trim()});`)(assert,ctx,persist,activeBudget,live);
+ const {latchAndSend:send}=createSplTransferJournal({persistTransfer:ctx.persistTransfer,persistState:persist,sendOnce:ctx.sendOnce,assertLive:live,assertPreparation:activeBudget,readTransfers:()=>[]});
  const record=()=>({phase:'SIGNED_NOT_BROADCAST',broadcastAttempts:0,nativeId:'ORIGINAL_HOST_NATIVE_ID',nativeWire:'ORIGINAL_HOST_WIRE',signature:'ORIGINAL_HOST_SIGNATURE'});
  const expired=record();await assert.rejects(send(expired,null,prepared),{code:'ERR_ASSERTION',message:'SPL_ORIGINAL_NATIVE_PREPARATION_TOO_OLD'});
  assert.deepEqual(expired,record());assert.equal(writes,0);assert.equal(stateWrites,0);assert.equal(sends,0);assert.equal(liveChecks,0);

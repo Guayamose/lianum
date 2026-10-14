@@ -14,9 +14,9 @@ import { Vault } from '@lianum/engine/crypto/vault';
 import { ownerDigest } from '../../src/signing/native-value-owner-custody-v3.mjs';
 const h = v => createHash('sha256').update('inert owner recovery HOST:' + v).digest('hex');
 const mapped = fileURLToPath(import.meta.url).includes('/mobile-core/');
-const paths = mapped ? { owner: './native-value-owner-process-v2.mjs', wallet: '../wallet-platform/modules/ops/native-value-wallet-binding-v2.mjs',
-  source: '../wallet-platform/modules/ops/native-value-system-v2.mjs', observer: './native-value-owner-observer-v2.mjs',
-  authority: '../wallet-platform/modules/native-claims/wrapped-recovery-authority-v1.mjs' } : {
+const paths = mapped ? { owner: '../../../backend/src/custody/processes/native-value-owner-process-v2.mjs', wallet: '../../../backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs',
+  source: '../../../backend/src/operations/deployments/native-value/native-value-system-v2.mjs', observer: '../../../backend/src/custody/observers/native-value-owner-observer-v2.mjs',
+  authority: '../../../backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs' } : {
   owner: '../../../backend/src/custody/processes/native-value-owner-process-v2.mjs', wallet: '../../../backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs',
   source: '../../../backend/src/operations/deployments/native-value/native-value-system-v2.mjs', observer: '../../../backend/src/custody/observers/native-value-owner-observer-v2.mjs',
   authority: '../../../backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs' };
@@ -24,7 +24,7 @@ const urls = Object.fromEntries(Object.entries(paths).map(([key, value]) => [key
 const worlds = new WeakMap(), observations = new WeakMap(), issuers = new WeakSet(), tokens = new WeakMap(), children = new Map();
 const original = (runtime, system) => { const f = worlds.get(runtime); assert.ok(f && f.system === system, 'HOST_ORIGINAL_SYSTEM'); return f; };
 mock.module(urls.wallet, { exports: { assertOwnedNativeValueWalletSystem: original } });
-mock.module(urls.source, { exports: { nativeValueOriginalRecoverySourceV1(runtime, system) { original(runtime, system); return h('source'); } } });
+mock.module(urls.source, { exports: { assertOwnedNativeValueWalletSystem: original, nativeValueOriginalRecoverySourceV1(runtime, system) { original(runtime, system); return h('source'); } } });
 mock.module(urls.observer, { exports: {
   async createNativeValueOwnerObserver({ runtime, system }) { const f = original(runtime, system);
     const observer = { identity: f.identity, poolArtifact: {} }; observations.set(observer, f); return observer; },

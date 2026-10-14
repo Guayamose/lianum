@@ -154,8 +154,8 @@ test('long owner cutoff does not extend the 300-second admitted certificate wind
 
 test('claim profile wires the native graph capability and retains a caller-bound change exit', () => {
   const source = name => readFileSync(new URL(name, import.meta.url), 'utf8');
-  const flow = source('./native-claim-flow.mjs'), graph = source('./native-claim-graph-case.mjs');
-  const preparation = source('./prepare-native-claim-graph.mjs');
+  const flow = source('../../lifecycle/native-claim-flow.mjs'), graph = source('../flows/native-claim-graph-case.mjs');
+  const preparation = source('../flows/prepare-native-claim-graph.mjs');
   assert.match(flow, /nativeExecution:\s*graphProfile && index === 1 \? graphExecution : null/);
   assert.match(graph, /registerGraph\(/); assert.match(graph, /kind:\s*'GRAPH'/);
   assert.match(flow, /const exitRole = graphProfile \? 'change' : 'source'/);

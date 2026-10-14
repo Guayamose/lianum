@@ -9,7 +9,7 @@ const copy = value => structuredClone(value);
 const reference = '12'.repeat(32), domain = '34'.repeat(32);
 let control;
 const forbid = () => { throw new Error('HOST_LIFECYCLE_FORBIDDEN_PROOF_OR_NODE'); };
-mock.module(new URL('./owned-flat-fixture.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../fixtures/runners/owned-flat-fixture.mjs', import.meta.url).href, { exports: {
   freshFixtureId: () => reference,
   writeFixturePrivate(path, value) {
     const name = basename(path); control.events.push('write:' + name);
@@ -24,20 +24,24 @@ mock.module(new URL('./prepare-native-claim-graph.mjs', import.meta.url).href, {
     control.events.push('graph:prepare'); return control.graph;
   },
 } });
-mock.module(new URL('../wallet-platform/modules/paeg/flat-system-state.mjs', import.meta.url).href, { exports: {
+const {decodeFlatWords} = await import('../../../../../packages/backend/src/execution/encoding/flat-words.mjs');
+mock.module(new URL('../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs', import.meta.url).href, { exports: {
+  decodeFlatWords,
   async createFlatSystemStateReader({ runtime, system, poolIndex }) {
     assert.equal(runtime, control.fixture.runtime); assert.equal(system, control.fixture.system); assert.equal(poolIndex, 1);
     return { async read() { control.events.push('reader:read'); return copy(control.state); } };
   },
 } });
-mock.module(new URL('../../../omnichain-product/src/paeg/proof-process.mjs', import.meta.url).href,
+mock.module(new URL('../../../../../packages/proofs/src/execution/proof-process.mjs', import.meta.url).href,
   { exports: { createProofProcess: forbid } });
-mock.module(new URL('../../../omnichain-product/src/private-wallet-note-encoding.mjs', import.meta.url).href,
-  { exports: { walletInputPublicWords: forbid, decodeWalletPoolInputs: forbid } });
-mock.module(new URL('../wallet-platform/modules/paeg/transaction-codec.mjs', import.meta.url).href,
+const actualWalletNoteExports = await import('../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs');
+mock.module(new URL('../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs', import.meta.url).href,
+  { exports: Object.fromEntries(Object.entries(actualWalletNoteExports).map(([name,value]) => [name, typeof value === 'function' ? forbid : value])) });
+mock.module(new URL('../../../../../packages/backend/src/execution/encoding/transaction-codec.mjs', import.meta.url).href,
   { exports: { encodeFlatTransaction: forbid } });
-mock.module(new URL('../wallet-platform/modules/native-claims/framing.mjs', import.meta.url).href,
-  { exports: { claimDomainCommitment: () => domain } });
+const actualClaimFraming = await import('../../../../../packages/engine/src/claims/framing.mjs');
+mock.module(new URL('../../../../../packages/engine/src/claims/framing.mjs', import.meta.url).href,
+  { exports: { ...actualClaimFraming, claimDomainCommitment: () => domain } });
 
 const { runNativeClaimGraphCase } = await import('./native-claim-graph-case.mjs');
 

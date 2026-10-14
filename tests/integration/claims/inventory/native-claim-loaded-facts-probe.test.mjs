@@ -9,7 +9,7 @@ import { NATIVE_CLAIM_RUN_ROUTES, nativeClaimRunDirectory } from '../lifecycle/n
 import { validateNativeClaimLoadedFactsResult, runNativeClaimLoadedFactsSupervisor } from '../../native/native-flow-supervisor.mjs';
 let control;
 const copy = value => structuredClone(value), id = 'ab'.repeat(64), sha = 'cd'.repeat(32), wireKey = 'ef'.repeat(32);
-mock.module(new URL('../wallet-platform/modules/ops/native-operators.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/backend/src/operations/operators/claims/native-operators.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatOperatorQuorum(value, binding) {
     assert.equal(value, control.fixture.graphQuorum);
     assert.deepEqual(binding, { runtime: control.fixture.runtime, system: control.fixture.system,
@@ -17,13 +17,13 @@ mock.module(new URL('../wallet-platform/modules/ops/native-operators.mjs', impor
     control.events.push('owned-quorum');
   },
 } });
-mock.module(new URL('../wallet-platform/modules/chain-adapters/native-receipt-binding.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/engine/src/native/native-receipt-binding.mjs', import.meta.url).href, { exports: {
   validateSolanaBindingTransaction(wire, intent) {
     assert.equal(wire, 'host-original-wire'); assert.deepEqual(intent, control.prepared.intent);
     return { signatureHex: id, transactionSHA256: sha };
   },
 } });
-mock.module(new URL('./owned-flat-fixture.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../fixtures/runners/owned-flat-fixture.mjs', import.meta.url).href, { exports: {
   freshFixtureId: () => wireKey,
   writeFixturePrivate(path, value) { control.events.push('write:' + basename(path)); control.artifacts.set(basename(path), copy(value)); },
 } });
@@ -177,26 +177,26 @@ test('changed original wire, extra broadcast, head, custody, retained fact or EV
 });
 
 test('fixed source-disabled profile reuses bounded claim flow and an isolated route', () => {
-  const source = readFileSync(new URL('./native-claim-flow.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../lifecycle/native-claim-flow.mjs', import.meta.url), 'utf8');
   assert.match(source, /const REAL_NATIVE_RUN_DISABLED = true;/);
-  assert.match(source, /assert\.equal\(REAL_NATIVE_RUN_DISABLED, false, 'NATIVE_CLAIM_RUN_REQUIRES_FROZEN_CHECKPOINT'\)/);
+  assert.match(source, /: REAL_NATIVE_RUN_DISABLED, false,\s*'NATIVE_CLAIM_RUN_REQUIRES_FROZEN_CHECKPOINT'\)/);
   const policy = source.slice(source.indexOf('const ACCEPTANCE_PROFILE'), source.indexOf('const selectedAssets'));
-  const selected = vm.runInNewContext(policy + '\n({ graphProfile, loadedFactsProfile, combinedProfile, nonceProfile, durableApiProfile, durableKeeperProfile })', { LOADED_FACTS_PROFILE });
+  const selected = vm.runInNewContext(policy + '\n({ graphProfile, loadedFactsProfile, combinedProfile, nonceProfile, durableApiProfile, durableKeeperProfile })', { LOADED_FACTS_PROFILE, beginPayoutAuditProfile:false, loadedV3Profile:false, ingressV3Profile:false });
   assert.deepEqual({ ...selected }, { graphProfile: false, loadedFactsProfile: true, combinedProfile: true,
     nonceProfile: true, durableApiProfile: false, durableKeeperProfile: true });
   assert.match(source, /combinedProfile \? createOwnedNativeClaimGraphFixture/);
   assert.match(source, /if \(!loadedFactsProfile && \(!durableApiProfile \|\| graphProfile\)\)/);
   assert.match(source, /const exitRole = graphProfile \? 'change' : 'source'/);
   assert.match(source, /const exitAmount = graphProfile \? CLAIM_GRAPH_AMOUNTS.change : amounts\[index\]/);
-  assert.match(source, /assertLoadedFactsProofBoundary\(result.proofs.map\(proof => proof.relation\), 'redeemed'\)/);
+  assert.match(source, /loadedV3Profile \? assertLoadedV3ProofBoundary : assertLoadedFactsProofBoundary\)\(result.proofs.map\(proof => proof.relation\), 'redeemed'\)/);
   assert.match(source, /result.loadedFactsProbe.success = result.success/);
-  assert.ok(source.indexOf('probeLoadedPostDeliveryFacts({ fixture') > source.indexOf('result.acceptance.originalNotesCreditedOnce = true'));
+  assert.ok(source.indexOf('probeLoadedPostDeliveryFacts)({ fixture') > source.indexOf('result.acceptance.originalNotesCreditedOnce = true'));
   assert.equal(nativeClaimRunDirectory(NATIVE_CLAIM_RUN_ROUTES.loadedFacts.entry, LOADED_FACTS_PROFILE), '.local/native-claim-loaded-facts-probe');
   for (const route of [NATIVE_CLAIM_RUN_ROUTES.legacy, NATIVE_CLAIM_RUN_ROUTES.graph])
     assert.throws(() => nativeClaimRunDirectory(route.entry, LOADED_FACTS_PROFILE));
   assert.throws(() => nativeClaimRunDirectory(NATIVE_CLAIM_RUN_ROUTES.loadedFacts.entry, 'SOLANA_PRIVATE_CLAIM_FUNDED_GRAPH'));
-  const pins = readFileSync(new URL('./native-claim-source-pins.mjs', import.meta.url), 'utf8');
-  assert.match(pins, /integration\/run-native-claim-loaded-facts-probe.mjs/);
+  const pins = readFileSync(new URL('../lifecycle/native-claim-source-pins.mjs', import.meta.url), 'utf8');
+  assert.match(pins, /tests\/integration\/claims\/inventory\/run-native-claim-loaded-facts-probe.mjs/);
   const helper = readFileSync(new URL('./native-claim-loaded-facts-probe.mjs', import.meta.url), 'utf8');
   assert.equal([...helper.matchAll(/quorum\.facts\(/g)].length, 1);
   assert.equal([...helper.matchAll(/adapter\.transfer\(/g)].length, 1);

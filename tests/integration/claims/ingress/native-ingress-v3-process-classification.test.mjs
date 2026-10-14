@@ -1,3 +1,4 @@
+import {sourcePath} from '@lianum/environment';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,13 +8,18 @@ import { classifyNativeIngressV3Executable, nativeExitedProcessClassification, n
   NATIVE_FLOW_LIMITS } from '../../native/native-flow-supervisor.mjs';
 import { productionPreflightForbiddenProcess, preflightForbiddenProcess,
   PREFLIGHT_REAL_RUN_DISABLED, PRODUCTION_PREFLIGHT_REAL_RUN_DISABLED } from './native-ingress-v3-preflight-policy.mjs';
-const captured = JSON.parse(readFileSync(new URL('../experiments/native-ingress-v3-production-preflight/original-application-resources.json', import.meta.url)));
-const classification = name => classifyNativeIngressV3Executable(join(ROOT, 'proof-workers', name));
+// HOST topology DATA only, no historical resource receipt or process authority.
+const captured={classification:'SYNTHETIC_INGRESS_PROCESS_TOPOLOGY_NOT_A_RESOURCE_RECEIPT',failure:'NATIVE_MULTIPLE_HEAVY_PROOF_WORKERS',failureResourceSample:{availableRAMBytes:4*1024**3,freeDiskBytes:8*1024**3,mainWorkerRSSBytes:1024**2,supervisorRSSBytes:1024**2,ownedProcesses:[
+ {pid:13,ppid:6,pgrp:13,session:13,startTimeTicks:'100',state:'S',rssBytes:1024**2,role:'main-worker',proofWorker:false},
+ {pid:25,ppid:13,pgrp:13,session:13,startTimeTicks:'200',state:'S',rssBytes:2*1024**2},
+ {pid:32,ppid:25,pgrp:13,session:13,startTimeTicks:'300',state:'S',rssBytes:3*1024**2},
+]}};
+const classification = name => classifyNativeIngressV3Executable(sourcePath('packages/backend/src/proving/native-ingress/runtime/'+name));
 const topology = captured.failureResourceSample.ownedProcesses.map(p => ({ ...p,
   ...(p.pid === 25 ? classification('native-ingress-v3-role-process.mjs')
     : p.pid === 32 ? classification('native-ingress-v3-worker.mjs') : {}) }));
 const resource = processes => ({ ...captured.failureResourceSample, ...nativeProofProcessResources(processes) });
-test('captured PID 25 coordinator plus PID 32 backend is exactly one heavy job', () => {
+test('HOST coordinator and backend are classified as exactly one heavy job', () => {
   assert.equal(captured.failure, 'NATIVE_MULTIPLE_HEAVY_PROOF_WORKERS');
   assert.deepEqual(topology.map(p => [p.pid, p.ppid, p.pgrp, p.session]), [[13, 6, 13, 13], [25, 13, 13, 13], [32, 25, 13, 13]]);
   assert.deepEqual(topology.slice(1).map(p => [p.role, p.proofWorker]),
@@ -52,7 +58,7 @@ test('live and terminal-history policies agree; disallowed history cannot become
   assert.equal(preflightForbiddenProcess(history), 'V3_PREFLIGHT_OWNER_PROOF_OR_UNKNOWN_DESCENDANT');
   assert.equal(productionPreflightForbiddenProcess([...history, { role: 'owned-descendant', proofWorker: false, state: 'Z' }]),
     'V3_PREFLIGHT_OWNER_PROOF_OR_UNKNOWN_DESCENDANT');
-  const source = readFileSync(new URL('./native-flow-supervisor.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../native/native-flow-supervisor.mjs', import.meta.url), 'utf8');
   assert.match(source, /productionPreflightForbiddenProcess\(sample\.ownedProcesses\)/);
   assert.match(source, /productionPreflightForbiddenProcess\(\[\.\.\.history\.values\(\)\]\)/);
   assert.match(source, /const proofResources = nativeProofProcessResources\(group\.processes\)/);
@@ -79,7 +85,7 @@ for (const state of ['Z', 'X']) test(`actual live → ${state} sample preserves 
   assert.equal(preflightForbiddenProcess(exited), 'V3_PREFLIGHT_OWNER_PROOF_OR_UNKNOWN_DESCENDANT');
   assert.deepEqual(nativeProofProcessResources(exited), { maximumProofWorkerRSSBytes: 0, liveProofWorkers: 0 });
   assert.equal(nativeResourceFailure(resource(exited)), null);
-  const source = readFileSync(new URL('./native-flow-supervisor.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../native/native-flow-supervisor.mjs', import.meta.url), 'utf8');
   assert.match(source, /nativeExitedProcessClassification\(stat, history\.get\(`\$\{stat\.pid\}:\$\{stat\.startTimeTicks\}`\)\)/);
 });
 test('missing history, numeric PID reuse, foreign group/session and unknown prior label stay rejected', () => {

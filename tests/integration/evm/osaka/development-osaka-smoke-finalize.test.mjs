@@ -4,14 +4,14 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';import {Script} from 'node:vm';
 import {createHash} from 'node:crypto';import {relative} from 'node:path';
 import {osakaSmokeProcessFailure} from './development-osaka-smoke-policy.mjs';
-const source=readFileSync(new URL('../../native-flow-supervisor.mjs',import.meta.url),'utf8');
+const source=readFileSync(new URL('../../native/native-flow-supervisor.mjs',import.meta.url),'utf8');
 const body=source.slice(source.indexOf('  function finalize('),source.indexOf('  const onTerm =',source.indexOf('  function finalize(')));
 assert.ok(body.startsWith('  function finalize('));
 function exercise(history,code=body){
  const pins={format:'SYNTHETIC_FINALIZE_SOURCE'},runId='11111111-1111-4111-8111-111111111111';
  const result={format:'SYNTHETIC_COMPLETED_WORKER_RESULT',phase:'completed',success:true,runId,sourcePins:pins};
  const profile={sourcePins:()=>pins},cleared=[],output=[];
- const context={assert,relative,JSON,wrappedSourceBinding:false,osakaSmokeProcessFailure,profile,FLOW_PROFILES:{developmentOsakaSmoke:profile},history:new Map(history.map((row,i)=>[i,row])),
+ const context={assert,relative,JSON,wrappedSourceBinding:false,confirmedSource:false,osakaSmokeProcessFailure,profile,FLOW_PROFILES:{developmentOsakaSmoke:profile},history:new Map(history.map((row,i)=>[i,row])),
   finishing:false,finished:false,monitorTimer:'monitor',reserveTimer:'reserve',hardTimer:'hard',killTimer:'kill',cleanupTimer:'cleanup',
   clearInterval:value=>cleared.push(value),clearTimeout:value=>cleared.push(value),rearmed:0,
   report:{failures:[],workerExit:{code:0,signal:null},workerClose:{code:0,signal:null}},failure:null,

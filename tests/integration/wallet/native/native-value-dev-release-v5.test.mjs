@@ -109,13 +109,13 @@ test('fixed raw source join rejects byte mutation without caller filesystem read
 test('explicit null publication fixture rejects in the genuine loader/deploy before touching runtime; no caller overrides', async t => {
   // Fixed test-only module mocks keep the default-rejection contract valid after
   // a legitimate source publication. This never edits or activates a release.
-  const artifactURL = new URL('../wallet-platform/modules/ops/native-value-deployment-artifacts-v2.mjs', import.meta.url);
-  t.mock.module(new URL('../wallet-platform/modules/ops/native-value-dev-release-v5.mjs', import.meta.url).href,
+  const artifactURL = new URL('../../../../packages/backend/src/operations/deployments/native-value/native-value-deployment-artifacts-v2.mjs', import.meta.url);
+  t.mock.module(new URL('../../../../packages/backend/src/operations/releases/native-value/native-value-dev-release-v5.mjs', import.meta.url).href,
     { namedExports: { NATIVE_VALUE_DEV_RELEASE_V5: null } });
   const nullArtifacts = await import(artifactURL.href + '?host-unpublished-v5');
   t.mock.module(artifactURL.href, { namedExports: { ...artifactModule,
     loadNativeValueDevDeploymentArtifactsV5: nullArtifacts.loadNativeValueDevDeploymentArtifactsV5 } });
-  const nullSystem = await import(new URL('../wallet-platform/modules/ops/native-value-system-v2.mjs', import.meta.url).href + '?host-unpublished-v5');
+  const nullSystem = await import(new URL('../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs', import.meta.url).href + '?host-unpublished-v5');
   let touched=0;
   const runtime = new Proxy({}, {get() {touched++; throw new Error('UNEXPECTED_RUNTIME_TOUCH');}});
   await assert.rejects(nullArtifacts.loadNativeValueDevDeploymentArtifactsV5(), /RELEASE_UNPUBLISHED/);

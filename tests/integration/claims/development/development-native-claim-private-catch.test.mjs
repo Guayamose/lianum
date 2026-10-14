@@ -8,18 +8,12 @@ import {types} from 'node:util';
 import {ROOT} from '@lianum/proofs/catalog';
 import {ownedRuntimeRpc} from '@lianum/engine/chains/shared/runtime-harness';
 import {privateNativeClaimBootstrapFirstErrorV1} from './development-native-claim-bootstrap-first-error-v1.mjs';
-const source = readFileSync(new URL('./development-native-claim-flow.mjs', import.meta.url), 'utf8');
-const begin = source.indexOf('  } catch (error) {\n    result.failedStage');
-const end = source.indexOf('\n  } finally {', begin);
-assert.ok(begin >= 0 && end > begin);
-const body = source.slice(begin + '  } catch (error) {'.length, end);
+import {retainDevelopmentNativeClaimFailure} from './development-native-claim-failure.mjs';
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const originalCatch = new AsyncFunction('error', 'result', 'code', 'writeFixturePrivate', 'join', 'privateDirectory', 'audit', 'privateFailureDiagnostic', body);
 async function exercise(error) {
   const row = { phase: 'redeem-original-btc-solver-payout', cleanup: {} };
   const writes = []; let audits = 0;
-  await originalCatch(error, row, value => String(value.message).match(/CLAIM_[A-Z_]+/)?.[0],
-    (path, value) => writes.push({ path, value }), join, '/private-audit', async () => { audits++; }, privateFailureDiagnostic);
+  await retainDevelopmentNativeClaimFailure(error,{result:row,btcToSpl:false,fixture:null,controller:null,privateDirectory:'/private-audit',loadedSolanaSnapshot:()=>assert.fail('unexpected snapshot'),finalAudit:()=>assert.fail('unexpected final audit'),code:value=>String(value.message).match(/CLAIM_[A-Z_]+/)?.[0],writeFixturePrivate:(path,value)=>writes.push({path,value}),audit:async()=>{audits++;}});
   assert.equal(writes.length, 1); assert.equal(writes[0].path, '/private-audit/error-private.json');
   assert.equal(audits, 1);
   assert.equal(row.phase, 'failed'); assert.equal(row.success, false);

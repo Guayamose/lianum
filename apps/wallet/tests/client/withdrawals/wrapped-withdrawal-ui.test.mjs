@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { inertDocument } from '../../helpers/inert-dom.mjs';
 const sessions = new WeakSet();
-mock.module(new URL('../wallet-platform/modules/api/wrapped-withdrawal-session-v1.mjs', import.meta.url).href,
+mock.module(new URL('../../../../../packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs', import.meta.url).href,
   { exports: { assertOwnedWrappedWithdrawalSessionV1(session) { assert.ok(sessions.has(session), 'INERT_SERVICE_ONLY'); } } });
 const { startWalletApplication } = await import('../../../src/server/server.mjs');
 const { createWalletClient } = await import('../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs');
@@ -26,7 +26,7 @@ async function fixture(t, options = {}) {
   const f = { operations: [], calls: [], offers: ['change','recipient'].map(offer), posts: [], ownerUnavailable: false, unavailable: false, loseReply: false, nextState: 'CONFIRMED', hold: null };
   const service = { async snapshot() { return { version: 1, profile: 'ORIGINAL_WRAPPED_NOTE_WITHDRAWAL_SESSION_V1', phase: f.unavailable ? 'UNAVAILABLE' : 'READY', storageAvailable: !f.unavailable, busy: false, queued: 0, observation: 'ORIGINAL_RETAINED_JOURNAL_ONLY', operations: structuredClone(f.operations) }; },
     async ownerView() { if (f.ownerUnavailable) throw Error('INERT_OWNER_UNAVAILABLE'); return { profile: 'ORIGINAL_WRAPPED_NOTE_WITHDRAWAL_SESSION_V1', privateSpendable: null, offers: f.offers.filter(row => !f.operations.some(op => op.role === row.terms.role)), operations: structuredClone(f.operations) }; },
-    async submit(action, body) { f.calls.push({ action, body: structuredClone(body) }); if (f.hold) await f.hold; if (action === 'prepare') { const row = f.offers.find(row => row.terms.role === body.role && row.termsSHA256 === body.termsSHA256); assert.ok(row); assert.ok(!f.operations.some(op => op.role === body.role)); f.operations.push({ ...structuredClone(row), requestId: body.requestId, role: body.role, state: 'PREPARED', transactionHash: null, errorCode: null }); }
+    async submit(action, body) { f.calls.push({ action, body: structuredClone(body) }); if (f.hold) await f.hold; if (action === 'prepare') { const row = f.offers.find(row => row.terms.role === body.role && row.termsSHA256 === body.termsSHA256); assert.ok(row); assert.ok(!f.operations.some(op => op.role === body.role)); f.operations.push({ ...structuredClone(row), requestId: body.requestId, role: body.role, state: 'PREPARED', executionAvailable: true, transactionHash: null, errorCode: null }); }
       else { const row = f.operations.find(row => row.requestId === body.requestId && row.termsSHA256 === body.termsSHA256); assert.ok(row); if (action === 'execute') { assert.equal(row.state, 'PREPARED'); row.state = f.nextState; row.errorCode = 'WRAPPED_WITHDRAWAL_ORIGINAL_RECONCILIATION_REQUIRED'; } else { assert.ok(['UNKNOWN','SEND_UNKNOWN','CONFIRMED'].includes(row.state)); row.state = 'CONFIRMED'; row.errorCode = null; } }
       return { admitted: true, action, requestId: body.requestId }; } };
   sessions.add(service); f.service = service;

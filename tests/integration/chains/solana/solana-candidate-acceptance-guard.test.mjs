@@ -33,10 +33,10 @@ mock.module('node:fs', { exports: { ...named(fs),
     const fields = Array(25).fill('0'); fields[0] = 'S'; fields[1] = String(fixture.ppid); fields[19] = fixture.start;
     return '987654 (' + (fixture.command ?? 'solana-test-val') + ') ' + fields.join(' ');
   },
-  statfsSync(path, options) { return fixture.actualProc ? fs.statfsSync(path, options) : { bavail: 5368709120n, bsize: 1n }; },
+  statfsSync(path, options) { return fixture.actualProc ? fs.statfsSync(new URL('.', import.meta.url), options) : { bavail: 5368709120n, bsize: 1n }; },
 } });
 const runtimeBrands = new WeakSet();
-mock.module(new URL('../wallet-platform/modules/chain-adapters/owned-solana-runtime.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs', import.meta.url).href, { exports: {
   assertOwnedSolanaRuntime(runtime) { assert.ok(runtimeBrands.has(runtime), 'HOST_ONLY_BRANDED_RUNTIME_REQUIRED'); },
 } });
 const { createCandidateResourceGuard, assertCandidateNoParallelHeavyWork } = await import('./solana-candidate-acceptance-guard.mjs');

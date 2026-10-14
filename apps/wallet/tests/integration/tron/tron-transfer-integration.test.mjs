@@ -138,12 +138,12 @@ test('failed read removes earlier success and strict shared schema rejects false
 });
 
 test('draft UI displays Tron-specific lack of nonce and finality/permission limits without new actions', async () => {
-  const source = await readFile(new URL('./public/app.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../../src/client/app.mjs', import.meta.url), 'utf8');
   assert.match(source, /transfer\.family === 'tron' \? 'Tipo original'/);
   assert.match(source, /solidificación reportada por RPC; sin consenso independiente/);
   assert.match(source, /TAPOS ni expiración verificados/);
   assert.doesNotMatch(source, /\/api\/wallet\/transfers\/|setInterval/);
-  const html = await readFile(new URL('./public/index.html', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../../../src/client/index.html', import.meta.url), 'utf8');
   assert.match(html, /REDES NATIVAS · ORIGINALES FIJADOS POR EL HOST/);
   assert.doesNotMatch(html, /EVM · ORIGINALES FIJADOS/);
 });

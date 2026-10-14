@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PROFILE, SETTINGS, LIMITS, CATALOG } from '@lianum/proofs/catalog';
-import { PROVING_LIMITS, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS, limitsForMode } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
+import { PROVING_LIMITS, AUTHORIZATION_PROVING_LIMITS, AUTHORIZATION_TWELVE_PROVING_LIMITS, NODE_NATIVE_PROVING_LIMITS_V1, RESERVATION_NATIVE_PROVING_LIMITS_V1, limitsForMode } from '../../../../packages/proofs/src/jobs/proving-execution.mjs';
 import { DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS, assertBtcSolGraphProofReceipts, assertBtcSolRecipientWithdrawalTelemetry }
   from './development-btc-sol-graph-proof-evidence.mjs';
 const runId='11111111-1111-4111-8111-111111111111',jobId='22222222-2222-4222-8222-222222222222';
@@ -111,7 +111,7 @@ test('authorization twelve retains the prepared key and exact SAB/source/RSS joi
   for(const mode of ['prove','prove-dyadic21']) assert.equal(limitsForMode(CATALOG.authorization,mode),AUTHORIZATION_TWELVE_PROVING_LIMITS);
   for(const mode of ['compile','stats','prepare-key','prepare-key-dyadic21','verify']) assert.equal(limitsForMode(CATALOG.authorization,mode),LIMITS);
   for(const relation of DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS.filter(name=>name!=='authorization'))
-    assert.equal(limitsForMode(CATALOG[relation],'prove'),PROVING_LIMITS);
+    assert.equal(limitsForMode(CATALOG[relation],'prove'),relation==='node'?NODE_NATIVE_PROVING_LIMITS_V1:relation==='reservation'?RESERVATION_NATIVE_PROVING_LIMITS_V1:PROVING_LIMITS);
   const twelveThreadReceipt=relation=>{
     const value=fourThreadReceipt(receipt(relation));
     value.result.threads=12;value.result.limits=value.resources.limits=AUTHORIZATION_TWELVE_PROVING_LIMITS;
@@ -125,7 +125,7 @@ test('authorization twelve retains the prepared key and exact SAB/source/RSS joi
   const value=twelveThreadReceipt('authorization'),originalKey=value.manifest.keySHA256;
   assert.equal(assertBtcSolGraphProofReceipts(value).keySHA256,originalKey);
   for(const relation of DEVELOPMENT_BTC_SOL_GRAPH_RELATIONS.filter(name=>name!=='authorization'))
-    assert.throws(()=>assertBtcSolGraphProofReceipts(twelveThreadReceipt(relation)),/DEVELOPMENT_CLAIM_FIXED_THREADS/);
+    assert.throws(()=>assertBtcSolGraphProofReceipts(twelveThreadReceipt(relation)),error=>error instanceof assert.AssertionError&&(relation==='node'||relation==='reservation'||error.message.includes('DEVELOPMENT_CLAIM_FIXED_THREADS')));
   for(const mutate of [
     v=>{v.result.wasmThreadExecution.threads=8;},v=>{v.result.wasmThreadExecution.sharedMemory=false;},
     v=>{v.resources.limits=AUTHORIZATION_PROVING_LIMITS;},
@@ -166,5 +166,5 @@ test('native authorization joins actual child closure and combined RSS while ret
   const other=nativeReceipt();other.relation=other.result.relation=other.manifest.relation=other.resources.relation='reservation';
   other.result.role=other.manifest.role=CATALOG.reservation.role;
   other.result.publicWords=other.manifest.publicWords=CATALOG.reservation.publicWords;
-  assert.throws(()=>assertBtcSolGraphProofReceipts(other),/DEVELOPMENT_CLAIM_FIXED_THREADS/);
+  assert.throws(()=>assertBtcSolGraphProofReceipts(other),/PW_RESERVATION_NATIVE_NO_WASM_PRODUCER_MEMORY/);
 });

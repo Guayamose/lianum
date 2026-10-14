@@ -6,28 +6,28 @@ import { basename } from 'node:path';
 let c;
 const n = '34'.repeat(32), domain = '56'.repeat(32), data = '0x12345678', tx = '0x' + '11'.repeat(32), replay = '0x' + '22'.repeat(32);
 const forbidden = () => { throw new Error('TEST_UNEXPECTED_GRAPH_PREPARATION'); };
-mock.module('../owned-flat-fixture.mjs', { exports: { freshFixtureId: () => '12'.repeat(32), writeFixturePrivate: (path, value) => c.files.set(basename(path), structuredClone(value)) } });
-mock.module('../prepare-native-claim-graph.mjs', { exports: { prepareNativeClaimGraph: forbidden } });
-mock.module('../../wallet-platform/modules/paeg/flat-system-state.mjs', { exports: {
+mock.module('../../../fixtures/runners/owned-flat-fixture.mjs', { exports: { freshFixtureId: () => '12'.repeat(32), writeFixturePrivate: (path, value) => c.files.set(basename(path), structuredClone(value)) } });
+mock.module('../flows/prepare-native-claim-graph.mjs', { exports: { prepareNativeClaimGraph: forbidden } });
+mock.module('../../../../../packages/backend/src/execution/account/reconciliation/flat-system-state.mjs', { exports: {
   createFlatSystemStateReader: async ({ runtime, system, poolIndex }) => {
     assert.equal(runtime, c.fixture.runtime); assert.equal(system, c.fixture.system); c.readers.push(poolIndex);
     return { read: async () => ({ ledger: { commitments: ['0x' + n], tree: { path: index => ({ index }) },
       publicState: { backedAmount: '0', actualAssetBalance: '0', liveReservations: 0 } }, head: { timestamp: '1200' } }) };
   },
 } });
-mock.module('../../../../omnichain-product/src/paeg/proof-process.mjs', { exports: { createProofProcess: args => {
+mock.module('../../../../../packages/proofs/src/execution/proof-process.mjs', { exports: { createProofProcess: args => {
   assert.deepEqual(args, { purpose: 'recipient', modes: ['withdraw_balance'] });
   return { prove: async (mode, witness, words) => {
     assert.equal(mode, 'withdraw_balance'); assert.deepEqual(witness, { originalOnly: true }); assert.deepEqual(words, ['1']);
     c.events.push('prove'); return { proof: Buffer.alloc(32, 1), publicInputs: ['1'], metrics: { synthetic: true } };
   }, close: async () => c.events.push('close-prover') };
 } } });
-mock.module('../../../../omnichain-product/src/private-wallet-note-encoding.mjs', { exports: {
+mock.module('../../../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs', { exports: {
   walletInputPublicWords: () => ['1'], decodeWalletPoolInputs: () => ({ nullifier: '0x' + n }),
 } });
-mock.module('../../wallet-platform/modules/paeg/transaction-codec.mjs', { exports: { encodeFlatTransaction: () => data } });
-mock.module('../../wallet-platform/modules/native-claims/framing.mjs', { exports: { claimDomainCommitment: () => domain } });
-mock.module('../native-claim-graph-terminal-checks.mjs', { exports: {
+mock.module('../../../../../packages/backend/src/execution/encoding/transaction-codec.mjs', { exports: { encodeFlatTransaction: () => data } });
+mock.module('../../../../../packages/engine/src/claims/framing.mjs', { exports: { claimDomainCommitment: () => domain } });
+mock.module('../validation/native-claim-graph-terminal-checks.mjs', { exports: {
   readClaimGraphReplayState: async ({ fixture, readers, sender }) => {
     assert.equal(fixture, c.fixture); assert.equal(readers.length, 2); assert.equal(sender, 'sender');
     c.events.push('read-replay-state'); return { step: c.reads++ };

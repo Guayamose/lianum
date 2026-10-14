@@ -1,7 +1,7 @@
 /** V3 postmint boundary under explicit mock observations/signing only. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
-mock.module('../../wallet-platform/modules/native-claims/ingress-v3-host.mjs', {
+mock.module('../../../../../packages/backend/src/claims/ingress/ingress-v3-host.mjs', {
   exports: { assertNonceIngressDeployment: claims => { assert.equal(claims.originalV3, true, 'TEST_ORIGINAL_V3'); return true; } },
 });
 const { preflightFundedClaimGraphV3 } = await import('../validation/native-claim-graph-preflight.mjs');

@@ -1,3 +1,4 @@
+import {writeFixturePrivate as actualWriteFixturePrivate} from '../../../../packages/backend/src/storage/private-json-file.mjs';
 /** Orchestration/diagnostic regressions. These execute the exact harness bodies
  * with controlled HTTP/idle observations; they establish no native economics,
  * key use, timing, node, proving or authority from the controlled substrate. */
@@ -152,7 +153,7 @@ test('the original authorization-failure branch keeps its real label and never r
   const finish = source.indexOf("      assert.equal(reply.state, 'CONFIRMED', reply.errorCode);", start);
   assert.ok(start >= 0 && finish > start);
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  const branch = new AsyncFunction('reply', 'btcToSol', 'writeFixturePrivate', 'join', 'privateDirectory',
+  const branch = new AsyncFunction('reply', 'withGraph', 'writeFixturePrivate', 'join', 'privateDirectory',
     'controller', 'fixture', 'ticket', 'confirmOriginal', 'claimRequest', 'redemption', 'assert', source.slice(start, finish));
   let confirmations = 0, resumes = 0, controllerCalls = 0;
   const controller = { async privateNativeReceipt() { controllerCalls++; return { broadcastAttempts: 1 }; } };
@@ -164,17 +165,7 @@ test('the original authorization-failure branch keeps its real label and never r
 });
 
 test('the unchanged private writer persists the new bounded redacted snapshot with mode 0600', async () => {
-  const fixtureURLs = [new URL('../../fixtures/runners/owned-flat-fixture.mjs', import.meta.url),
-    new URL('../../owned-flat-fixture.mjs', import.meta.url)].filter(url => existsSync(url));
-  assert.equal(fixtureURLs.length, 1, 'one public or generated fixture writer source is required');
-  const fixtureSource = readFileSync(fixtureURLs[0], 'utf8');
-  const start = fixtureSource.indexOf('export function writeFixturePrivate(file, value) {');
-  const finish = fixtureSource.indexOf('\nexport async function ', start);
-  assert.ok(start >= 0 && finish > start);
-  const writer = new Function('openSync', 'writeFileSync', 'fixtureJSON', 'fsyncSync', 'closeSync', 'renameSync',
-    'dirname', 'freshFixtureId', fixtureSource.slice(start + 'export '.length, finish) + '\nreturn writeFixturePrivate;')
-    (openSync, writeFileSync, value => JSON.stringify(value) + '\n', fsyncSync, closeSync, renameSync,
-      dirname, () => randomBytes(16).toString('hex'));
+  const writer=actualWriteFixturePrivate;
   const directory = mkdtempSync(join(tmpdir(), 'lianum-loaded-solana-host-'));
   try {
     const run = harness(() => ({ privateDirectory: directory, writeFixturePrivate: writer }));

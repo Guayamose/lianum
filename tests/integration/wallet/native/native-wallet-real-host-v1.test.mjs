@@ -93,7 +93,7 @@ test('original shared RAM/disk/RSS/90-minute/250ms limits and heavy lock paths a
   assert.equal(NATIVE_FLOW_LIMITS.minimumAvailableRAMBytes,2684354560);
   assert.equal(NATIVE_FLOW_LIMITS.minimumFreeDiskBytes,5368709120);
   assert.equal(NATIVE_FLOW_LIMITS.sampleMilliseconds,250);
-  const s=readFileSync(new URL('./native-flow-supervisor.mjs',import.meta.url),'utf8');
+  const s=readFileSync(new URL('../../native/native-flow-supervisor.mjs',import.meta.url),'utf8');
   assert.match(s,/const lockPaths = \[\[join\(PROOF_LOCAL, 'active.lock'\), 'pid'\], \['\/tmp\/lianum-paeg-proof-host.lock', 'parentPID'\]\]/);
   assert.match(s,/nativeWalletUnfundedProcessFailure\(sample.ownedProcesses\)/);
   assert.match(s,/nativeWalletUnfundedProcessFailure\(\[...history.values\(\)\]\)/);
@@ -114,11 +114,11 @@ test('original native delivery reconciliation observes expired retained wire wit
   const a = source.indexOf('  async function exclusive(work){'), b = source.indexOf('  async function observeOriginal(){', a);
   assert.ok(first >= 0 && last > first && a >= 0 && b > a);
   const method = source.slice(first,last), exclusive = source.slice(a,b);
-  const executorSource = readFileSync(fileURLToPath(new URL('../../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs',import.meta.url)), 'utf8');
-  const ea = executorSource.indexOf('          const result=await original.adapter.reconcile();');
-  const eb = executorSource.indexOf('          const receipt=',ea);
-  assert.ok(ea >= 0 && eb > ea);
-  const requireReceipt = new Function('assert','result',executorSource.slice(executorSource.indexOf('          assert.ok(result.receipt',ea),eb));
+  const {reconcileRetainedTerminalV2}=await import('../../../../packages/backend/src/execution/native-value/reconciliation/terminal-reconciliation-v2.mjs');
+  const requireReceipt=result=>reconcileRetainedTerminalV2('HOST_RETAINED',{
+    operation:()=>({receipts:[],exposures:[]}),admissions:new Map([['HOST_RETAINED:0',{slot:0,adapter:{reconcile:async()=>result}}]]),
+    read(){assert.fail('receiptless observation cannot read an admission head');},assertReceipt(){assert.fail('receiptless observation cannot become an admitted leaf');},
+    update(){assert.fail('receiptless observation cannot credit custody');},observe(){assert.fail('receiptless observation cannot create a terminal proof');}});
   const directory = await mkdtemp(join(tmpdir(),'native-observe-only-host-')), password = 'HOST original retained native observation';
   const vault = new Vault(join(directory,'original.vault'));
   let record = await vault.create({schema:'HOST_ORIGINAL_ADMISSION',requestSHA256:'12'.repeat(32),phase:'NATIVE_OBSERVATION_PENDING',submission:null},password);
@@ -137,9 +137,9 @@ test('original native delivery reconciliation observes expired retained wire wit
     const unknown = await actual.reconcile(); assert.equal(unknown.phase,'UNKNOWN');
     assert.equal(unknown.classification,'ORIGINAL_NATIVE_DELIVERY_OBSERVATION_ONLY_NO_ADMISSION');
     assert.equal(unknown.creditEligible,false);assert.equal(unknown.privateSpendableAtomic,null);
-    assert.throws(()=>requireReceipt(assert,unknown),/PARTIAL_DELIVERY_REQUIRES_RECOVERY/);
+    await assert.rejects(requireReceipt(unknown),/PARTIAL_DELIVERY_REQUIRES_RECOVERY/);
     phase='OBSERVED';const observed=await actual.reconcile();assert.equal(observed.phase,'OBSERVED');
-    assert.throws(()=>requireReceipt(assert,observed),/PARTIAL_DELIVERY_REQUIRES_RECOVERY/);
+    await assert.rejects(requireReceipt(observed),/PARTIAL_DELIVERY_REQUIRES_RECOVERY/);
     assert.equal(nativeReads,2);assert.deepEqual({admissions,proves,sends},before);
     assert.deepEqual(await vault.read(password),record);
     assert.throws(()=>actual.reconcile({}),/ERR_ASSERTION/);assert.equal(nativeReads,2);

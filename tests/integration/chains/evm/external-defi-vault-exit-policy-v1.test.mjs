@@ -10,6 +10,8 @@ test('HOST retained EXIT assessment rejects UNKNOWN, substituted receipt and sec
 
 import {classifyExternalDefiVaultExitProcessV1,externalDefiVaultExitProcessFailureV1} from './external-defi-vault-exit-process-scope-v1.mjs';
 import {ROOT,GOLDEN} from '@lianum/proofs/catalog';
+import {sourceURL} from '@lianum/environment';
+import {projectFlatAdmissionBudgetV1} from '../../../../packages/backend/src/accounts/storage/flat-admission-budget-v1.mjs';
 import {join} from 'node:path';
 import {NATIVE_ECONOMIC_RECOVERABLE_ANVIL_V1} from '../../wallet/native/native-device-economic-process-scope-v1.mjs';
 test('HOST fixed successor rejects foreign parent/flags and init plus load-state before fallback',()=>{
@@ -32,7 +34,7 @@ import {bindGenericAccountRequest,validateBoundRequest,validateOutcome} from '@l
 test('HOST actual retained-note guard requires the original TOP_UP and EXIT terminals and excludes GRAPH',()=>{
   // Execute the production guard itself with original request/outcome validators.
   // Fixture statements are public synthetic metadata, never acceptance authority.
-  const source=readFileSync(join(ROOT,'wallet-platform/modules/global-state/flat-account-authority.mjs'),'utf8');
+  const source=readFileSync(sourceURL('packages/backend/src/accounts/authority/flat-account-authority.mjs'),'utf8');
   const start=source.indexOf('function validateRetainedVaultNoteOperations('),end=source.indexOf('function retainedAccountReopenMode(',start);
   assert.ok(start>=0&&end>start);
   const check=new Function('assert','validateBoundRequest','validateOutcome',source.slice(start,end)+';return validateRetainedVaultNoteOperations;')(assert,validateBoundRequest,validateOutcome);
@@ -46,7 +48,7 @@ test('HOST actual retained-note guard requires the original TOP_UP and EXIT term
   mutate(rows=>{rows[1].stage='UNKNOWN';});mutate(rows=>{rows[1].outcome=null;});
   mutate(rows=>{rows[1].outcome.bindingSHA256='e'.repeat(64);});mutate(rows=>{rows.reverse();});
   assert.throws(()=>check(records.slice(1),0,config,true));assert.throws(()=>check(records,1,config,true));
-  const catalogueSource=readFileSync(join(ROOT,'wallet-platform/modules/global-state/flat-journal-catalogue.mjs'),'utf8');
+  const catalogueSource=readFileSync(sourceURL('packages/backend/src/accounts/storage/flat-journal-catalogue.mjs'),'utf8');
   const bindingStart=catalogueSource.indexOf('function validateRetainedVaultCatalogueBinding('),bindingEnd=catalogueSource.indexOf('function retainedCatalogueReopenMode(',bindingStart);
   assert.ok(bindingStart>=0&&bindingEnd>bindingStart);
   const bindingGuard=new Function('requireTrue',catalogueSource.slice(bindingStart,bindingEnd)+';return validateRetainedVaultCatalogueBinding;')((condition,code)=>assert.ok(condition,code));
@@ -61,7 +63,7 @@ test('HOST actual retained-note guard requires the original TOP_UP and EXIT term
 import {validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE} from '../../../../packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs';
 test('HOST actual owner-view helper joins only the original catalogue generation and head without inventing balances',()=>{
   // Explicit public metadata fixtures; no owner, journal, node, proof or financial authority.
-  const source=readFileSync(join(ROOT,'integration/evm-vault-flow.mjs'),'utf8');
+  const source=readFileSync(sourceURL('tests/integration/chains/evm/evm-vault-flow.mjs'),'utf8');
   const start=source.indexOf('function assertOriginalRetainedVaultOwnerPortfolioV1('),end=source.indexOf('async function main(',start);assert.ok(start>=0&&end>start);
   const check=new Function('assert','validateFlatOwnerReadPayload','GENERATION_PORTFOLIO_PROFILE',source.slice(start,end)+';return assertOriginalRetainedVaultOwnerPortfolioV1;')(assert,validateFlatOwnerReadPayload,GENERATION_PORTFOLIO_PROFILE);
   const hex=n=>String(n).repeat(64),address=n=>String(n).repeat(40),observed={observedAt:100,blockNumber:'4',blockHash:hex(3),timestamp:'1200'};
@@ -86,7 +88,7 @@ test('HOST actual owner-view helper joins only the original catalogue generation
 test('HOST original retained fixture keeps the late-created lifetime accessor without changing legacy',()=>{
   // Execute the actual original fixture object-construction block only.
   // The opaque marker is an inert HOST value, never a lifetime/issuer authority.
-  const source=readFileSync(join(ROOT,'integration/owned-evm-vault-fixture.mjs'),'utf8');
+  const source=readFileSync(sourceURL('tests/integration/fixtures/chains/evm/owned-evm-vault-fixture.mjs'),'utf8');
   const start=source.indexOf('  const fixture = {'),end=source.indexOf("  try {\n    await onStage('start-owned-local-evm-v2');",start);assert.ok(start>=0&&end>start);
   const construct=new Function('retained',`
     let recoveryLifetime,runtime,assets,officialProtocol,system,router,evmDelivery,quorum,sourceOwner,targetOwner,rulesTree,cleanupPromise;
@@ -110,7 +112,7 @@ test('HOST original catalogue status commits only authenticated false-to-true ad
   // Run the actual catalogue factory's saved-state initialization, descriptor
   // and status closure. Public synthetic data ports contain no issuer, vault,
   // account capability, consent, native receipt or financial authority.
-  const source=readFileSync(join(ROOT,'wallet-platform/modules/global-state/flat-journal-catalogue.mjs'),'utf8');
+  const source=readFileSync(sourceURL('packages/backend/src/accounts/storage/flat-journal-catalogue.mjs'),'utf8');
   const descriptorStart=source.indexOf('function descriptor(generation) {'),descriptorEnd=source.indexOf('/** Owns construction once.',descriptorStart);
   const initializeStart=source.indexOf('  let busy = false, closed = false, storageFault = false, admissionFault = false, pendingWrite = null;'),initializeEnd=source.indexOf('  async function exclusive(work)',initializeStart);
   const statusStart=source.indexOf('    status: () => immutable('),statusEnd=source.indexOf('\n  });',statusStart);
@@ -119,7 +121,7 @@ test('HOST original catalogue status commits only authenticated false-to-true ad
   const requireTrue=(value,code)=>assert.ok(value,code);
   const descriptor=new Function('immutable',source.slice(descriptorStart,descriptorEnd)+';return descriptor;')(immutable);
   const validateBinding=new Function('requireTrue',source.slice(bindingStart,bindingEnd)+';return validateRetainedVaultCatalogueBinding;')(requireTrue);
-  const construct=new Function('assert','immutable','descriptor','validateBoundRequest','bindGenericAccountRequest','validateRetainedVaultCatalogueBinding','requireTrue','byId','record','durable',`
+  const construct=new Function('assert','immutable','projectFlatAdmissionBudgetV1','descriptor','validateBoundRequest','bindGenericAccountRequest','validateRetainedVaultCatalogueBinding','requireTrue','byId','record','durable',`
     const PROFILE='FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2';
     ${source.slice(initializeStart,initializeEnd)}
     // Explicit fixture of bindings already admitted/read back in the original
@@ -135,8 +137,8 @@ test('HOST original catalogue status commits only authenticated false-to-true ad
     const request={kind,requestId,assetId:config.registry[pool].assetId,ownerOperationRef:ref.repeat(64)};
     return {request,boundRequest:bindGenericAccountRequest(request,config),generationId};
   });
-  const record={revision:3,data:{current:Object.fromEntries(routes.map(route=>[route.economicIdentitySHA256,route.assetId])),bindings:entries}};
-  const status=saved=>construct(assert,immutable,descriptor,validateBoundRequest,bindGenericAccountRequest,validateBinding,requireTrue,new Map([[generationId,structuredClone(generation)]]),structuredClone(record),saved?{saved:{},vaultNotes:true}:null)();
+  const record={revision:3,data:{current:Object.fromEntries(routes.map(route=>[route.economicIdentitySHA256,route.assetId])),bindings:entries,generations:[{generationId}]}};
+  const status=saved=>construct(assert,immutable,projectFlatAdmissionBudgetV1,descriptor,validateBoundRequest,bindGenericAccountRequest,validateBinding,requireTrue,new Map([[generationId,structuredClone(generation)]]),structuredClone(record),saved?{saved:{},vaultNotes:true}:null)();
   const before=status(false),after=status(true),commitment=commitExternalVaultExitCatalogueTransitionV1(before);
   assert.equal(before.admissionFault,false);assert.equal(after.admissionFault,true);
   assert.notEqual(canonicalJournalSHA(before),canonicalJournalSHA(after)); // Original whole-status comparison fails causally.
@@ -146,7 +148,7 @@ test('HOST original catalogue status commits only authenticated false-to-true ad
   assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(before,commitment)); // false -> false
   assert.throws(()=>commitExternalVaultExitCatalogueTransitionV1(after)); // true -> true cannot acquire a before commitment
   const mutated=change=>{const value=structuredClone(after);change(value);assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(value,commitment));};
-  for(const change of [value=>value.profile='CALLER_PROFILE',value=>value.generations[0].generationId='d'.repeat(64),value=>value.generations[0].registry[0].decimals=9,value=>value.bindings[0].request.ownerOperationRef='e'.repeat(64),value=>value.bindings.pop(),value=>value.current[routes[0].economicIdentitySHA256]=config.registry[1].assetId,value=>value.pendingReview={state:'READY'},value=>value.pendingOwnerPreparation={state:'READY'},value=>value.pendingGenerationId='f'.repeat(64),value=>value.storageFault=true,value=>value.uncertainWrite=true,value=>value.keeperRestart=true,value=>value.originalBindingsRewritten=true,value=>value.counter=1,value=>{delete value.current;}])mutated(change);
+  for(const change of [value=>value.profile='CALLER_PROFILE',value=>value.generations[0].generationId='d'.repeat(64),value=>value.generations[0].registry[0].decimals=9,value=>value.bindings[0].request.ownerOperationRef='e'.repeat(64),value=>value.bindings.pop(),value=>value.current[routes[0].economicIdentitySHA256]=config.registry[1].assetId,value=>value.pendingReview={state:'READY'},value=>value.pendingOwnerPreparation={state:'READY'},value=>value.pendingGenerationId='f'.repeat(64),value=>value.storageFault=true,value=>value.uncertainWrite=true,value=>value.keeperRestart=true,value=>value.originalBindingsRewritten=true,value=>value.admissionBudget.remaining++,value=>value.counter=1,value=>{delete value.current;}])mutated(change);
   assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(after,{...commitment,beforeSHA256:'f'.repeat(64)}));
   assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(after,{...commitment,afterSHA256:'f'.repeat(64)}));
   assert.throws(()=>assertExternalVaultExitCatalogueTransitionV1(after,{...commitment,extra:1}));

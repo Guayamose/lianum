@@ -69,14 +69,14 @@ test('new profile has one exact isolated supervisor route and cannot select old 
   for (const wrong of [entry + '/child', NATIVE_CLAIM_RUN_ROUTES.loadedV3.entry, '/tmp/arbitrary.mjs'])
     assert.throws(() => nativeClaimRunDirectory(wrong, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1));
   assert.throws(() => nativeClaimRunDirectory(entry, 'SOLANA_LOADED_POST_DELIVERY_REDEMPTION_INGRESS_V3'));
-  const supervisor = source('./native-flow-supervisor.mjs'), worker = source('./native-claim-flow.mjs');
+  const supervisor = source('../../native/native-flow-supervisor.mjs'), worker = source('../lifecycle/native-claim-flow.mjs');
   assert.match(supervisor, /runNativeClaimBeginPayoutAuditSupervisorV1\(\) \{\s*assert\.equal\(arguments\.length, 0/);
   assert.match(supervisor, /nativeClaimBeginPayoutAuditV1\) scoped = assertBeginPayoutAuditResultV1\(result\)/);
   assert.match(worker, /if \(beginPayoutAuditProfile\) assertBeginPayoutAuditReleaseV1\(\);\s*else assert\.equal\(loadedV3Profile/);
-  assert.match(source('./native-claim-loaded-v3-policy.mjs'), /CLAIM_LOADED_V3_REAL_RUN_DISABLED = true/);
+  assert.match(source('../inventory/native-claim-loaded-v3-policy.mjs'), /CLAIM_LOADED_V3_REAL_RUN_DISABLED = true/);
 });
 
-const worker = source('./native-claim-flow.mjs');
+const worker = source('../lifecycle/native-claim-flow.mjs');
 const start = worker.lastIndexOf('        if (beginPayoutAuditProfile) {', worker.indexOf('          captureBeginPayoutAuditBeforeV1(fixture, controller);'));
 const end = worker.indexOf('        let paid = await controller.payout', start);
 assert.ok(start >= 0 && end > start); const stopBranch = worker.slice(start, end);

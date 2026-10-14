@@ -32,7 +32,7 @@ test('genuine graph checkpoint and health preflight precedes owner, deposit and 
 
 test('bounded graph deadline diagnostics survive both account and run audit projections', () => {
   const flow = readFileSync(new URL('./native-claim-flow.mjs', import.meta.url), 'utf8');
-  const account = readFileSync(new URL('../wallet-platform/modules/global-state/flat-account-authority.mjs', import.meta.url), 'utf8');
+  const account = readFileSync(new URL('../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs', import.meta.url), 'utf8');
   const unresolved = account.slice(account.indexOf('async function unresolved'), account.indexOf('/** Read the already retained original outcome'));
   assert.match(unresolved, /errorAuditBudget: diagnostic\.auditBudget/);
   assert.match(unresolved, /auditBudget: diagnostic\.auditBudget/);

@@ -9,7 +9,8 @@ import { createServer } from 'node:net';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join,dirname } from 'node:path';
+import {lstatSync,realpathSync} from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createGenericBalanceNativePreparation } from '@lianum/engine/execution/balances/generic-balance-native-preparation';
 import { originalAccountAccessMessageV2, originalAccountReviewMessageV2 }
@@ -27,8 +28,8 @@ function syntheticOriginal(table, capability, expected, code) {
 }
 // The doubles are installed before importing the original account realm.
 // Only capabilities explicitly created by this file exist in these WeakMaps.
-mock.module('../paeg/native-value-execution-v2.mjs', { exports: {
-  ...await deniedNativeFunctions('../paeg/native-value-execution-v2.mjs', 'HOST_NATIVE_EXECUTION_FORBIDDEN'),
+mock.module('../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs', { exports: {
+  ...await deniedNativeFunctions('../../../packages/backend/src/execution/native-value/execution/native-value-execution-v2.mjs', 'HOST_NATIVE_EXECUTION_FORBIDDEN'),
   FLAT_EXECUTION_PROFILE: 'OWNED_NATIVE_VALUE_EXECUTION_KEEPER_V2',
   WRAPPED_WALLET_EXECUTION_PROFILE_V1: 'OWNED_WRAPPED_WALLET_EXECUTION_KEEPER_V1',
   // Preserve linkage of the original wrapped facade, while every construction,
@@ -49,8 +50,8 @@ mock.module('../paeg/native-value-execution-v2.mjs', { exports: {
   },
   ownedNativeValueManualGraphReview() { throw Error('HOST_NATIVE_GRAPH_FORBIDDEN'); },
 } });
-mock.module('../chain-adapters/native-value-dispatch-owner-v2.mjs', { exports: {
-  ...await deniedNativeFunctions('../chain-adapters/native-value-dispatch-owner-v2.mjs', 'HOST_NATIVE_PROVIDER_FORBIDDEN'),
+mock.module('../../../packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs', { exports: {
+  ...await deniedNativeFunctions('../../../packages/backend/src/chains/shared/dispatch/native-value-dispatch-owner-v2.mjs', 'HOST_NATIVE_PROVIDER_FORBIDDEN'),
   // Transitive original dispatch imports still link their fixed closed-gate
   // metadata. This fixture never opens a dispatch lease or creates a signer.
   NATIVE_VALUE_DISPATCH_OWNER_BLOCKERS: Object.freeze([
@@ -73,9 +74,8 @@ const { createDeviceOwnerReservationBridgeV1 } = await import('../../../packages
 const { createDeviceOwnerExecutionBridgeV1 } = await import('../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs');
 const {createPairedDeviceDepositTlsServerV1,createPairedDeviceAccountTlsServerV1,handoffPairedDeviceDepositTlsServerV1}=await import('../../../packages/backend/src/api/mobile/paired-original-account-http-v2.mjs');
 const { installOriginalNativeDeviceLocalServiceV1, installOriginalNativeDeviceDurableLocalServiceV1 } = await import('../../../packages/backend/src/operations/recovery/native-device-local-operator-v1.mjs');
-const filename = fileURLToPath(import.meta.url), marker = '/.internal/runtime/';
-assert.ok(filename.includes(marker), 'HOST_TEST_REQUIRES_GENERATED_WORKSPACE');
-const root = filename.slice(0, filename.lastIndexOf(marker));
+function currentProject(){let path=dirname(fileURLToPath(import.meta.url));for(let i=0;i<16;i++,path=dirname(path)){try{if(lstatSync(join(path,'scripts/layout.json')).isFile()&&realpathSync(path)===path)return path;}catch(error){if(error.code!=='ENOENT')throw error;}}assert.fail('HOST_ORIGINAL_PROJECT_REQUIRED');}
+const root=currentProject();
 const { startPlatformOriginalDeviceServiceV1 } = await import(pathToFileURL(join(root,
   'apps/platform/src/original-device-service-v1.mjs')));
 const h = label => createHash('sha256').update('PLATFORM ORIGINAL SERVICE HOST ' + label).digest('hex');

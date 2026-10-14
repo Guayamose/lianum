@@ -57,7 +57,23 @@ test('V5 selector requires the original system brand; no caller consumer/path op
  const current=readFileSync(fileURLToPath(new URL('../../../../packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs',import.meta.url)),'utf8');
  const body=source=>source.slice(source.indexOf('const expected=[...job.expectedPublicInputs]'),source.indexOf('writeNew(join(attempt,\'proof.bin\')'))
   .replaceAll('loadNativeValueDevLiveArtifactsV5','loadNativeValueLiveArtifacts');
- assert.ok(body(original).length>1000);assert.equal(body(current),body(original));
+ assert.ok(body(original).length>1000);
+ // V5 uses the original native producer plus a separate bounded WASM verifier;
+ // compare the unchanged witness/proof/input and final-pin paths exactly.
+ const firstPhase=source=>source.slice(source.indexOf('const expected='),source.indexOf(" await measured('initializationMilliseconds'"));
+ const proofCore=source=>{const start=source.indexOf(" phase('executing-witness')"),stop=source.indexOf(source.includes(" phase('closing-native-producer')")?' // Close the original native producer':" phase('self-verifying')",start);assert.ok(start>=0&&stop>start);return source.slice(start,stop).trim();};
+ const finalPins=source=>source.slice(source.indexOf(" assert.deepEqual(await runtimePins(),pins"));
+ assert.equal(firstPhase(body(current)),firstPhase(body(original)));
+ assert.equal(proofCore(body(current)),proofCore(body(original)));
+ assert.equal(finalPins(body(current)),finalPins(body(original)));
+ assert.match(current,/backend=await initializeI84NativeV1\(bb\)/);
+ assert.match(current,/crsReader=await createI84FullProvingCRSReaderV1\(\)/);
+ assert.match(current,/finally\{pointsBuf\.fill\(0\);\}/);
+ assert.ok(current.indexOf('await destroyI84NativeV1(producer)')<current.indexOf('verifier=await bb.Barretenberg.new'));
+ assert.match(current,/backend:bb.BackendType.Wasm,threads:1,skipSrsInit:true,memory:\{initial:37,maximum:65536\}/);
+ assert.match(current,/NV2_INDEPENDENT_FIXED_VERIFY_THREADS/);
+ assert.match(current,/UltraHonkVerifierBackend\(verifier\)/);
+ assert.match(current,/await verifying\.destroy\(\)/);
  assert.doesNotMatch(current,/circuitComputeVk|circuitWriteSolidityVerifier|persistWitness/);
 });
 test('synthetic metadata distinguishes real Tron facts/accounting from an invented EVM balance or private native credit',()=>{

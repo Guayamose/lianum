@@ -11,6 +11,7 @@ import {assertAdoptedSourceGeneration} from '@lianum/components/verification/cur
 import {inspectWrappedInstallationSourcesV2} from '@lianum/components/verification/wrapped-installation';
 import {loadFundedPagedGraphArtifactsV3} from '@lianum/proofs/toolchain/paged-artifacts-v3';
 import {loadRetainedI84ArtifactsV1} from '@lianum/proofs/tooling/retained-i84-artifacts-v1';
+import {loadMinimumDepositLedgerArtifacts} from '../../../packages/backend/src/operations/deployments/system/append-only-deployment-artifacts-v3.mjs';
 import {selectFixedDeviceRootClaimFinancialProfileV3} from '../../../scripts/validation/device-root-native-claim-v3/flow.mjs';
 
 export function readPortableEconomicSources() {
@@ -31,6 +32,9 @@ export function readPortableEconomicSources() {
   const abi=new sdk.Interface(['function transfer(address,uint256)']);
   const encoded=abi.encodeFunctionData('transfer',['0x'+'11'.repeat(20),7n]);
   assert.equal(encoded,'0xa9059cbb'+'11'.repeat(20).padStart(64,'0')+'7'.padStart(64,'0'));
+  const minimumLedger=loadMinimumDepositLedgerArtifacts();
+  assert.equal(minimumLedger.artifacts.pool.evm.deployedBytecode.object.length/2,22838);
+  assert.ok(Object.values(minimumLedger.immutableNames.pool).includes('minimumDepositAmount'));
   const claimProfile=selectFixedDeviceRootClaimFinancialProfileV3(['node','fixed','--spl-source']);
   assert.equal(claimProfile.entry,'run-spl-source.mjs');
   assert.equal(claimProfile.source,true);
@@ -43,7 +47,7 @@ export function readPortableEconomicSources() {
     i84PublicWords:84,i84FixtureProfiles:Object.keys(i84.proofs),
     originalSolidityCompilerLoaded:true,solcVersion:compiler.version,
     originalAbiToolsLoaded:true,ethersVersion:sdk.version,solidityCompiled:false,
-    originalClaimDriverLoaded:true,claimProfileConstructorCalled:false});
+    originalClaimDriverLoaded:true,claimProfileConstructorCalled:false,newMinimumLedgerRead:true,newMinimumLedgerDeployed:false});
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

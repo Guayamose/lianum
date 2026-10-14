@@ -7,6 +7,7 @@ import { realpathSync, lstatSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { sourceURL } from '@lianum/environment';
+import {assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
 import { createTronPrivateLogCapture, TRON_PRIVATE_LOG_PREFIX_BYTES } from '../../../../packages/backend/src/chains/tron/runtime/guarded/tron-private-log-capture-v1.mjs';
 import { PRIVATE_RESOURCE_POLICY, PRIVATE_RESOURCE_FLOORS } from '@lianum/components/resources/private-resource-policy';
 import { ROOT, GOLDEN } from '@lianum/proofs/catalog';
@@ -217,7 +218,7 @@ test('safe first-error derivative uses only genuine v4 build material and retain
 });
 
 test('the original runtime fresh journal scan overlaps eight independent reads and drains before original-order failure',async()=>{
- const text=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/owned-tron-native-value-runtime.mjs'),'utf8');
+ const text=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs'),'utf8');
  const begin=text.indexOf(' async function unchanged()'),end=text.indexOf(' async function append(',begin);
  assert.ok(begin>=0&&end>begin);const code=text.slice(begin,end);
  const journal={binding:{id:'HOST_BINDING'},events:Array.from({length:12},(_,i)=>({sequence:i}))};
@@ -457,7 +458,7 @@ test('product command drains fresh status, unix, FD-list and resource reads with
 // a native process, key, packet, observation or financial timing experiment.
 test('HOST original Tron journal fresh read authenticates bounded real FDs with unchanged async ABI and exact errors',async t=>{
  const fs=await import('node:fs/promises'),sync=await import('node:fs'),{tmpdir}=await import('node:os');
- const source=await readFile(join(ROOT,'wallet-platform/modules/chain-adapters/owned-tron-native-value-runtime.mjs'),'utf8');
+ const source=await readFile(sourceURL('packages/backend/src/chains/tron/runtime/owned-tron-native-value-runtime.mjs'),'utf8');
  const from=source.indexOf(' async function readExact(name,expected)'),to=source.indexOf(' async function retain(',from);
  assert.ok(from>=0&&to>from);const actualSource=source.slice(from,to).trim();
  // Exact before-body retained from current c639a169 source, not a mirror of
@@ -536,12 +537,15 @@ test('original private Tron mobile host lifetime is born before effects and admi
  const capturedScript=text.slice(text.indexOf('function assertCapturedScript(scope,path)'),c);
  const guardBody=text.slice(c).replace('export function createTronProductHostGuardV1','function createTronProductHostGuardV1');
  const repo=resolve(ROOT,'../../../..'),entry=join(repo,'apps/platform/src/run-original-tron-private-native-mobile-v1.mjs'),node=join(repo,'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node');
- const proof=join(ROOT,'proof-workers/wallet-note-private-worker-v4.mjs'),nativeProof=join(ROOT,'proof-workers/native-value-dev-live-v5-worker.mjs'),goldenProof=join(GOLDEN,'src/paeg/proof-worker.mjs');
+ const proof=join(repo,'packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs'),nativeProof=join(repo,'packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs'),goldenProof=join(repo,'packages/proofs/src/execution/proof-worker.mjs');
  function fixture(mutate=()=>{}){
   const main={...originalMain(),executable:node,argv:[node,'--max-old-space-size=384',entry],cwd:repo};
   const parent={...originalMain(),pid:main.parent,parent:1,start:'90',executable:'/usr/bin/setsid',argv:['/usr/bin/setsid','--wait'],group:main.parent,session:main.parent};
-  const state={main,parent,heavy:null,changedSource:false,changedPublication:false};mutate(state);
-  const environment={assert,ROOT,GOLDEN,join,resolve,BUDGET:5400000,
+  const state={main,parent,heavy:null,changedSource:false,changedPublication:false,wall:Date.now()};mutate(state);
+  // This HOST tests identity/source/deadline predicates with inert process
+  // ports. Its local clock is explicit and stable; production Date is unchanged.
+  class HostDate extends Date{static now(){return state.wall;}}
+  const environment={assert,ROOT,GOLDEN,join,resolve,assertAdoptedSourceGeneration,Date:HostDate,BUDGET:5400000,
    process:{pid:process.pid,ppid:process.ppid,getuid:()=>process.getuid(),execArgv:['--max-old-space-size=384'],env:{}},
    randomUUID:()=> '10000000-0000-4000-8000-000000000000',
    sha:bytes=>createHash('sha256').update(bytes).digest('hex'),realpathSync,lstatSync,
@@ -564,7 +568,10 @@ test('original private Tron mobile host lifetime is born before effects and admi
  f.state.heavy.parent=process.pid+300000;assert.throws(()=>guard.assertActive(),/ANCESTRY|LIVE_IDENTITY/);f.state.heavy.parent=process.pid;
  f.state.heavy={...f.state.heavy,executable:node,argv:[node,proof]};assert.equal(guard.assertActive().scope,'ORIGINAL_TRON_PRIVATE_MOBILE_HOST');
  f.state.changedSource=true;assert.throws(()=>guard.assertActive(),/SOURCE_CHANGED/);f.state.changedSource=false;
- f.state.changedPublication=true;assert.throws(()=>guard.assertActive(),/PUBLICATION_CHANGED/);f.state.changedPublication=false;
+ f.state.changedPublication=true;assert.throws(()=>guard.assertActive(),/CURRENT_PUBLICATION_REQUIRED|PUBLICATION_CHANGED/);f.state.changedPublication=false;
+ const originalWall=f.state.wall;f.state.wall=originalWall+5399999;assert.equal(guard.assertActive().scope,'ORIGINAL_TRON_PRIVATE_MOBILE_HOST');
+ f.state.wall=originalWall+5400000;assert.throws(()=>guard.assertActive(),/TRON_MOBILE_ORIGINAL_DEADLINE/);
+ f.state.wall=originalWall-1;assert.throws(()=>guard.assertActive(),/TRON_MOBILE_ORIGINAL_DEADLINE/);f.state.wall=originalWall;
  f.state.parent={...f.state.parent,start:'91'};assert.throws(()=>guard.assertActive(),/PROCESS_CHANGED/);
  const closed=fixture(),lease=closed.api.begin(),closedGuard=closed.api.guard();assert.equal(lease.close().closed,true);assert.throws(()=>closedGuard.assertActive(),/HOST_LIFETIME_REQUIRED/);
 });

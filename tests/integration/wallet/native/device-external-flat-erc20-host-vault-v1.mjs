@@ -51,11 +51,11 @@ export async function openDeviceExternalFlatErc20HostV1(privateDirectory){assert
  const graphURL=pathToFileURL(join(mobile,'api/device-external-flat-graph-api-v1.mjs')).href,backupURL=pathToFileURL(join(mobile,'custody/sealed-custody-backup-v1.mjs')).href;
  const privateTransitURL=pathToFileURL(join(mobile,'api/device-private-proof-transit-v2.mjs')).href;
  const privateGraphTransitURL=pathToFileURL(join(mobile,'api/device-private-graph-proof-transit-v2.mjs')).href;
- const parents=new Set([vaultURL,keyURL,sdkURL,graphURL,blueURL,backupURL,privateTransitURL,privateGraphTransitURL]),own=import.meta.url,sources={
+ const parents=new Set([vaultURL,keyURL,sdkURL,graphURL,blueURL,backupURL,privateTransitURL,privateGraphTransitURL,new URL('./wallet-session-v1.ts',vaultURL).href,new URL('./expo-aes-base64-v1.mjs',vaultURL).href,new URL('../api/device-paged-graph-crypto-provider-v3.ts',vaultURL).href,new URL('../api/native-private-crypto-provider-v2.ts',vaultURL).href,new URL('../state/public-connection-registry-v1.mjs',vaultURL).href]),own=import.meta.url,sources={
   'expo-secure-store':`import{ExternalFlatHostSecureStoreV1 as x}from${JSON.stringify(own)};export const{WHEN_UNLOCKED_THIS_DEVICE_ONLY,isAvailableAsync,canUseBiometricAuthentication,getItemAsync,setItemAsync,deleteItemAsync}=x;`,
   'expo-local-authentication':`import{ExternalFlatHostAuthenticationV1 as x}from${JSON.stringify(own)};export const{hasHardwareAsync,isEnrolledAsync,authenticateAsync}=x;`,
   'expo-crypto':`import{ExternalFlatHostCryptoV1 as x}from${JSON.stringify(own)};export const{CryptoDigestAlgorithm,AESEncryptionKey,AESSealedData,getRandomBytesAsync,digest,aesEncryptAsync,aesDecryptAsync}=x;`,
-  'react-native':`export{ExternalFlatHostPlatformV1 as Platform}from${JSON.stringify(own)};`};
+  'react-native':`export{ExternalFlatHostPlatformV1 as Platform}from${JSON.stringify(own)};export const AppState={currentState:'active',addEventListener:()=>({remove(){}})};`};
  const aliases={'@lianum/mobile-protocol':pathToFileURL(join(DEVELOPMENT,'packages/mobile-protocol/src/authorization.mjs')).href,
   '@lianum/mobile-protocol/original-account-v2':pathToFileURL(join(DEVELOPMENT,'packages/mobile-protocol/src/original-account-review-v2.mjs')).href};
  let originalSourceSdkV2=false,sourceGraphReopenLimit=1,sourceGraphReopens=0;

@@ -1,0 +1,114 @@
+{
+  "classification": "PUBLIC_COMPILER_ABI_DATA_ONLY_NOT_REPLAY_OR_ACCEPTANCE",
+  "artifacts": {
+    "token": {
+      "sourceCompilationSHA256": "263757f0d143276829e9bf21548a67ac7b3931f28fcdd42825a31093c486bda9",
+      "source": "native-claims/NativeClaimToken.sol",
+      "contractName": "NativeClaimToken",
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "address",
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            }
+          ],
+          "name": "transfer",
+          "outputs": [
+            {
+              "internalType": "bool",
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "stateMutability": "nonpayable",
+          "type": "function"
+        }
+      ],
+      "evm": {
+        "methodIdentifiers": {
+          "transfer(address,uint256)": "a9059cbb"
+        }
+      }
+    },
+    "math": {
+      "sourceCompilationSHA256": "6761be693042cd02e122dad717b33a7e794514b0e98a1924cda244162e188da7",
+      "source": "crypto/Poseidon2Domains.sol",
+      "contractName": "Poseidon2Domains",
+      "abi": [
+        {
+          "inputs": [
+            {
+              "internalType": "uint256",
+              "name": "domain",
+              "type": "uint256"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "bytes32",
+                  "name": "hubDomain",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "bytes32",
+                  "name": "registryCommitment",
+                  "type": "bytes32"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "receiptRoot",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "receiptCount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "revokedDigest",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "revokedCount",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "revocationSequence",
+                  "type": "uint256"
+                }
+              ],
+              "internalType": "struct Poseidon2Domains.EvidenceState",
+              "name": "state",
+              "type": "tuple"
+            }
+          ],
+          "name": "evidenceState",
+          "outputs": [
+            {
+              "internalType": "uint256",
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "stateMutability": "pure",
+          "type": "function"
+        }
+      ],
+      "evm": {
+        "methodIdentifiers": {
+          "evidenceState(uint256,Poseidon2Domains.EvidenceState)": "2a0c0f2f"
+        }
+      }
+    }
+  }
+}

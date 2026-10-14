@@ -157,6 +157,10 @@ test('nested proxies and accessors never execute while authenticating untrusted 
   assert.equal(result.binding.requestState, 'PREPARED'); assert.equal(f.world.sends, 0); actor.close();
 });
 test('consumed and expired challenges are pruned explicitly without a lifetime cap or replay authority', async t => {
+  // Control epoch deterministically for original nonce/expiry transitions.
+  // Host wall rollback during authenticated I/O must not turn this capacity
+  // fixture into an unrelated real-clock test; expired originals still fail.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   const f = await fixture(t, { execute: false }), actor = await pair(f);
   const first = actor.challenge({ action: 'read' });
   const firstSignature = f.device.sign(originalAccountAccessMessageV2(first));
@@ -170,7 +174,7 @@ test('consumed and expired challenges are pruned explicitly without a lifetime c
   await assert.rejects(actor.submit(signed(firstReview, f)), /CHALLENGE_CHANGED/);
   const abandoned = Array.from({ length: 4 }, () => actor.challenge({ action: 'read' }));
   assert.throws(() => actor.challenge({ action: 'read' }), /CHALLENGE_CAPACITY/);
-  t.mock.timers.enable({ apis: ['Date'], now: Math.max(...abandoned.map(value => value.expiresAt)) });
+  t.mock.timers.setTime(Math.max(...abandoned.map(value => value.expiresAt)));
   const next = actor.challenge({ action: 'read' });
   await assert.rejects(actor.openReview({ challenge: abandoned[0], signature: f.device.sign(originalAccountAccessMessageV2(abandoned[0])) }), /EXPIRED/);
   const current = await actor.openReview({ challenge: next, signature: f.device.sign(originalAccountAccessMessageV2(next)) });

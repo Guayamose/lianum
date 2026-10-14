@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import {resourcePath} from '@lianum/environment';
 import { buildSyntheticEnvelopeFixture } from './synthetic-envelope-fixture.mjs';
 import { reservationWitness, recoveryWitness } from '../../../../../packages/backend/src/execution/account/preparation/funding-inputs.mjs';
 import { createCommitmentCodec, digestBytes, FIELD_MODULUS, ZERO }
@@ -45,7 +46,7 @@ test('genuine two-leg BTC to SOL U/S/F fixture has exact current ABI and determi
     assert.deepEqual(job.publicInputs, [...encodeStatement(name, job.statement)]);
     assert.deepEqual(job.publicInputs, wordsFromInputs(name, job.inputs));
     assert.equal(job.publicInputs.length, { authorization: 16, reservation: 58, recovery: 41 }[name]);
-    const main = readFileSync(new URL('../proof-relations/' + name + '/src/main.nr', import.meta.url), 'utf8');
+    const main = readFileSync(resourcePath('wallet','proof-relations/' + name + '/src/main.nr'), 'utf8');
     const params = main.slice(main.indexOf('fn main('), main.indexOf(') {', main.indexOf('fn main(')));
     const names = [...params.matchAll(/^\s+(\w+): /gm)].map(match => match[1]);
     assert.deepEqual(Object.keys(job.inputs).sort(), names.sort(), name + ' exact source ABI parameter names');

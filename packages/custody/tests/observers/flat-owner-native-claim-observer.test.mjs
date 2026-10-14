@@ -14,31 +14,31 @@ import { encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/depos
 import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
 
 let runtime, system, claims, claimObserver, flat, claimView;
-mock.module(new URL('../wallet-platform/modules/ops/deploy-system.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/operations/deployments/system/deploy-system.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatSystem(r, s) { assert.equal(r, runtime); assert.equal(s, system); },
 } });
-mock.module(new URL('../wallet-platform/modules/ops/deploy-native-claims.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/operations/deployments/claims/deploy-native-claims.mjs', import.meta.url).href, { exports: {
   assertOwnedNativeClaimSystem(r, c) { assert.equal(r, runtime); assert.equal(c, claims); },
 } });
-mock.module(new URL('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url).href, { exports: {
   async assertLocalEvm(r) { assert.equal(r, runtime); },
 } });
-mock.module(new URL('../wallet-platform/modules/chain-adapters/owned-evm-v2-runtime.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs', import.meta.url).href, { exports: {
   assertSignedEvmTransaction,
   async assertOwnedLocalEvmV2(r) { assert.equal(r, runtime); },
 } });
-mock.module(new URL('../wallet-platform/modules/chain-adapters/owned-pool-asset.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/chains/shared/contracts/owned-pool-asset.mjs', import.meta.url).href, { exports: {
   assertOwnedPoolAsset(r, cap) { assert.equal(r, runtime); assert.equal(cap, system.pools[0].assetCapability); },
 } });
-mock.module(new URL('../wallet-platform/modules/paeg/flat-system-state.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/execution/account/reconciliation/flat-system-state.mjs', import.meta.url).href, { exports: {
   decodeFlatWords() { throw Error('NOT_USED_BY_JOURNAL_FIXTURE'); },
   async createFlatSystemStateReader() { return { async read() { return flat; }, async assertCurrent(value) { assert.equal(value, flat); } }; },
 } });
-mock.module(new URL('../wallet-platform/modules/native-claims/owned-state.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/claims/operations/owned-state.mjs', import.meta.url).href, { exports: {
   assertOwnedClaimObserver(o) { assert.equal(o, claimObserver); },
   ownedClaimObserverBindings(o) { assert.equal(o, claimObserver); return { runtime, system: claims }; },
 } });
-mock.module(new URL('./flat-owner-custody.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../src/signing/flat-owner-custody.mjs', import.meta.url).href, { exports: {
   ownerCopy, ownerDigest, flatOwnerIdentity, FLAT_OWNER_CLAIM_HANDOFF_PROFILE,
   flatOwnerSnapshot() { return { commitments: [] }; },
 } });

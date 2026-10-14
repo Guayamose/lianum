@@ -10,7 +10,7 @@ import * as originalV3Host from '../../../../packages/backend/src/claims/ingress
 import { assertLoadedV3ProofBoundary } from './native-claim-loaded-v3-policy.mjs';
 let control;
 const copy = value => structuredClone(value), id = 'ab'.repeat(64), sha = 'cd'.repeat(32), wireKey = 'ef'.repeat(32);
-mock.module(new URL('../wallet-platform/modules/ops/native-operators.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/backend/src/operations/operators/claims/native-operators.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatOperatorQuorum(value, binding) {
     assert.equal(value, control.fixture.graphQuorum);
     assert.deepEqual(binding, { runtime: control.fixture.runtime, system: control.fixture.system,
@@ -18,17 +18,17 @@ mock.module(new URL('../wallet-platform/modules/ops/native-operators.mjs', impor
     control.events.push('owned-quorum');
   },
 } });
-mock.module(new URL('../wallet-platform/modules/chain-adapters/native-receipt-binding.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/engine/src/native/native-receipt-binding.mjs', import.meta.url).href, { exports: {
   validateSolanaBindingTransaction(wire, intent) {
     assert.equal(wire, 'host-original-wire'); assert.deepEqual(intent, control.prepared.intent);
     return { signatureHex: id, transactionSHA256: sha };
   },
 } });
-mock.module(new URL('./owned-flat-fixture.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../fixtures/runners/owned-flat-fixture.mjs', import.meta.url).href, { exports: {
   freshFixtureId: () => wireKey,
   writeFixturePrivate(path, value) { control.events.push('write:' + basename(path)); control.artifacts.set(basename(path), copy(value)); },
 } });
-mock.module(new URL('../wallet-platform/modules/native-claims/ingress-v3-host.mjs', import.meta.url).href, { exports: { ...originalV3Host,
+mock.module(new URL('../../../../packages/backend/src/claims/ingress/ingress-v3-host.mjs', import.meta.url).href, { exports: { ...originalV3Host,
   assertNonceIngressDeployment(claims) { assert.equal(claims, control.fixture.claims); } } });
 const { probeLoadedV3PostDeliveryFacts } = await import('./native-claim-loaded-v3-probe.mjs');
 const relations = ['deposit_intent', 'native_claim_ingress_v3'];

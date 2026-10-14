@@ -17,7 +17,8 @@ import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-reso
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {privateNativeEconomicSuccessorFirstErrorV1 as diagnose,privateOwnedNetworkMobileFirstErrorV1 as networkDiagnose} from './native-device-economic-private-error-v1.mjs';
 // The public catalog is an existing source under the fixed root in both layouts.
-const catalogPath=existsSync(join(ROOT,'proof-workers/catalog.mjs'))?join(ROOT,'proof-workers/catalog.mjs'):join(ROOT,'src/catalog.mjs');
+const catalogPath=join(ROOT,'proof-workers/solidity-compiler.mjs');
+assert.ok(existsSync(catalogPath),'HOST_ORIGINAL_DIAGNOSTIC_SOURCE_REQUIRED');
 const safeFrame=`    at original (${catalogPath}:41:7)`;
 test('HOST first-error metadata excludes messages/values and bounds existing source frames',()=>{
  const error=new AssertionError({actual:'PRIVATE-ACTUAL',expected:'PRIVATE-EXPECTED',operator:'strictEqual'});
@@ -147,24 +148,24 @@ test('HOST original parent tail retains safe failure before waiting for the same
 
 
 test('HOST original TOP_UP cause precedes UNKNOWN persistence and fixed private retention never grants an effect',async()=>{
- const mappedAuthority=join(ROOT,'wallet-platform/modules/global-state/native-value-account-authority-v2.mjs');
- const authorityPath=existsSync(mappedAuthority)?mappedAuthority:join(ROOT,'../backend/src/accounts/authority/native-value-account-authority-v2.mjs');
- const authority=readFileSync(authorityPath,'utf8');
- const unresolvedStart=authority.indexOf('  async function unresolved(ref, error) {'),unresolvedEnd=authority.indexOf('\n  /** Read the already retained original outcome',unresolvedStart);
- const executeStart=authority.indexOf('  async function originalGraphExecute(value) {'),executeEnd=authority.indexOf('\n  async function originalGraphReconcile',executeStart);
+ const operationSource=readFileSync(new URL('../../../../packages/backend/src/accounts/authority/native-value/native-value-authority-operations.mjs',import.meta.url),'utf8');
+ const manualSource=readFileSync(new URL('../../../../packages/backend/src/accounts/authority/native-value/native-value-authority-manual.mjs',import.meta.url),'utf8');
+ const unresolvedStart=operationSource.indexOf('  async function unresolved(ref, error) {'),unresolvedEnd=operationSource.indexOf('  async function readRetainedOwnerOutcome(',unresolvedStart);
+ const executeStart=manualSource.indexOf('  async function originalGraphExecute(value) {'),executeEnd=manualSource.indexOf('  async function originalGraphReconcile(',executeStart);
  assert.ok(unresolvedStart>=0&&unresolvedEnd>unresolvedStart&&executeStart>=0&&executeEnd>executeStart);
  const first=new TypeError('PRIVATE-ORIGINAL');first.stack='TypeError: PRIVATE-ORIGINAL\n'+safeFrame;
  const later=new Error('PRIVATE-JOURNAL');
  async function run({callbackFails=false,writeFails=false,unavailable=false}={}){
   const events=[],captured=[];const entry={request:{},outcome:null,stage:'READY'},bound={kind:'TOP_UP',ownerOperationRef:'fixed-host-reference'};
-  const execute=runInNewContext('(()=>{'+authority.slice(unresolvedStart,unresolvedEnd)+authority.slice(executeStart,executeEnd)+';return originalGraphExecute;})()',{
-   assert,unavailable,privateFailureDiagnostic,healthy:async()=>{},request:()=>({entry,bound}),operation:()=>entry,
+  const operations={request:()=>({entry,bound}),operation:()=>entry,
    async update(ref,value){events.push(value.stage);if(value.stage==='UNKNOWN'&&writeFails)throw later;},
-   async onStage(){},async executeNote(){events.push('original-note');throw first;},
+   async executeNote(){events.push('original-note');throw first;},
    async executeGraph(){throw Error('HOST_GRAPH_FORBIDDEN');},async confirmTerminal(){throw Error('HOST_TERMINAL_FORBIDDEN');},
-   async reconcileOriginal(){throw Error('HOST_RECONCILE_FORBIDDEN');},
-   async onPrivateAudit(event){events.push(event.stage);if(event.stage==='account-first-failure'){
-    assert.equal(event.originalError,first);captured.push(event);if(callbackFails)throw Error('PRIVATE-DIAGNOSTIC');}}
+   async reconcileOriginal(){throw Error('HOST_RECONCILE_FORBIDDEN');}};
+  const proofs={async onStage(){},async onPrivateAudit(event){events.push(event.stage);if(event.stage==='account-first-failure'){
+    assert.equal(event.originalError,first);captured.push(event);if(callbackFails)throw Error('PRIVATE-DIAGNOSTIC');}}};
+  const execute=runInNewContext('(()=>{'+operationSource.slice(unresolvedStart,unresolvedEnd)+'operations.unresolved=unresolved;'+manualSource.slice(executeStart,executeEnd)+';return originalGraphExecute;})()',{
+   assert,privateFailureDiagnostic,operations,proofs,lifecycle:{healthy:async()=>{},isUnavailable:()=>unavailable}
   });
   await assert.rejects(execute({}),error=>error===(writeFails&&!unavailable?later:first));
   assert.equal(captured.length,1);assert.equal(captured[0].diagnostic.code,'FLAT_ACCOUNT_ORIGINAL_OUTCOME_UNRESOLVED');
@@ -195,8 +196,9 @@ test('HOST original TOP_UP cause precedes UNKNOWN persistence and fixed private 
 
 test('HOST original mobile primary code precedes formatting and survives diagnostic storage failure',()=>{
  const source=readFileSync(new URL('./device-external-flat-erc20-flow-v1.mjs',import.meta.url),'utf8');
- const start=source.indexOf('const ORIGINAL_MOBILE_FAILURE_CODES_V1=new Set(['),end=source.indexOf('async function run(){',start);
- assert.ok(start>=0&&end>start);const body=source.slice(start,end),events=[],outputs=[];
+ const diagnosticSource=readFileSync(new URL('./device-external-flat-private-error-v1.mjs',import.meta.url),'utf8');
+ const start=diagnosticSource.indexOf('const ORIGINAL_MOBILE_FAILURE_CODES_V1=new Set(['),end=diagnosticSource.length;
+ assert.ok(start>=0&&end>start);const body=diagnosticSource.slice(start,end).replace('export function retainOriginalDeviceExternalFlatFirstErrorV1','function retainOriginalDeviceExternalFlatFirstErrorV1'),events=[],outputs=[];
  const bind=(writer,formatter=diagnose)=>runInNewContext('(()=>{'+body+';return {code:originalDeviceExternalFlatMobileFailureCodeV1,retain:retainOriginalDeviceExternalFlatFirstErrorV1};})()',{
   types,privateNativeEconomicSuccessorFirstErrorV1:formatter,writeFixturePrivate:writer
  });
@@ -235,7 +237,7 @@ test('HOST original legacy resource receipt uses actual completed report and sam
  const a=policy.indexOf(" assert.deepEqual(result.proofs.map(p=>p.relation),"),b=policy.indexOf(" assert.equal(result.assetMetadata.kind,",a);assert.ok(a>=0&&b>a);
  const check=runInNewContext('(result)=>{'+policy.slice(a,b)+'}',{assert,PRIVATE_RESOURCE_POLICY});
  const generated=import.meta.url.endsWith('/integration/native-device-economic-private-error-v1.test.mjs');
- const producerURL=new URL(generated?'../../../omnichain-product/src/paeg/proof-process.mjs':'../../../../packages/proofs/src/execution/proof-process.mjs',import.meta.url);
+ const producerURL=new URL(generated?'../../../../packages/proofs/src/execution/proof-process.mjs':'../../../../packages/proofs/src/execution/proof-process.mjs',import.meta.url);
  const producer=readFileSync(producerURL,'utf8');
  assert.equal(producer.includes('resourceReceiptCompleted'),false);
  const c=producer.indexOf('    const finish = (exitCode, signal) => {'),z=producer.indexOf('\n    current = { done, stop };',c);assert.ok(c>=0&&z>c);
@@ -294,10 +296,10 @@ test('HOST aggregate private diagnostics retain bounded primary/cleanup frames w
 
 test('HOST D26 observation retains the same original failure behind a lost or rejected HTTP reply', async () => {
   const { types } = await import('node:util');
-  const bridgeSource = readFileSync(new URL('../wallet-platform/modules/global-state/device-owner-deposit-bridge-v1.mjs', import.meta.url), 'utf8');
-  const start = bridgeSource.indexOf('    async observe(input) {'), end = bridgeSource.indexOf('    close()', start);
-  const waitStart = bridgeSource.indexOf('export async function awaitDeviceOwnerDepositOriginalObservationV1(');
-  const waitEnd = bridgeSource.indexOf('export function deviceOwnerDepositBridgeActorV1(', waitStart);
+  const bridgeSource = readFileSync(new URL('../../../../packages/backend/src/accounts/authority/device-deposit-bridge-backend-v1.mjs', import.meta.url), 'utf8');
+  const start = bridgeSource.indexOf('      async observe(input) {'), end = bridgeSource.indexOf('      close()', start);
+  const waitStart = bridgeSource.indexOf('  async function awaitDeviceOwnerDepositOriginalObservationV1(');
+  const waitEnd = bridgeSource.indexOf('  function deviceOwnerDepositBridgeActorV1(', waitStart);
   assert.ok(start >= 0 && end > start && waitStart >= 0 && waitEnd > waitStart);
   const factory = new Function('assert', 'types', 'authorize', 'runDeviceOwnerDepositAuthorizationV1', 'original',
     'const bridges = new WeakMap(), account = Object.freeze({ HOST_INERT_ACCOUNT: true }); let busy = false;' +
@@ -342,8 +344,8 @@ test('HOST fixed network CLI retains its first sanitized cause before cleanup wi
  const filesystem=Object.assign(new Error('PRIVATE path details'),{code:'ENOENT'});assert.equal(networkDiagnose(filesystem,'BASE8453').diagnostic.networkCode,'ENOENT');
  assert.throws(()=>networkDiagnose(original,'PUBLIC_OTHER'));assert.equal(networkDiagnose(new Error('BSC_FAKE_SECRET'),'BSC714').diagnostic.networkCode,null);
  const helper=await readFile(join(repository,'scripts/development/original-network-mobile-private-diagnostic-v1.mjs'),'utf8');
- const literal=/const PARSER=\{path:("[^"]+"),sha256:("[0-9a-f]{64}"),bytes:([0-9]+)\};/.exec(helper);assert.ok(literal);
- const PARSER={path:JSON.parse(literal[1]),sha256:JSON.parse(literal[2]),bytes:Number(literal[3])};
+ const literal=/const PARSER=Object\.freeze\((\{[^;]+\})\);/.exec(helper);assert.ok(literal);
+ const PARSER=JSON.parse(literal[1]);
  const selected=/const NETWORKS=Object.freeze\(([^\n]+)\);/.exec(helper);assert.ok(selected);const NETWORKS=JSON.parse(selected[1]);
  const root=await mkdtemp(join(tmpdir(),'network-first-error-host-'));const directory=join(root,NETWORKS.BSC714.directory);
  await mkdir(directory,{recursive:true,mode:0o700});await mkdir(dirname(join(root,PARSER.path)),{recursive:true,mode:0o700});

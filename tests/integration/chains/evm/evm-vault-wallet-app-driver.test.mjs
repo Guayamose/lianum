@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createFlatAccountSession } from '@lianum/backend/accounts/session';
 const defiBrands = new WeakMap();
-mock.module('../wallet-platform/modules/defi-adapters/private-vault-exit.mjs', { exports: {
+mock.module('../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs', { exports: {
   assertOwnedPrivateVaultExit(runtime, service) { assert.equal(defiBrands.get(service), runtime, 'SYNTHETIC_ORIGINAL_DEFI_REQUIRED'); },
 } });
 const { startWalletApplication } = await import('../../../../apps/wallet/src/server/server.mjs');
@@ -152,15 +152,15 @@ test('closing app listener retains original account and harness cleanup closes i
   assert.ok(cleanup.indexOf('walletApp.close()') < cleanup.indexOf('http.close()'));
 });
 
-test('integrated harness routes genuine account and DeFi actions through app while GRAPH/private audit stay private', () => {
+test('integrated harness routes genuine account and DeFi actions through app with original reviewed GRAPH approval and private audit', () => {
   const source = readFileSync(new URL('./evm-vault-flow.mjs', import.meta.url), 'utf8');
-  for (const fragment of ["appAccount('prepare', { requestId: 'vault_top_up', kind: 'TOP_UP'",
+  for (const fragment of ["appAccount('prepare', fundingBody)",
     "appAccount('execute', { requestId: 'vault_top_up' })", "appAccount('reconcile', { requestId: 'vault_top_up' })",
-    "appAccount('prepare', { requestId, kind: 'EXIT'", "appAccount('execute', { requestId })", "appAccount('reconcile', { requestId })",
+    "appAccount('prepare', body)", "appAccount('execute', { requestId })", "appAccount('reconcile', { requestId })",
     "appDefi('prepare', redemption)", "appDefi('execute', { requestId: redemption.requestId })", "appDefi('reopen', {})",
-    "appDefi('reconcile', { requestId: redemption.requestId })", "request('prepare', { requestId: graphId, kind: 'GRAPH'",
-    "request('execute', { requestId: graphId })", 'appDriver.rejectGraphRequest(graphId)', 'vaultExit.originalReceipt(redemption.requestId)',
-    'browserVisualAcceptance: false', 'graphExecutionExposed: false']) assert.ok(source.includes(fragment), fragment);
+    "appDefi('reconcile', { requestId: redemption.requestId })", "appAccount('prepare', graphBody)",
+    "appDriver.reviewAccount('execute', { requestId: graphId })", 'manualSession.bindManualGraph(approval)', 'accounts[0].ownerActions.approveManualEvmGraph', 'consent.confirmAfterAdmission', '(RETAINED_EXIT?retainedExitWallet.service:vaultExit).originalReceipt(redemption.requestId)',
+    'browserVisualAcceptance: false', 'graphExecutionExposed: false']) assert.ok(source.replace(/\s+/g, '').includes(fragment.replace(/\s+/g, '')), fragment);
 });
 
 test('real session final-refresh race: SUCCEEDED plus existing CONFIRMED stays pending while keeper snapshot drains', async t => {

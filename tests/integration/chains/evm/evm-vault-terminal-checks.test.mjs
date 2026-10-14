@@ -4,7 +4,7 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const owned = new WeakSet();
-mock.module('../wallet-platform/modules/chain-adapters/local-evm-ownership.mjs', {
+mock.module('../../../../packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs', {
   exports: { assertLocalEvm: async runtime => assert.ok(owned.has(runtime), 'SYNTHETIC_ORIGINAL_RUNTIME_REQUIRED') },
 });
 const { readEvmVaultReplayState, assertEvmVaultPayoutReplay, assertEvmVaultTerminalPools,
@@ -30,7 +30,7 @@ function fixture(reason = 'ASSET_INSUFFICIENT_BACKING', backing = '0') {
 }
 
 test('empty backing and funded pool guard precedence both establish the same economic rejection', () => {
-  const source = readFileSync(new URL('../contracts/PrivateFlatAssetNotePool.sol', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../contracts/wallet/PrivateFlatAssetNotePool.sol', import.meta.url), 'utf8');
   const withdraw = source.slice(source.indexOf('    function _withdraw('), source.indexOf('    /// @notice Verify all four'));
   assert.ok(withdraw.indexOf('require(backedAmount >= amount') < withdraw.indexOf('_availableNullifier(nullifier)'));
   // Synthetic guard examples, not an EVM claim: the actual contract order is
@@ -90,7 +90,7 @@ test('terminal accounting truthfully retains three padding slots and rejects fak
 });
 
 test('source pool has bounded future capacity, not a reusable infinite or immediately blocked ledger', () => {
-  const source = readFileSync(new URL('../contracts/PrivateFlatAssetNotePool.sol', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../contracts/wallet/PrivateFlatAssetNotePool.sol', import.meta.url), 'utf8');
   assert.ok(source.includes('leaves + FUTURE_PAYOUT_SLOTS * reservations <= CAPACITY'));
   assert.ok(source.includes('consumed + (FUTURE_PAYOUT_SLOTS + 1) * reservations + outputs <= CAPACITY'));
   for (let cycles = 1; cycles <= 9; cycles++) assert.ok(7 * cycles <= 64);

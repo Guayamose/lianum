@@ -1,3 +1,7 @@
+import {assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
+import {projectRoot} from '@lianum/environment';
+import {fileURLToPath} from 'node:url';
+import {relative} from 'node:path';
 /** Host-only orchestration/source checks. All native, deployment, custody and
  * file-write capabilities in the probe are mocked; no chain or prover starts. */
 import test, { mock } from 'node:test';
@@ -14,28 +18,28 @@ import { UNFUNDED_HEALTH_PROFILE, UNFUNDED_HEALTH_RESULT, UNFUNDED_HEALTH_REAL_R
   unfundedHealthProcessFailure } from './native-claim-unfunded-health-policy.mjs';
 let control;
 const copy = value => structuredClone(value), id = 'ab'.repeat(64), sha = 'cd'.repeat(32), wireKey = 'ef'.repeat(32);
-mock.module(new URL('../wallet-platform/modules/ops/native-operators.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/backend/src/operations/operators/claims/native-operators.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatOperatorQuorum(value, binding) {
     assert.equal(value, control.fixture.graphQuorum);
     assert.deepEqual(binding, { runtime: control.fixture.runtime, system: control.fixture.system,
       nativeRuntime: control.fixture.graphSolana, family: '2' });
   },
 } });
-mock.module(new URL('../wallet-platform/modules/native-claims/operators.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/backend/src/claims/operations/operators.mjs', import.meta.url).href, { exports: {
   assertOwnedClaimOperatorQuorum(value, observer) {
     assert.equal(value, control.fixture.quorum); assert.equal(observer, control.fixture.observer);
   },
 } });
-mock.module(new URL('../wallet-platform/modules/native-claims/framing.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/engine/src/claims/framing.mjs', import.meta.url).href, { exports: {
   claimDomainCommitment: config => config.claimDomain,
 } });
-mock.module(new URL('../wallet-platform/modules/chain-adapters/native-receipt-binding.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/engine/src/native/native-receipt-binding.mjs', import.meta.url).href, { exports: {
   validateSolanaBindingTransaction(wire, intent) {
     assert.equal(wire, 'host-original-wire'); assert.deepEqual(intent, control.prepared.intent);
     return { signatureHex: id, transactionSHA256: sha };
   },
 } });
-mock.module(new URL('./owned-flat-fixture.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../fixtures/runners/owned-flat-fixture.mjs', import.meta.url).href, { exports: {
   freshFixtureId: () => wireKey,
   writeFixturePrivate(path, value) { control.events.push('write:' + basename(path)); control.artifacts.set(basename(path), copy(value)); },
 } });
@@ -362,8 +366,8 @@ test('isolated route is source-disabled before files/spawn and task compiler cat
   await assert.rejects(runNativeClaimUnfundedHealthSupervisor(), /REQUIRES_FROZEN_CHECKPOINT/);
   await assert.rejects(runNativeClaimUnfundedHealthSupervisor({}), /NO_SUPERVISOR_OPTIONS/);
   assert.equal(existsSync(join(ROOT, route.local)), before);
-  assert.equal(createHash('sha256').update(readFileSync(new URL('./task-catalog.mjs', import.meta.url))).digest('hex'),
-    '43f0404c81fbe6961c24255a73509caec99014026cd2eb23795abd2b5b8298f7');
+  const catalogURL=new URL('../../runners/task-catalog.mjs',import.meta.url),catalogPath=relative(projectRoot,fileURLToPath(catalogURL)),adopted=assertAdoptedSourceGeneration(),catalogPin=adopted.sourceFiles.find(row=>row.source===catalogPath);assert.ok(catalogPin,'CURRENT_TASK_CATALOG_PIN');
+  const catalogBytes=readFileSync(catalogURL);assert.ok(catalogBytes.length>0);assert.equal(createHash('sha256').update(catalogBytes).digest('hex'),catalogPin.sourceSHA256);
   const worker = readFileSync(new URL('./native-claim-unfunded-health-worker.mjs', import.meta.url), 'utf8');
   assert.ok(worker.indexOf('assert.equal(UNFUNDED_HEALTH_REAL_RUN_DISABLED, false') < worker.indexOf('mkdirSync(privateDirectory'));
   assert.match(worker, /fixture = await createOwnedNativeClaimGraphFixture/);
@@ -374,8 +378,8 @@ test('isolated route is source-disabled before files/spawn and task compiler cat
   assert.equal([...helper.matchAll(/adapter\.transfer\(/g)].length, 1); assert.equal([...helper.matchAll(/graphQuorum\.facts\(/g)].length, 1);
   assert.equal([...helper.matchAll(/native\.observe\(/g)].length, 1);
   assert.doesNotMatch(helper, /retainNative|seed|createProof|createOwner\(|runtime\.send\(/);
-  const pins = readFileSync(new URL('./native-claim-source-pins.mjs', import.meta.url), 'utf8');
-  assert.match(pins, /integration\/native-claim-unfunded-health-worker.mjs/);
+  const pins = readFileSync(new URL('../lifecycle/native-claim-source-pins.mjs', import.meta.url), 'utf8');
+  assert.ok(pins.includes('tests/integration/claims/health/native-claim-unfunded-health-worker.mjs'));
   assert.equal(NATIVE_FLOW_LIMITS.minimumAvailableRAMBytes, LIMITS.availableRAM);
   assert.equal(NATIVE_FLOW_LIMITS.minimumFreeDiskBytes, LIMITS.freeDisk);
   assert.equal(NATIVE_FLOW_LIMITS.maximumProofOrMainRSSBytes, LIMITS.workerRSS);

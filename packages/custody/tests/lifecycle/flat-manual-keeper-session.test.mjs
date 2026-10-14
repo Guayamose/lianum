@@ -7,11 +7,13 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const accounts = new WeakMap(), owners = new WeakSet();
-mock.module(new URL('../wallet-platform/modules/global-state/flat-account-authority.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../backend/src/accounts/authority/flat-account-authority.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatAccountAuthority(account, expected) { assert.deepEqual(accounts.get(account), expected); }
 } });
-mock.module(new URL('./flat-owner-process.mjs', import.meta.url).href, { exports: {
-  assertOwnedFlatOwnerProcess(owner) { assert.ok(owners.has(owner)); }
+mock.module(new URL('../../../backend/src/custody/processes/flat-owner-process.mjs', import.meta.url).href, { exports: {
+  assertOwnedFlatOwnerProcess(owner) { assert.ok(owners.has(owner)); },
+  assertOwnedNativeClaimIngressHandoff() { throw Error('HOST_NATIVE_CLAIMS_NOT_SUPPLIED'); },
+  assertOwnedPrivateNativeClaimIngressHandoffV2() { throw Error('HOST_NATIVE_CLAIMS_NOT_SUPPLIED'); }
 } });
 const { createFlatManualAccountKeeper, assertOwnedFlatManualAccountKeeper } = await import('../../../backend/src/accounts/storage/flat-manual-account-keeper.mjs');
 const { createFlatAccountSession } = await import('@lianum/backend/accounts/session');

@@ -24,7 +24,7 @@ export const HostSecureStore=Object.freeze({WHEN_UNLOCKED_THIS_DEVICE_ONLY:6,
 export const HostAuthentication=Object.freeze({hasHardwareAsync:async()=>{live();return true;},isEnrolledAsync:async()=>{live();return true;},
  authenticateAsync:async options=>{live();assert.equal(options.disableDeviceFallback,true);assert.equal(options.biometricsSecurityLevel,'strong');state.prompts++;return{success:true};}});
 class Key{static async import(bytes){live();assert.equal(bytes.length,32);const key=new Key(),raw=Buffer.from(bytes);keys.set(key,raw);heldKeys.add(raw);return key;}}
-class Sealed{constructor(bytes){this.bytes=Buffer.from(bytes);}static fromCombined(raw,options){assert.deepEqual(options,{ivLength:12,tagLength:16});return new Sealed(Buffer.from(raw,'base64'));}
+class Sealed{constructor(bytes){this.bytes=Buffer.from(bytes);}static fromCombined(raw,options){assert.deepEqual(options,{ivLength:12,tagLength:16});assert.ok(raw instanceof Uint8Array,'HOST_NATIVE_AES_BYTE_ARRAY_REQUIRED');return new Sealed(raw);}
  async combined(encoding){assert.equal(encoding,'base64');return this.bytes.toString('base64');}}
 export const HostCrypto=Object.freeze({CryptoDigestAlgorithm:Object.freeze({SHA256:'SHA-256'}),AESEncryptionKey:Key,AESSealedData:Sealed,
  getRandomBytesAsync:async width=>{live();assert.ok(width===32||width===12);return Uint8Array.from(randomBytes(width));},
@@ -38,6 +38,8 @@ export const HostCrypto=Object.freeze({CryptoDigestAlgorithm:Object.freeze({SHA2
  aesDecryptAsync:async(sealed,key,options)=>{live();assert.equal(options.output,'bytes');const b=sealed.bytes,d=createDecipheriv('aes-256-gcm',keys.get(key),b.subarray(0,12));
   d.setAAD(Buffer.from(options.additionalData));d.setAuthTag(b.subarray(-16));return Uint8Array.from(Buffer.concat([d.update(b.subarray(12,-16)),d.final()]));},
 });
+const appStateListeners=new Set();
+export const HostAppState=Object.freeze({currentState:'active',addEventListener(name,listener){assert.equal(name,'change');assert.equal(typeof listener,'function');appStateListeners.add(listener);return Object.freeze({remove(){appStateListeners.delete(listener);}});}});
 export const HostPlatform=Object.freeze({OS:'android'});
 export const hostFixedTlsFetch=(...args)=>live().fetch(...args);
 /** Called only by this enumerated private profile, never an application route.
@@ -55,7 +57,7 @@ async function openFixedDeviceReservationHostVault({appRoot,directory,fetch},roo
   'expo-secure-store':`import{HostSecureStore as x}from${JSON.stringify(own)};export const{WHEN_UNLOCKED_THIS_DEVICE_ONLY,isAvailableAsync,canUseBiometricAuthentication,getItemAsync,setItemAsync}=x;`,
   'expo-local-authentication':`import{HostAuthentication as x}from${JSON.stringify(own)};export const{hasHardwareAsync,isEnrolledAsync,authenticateAsync}=x;`,
   'expo-crypto':`import{HostCrypto as x}from${JSON.stringify(own)};export const{CryptoDigestAlgorithm,AESEncryptionKey,AESSealedData,getRandomBytesAsync,digest,aesEncryptAsync,aesDecryptAsync}=x;`,
-  'react-native':`export{HostPlatform as Platform}from${JSON.stringify(own)};`,
+  'react-native':`export{HostPlatform as Platform,HostAppState as AppState}from${JSON.stringify(own)};`,
   'expo/fetch':`export{hostFixedTlsFetch as fetch}from${JSON.stringify(own)};`,
  };
  const hook=registerHooks({resolve(specifier,context,next){

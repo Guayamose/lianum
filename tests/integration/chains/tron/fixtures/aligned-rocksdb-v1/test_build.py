@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import signal
 import tempfile
@@ -111,8 +112,13 @@ class CandidateMetadata(unittest.TestCase):
     def test_launcher_reads_only_the_source_owned_gate_and_rejects_null_or_malformed_pin(self):
         module = load('launch')
         source = (HERE.parent.parent / 'tron-aligned-rocksdb-profile.mjs').read_bytes()
+        release = module.read_release(source)
+        self.assertEqual(release['format'], 'REVIEWED_LOCAL_TRON_ALIGNED_ROCKSDB_CANDIDATE_V1')
+        self.assertEqual(release['sourceSHA256'], 'd2f53f3def9995e159587a8c5227a0f8149bf46c0dd673801975f0a9037dffa0')
+        self.assertTrue(all(re.fullmatch(r'[0-9a-f]{64}', release[key])
+                            for key in ('buildReportSHA256', 'classSHA256', 'innerClassSHA256')))
         with self.assertRaisesRegex(RuntimeError, 'NEW_CANDIDATE_REVIEW_REQUIRED'):
-            module.read_release(source)
+            module.read_release(b'export const TRON_ALIGNED_ROCKSDB_CANDIDATE_RELEASE = null;')
         value = {'format': 'REVIEWED_LOCAL_TRON_ALIGNED_ROCKSDB_CANDIDATE_V1',
                  'sourceSHA256': 'd2f53f3def9995e159587a8c5227a0f8149bf46c0dd673801975f0a9037dffa0',
                  'buildReportSHA256': 'a' * 64, 'classSHA256': 'b' * 64, 'innerClassSHA256': 'c' * 64}

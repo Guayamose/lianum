@@ -104,12 +104,12 @@ test('actual loopback wallet HTTP and genuine session carry generation payload a
  p.freshAdmissions.fenced=true;assert.equal(await sdk.refresh(),true);assert.deepEqual(accountAssetChoices(sdk.getState()),[]);
  assert.equal(accountAssetChoices(sdk.getState(),'EXIT').length,2);
 
- const codec=await fetch(access.origin+'/owner-portfolio-contract.mjs');assert.equal(codec.status,200);
+ const codec=await fetch(access.origin+'/packages/mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs');assert.equal(codec.status,200);
  assert.match(codec.headers.get('content-type'),/javascript/);assert.match(await codec.text(),/FLAT_IMMUTABLE_JOURNAL_CATALOGUE_V2/);
  assert.equal(mutations,0);
 });
 test('browser rendering keeps separate generation/pool/domain labels using text nodes, with no migration or aggregation control', async()=>{
- const s=await readFile(new URL('./public/app.mjs',import.meta.url),'utf8');assert.match(s,/Generación \$\{generation\?\.ordinal/);
+ const s=await readFile(new URL('../../../src/client/app.mjs',import.meta.url),'utf8');assert.match(s,/Generación \$\{generation\?\.ordinal/);
  assert.match(s,/Dominio original/);assert.match(s,/No se suma ni migra/);assert.doesNotMatch(s,/innerHTML\s*=/);
 });
 

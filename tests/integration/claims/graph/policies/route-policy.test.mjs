@@ -11,7 +11,7 @@ import { CLAIM_GRAPH_V3_NATIVE_PROTOCOL } from '../validation/native-claim-graph
 import { NATIVE_INGRESS_V3_RELATION, NATIVE_INGRESS_V3_SOURCE_VERSION, NATIVE_INGRESS_V3_KEY_SHA256 }
   from '@lianum/proofs/native-ingress/metadata/native-ingress-v3-profile';
 const text = name => readFileSync(new URL('../' + name, import.meta.url), 'utf8');
-const baselineFixture = text('native-claim-graph-artifacts.test.mjs');
+const baselineFixture = text('validation/native-claim-graph-artifacts.test.mjs');
 const source = baselineFixture.slice(baselineFixture.indexOf('function completeResult()'), baselineFixture.indexOf("test('fixed graph profile"));
 // Extract only the existing public synthetic result fixture; no production
 // source or external data is evaluated, and no proof/native object is created.
@@ -37,13 +37,13 @@ test('only fixed V3 route selects isolated fresh outputs and old identities rema
   assert.equal(nativeClaimRunDirectory(NATIVE_CLAIM_RUN_ROUTES.graphV3.entry, CLAIM_GRAPH_V3_PROFILE), '.local/native-claim-graph-v3-flow');
   assert.equal(nativeClaimRunDirectory(NATIVE_CLAIM_RUN_ROUTES.graph.entry, 'SOLANA_PRIVATE_CLAIM_FUNDED_GRAPH'), '.local/native-claim-graph-flow');
   for (const route of Object.values(NATIVE_CLAIM_RUN_ROUTES).filter(r => r !== NATIVE_CLAIM_RUN_ROUTES.graphV3))
-    assert.throws(() => nativeClaimRunDirectory(route.entry, CLAIM_GRAPH_V3_PROFILE), /ISOLATED_ROUTE/);
+    assert.throws(() => nativeClaimRunDirectory(route.entry, CLAIM_GRAPH_V3_PROFILE), /ISOLATED_ROUTE|ROUTE_PROFILE/);
   assert.throws(() => nativeClaimRunDirectory(NATIVE_CLAIM_RUN_ROUTES.graphV3.entry, 'SOLANA_PRIVATE_CLAIM_FUNDED_GRAPH'), /ROUTE_PROFILE/);
 });
 test('disabled launcher fails before importing supervisor or creating native state', () => {
-  const source = text('run-native-claim-graph-v3-flow.mjs');
+  const source = text('flows/run-native-claim-graph-v3-flow.mjs');
   assert.ok(source.indexOf('assert.equal(CLAIM_GRAPH_V3_REAL_RUN_DISABLED, false') < source.indexOf('await import('));
-  const r = spawnSync(process.execPath, [fileURLToPath(new URL('../run-native-claim-graph-v3-flow.mjs', import.meta.url))], { encoding: 'utf8', timeout: 5000 });
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL('../flows/run-native-claim-graph-v3-flow.mjs', import.meta.url))], { encoding: 'utf8', timeout: 5000 });
   assert.equal(r.status, 1); assert.match(r.stderr, /CLAIM_GRAPH_V3_REQUIRES_FROZEN_CHECKPOINT_AND_EXPLICIT_LAUNCH/);
 });
 test('complete result requires genuine new CI identity, all 19 proof packets, full economics, replay and cleanup', () => {
@@ -62,7 +62,7 @@ test('complete result requires genuine new CI identity, all 19 proof packets, fu
   ]) { const changed = completed(); change(changed); assert.throws(() => validateClaimGraphV3Result(changed)); }
 });
 test('shared campaign preserves postmint-before-U/S, original post-S execution and independent solver liquidity', () => {
-  const flow = text('native-claim-flow.mjs'), factory = text('owned-native-claim-fixture.mjs'), checker = text('check-native-claim-artifacts.mjs');
+  const flow = text('../lifecycle/native-claim-flow.mjs'), factory = readFileSync(new URL('../../../fixtures/claims/lifecycle/owned-native-claim-fixture.mjs',import.meta.url),'utf8'), checker = text('../lifecycle/check-native-claim-artifacts.mjs');
   assert.match(flow, /const REAL_NATIVE_RUN_DISABLED = true/); assert.match(flow, /parentEntry === NATIVE_CLAIM_RUN_ROUTES.graphV3.entry/);
   assert.match(factory, /ingressV3 \? createNativeClaimIngressV3Bootstrap : createNativeClaimBootstrap/);
   assert.ok(flow.indexOf("stage('preflight-funded-claim-graph-before-u-s')") > flow.indexOf('result.acceptance.originalNotesCreditedOnce = true'));

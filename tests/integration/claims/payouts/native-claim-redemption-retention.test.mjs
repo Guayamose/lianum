@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { captureLoadedV3RedemptionAudit } from '../inventory/native-claim-loaded-v3-policy.mjs';
-const source=readFileSync(new URL('./native-claim-flow.mjs',import.meta.url),'utf8');
+const source=readFileSync(new URL('../lifecycle/native-claim-flow.mjs',import.meta.url),'utf8');
 const duplicate=source.indexOf("assert.equal(runtime.transactions.length, burnCount, 'NATIVE_CLAIM_DUPLICATE_BURN');");
 const begin=source.indexOf('        if (loadedV3Profile) {',duplicate),end=source.indexOf('        let paid = await controller.payout',begin);
 assert.ok(duplicate>=0&&begin>duplicate&&end>begin);
@@ -14,7 +14,7 @@ const record=()=>({stage:'REDEEM',method:'requestRedemption',status:'SUCCEEDED',
   signed:{nativeId:'PRIVATE_SYNTHETIC_ID',nativeWire:'PRIVATE_SYNTHETIC_WIRE',signature:'PRIVATE_SYNTHETIC_SIGNATURE'},prepared:{private:'PRIVATE_SYNTHETIC_PREPARATION'},
   finalAudit:{profile:'CLAIM_EVM_ORIGINAL_CERTIFICATE_FINAL_AUDIT_V4',phase:'CONSUMED_BEFORE_KEY',limitMilliseconds:30000,
     auditElapsedMilliseconds:29999,originalAuthorizationSHA256:'11'.repeat(32),preparedSHA256:'22'.repeat(32)}});
-function execute(environment){return vm.runInThisContext('(async function({loadedV3Profile,ownedClaimControllerJournal,controllerKeeper,runtime,claims,result,captureLoadedV3RedemptionAudit,save}){'+checkpoint+'})')({...environment,captureLoadedV3RedemptionAudit});}
+function execute(environment){return vm.runInThisContext('(async function({beginPayoutAuditProfile,loadedV3Profile,ownedClaimControllerJournal,controllerKeeper,runtime,claims,result,captureLoadedV3RedemptionAudit,save}){'+checkpoint+'})')({...environment,beginPayoutAuditProfile:false,captureLoadedV3RedemptionAudit});}
 test('consumed REDEEM audit is safely saved before later payout failure from original live journal only',async()=>{
   const controllerKeeper={},runtime={},claims={},result={},retained=record(),before=structuredClone(retained);let reads=0,saved;
   await execute({loadedV3Profile:true,controllerKeeper,runtime,claims,result,

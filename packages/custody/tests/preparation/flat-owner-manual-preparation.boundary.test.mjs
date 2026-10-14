@@ -19,10 +19,10 @@ test('unmocked production entry rejects fabricated original capabilities before 
 });
 
 test('changed private IPC and authority owner-link remain confined to private surfaces', async () => {
-  const processSource = await readFile(new URL((process.env.FLAT_MANUAL_DRAFT_SOURCE_PREFIX ?? '../') + 'mobile-core/flat-owner-process.mjs', import.meta.url), 'utf8');
-  const authoritySource = await readFile(new URL((process.env.FLAT_MANUAL_DRAFT_SOURCE_PREFIX ?? '../') + 'wallet-platform/modules/global-state/flat-account-authority.mjs', import.meta.url), 'utf8');
-  const adapterSource = await readFile(new URL((process.env.FLAT_MANUAL_DRAFT_SOURCE_PREFIX ?? '../') + 'mobile-core/flat-owner-manual-preparation.mjs', import.meta.url), 'utf8');
-  assert.match(processSource, /\['privateSummary', 'preparationTerms', 'manualPreparations'\]\.includes\(method\) \? 'ownerView'/);
+  const processSource = await readFile(new URL('../../../backend/src/custody/processes/flat-owner-process.mjs', import.meta.url), 'utf8');
+  const authoritySource = await readFile(new URL('../../../backend/src/accounts/authority/flat-account-authority.mjs', import.meta.url), 'utf8');
+  const adapterSource = await readFile(new URL('../../../backend/src/custody/preparation/flat-owner-manual-preparation.mjs', import.meta.url), 'utf8');
+  assert.match(processSource, /\['privateSummary', 'preparationTerms', 'manualPreparations', 'graphPreparationTerms'\]\.includes\(method\) \? 'ownerView'/);
   assert.match(processSource, /ownerView: opaque\(\{ summary:.*\n\s*preparationTerms:/);
   assert.match(processSource, /publicView: opaque\(\{ summary: \(\) => request\('summary'\) \}\)/);
   assert.match(authoritySource, /\['runtime', 'system', 'poolIndex', 'owner'\]\.includes\(key\)/);
@@ -32,9 +32,9 @@ test('changed private IPC and authority owner-link remain confined to private su
 
 
 test('durable methods are private IPC only and restored capability has no mutation methods', async () => {
-  const processSource = await readFile(new URL((process.env.FLAT_MANUAL_DRAFT_SOURCE_PREFIX ?? '../') + 'mobile-core/flat-owner-process.mjs', import.meta.url), 'utf8');
-  const bridgeSource = await readFile(new URL((process.env.FLAT_MANUAL_DRAFT_SOURCE_PREFIX ?? '../') + 'mobile-core/flat-owner-manual-preparation.mjs', import.meta.url), 'utf8');
-  const custodySource = await readFile(new URL((process.env.FLAT_MANUAL_DRAFT_SOURCE_PREFIX ?? '../') + 'mobile-core/flat-owner-custody.mjs', import.meta.url), 'utf8');
+  const processSource = await readFile(new URL('../../../backend/src/custody/processes/flat-owner-process.mjs', import.meta.url), 'utf8');
+  const bridgeSource = await readFile(new URL('../../../backend/src/custody/preparation/flat-owner-manual-preparation.mjs', import.meta.url), 'utf8');
+  const custodySource = await readFile(new URL('../../src/signing/flat-owner-custody.mjs', import.meta.url), 'utf8');
   assert.match(processSource, /const OWNER = \['reauthorizeManualPreparation', 'prepareManualPreparation'/);
   assert.match(processSource, /manualPreparations: \(\) => request\('manualPreparations'\)/);
   assert.match(bridgeSource, /if \(readOnly\) \{ delete adapter.review; delete adapter.cancelReview; delete adapter.confirm; \}/);

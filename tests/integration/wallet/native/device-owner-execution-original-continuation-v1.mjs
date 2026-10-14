@@ -7,7 +7,7 @@ import {originalAccountAccessMessageV2} from '@lianum/mobile-protocol/original-a
 import {deviceExecutionConsentMessageV1} from '@lianum/mobile-protocol/device-execution-consent-v1';
 import {deviceExitConsentMessageV1,wipeDeviceExitWitnessV1} from '@lianum/mobile-protocol/device-exit-consent-v1';
 import {awaitDeviceOwnerExecutionOriginalWorkV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
-import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
+import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/encoding/terminal-calldata-codec.mjs';
 import {encodeFlatTransaction,FLAT_TRANSACTION_METHODS} from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import {runNativeDeviceEconomicOriginalContinuationV1} from './native-device-economic-original-continuation-v1.mjs';
 import {assertDeviceFinalOriginalReceiptTreeV1} from './device-owner-execution-native-checks-v1.mjs';

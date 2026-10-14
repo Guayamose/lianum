@@ -71,10 +71,10 @@ test('loaded V3: disabled entry and supervisor cannot reach fixed-run creation o
 });
 
 test('loaded V3: V3 deployment/ingress is independent of full graph and legacy selector meanings stay fixed', () => {
-  const text = source('./native-claim-flow.mjs');
+  const text = source('../lifecycle/native-claim-flow.mjs');
   const body = text.slice(text.indexOf('const loadedV3Profile'), text.indexOf('const selectedAssets'));
   const choose = route => vm.runInNewContext(body + '; ({ ingressV3Profile, graphProfile, loadedFactsProfile, combinedProfile, nonceProfile, durableApiProfile, durableKeeperProfile, ACCEPTANCE_PROFILE })',
-    { parentEntry: route.entry, NATIVE_CLAIM_RUN_ROUTES, CLAIM_LOADED_V3_PROFILE, CLAIM_GRAPH_V3_PROFILE, LOADED_FACTS_PROFILE: 'SOLANA_LOADED_POST_DELIVERY_FACTS_PROBE' });
+    { beginPayoutAuditProfile: false, parentEntry: route.entry, NATIVE_CLAIM_RUN_ROUTES, CLAIM_LOADED_V3_PROFILE, CLAIM_GRAPH_V3_PROFILE, LOADED_FACTS_PROFILE: 'SOLANA_LOADED_POST_DELIVERY_FACTS_PROBE' });
   assert.deepEqual({ ...choose(NATIVE_CLAIM_RUN_ROUTES.loadedV3) }, { ingressV3Profile: true, graphProfile: false,
     loadedFactsProfile: true, combinedProfile: true, nonceProfile: true, durableApiProfile: false, durableKeeperProfile: true, ACCEPTANCE_PROFILE: CLAIM_LOADED_V3_PROFILE });
   assert.deepEqual({ ...choose(NATIVE_CLAIM_RUN_ROUTES.graphV3) }, { ingressV3Profile: true, graphProfile: true,

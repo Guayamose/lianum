@@ -47,7 +47,7 @@ test('adapter cannot label a rejected original response as completed loss or tar
 });
 
 const removeBegin = source.indexOf('      async function removeOwnSyntheticState(target)');
-const removeEnd = source.indexOf('      if (result.cleanup.closedOwner === true)', removeBegin);
+const removeEnd = source.indexOf('      if (result.cleanup.closedOwner === true', removeBegin);
 assert.ok(removeBegin >= 0 && removeEnd > removeBegin);
 const removeSource = source.slice(removeBegin, removeEnd);
 test('fixed cleanup removes only its own isolated synthetic vault/journal directories and retains evidence', async t => {

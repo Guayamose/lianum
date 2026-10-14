@@ -20,7 +20,7 @@ const memoBytes = fs.readFileSync(new URL('./fixtures/spl_memo-3.0.0.so', import
 const copy = value => structuredClone(value), h = value => crypto.createHash('sha256').update(value).digest('hex');
 assert.equal(h(memoBytes), MEMO_PROGRAM.codeSHA256);
 const system = '11111111111111111111111111111111', executableFixture = Buffer.from('HOST_ONLY_PINNED_EXECUTABLE_STUB');
-const adapterSource = fs.readFileSync(new URL('../wallet-platform/modules/chain-adapters/owned-solana-runtime.mjs', import.meta.url), 'utf8');
+const adapterSource = fs.readFileSync(new URL('../../../../packages/backend/src/chains/solana/runtime/owned-solana-runtime.mjs', import.meta.url), 'utf8');
 const selectedPinName = /const selectedValidatorPin = boundedLedger \? ([A-Za-z0-9_]+) :/.exec(adapterSource)[1];
 const pin = new RegExp("export const " + selectedPinName + " = Object.freeze\\(\\['[^']+', '([0-9a-f]{64})'").exec(adapterSource)[1];
 const genesisBytes = Buffer.from('HOST_ONLY_FRESH_GENESIS'), identity = Buffer.from(h('host identity'), 'hex');
@@ -79,6 +79,7 @@ mock.module('node:fs/promises', { exports: { ...named(fsp),
 } });
 function socket() { const result = new EventEmitter(); result.unref = () => {}; result.close = callback => callback?.(); return result; }
 mock.module('node:net', { exports: {
+  Socket: (await import('node:net')).Socket,
   createConnection() { throw Error('HOST_FIXTURE_FORBIDDEN_CONNECTION'); },
   createServer() { const result = socket(); result.listen = (_port, host, callback) => { assert.equal(host, '127.0.0.1'); callback(); }; return result; },
 } });
@@ -98,7 +99,7 @@ mock.module('node:child_process', { exports: { ...named(childProcess),
 } } });
 const contextual = value => ({ context: { slot: control.slot }, value: copy(value) });
 const account = lamports => ({ owner: system, executable: false, lamports, data: ['', 'base64'] });
-mock.module(new URL('../../../omnichain-product/src/chains/runtime-harness.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/engine/src/chains/shared/runtime-harness.mjs', import.meta.url).href, { exports: {
   ...named(runtimeHarness),
   projectRoot: '/host-only-project',
   async scratchDirectory() { control.directory = await fsp.mkdtemp(join(tmpdir(), 'combined-sol-host-')); return control.directory; },
@@ -140,7 +141,7 @@ mock.module(new URL('../../../omnichain-product/src/chains/runtime-harness.mjs',
     }
   },
 } });
-mock.module(new URL('../wallet-platform/modules/chain-adapters/owned-solana-send.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../packages/backend/src/chains/solana/transfers/owned-solana-send.mjs', import.meta.url).href, { exports: {
   async sendOwnedSolanaTransaction(endpoint, wire) {
     assert.equal(endpoint, `http://127.0.0.1:${control.rpcPort}`); control.sends++;
     const bytes = Buffer.from(wire, 'base64'), nativeId = bytes.subarray(1, 65).toString('hex');

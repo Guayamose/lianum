@@ -294,7 +294,7 @@ test('legacy single-service DeFi keeps its exact prior projection and unchanged 
   assert.throws(() => buildActionBody('defiExecute', { requestId: 'original_exit_1', generationId: hex(101) }));
 });
 test('generation UI uses text nodes, explicit unknown journal language and no new action/selection control', async () => {
-  const s = await readFile(new URL('./public/app.mjs', import.meta.url), 'utf8');
+  const s = await readFile(new URL('../../../src/client/app.mjs', import.meta.url), 'utf8');
   assert.match(s, /Contenido del diario original desconocido\. No significa cero operaciones ni ausencia de obligaciones\./);
   assert.match(s, /Redondeo hacia abajo · no gastable · no se suma al saldo privado ni a otras generaciones/);
   assert.match(s, /Generación original: \$\{position.generationId\}/); assert.match(s, /Share asset: \$\{position.shareAssetId\}/);

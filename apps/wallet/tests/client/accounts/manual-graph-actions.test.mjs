@@ -13,10 +13,16 @@ import { createWalletApplicationClient } from '../../../../../packages/backend/s
 import { buildActionBody, accountReviewDetails } from '../../../../../packages/mobile-protocol/src/wallet/client/view-model.mjs';
 
 const accounts = new WeakMap(), portfolios = new WeakMap(), approvals = new WeakMap(), controls = new WeakMap();
+const forbidden = () => { throw Error('SYNTHETIC_UNASSIGNED_LOWER_PORT'); };
 const fail = code => { throw Object.assign(new Error(code), { code }); };
 const frozen = value => { if (value && typeof value === 'object') { Object.values(value).forEach(frozen); Object.freeze(value); } return value; };
-mock.module('../wallet-platform/modules/global-state/flat-account-authority.mjs', { exports: {
+mock.module(new URL('../../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatAccountAuthority,
+  assertOwnedFlatTopUpAdmission: forbidden,
+  assertFlatAccountRecoverySuccessor: forbidden,
+  flatAccountRecoverySuccessorDetails: forbidden,
+  assertFlatAccountManualNativeNote: forbidden,
+  flatAccountManualNativeNoteDetails: forbidden,
   assertFlatAccountManualGraphExecution(value) {
     const data = approvals.get(value);
     if (!data || !accounts.get(data.account)?.live || accounts.get(data.account)?.routeUnavailable) fail('FLAT_ACCOUNT_MANUAL_GRAPH_ROUTE_UNAVAILABLE');
@@ -28,7 +34,10 @@ mock.module('../wallet-platform/modules/global-state/flat-account-authority.mjs'
     return data;
   },
 } });
-mock.module('../wallet-platform/modules/global-state/flat-portfolio-authority.mjs', { exports: {
+mock.module(new URL('../../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs', import.meta.url).href, { exports: {
+  bindFlatPortfolioChildRequest: forbidden,
+  originalFlatPortfolioChildRequest: forbidden,
+  claimFlatPortfolioJournal: forbidden,
   assertOwnedFlatPortfolio(runtime, value) {
     if (!portfolios.has(value) || portfolios.get(value).runtime !== runtime) fail('FLAT_PORTFOLIO_OWNED_CAPABILITY_REQUIRED');
   },
@@ -37,7 +46,7 @@ mock.module('../wallet-platform/modules/global-state/flat-portfolio-authority.mj
   },
 } });
 const originalMixedKeepers = new WeakMap();
-mock.module('../wallet-platform/modules/global-state/flat-manual-portfolio-keeper.mjs', { exports: {
+mock.module(new URL('../../../../../packages/backend/src/accounts/portfolio/flat-manual-portfolio-keeper.mjs', import.meta.url).href, { exports: {
   async createFlatManualPortfolioKeeper({ runtime, portfolio }) {
     const c = controls.get(portfolio.config); assert.equal(portfolio.authority, c.authority); c.creations++;
     originalMixedKeepers.set(c.keeper, { runtime, portfolio }); return c.keeper;
@@ -49,7 +58,7 @@ mock.module('../wallet-platform/modules/global-state/flat-manual-portfolio-keepe
   },
 } });
 const syntheticCatalogues = new WeakMap();
-mock.module('../wallet-platform/modules/global-state/flat-journal-catalogue.mjs', { exports: {
+mock.module(new URL('../../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatJournalCatalogue(catalogue, expected) {
     assert.equal(syntheticCatalogues.get(catalogue)?.runtime, expected.runtime, 'SYNTHETIC_ORIGINAL_CATALOGUE_REQUIRED');
     assert.ok(syntheticCatalogues.has(catalogue), 'SYNTHETIC_ORIGINAL_CATALOGUE_REQUIRED');
@@ -157,7 +166,9 @@ test('one genuine portfolio composition and fixed opaque approval; copies, nativ
   assert.throws(() => f.bindManualGraph(wrong), /ORIGINAL_ACCOUNT_REQUIRED/);
   accounts.get(f.account).live = false;
   assert.throws(() => flatManualGraphReviews(f.session), /ORIGINAL_REQUIRED/);
-  assert.equal((await post(f.app, body)).status, 403); assert.equal(f.c.calls.length, 0);
+  const rejected = await post(f.app, body);
+  assert.equal(rejected.status, 400); assert.equal(rejected.body.error, 'WALLET_OPERATION_FAILED');
+  assert.equal(f.c.calls.length, 0);
 });
 test('SDK uses same manual immutable review and confirm with separate exact grants for original actions', async t => {
   const f = await fixture(t, { exact: true });
