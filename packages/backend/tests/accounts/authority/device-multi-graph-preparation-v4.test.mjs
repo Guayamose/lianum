@@ -12,6 +12,7 @@ import {flatOwnerIdentity} from '@lianum/custody/owner';
 import {createNativeRecipientCustody,nativeRecipientInvoiceMessage,nativeRecipientInvoiceRequest} from '@lianum/engine/execution/native/recipients/native-recipient-custody';
 import {validateGenericBalanceNativePreparation,genericBalanceNativeTerms} from '@lianum/engine/execution/balances/generic-balance-native-preparation';
 const h=value=>createHash('sha256').update(value).digest('hex');
+const preparationDeadline=()=>process.hrtime.bigint()+30_000_000_000n;
 const base=new URL('../../../src/',import.meta.url),path=value=>new URL(value,base);
 const modulePaths={
  service:path('operations/local/device-external-flat-source-graph-service-v1.mjs'),graph:path('accounts/authority/device-external-flat-source-graph-v1.mjs'),
@@ -80,7 +81,7 @@ test('HOST original multi workspace and bridge retain one admitted preparation a
   await assert.rejects(workspace.preparation(oldChallenge),/DEVICE_EXTERNAL_GRAPH_PERMISSION/);
   const pending=await workspace.preparation(request());assert.equal(pending.preparationId,lost.preparationId);assert.equal(pending.stage,'PREPARING');assert.equal(counts.workspaces,1);
   await assert.rejects(workspace.preparation(original),/DEVICE_EXTERNAL_GRAPH_PERMISSION/);await assert.rejects(workspace.preparation(request({assetAmount:'1'})),/DEVICE_EXTERNAL_GRAPH_TERMS_CHANGED/);assert.equal(counts.workspaces,1);
-  host.release();let first;for(let n=0;n<100;n++){first=await workspace.preparation(request());if(first.quote)break;assert.notEqual(first.stage,'FAILED');await new Promise(resolve=>setTimeout(resolve,10));}assert.ok(first.quote,'Original preparation did not finish');
+  host.release();let first;for(const deadline=preparationDeadline();process.hrtime.bigint()<deadline;){first=await workspace.preparation(request());if(first.quote)break;assert.notEqual(first.stage,'FAILED');await new Promise(resolve=>setTimeout(resolve,10));}assert.ok(first.quote,'Original preparation did not finish');
   const second=await workspace.preparation(request());assert.equal(first.quote.quoteId,second.quote.quoteId);assert.equal(first.quote.depositJobId,host.source.depositJobId);assert.equal(first.quote.sourceCommitment,host.source.commitment);assert.equal(counts.workspaces,1);assert.equal((await host.graphJournal()).data.preparationAttempt.stage,'PREPARED');
   const result=host.prepared(),preparation=validateGenericBalanceNativePreparation(result.preparation);assert.equal(genericBalanceNativeTerms(preparation).budget,String(count*5));assert.equal(preparation.slotSalts.length,4);assert.equal(result.invoiceSignatures.length,count);assert.equal(new Set(result.providers.map(v=>v.provider)).size,count);assert.equal(counts.consumes,count);assert.equal(counts.bound,count);assert.equal(counts.providers,count);assert.equal(counts.recipientsClosed,count);assert.deepEqual(preparation.config.nodes.map(v=>v.dependsOn),host.deliveries.map(v=>v.dependsOn));
   assert.deepEqual(host.expectedInputs.map(v=>v.slot),Array.from({length:count},(_,i)=>i));assert.equal(new Set(host.expectedInputs.map(v=>v.operationId)).size,1);
@@ -94,7 +95,7 @@ test('HOST original multi bridge rejects wrong quota, copied providers and dupli
  for(const kind of ['quota','copied provider','duplicate slot'])await t.test(kind,async t=>{
   const providerTamper=kind==='copied provider'?value=>({...value,providers:value.providers.map((p,i)=>i?p:{...p,provider:Object.freeze({...p.provider})})}):kind==='duplicate slot'?value=>({...value,providers:value.providers.map(p=>({...p,slot:0}))}):null;
   const host=await setup(t,2,{providerTamper});host.release();const request=()=>host.request(kind==='quota'?{payoutAmount:'1'}:{}),pending=await host.workspace.preparation(request());assert.equal(pending.stage,'PREPARING');
-  let result;for(let n=0;n<100;n++){result=await host.workspace.preparation(request());if(result.stage==='FAILED')break;await new Promise(resolve=>setTimeout(resolve,10));}assert.equal(result.stage,'FAILED');assert.equal(host.counts.workspaces,1);assert.equal(host.counts.consumes,kind==='quota'?0:2);assert.equal(host.counts.providers,kind==='quota'?0:2);
+  let result;for(const deadline=preparationDeadline();process.hrtime.bigint()<deadline;){result=await host.workspace.preparation(request());if(result.stage==='FAILED')break;await new Promise(resolve=>setTimeout(resolve,10));}assert.equal(result.stage,'FAILED');assert.equal(host.counts.workspaces,1);assert.equal(host.counts.consumes,kind==='quota'?0:2);assert.equal(host.counts.providers,kind==='quota'?0:2);
   assert.equal((await host.graphJournal()).data.preparationAttempt.stage,'FAILED');assert.equal((await host.graphJournal()).data.quote,null);const again=await host.workspace.preparation(request());assert.equal(again.preparationId,pending.preparationId);assert.equal(again.stage,'FAILED');assert.equal(host.counts.workspaces,1);
  });
 });

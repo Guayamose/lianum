@@ -17,7 +17,7 @@ test('Paged issuer uses wall epochs while original permissions and RPC work reta
  const deploymentURL=new URL('../../../src/operations/local/funded-graph-paged-deployment-v3.mjs',import.meta.url);
  t.mock.module(deploymentURL.href,{exports:{assertOriginalFundedPagedGraphWalletV3:(_,value)=>assert.strictEqual(value,system),readOriginalFundedPagedGraphDeploymentV3:()=>deployment,pagedGraphProofDataV3:()=>{throw Error('HOST_PROOF_FORBIDDEN');},pagedGraphStaticDataV3:()=>{throw Error('HOST_EFFECT_FORBIDDEN');}}});
  t.mock.module('@lianum/engine/crypto/vault',{exports:{Vault:class{
-  async create(value){journalWrites++;this.value=structuredClone(value);}
+  async create(value){journalWrites++;this.value=structuredClone(value);return{revision:0,data:structuredClone(this.value)};}
   async read(){return{revision:0,data:structuredClone(this.value)};}
   async update(){throw Error('HOST_JOURNAL_MUTATION_FORBIDDEN');}
  }}});

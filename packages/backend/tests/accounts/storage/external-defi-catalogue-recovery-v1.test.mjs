@@ -38,7 +38,7 @@ async function keeper(input,saved){const path=input.journal.path;let record;
  if(saved)record=await new Vault(path).read(input.journal.password);else record=await new Vault(path).create({requests:[]},input.journal.password);
  const world=actions.get(path)??{sends:0};actions.set(path,world);
  const value={
- async prepare(request){const bound={...copy(request),bindingSHA256:h({request,config:input.portfolio.config}),assetBindingSHA256:h(input.portfolio.config.registry[0])};record=await new Vault(path).update(input.journal.password,record.revision,data=>({requests:[...data.requests,{request:bound,state:'PREPARED',generation:0}]}));return {request:copy(bound)};},
+ async prepare(request){if(world.rejectPreparation)throw Error('HOST_PREPARATION_REJECTED');const bound={...copy(request),bindingSHA256:h({request,config:input.portfolio.config}),assetBindingSHA256:h(input.portfolio.config.registry[0])};const prior=record.data.requests.find(row=>row.request.requestId===request.requestId);if(prior){assert.deepEqual(prior.request,bound);return {request:copy(prior.request)};}record=await new Vault(path).update(input.journal.password,record.revision,data=>({requests:[...data.requests,{request:bound,state:'PREPARED',generation:0}]}));return {request:copy(bound)};},
  async execute(id){const row=record.data.requests.find(row=>row.request.requestId===id);assert.ok(row);if(row.state!=='CONFIRMED'){world.sends++;record=await new Vault(path).update(input.journal.password,record.revision,data=>({requests:data.requests.map(row=>({...row,state:'CONFIRMED'}))}));if(world.loseReply){world.loseReply=false;throw Error('HOST_LOST_REPLY');}}return {request:copy(row.request)};},
  async reconcile(id){const row=record.data.requests.find(row=>row.request.requestId===id);assert.ok(row);world.reconciles=(world.reconciles??0)+1;return {state:row.state,generation:row.generation};},
  async privateStatus(){return {requests:record.data.requests.map(row=>({request:copy(row.request),phase:row.state,generation:row.generation}))};},
@@ -64,6 +64,31 @@ mock.module(new URL('../../../src/claims/wrapped/recovery/wrapped-recovery-autho
 }});
 const catalogues=await import('../../../src/accounts/storage/flat-journal-catalogue.mjs');
 recovery=await import('../../../src/accounts/recovery/external-defi-catalogue-recovery-v1.mjs');
+test('HOST original catalogue consumes admission before child preparation and retains it across retry and EXIT',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'catalogue-admission-host-'));t.after(()=>rm(directory,{recursive:true,force:true}));
+ const runtime={metadata:{evmGenesis:'0x'+h('genesis-budget')}},system={};runtimes.set(runtime,{system,owners:[{},{}],sourceSHA256:h('source-budget')});
+ const config={accountId:'admission_account',journalId:'admission_account_journal',registry:[{assetId:h('budget-share'),kind:'ERC20',token:'33'.repeat(20),genesis:h('genesis-budget')}]};
+ const original=account(runtime,system,0,config),members=[{poolIndex:0,account:original}],admissions=policy({runtime,system,accounts:members,routeOrder:[config.registry[0].assetId]});
+ const parent=portfolio({runtime,system,accounts:members,accountId:'admission_portfolio',journalId:'admission_portfolio_journal'});
+ const generation=await catalogues.createRetainedFlatJournalGenerationV1({runtime,portfolio:parent,poolAdmissions:admissions,journal:{path:join(directory,'keeper.vault'),password:'synthetic-keeper-password'}});
+ const journal={path:join(directory,'catalogue.vault'),password:'synthetic-catalogue-password'};
+ const catalogue=await catalogues.createRetainedFlatJournalCatalogueV1({runtime,initialGeneration:generation,journal});
+ const request={requestId:'original_top_up',kind:'TOP_UP',assetId:config.registry[0].assetId,ownerOperationRef:h('budget-top-up')};
+ actions.get(join(directory,'keeper.vault')).rejectPreparation=true;
+ await assert.rejects(catalogue.keeper.prepare(request),/HOST_PREPARATION_REJECTED/);
+ assert.equal(catalogue.status().admissionBudget.consumed,1);
+ const durable=(await new Vault(journal.path).read(journal.password)).data;
+ assert.deepEqual(durable.bindings[0].request,request,'the original AEAD journal counts before calling the child');
+ actions.get(join(directory,'keeper.vault')).rejectPreparation=false;
+ await catalogue.keeper.prepare(request);await catalogue.keeper.prepare(request);
+ assert.equal(catalogue.status().admissionBudget.consumed,1,'same original request consumes only once');
+ await assert.rejects(catalogue.keeper.prepare({...request,ownerOperationRef:h('rebind')}),/REQUEST_ID_REUSE/);
+ const exit={...request,requestId:'original_budget_exit',kind:'EXIT',ownerOperationRef:h('budget-exit')};
+ await catalogue.keeper.prepare(exit);await catalogue.keeper.execute(exit.requestId);
+ assert.equal(catalogue.status().admissionBudget.consumed,1,'capital withdrawal never refunds admission');
+ assert.equal(catalogue.status().bindings.length,2);
+ await catalogue.keeper.close();
+});
 test('HOST reopened catalogue preserves original EXIT binding and lost-reply outcome on new objects; no fresh admission',async t=>{
  const directory=await mkdtemp(join(tmpdir(),'external-catalogue-host-'));t.after(()=>rm(directory,{recursive:true,force:true}));
  const runtime={metadata:{evmGenesis:'0x'+h('genesis')}},system={},owners=[{},{}],sourceSHA256=h('source');runtimes.set(runtime,{system,owners,sourceSHA256});

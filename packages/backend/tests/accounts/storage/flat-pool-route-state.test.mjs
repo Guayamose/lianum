@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { poolEconomicIdentity, projectPoolCapacity, assertPoolHistoryAdvance,
+import { poolEconomicIdentity, projectPoolCapacity, projectPoolContinuity, assertPoolHistoryAdvance,
   assertFreshPoolSuccessor } from '../../../src/accounts/storage/flat-pool-route-state.mjs';
 const capacity = change => projectPoolCapacity({ leaves: 0, spent: 0, reservations: 0, outputs: 0,
   authorizationLeaves: 0, receipts: 0, globalSpentTags: 0, globalReservedTags: 0,
@@ -30,8 +30,17 @@ test('global tag/checkpoint/revocation exhaustion is never fixed by fresh pools'
   for (const change of [{ globalSpentTags: 64 }, { checkpoints: 64 }, { revoked: 64, halted: true }]) {
     const value = capacity({ outputs: 1, ...change });
     assert.equal(value.graph, false); assert.equal(value.topUp, true);
+    assert.equal(projectPoolContinuity(value).decision, 'FULL_HUB_ROTATION_REQUIRED');
   }
   assert.throws(() => capacity({ revoked: 64, halted: false }), /HALT/);
+});
+test('local exhaustion requires an original successor, while old recovery remains separate', () => {
+  assert.equal(projectPoolContinuity(capacity()).decision, 'AVAILABLE');
+  const decision = projectPoolContinuity(capacity({ leaves: 64, spent: 61, outputs: 3 }));
+  assert.equal(decision.decision, 'POOL_SUCCESSOR_REQUIRED');
+  assert.equal(decision.existingRecoveryRetained, true);
+  assert.equal(decision.implicitNoteMigration, false);
+  for(const state of [{authorizationLeaves:64},{receipts:64}]){const exhausted=projectPoolContinuity(capacity(state));assert.equal(exhausted.decision,'POOL_SUCCESSOR_REQUIRED');assert.equal(exhausted.existingRecoveryRetained,true);assert.equal(exhausted.globalGraphCapacityExtended,false);}
 });
 test('deposit and reserve projections match Solidity headroom at every bounded state', () => {
   let cases = 0;

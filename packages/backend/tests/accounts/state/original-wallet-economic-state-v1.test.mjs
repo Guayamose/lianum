@@ -257,6 +257,13 @@ test('HOST original catalogue append preserves old routes and reopens the same e
   const input={catalogues:[{runtime,catalogue,session,positions:null}],nativeAccounts:[],wrappedPortfolios:[],journal:{path:join(directory,'economic.vault'),password:'original-append-observation-password'}};
   state=await createOriginalWalletEconomicStateV1(input);let observation=await state.observe();const oldRoute=observation.rows[0].route,oldKey=originalEconomicRouteKeyV1(oldRoute),birth=state.checkpoint();
   await catalogue.appendGeneration(next);assert.equal((await catalogueVault.read(cataloguePassword)).revision,1);
+  const codec=await import('../../../../mobile-protocol/src/wallet/contracts/owner-portfolio-contract.mjs'),payload=await catalogue.ownerView();
+  codec.validateFlatOwnerReadPayload(payload);
+  assert.equal(payload.freshAdmissions.budget.remaining,64);assert.equal(payload.freshAdmissions.budget.generations,2);
+  for(const changed of [{remaining:65},{nonrefundable:false},{remainingGenerations:7}]){
+    const tampered=structuredClone(payload);Object.assign(tampered.freshAdmissions.budget,changed);
+    assert.throws(()=>codec.validateFlatOwnerReadPayload(tampered),/RESPONSE_INVALID/);
+  }
   observation=await state.observe();assert.equal(observation.status,'LIVE');assert.equal(observation.rows.length,2);
   assert.equal(originalEconomicRouteKeyV1(observation.rows[0].route),oldKey);assert.deepEqual(observation.rows[0].route,oldRoute);
   assert.equal(observation.rows[0].balances.available,'10');assert.equal(observation.rows[1].balances.available,'3');

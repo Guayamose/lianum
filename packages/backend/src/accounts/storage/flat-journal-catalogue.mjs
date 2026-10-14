@@ -15,6 +15,7 @@ import { createFlatManualPortfolioKeeper, assertOwnedFlatManualPortfolioKeeper, 
 import { retainedFlatAccountInventoryV1,assertRetainedExternalVaultNoteAccountV1 } from '../authority/flat-account-authority.mjs';
 import { consumeExternalDefiCatalogueGenerationReopenV1 as consumeGenerationToken } from '../recovery/external-defi-catalogue-recovery-v1.mjs';
 import { projectCatalogueOwnerRequests } from '../portfolio/catalogue-owner-requests.mjs';
+import { projectFlatAdmissionBudgetV1, assertFlatFreshAdmissionV1, assertFlatGenerationAdmissionV1 } from './flat-admission-budget-v1.mjs';
 
 import { retainWrappedPrivateLifetimePartV1, readWrappedPrivateLifetimePartV1, updateWrappedPrivateLifetimePartV1, assertWrappedPrivateLifetimePartSealedV1 } from '../../claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 
@@ -268,6 +269,7 @@ async function catalogueFactory(input,durable) {
       validateInput(input, generation.config.registry);
       if (expectedGenerationId !== null) requireTrue(generation.id === expectedGenerationId, 'REQUEST_GENERATION_REUSE');
       if (input.kind !== 'EXIT') await newAdmissionsHealthy(); else await stored();
+      if (input.kind !== 'EXIT') assertFlatFreshAdmissionV1(record.data);
       if (input.kind === 'TOP_UP') {
         const route = generation.routes.find(route => route.assetId === input.assetId);
         requireTrue(record.data.current[route.economicIdentitySHA256] === input.assetId, 'FRESH_ROUTE_CHANGED');
@@ -359,8 +361,9 @@ async function catalogueFactory(input,durable) {
       const { generation, route } = matches[0];
       if (input.kind === 'TOP_UP') {
         await newAdmissionsHealthy();
+        assertFlatFreshAdmissionV1(record.data);
         requireTrue(record.data.current[route.economicIdentitySHA256] === route.assetId, 'FRESH_ROUTE_CHANGED');
-        const fresh = await generation.poolAdmissions.selectTopUp({ assetId: route.assetId });
+        const fresh = await generation.poolAdmissions.selectTopUp({ assetId: route.assetId, allowRotation: false });
         requireTrue(fresh.assetId === route.assetId, 'GENERATION_PREFERENCE_CHANGED');
       }
       return immutable({ generationId: generation.id, assetId: route.assetId, kind: input.kind,
@@ -370,16 +373,29 @@ async function catalogueFactory(input,durable) {
     }); },
     async selectTopUp({ assetId }) { return exclusive(async () => {
       await newAdmissionsHealthy();
+      assertFlatFreshAdmissionV1(record.data);
       const anchor = byId.get(byAsset.get(assetId)); requireTrue(anchor, 'ASSET_NOT_REGISTERED');
       const oldRoute = anchor.routes.find(route => route.assetId === assetId);
       const currentAssetId = record.data.current[oldRoute.economicIdentitySHA256];
       const generation = byId.get(byAsset.get(currentAssetId)); requireTrue(generation, 'ADMISSION_ROUTE_REQUIRED');
       const selection = await generation.poolAdmissions.selectTopUp({ assetId: currentAssetId });
-      requireTrue(selection.assetId === currentAssetId, 'GENERATION_PREFERENCE_CHANGED');
+      if (selection.assetId !== currentAssetId) {
+        const next = generation.routes.find(route => route.assetId === selection.assetId);
+        requireTrue(next && next.economicIdentitySHA256 === oldRoute.economicIdentitySHA256,
+          'GENERATION_PREFERENCE_CHANGED');
+        assert.deepEqual(selection.route, next, 'FLAT_CATALOGUE_ROUTE_CHANGED');
+        // Persist the authentic policy's fresh preference. Existing request
+        // bindings remain byte-for-byte bound to their original generation.
+        await write(data => ({ ...data, current: { ...data.current,
+          [oldRoute.economicIdentitySHA256]: selection.assetId }, events: [...data.events,
+          { type: 'ROTATE_FRESH_ROUTE', fromAssetId: currentAssetId, toAssetId: selection.assetId,
+            generationId: generation.id }] }));
+      }
       return immutable({ generationId: generation.id, ...selection });
     }); },
     async appendGeneration(capability) { return exclusive(async () => {
       await newAdmissionsHealthy();
+      assertFlatGenerationAdmissionV1(record.data);
       const generation = originalGeneration(capability, runtime);
       if(durable)requireTrue(generation.retained,'RETAINED_GENERATION_REQUIRED');
       requireTrue(!generation.attached && !catalogueClaims.has(capability) && !byId.has(generation.id), 'GENERATION_ALREADY_ATTACHED');
@@ -428,6 +444,7 @@ async function catalogueFactory(input,durable) {
       requireTrue(!bindings.has(request.requestId), 'OWNER_ORIGINAL_ALREADY_RESERVED');
       if (request.kind === 'TOP_UP') {
         await newAdmissionsHealthy();
+        assertFlatFreshAdmissionV1(record.data);
         const route = generation.routes.find(route => route.assetId === input.assetId);
         requireTrue(record.data.current[route.economicIdentitySHA256] === input.assetId, 'FRESH_ROUTE_CHANGED');
       } else await stored();
@@ -539,13 +556,14 @@ async function catalogueFactory(input,durable) {
         : coherent && assets.every(asset => asset.status === 'LIVE') ? 'LIVE' : 'STALE';
       return immutable({ version: 2, profile: PROFILE, status, coherent,
         observed: coherent ? observed[0].observed : null, generations: views,
-        freshAdmissions: { version: 1, fenced: admissionsFenced, routes: admissionAssetIds.map(assetId =>
+        freshAdmissions: { version: 1, fenced: admissionsFenced || projectFlatAdmissionBudgetV1(record.data).remaining === 0,
+          budget: projectFlatAdmissionBudgetV1(record.data), routes: admissionAssetIds.map(assetId =>
           ({ generationId: byAsset.get(assetId), assetId })) },
         capabilities: { coordinatorRestart: true, keeperRestart: false, nodeRestart: false,
           privateBalancesAggregated: false, implicitNoteMigration: false, fullWalletAcceptance: false } });
     }); },
     status: () => immutable({ profile: PROFILE, generations: [...byId.values()].map(descriptor),
-      current: record.data.current, bindings: [...bindings.values()], storageFault, admissionFault,
+      current: record.data.current, bindings: [...bindings.values()], admissionBudget: projectFlatAdmissionBudgetV1(record.data), storageFault, admissionFault,
       uncertainWrite: pendingWrite !== null, pendingGenerationId: pendingGeneration?.id ?? null, pendingReview,
       pendingOwnerPreparation: pendingOwnerReview ? { generationId: pendingOwnerReview.generationId,
         requestId: pendingOwnerReview.review?.request.requestId ?? null, state: pendingOwnerReview.state } : null, keeperRestart: false, originalBindingsRewritten: false }),

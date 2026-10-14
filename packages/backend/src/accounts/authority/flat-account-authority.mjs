@@ -12,6 +12,8 @@ import { createProofProcess } from '@lianum/proofs/execution/proof-process';
 import { reserveProjection } from '@lianum/engine/execution/local/local-ledger';
 import { genericAccountIdentity, validateGenericAccountConfig, validateBoundRequest, validateOutcome, immutable, copy, sha }
   from '@lianum/engine/accounts/journal';
+import {normalizeMinimumDepositAtomic,assertFlatMinimumDepositAmount} from '../../chains/shared/contracts/minimum-deposit-v3.mjs';
+import {FLAT_MINIMUM_PROFILE} from '../../operations/deployments/system/append-only-build-v3.mjs';
 import { assertOwnedFlatSystem } from '../../operations/deployments/system/deploy-system.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
 import { assertOwnedPoolAsset } from '../../chains/shared/contracts/owned-pool-asset.mjs';
@@ -102,7 +104,8 @@ export function projectFlatAccountOwnerView(input) {
   assert.equal(new Set(requests.map(value => value.requestId)).size, requests.length, 'FLAT_ACCOUNT_OWNER_VIEW_DUPLICATE');
   return immutable({ version: 1,
     status: current === null ? 'UNAVAILABLE' : requests.some(value => value.state === 'STALE') ? 'STALE' : 'LIVE',
-    asset: { assetId: asset.assetId, symbol: asset.symbol, decimals: asset.decimals },
+    asset: { assetId: asset.assetId, symbol: asset.symbol, decimals: asset.decimals,
+      ...(Object.hasOwn(asset,'minimumDepositAtomic') ? {minimumDepositAtomic:normalizeMinimumDepositAtomic(asset.minimumDepositAtomic)} : {}) },
     observed: current?.observed ?? null, balances: current?.balances ?? null, backing: current?.backing ?? null, requests });
 }
 
@@ -279,7 +282,8 @@ async function flatAccountAuthority(input,callbacks,durable) {
         for (const name of ['local', 'dependency']) for (let slot = 0; slot < 4; slot++)
           assert.deepEqual((await owner.roles[name](slot)).select(), graph.prepared.rolePackets[name][slot], 'FLAT_ACCOUNT_ORIGINAL_PACKET');
       }
-      if (kind === 'TOP_UP' && !nativeAsset) {
+      if (kind === 'TOP_UP') {
+        if(system.deploymentProfile!==FLAT_MINIMUM_PROFILE)assert.equal(summary.operations[ownerKind],'AUTHORIZED','FLAT_LEGACY_FRESH_DEPOSIT_DISABLED');
         // Approval is an explicit funding prerequisite supplied by the private
         // bootstrap, not an implicit side effect or a deposit resend policy.
         const original = await owner.ownerProof.deposit();
@@ -360,6 +364,12 @@ async function flatAccountAuthority(input,callbacks,durable) {
     } finally { await onPrivateAudit({ reference: ref, phase: 'owner-transition', receipt: receipt ?? null }); }
   }
   async function tokenFundingReady(amount) {
+    if(system.deploymentProfile===FLAT_MINIMUM_PROFILE){
+      const expected=normalizeMinimumDepositAtomic(pool.minimumDepositAtomic);assertFlatMinimumDepositAmount(expected,amount);
+      const head=await runtime.block();assert.equal(await runtime.code(pool.address,head.number),pool.runtimeCode,'FLAT_MINIMUM_POOL_CODE_CHANGED');
+      const raw=await pool.call('minimumDepositAmount()',[],head.number);assert.match(raw,/^0x[0-9a-f]{64}$/,'FLAT_MINIMUM_ONCHAIN_WORD');
+      assert.equal(normalizeMinimumDepositAtomic(BigInt(raw).toString()),expected,'FLAT_MINIMUM_ONCHAIN_CHANGED');await runtime.assertCanonical(head);
+    }
     if (nativeAsset) return;
     const head = await runtime.block();
     const [allowance, balance] = await Promise.all([
@@ -374,12 +384,14 @@ async function flatAccountAuthority(input,callbacks,durable) {
     const manual = Boolean(operation(ref).manualLifecycle);
     if (manual) await requireManualEpoch(ref);
     const entry = operation(ref), mode = entry.kind === 'TOP_UP' ? 'deposit_balance' : 'withdraw_balance';
+    const originalTopUp=entry.kind==='TOP_UP' ? await owner.ownerProof.deposit() : null;
+    if(originalTopUp)await tokenFundingReady(originalTopUp.statement.amount);
     const client = createProofProcess({ purpose: 'owner', modes: [mode] }); activeLegacy = client;
     let job = null, result = null;
     try {
       for (let attempt = 0; attempt < (manual ? 1 : 2); attempt++) {
         continueWork();
-        job = entry.kind === 'TOP_UP' ? await owner.ownerProof.deposit() : await owner.ownerProof.withdrawal(entry.role);
+        job = entry.kind === 'TOP_UP' ? (attempt===0&&originalTopUp ? originalTopUp : await owner.ownerProof.deposit()) : await owner.ownerProof.withdrawal(entry.role);
         const epoch = String((await runtime.time()) / 600n);
         if (epoch !== job.statement.epoch) {
           if (manual) { await requireManualEpoch(ref); throw failure('FLAT_ACCOUNT_MANUAL_EPOCH_RACED'); }
@@ -571,7 +583,7 @@ async function flatAccountAuthority(input,callbacks,durable) {
     const entries = record.data.operations.filter(entry => entry.request !== null);
     const requests = entries.map(entry => ({ requestId: entry.request.requestId, kind: entry.kind,
       state: entry.outcome === null ? 'UNRESOLVED' : 'STALE', disposition: null }));
-    try { await healthy(); } catch { return projectFlatAccountOwnerView({ asset, current: null, requests }); }
+    try { await healthy(); } catch { return projectFlatAccountOwnerView({ asset:system.deploymentProfile===FLAT_MINIMUM_PROFILE ? {...asset,minimumDepositAtomic:pool.minimumDepositAtomic} : asset, current: null, requests }); }
     const receipts = [];
     for (let index = 0; index < entries.length; index++) {
       // HTTP admission, a recover action, or journal CONFIRMED alone is never a
@@ -598,11 +610,11 @@ async function flatAccountAuthority(input,callbacks,durable) {
       current = { observed: { observedAt: Date.now(), blockNumber: view.head.number,
         blockHash: view.head.hash, timestamp: view.head.timestamp }, balances: copy(summary.balances),
       backing: { held: state.actualAssetBalance, liabilities: state.backedAmount, surplus: state.surplus, deficit: '0' } };
-      return projectFlatAccountOwnerView({ asset, current, requests });
+      return projectFlatAccountOwnerView({ asset:system.deploymentProfile===FLAT_MINIMUM_PROFILE ? {...asset,minimumDepositAtomic:pool.minimumDepositAtomic} : asset, current, requests });
     } catch {
       // No cached amounts or fabricated zeros when the owner/head/backing is
       // unavailable. Previously successful rows are also downgraded to STALE.
-      return projectFlatAccountOwnerView({ asset, current: null, requests });
+      return projectFlatAccountOwnerView({ asset:system.deploymentProfile===FLAT_MINIMUM_PROFILE ? {...asset,minimumDepositAtomic:pool.minimumDepositAtomic} : asset, current: null, requests });
     }
   }
   // Flat-specific lifecycle. No caller error, receipt copy, boolean or callback
@@ -1037,7 +1049,8 @@ async function flatAccountAuthority(input,callbacks,durable) {
         const body = immutable({ requestId: value.requestId, kind: 'GRAPH',
           ownerOperationRef: value.ownerOperationRef, assetId: asset.assetId });
         const originalReview = immutable({ version: route.graph ? 2 : 1, profile: route.graph ? 'ORIGINAL_MANUAL_FLAT_GRAPH_REVIEW_V2' : 'ORIGINAL_MANUAL_EVM_GRAPH_REVIEW_V1',
-          ...body, asset: { assetId: asset.assetId, symbol: asset.symbol, decimals: asset.decimals },
+          ...body, asset: { assetId: asset.assetId, symbol: asset.symbol, decimals: asset.decimals,
+      ...(Object.hasOwn(asset,'minimumDepositAtomic') ? {minimumDepositAtomic:normalizeMinimumDepositAtomic(asset.minimumDepositAtomic)} : {}) },
           ...route, ...terms, originalAccountLifetime: config.lifetime,
           observation: 'ORIGINAL_AUTHORIZED_TERMS_ONLY', solverOwnLiquidity: true,
           settlementEstablished: false, recovery: 'PRIVATE_ORIGINAL_CUTOFF_ONLY' });

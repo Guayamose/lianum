@@ -22,7 +22,8 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   const backend=await readFile(backendURL,'utf8'),caller=await readFile(appURL,'utf8');
   const marker='export function createOriginalDeviceExternalFlatLocalOperatorV1(input){';assert.equal(backend.split(marker).length,2);
   const constructor=backend.slice(backend.indexOf(marker)).replaceAll('export function','function');
-  const privateDirectory=backend.slice(backend.indexOf('async function physicalDirectory(path){'),backend.indexOf('async function sourceReview(){'));
+  const interfaceBind=backend.slice(backend.indexOf('function localSingleProtocolBind(origin){'),backend.indexOf('const fresh=',backend.indexOf('function localSingleProtocolBind(origin){')));
+  const privateDirectory=interfaceBind+'\n'+backend.slice(backend.indexOf('async function physicalDirectory(path){'),backend.indexOf('async function sourceReview(){'));
   const runtimeFactoryGate=deferred(),runtimeStarted=deferred(),tlsCloseGate=deferred(),tlsCloseStarted=deferred();
   const events=[];const allowances=new Map();let currentOperatorBindings=0,bindFailure=false,missingStopReceipt=false,tlsClosing=false,routerQuota=500n;
   const inertRuntime={metadata:{chainId:'31337',evmGenesis:'0x'+'01'.repeat(32)},lifecycle:[],async block(){return{number:'1'};},
@@ -69,12 +70,13 @@ test('HOST original local ERC20 entry retains startup acquisition; cancels publi
   const {create,createMulti,createAave,createUniswap,createSourceUniswap}=await new AsyncFunction(...Object.keys(ports),privateDirectory+constructor+'\nreturn{create:createOriginalDeviceExternalFlatLocalOperatorV1,createMulti:createOriginalDeviceMetaFourLocalOperatorV1,createAave:createOriginalDeviceAaveStaticLocalOperatorV1,createUniswap:createOriginalDeviceUniswapLocalOperatorV1,createSourceUniswap:input=>localOperator(input,false,false,false,false,true,true,3)};')(...Object.values(ports));
   const config={origin:'https://localhost:9447',devicePublicKey:'04'+'12'.repeat(64),depositAmountAtomic:'500',tls:{certificate:'EXPLICIT_INERT_CERT',privateKey:'EXPLICIT_INERT_TLS_KEY'}};
   const configPath=join(directory,'operator.json');await writeFile(configPath,JSON.stringify(config),{mode:0o600});
-  const fakeProcess=new EventEmitter();Object.assign(fakeProcess,{execPath:fileURLToPath(new URL('../../../.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node',appURL)),execArgv:['--max-old-space-size=384'],env:{},getuid:()=>process.getuid(),stdout:{write:value=>events.push(value.trim())},stderr:{write:value=>events.push(value.trim())}});fakeProcess.argv=[fakeProcess.execPath,fileURLToPath(appURL)];
+  const fakeProcess=new EventEmitter();Object.assign(fakeProcess,{execPath:fileURLToPath(new URL('../../../.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node',appURL)),execArgv:['--max-old-space-size=384'],env:{},getuid:()=>process.getuid(),stdout:{write:value=>events.push(...value.trim().split('\n'))},stderr:{write:value=>events.push(value.trim())}});fakeProcess.argv=[fakeProcess.execPath,fileURLToPath(appURL)];
   const start=caller.indexOf('async function run(){'),end=caller.indexOf('\nawait run();',start);assert.ok(start>=0&&end>start);
   let body=caller.slice(start,end).replaceAll('import.meta.url','appURL');
-  const originalImport="await import(new URL('../../../packages/backend/src/operations/local/device-external-flat-local-operator-v1.mjs',appURL))";assert.equal(body.split(originalImport).length,2);body=body.replace(originalImport,'inertOriginal');
+  const originalImport="await import('@lianum/backend/operations/local/device-external-flat-local-operator-v1')";assert.equal(body.split(originalImport).length,2);body=body.replace(originalImport,'inertOriginal');
   const helpers=caller.slice(caller.indexOf('async function privateConfiguration(path){'),start);
   const cliPorts={assert,constants,open,lstat,realpath:async path=>path===fileURLToPath(appURL)?path:realpath(path),dirname,join,fileURLToPath,URL,Buffer,appURL:appURL.href,process:fakeProcess,
+    createHash,X509Certificate:class InertPublicCertificate{constructor(value){assert.equal(value,'EXPLICIT_INERT_CERT');this.raw=Buffer.from('EXPLICIT_INERT_PUBLIC_CERTIFICATE_DER');}},
     inertOriginal:{originalDeviceExternalFlatLocalConfigurationPathV1:()=>configPath,createOriginalDeviceExternalFlatLocalOperatorV1:create}};
   const run=await new AsyncFunction(...Object.keys(cliPorts),helpers+body+'\nreturn run;')(...Object.values(cliPorts));
   const running=run();await runtimeStarted.promise;fakeProcess.emit('SIGTERM');runtimeFactoryGate.resolve();

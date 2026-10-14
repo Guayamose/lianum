@@ -3,7 +3,7 @@
 import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {createHash,createPublicKey,verify} from 'node:crypto';
+import {createHash,createPublicKey,verify,X509Certificate} from 'node:crypto';
 import {devicePublicKey,signDeviceMessage} from '../../../../../apps/mobile/src/custody/signing.mjs';
 const h=value=>createHash('sha256').update(value).digest('hex');
 import {join} from 'node:path';
@@ -84,6 +84,10 @@ test('HOST admitted external note effects wait for the same bounded result witho
  const account=d=>({descriptor:d,async close(){},async operate(value){operationPosts++;const c=authenticate(value.consent,value.signature,d);assert.equal(value.witness,null);if(['FUND_D26','WITHDRAW_W39'].includes(c.action))admissions++;assert.ok(gate);await gate.promise;const row=P.normalizeExternalFlatRowV1({profile:d.profile,descriptor:d,jobId:c.jobId,mode:c.action.endsWith('D26')?'deposit_balance':'withdraw_balance',stage:c.action.endsWith('D26')?'FUNDING_UNKNOWN':'WITHDRAWAL_UNKNOWN',consentFields:Object.fromEntries(['jobId','depositJobId','rootId','noteRevision','recipient','statement','path','witnessSHA256','proofSHA256','publicInputsSHA256'].map(n=>[n,c[n]])),observation:null,errorCode:null});rowsByJob.set(c.jobId,row);return row;},async status(value){P.validateExternalFlatFreshV1(value.access,timerPort.now);await gate.promise;return{descriptor:d,jobs:[...rowsByJob.values()].filter(r=>r.profile===d.profile),observed,observedAt:timerPort.now,expiresAt:timerPort.now+15000};}}),reader=account(source),target=account(share),workspace={async close(){},async outputOperate(){await gate.promise;return{observed:true};},async outputReview(){await gate.promise;return{reviewed:true};}};
  const makeGate=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return{promise,resolve};};
  const host=await createDeviceHttpHost(t,new Map([[reader,source],[target,share]]),{workspace,account:reader,targetAccount:target});
+ // OpenSSL stamps the real certificate during host setup. Start the virtual
+ // transport clock after that original birth, before issuing any permission;
+ // a slow setup must not make this fixture's clock precede validFrom.
+ timerPort.now=Math.max(timerPort.now,new X509Certificate(host.tls.certificate).validFromDate.getTime());
  const sdkURL=new URL('../../../../../apps/mobile/src/api/device-external-flat-note-api-v1.mjs',import.meta.url);
  const cryptoMock=mock.module(createRequire(sdkURL).resolve('expo-crypto'),{namedExports:{digest:async(_algorithm,bytes)=>Uint8Array.from(createHash('sha256').update(new Uint8Array(bytes)).digest()).buffer,CryptoDigestAlgorithm:{SHA256:'SHA-256'}}});
  t.after(()=>cryptoMock.restore());

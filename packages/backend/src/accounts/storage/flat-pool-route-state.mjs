@@ -50,12 +50,24 @@ export function assertPoolHistoryAdvance(previous, next) {
       assert.equal(next.capacity[name], previous.capacity[name], fail('SEQUENCE_REPLACED'));
   }
 }
+/** Receipt and authorization trees are per pool; a new domain resets those.
+ * Tags, checkpoints and revocations are shared by the hub and stay consumed.
+ * This decision is only meaningful when called with an original reader cut. */
+export function projectPoolContinuity(input) {
+  const capacity = projectPoolCapacity(input);
+  const fullHub = capacity.halted || capacity.checkpoints === 64 || capacity.globalSpentTags + capacity.globalReservedTags + 4 > 64;
+  return Object.freeze({ decision: fullHub ? 'FULL_HUB_ROTATION_REQUIRED'
+    : !capacity.topUp || capacity.authorizationLeaves === 64 || capacity.receipts === 64 || capacity.outputs > 0 && !capacity.graph ? 'POOL_SUCCESSOR_REQUIRED' : 'AVAILABLE',
+    capacity, existingRecoveryRetained: true, implicitNoteMigration: false,
+    globalGraphCapacityExtended: false });
+}
 export function assertFreshPoolSuccessor(from, to, capacity) {
   assert.notEqual(from.assetId, to.assetId, fail('SAME_ROUTE'));
   assert.notEqual(from.pool, to.pool, fail('SAME_POOL'));
   for (const name of ['economicIdentitySHA256', 'chainId', 'genesis', 'hub', 'hubDomain', 'ledgerNamespace',
     'registryCommitment', 'verifierSetCommitment', 'sourceProvenanceSHA256', 'keyLineageSHA256'])
     assert.equal(from[name], to[name], fail('SUCCESSOR_' + name.toUpperCase()));
+  if(from.profile==='ORIGINAL_FLAT_POOL_ROUTE_V3'){assert.equal(to.profile,from.profile,fail('MINIMUM_PROFILE_DOWNGRADE'));assert.ok(decimal(to.minimumDepositAtomic)>=decimal(from.minimumDepositAtomic),fail('MINIMUM_DOWNGRADE'));}
   assert.notEqual(from.domainCommitment, to.domainCommitment, fail('REUSED_DOMAIN'));
   assert.equal(capacity.fresh, true, fail('SUCCESSOR_NOT_FRESH'));
   assert.equal(capacity.topUp, true, fail('SUCCESSOR_CAPACITY'));

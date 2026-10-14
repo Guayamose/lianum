@@ -1,0 +1,27 @@
+/** Real storage tests over inert private DATA. These status labels do not
+ * authenticate a terminal chain fact, proof, opening or wallet permission. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,chmod,rm,unlink,readFile,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {Vault} from '@lianum/engine/crypto/vault';
+import {createPagedPrivateSourceArchiveV1,openPagedPrivateSourceArchiveV1,assertPagedPrivateSourceArchiveV1} from '../../../src/accounts/storage/paged-source-archive-v1.mjs';
+const hash=n=>n.toString(16).padStart(64,'0');
+const binding=(n=1)=>({sourceId:hash(n),walletRootId:hash(9),sourceRevision:String(n),pool:'0x'+'1'.repeat(40),scope:hash(2),nullifier:hash(3),graphId:'graph-'+n,phase:'FULFILLED',providerId:'provider-'+n});
+async function setup(t){const directory=await mkdtemp(join(tmpdir(),'lianum-source-archive-host-'));await chmod(directory,0o700);const input={directory,password:'p'.repeat(64),principal:hash(4),genesis:hash(5)},archive=await createPagedPrivateSourceArchiveV1(input),handles=[archive];t.after(async()=>{for(const handle of handles)await handle.close();await rm(directory,{recursive:true,force:true});});return {input,archive,handles};}
+test('immutable chunked snapshots preserve jobs, old route/NF/root and provider-by-graph across reopen',async t=>{
+ const {input,archive,handles}=await setup(t),snapshot={authority:{jobs:[{id:'d26-original',stage:'CONFIRMED',nullifier:hash(3)}],graph:{id:'graph-1',phase:'FULFILLED',originalRoute:{pool:binding().pool,scope:hash(2)},root:hash(6)}},providerByGraph:{'graph-1':{providerId:'provider-1',originalDispatch:'UNKNOWN',quote:'x'.repeat(700000)}}};assertPagedPrivateSourceArchiveV1(archive,input.principal,input.genesis);await archive.append(binding(),snapshot);assert.deepEqual(await archive.read(hash(1)),snapshot);snapshot.authority.jobs[0].stage='MUTATED';assert.equal((await archive.read(hash(1))).authority.jobs[0].stage,'CONFIRMED');await archive.close();const opened=await openPagedPrivateSourceArchiveV1(input);handles.push(opened);assert.deepEqual(await opened.read(hash(1)),{...snapshot,authority:{...snapshot.authority,jobs:[{id:'d26-original',stage:'CONFIRMED',nullifier:hash(3)}]}});const two={authority:{jobs:[{id:'new-d26',stage:'PROVED'}]},providerByGraph:{'graph-2':{providerId:'provider-2'}}};await opened.append(binding(2),two);assert.equal((await opened.read(hash(1))).providerByGraph['graph-1'].originalDispatch,'UNKNOWN');assert.deepEqual(await opened.read(hash(2)),two);assert.equal((await opened.status()).entries.length,2);
+});
+test('source, graph and wallet revision reuse never replaces the original snapshot',async t=>{
+ const {archive}=await setup(t);await archive.append(binding(),{original:true});await assert.rejects(archive.append(binding(),{original:false}),/PAGED_SOURCE_ARCHIVE_REUSE/);await assert.rejects(archive.append({...binding(2),graphId:'graph-1'},{replaced:true}),/PAGED_SOURCE_ARCHIVE_REUSE/);await assert.rejects(archive.append({...binding(2),sourceRevision:'1'},{replaced:true}),/PAGED_SOURCE_ARCHIVE_REVISION_ORDER/);assert.deepEqual(await archive.read(hash(1)),{original:true});
+});
+test('missing archive or immutable part never reconstructs an empty history',async t=>{
+ const {input,archive,handles}=await setup(t);await archive.append(binding(),{original:true});await unlink(join(input.directory,'source-'+hash(1)+'-0.vault'));await assert.rejects(archive.read(hash(1)),{code:'ENOENT'});await archive.close();await assert.rejects(openPagedPrivateSourceArchiveV1(input),{code:'ENOENT'});await unlink(join(input.directory,'source-archive.vault'));await assert.rejects(openPagedPrivateSourceArchiveV1(input),{code:'ENOENT'});
+});
+test('partial part creation remains authenticated pending and blocks every new source',async t=>{
+ const {input,archive,handles}=await setup(t);const collision=join(input.directory,'source-'+hash(1)+'-0.vault');await new Vault(collision).create({inertCollision:true},input.password);await assert.rejects(archive.append(binding(),{original:true}),{code:'VAULT_EXISTS'});assert.equal((await archive.status()).pending.binding.sourceId,hash(1));await assert.rejects(archive.append(binding(2),{newSource:true}),/PAGED_SOURCE_ARCHIVE_UNCERTAIN/);await archive.close();const opened=await openPagedPrivateSourceArchiveV1(input);handles.push(opened);await assert.rejects(opened.reconcilePending());assert.equal((await opened.status()).pending.binding.sourceId,hash(1));await assert.rejects(opened.append(binding(2),{newSource:true}),/PAGED_SOURCE_ARCHIVE_UNCERTAIN/);
+});
+test('original store lease, principal/genesis and current encrypted index are checked',async t=>{
+ const {input,archive}=await setup(t);await assert.rejects(openPagedPrivateSourceArchiveV1(input),/PAGED_SOURCE_ARCHIVE_OWNER/);assert.throws(()=>assertPagedPrivateSourceArchiveV1({},input.principal,input.genesis),/PAGED_SOURCE_ARCHIVE_ORIGINAL_STORE/);await archive.close();await assert.rejects(openPagedPrivateSourceArchiveV1({...input,principal:hash(8)}),/PAGED_SOURCE_ARCHIVE_PRINCIPAL/);await assert.rejects(openPagedPrivateSourceArchiveV1({...input,genesis:hash(8)}),/PAGED_SOURCE_ARCHIVE_GENESIS/);const bytes=await readFile(join(input.directory,'source-archive.vault'));await writeFile(join(input.directory,'source-archive.vault'),bytes.subarray(0,bytes.length-1));await assert.rejects(openPagedPrivateSourceArchiveV1(input));
+});

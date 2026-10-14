@@ -7,8 +7,10 @@ import { assertOwnedFlatAccountAuthority } from './flat-account-authority.mjs';
 import { createFlatSystemStateReader } from '../../execution/account/reconciliation/flat-system-state.mjs';
 import { exactRecord } from '@lianum/components/encoding/commitments';
 import { genericAccountIdentity, immutable } from '@lianum/engine/accounts/journal';
-import { poolRouteDigest, poolEconomicIdentity, projectPoolCapacity, assertPoolHistoryAdvance,
+import { poolRouteDigest, poolEconomicIdentity, projectPoolCapacity, projectPoolContinuity, assertPoolHistoryAdvance,
   assertFreshPoolSuccessor } from '../storage/flat-pool-route-state.mjs';
+import {FLAT_MINIMUM_PROFILE} from '../../operations/deployments/system/append-only-build-v3.mjs';
+import {normalizeMinimumDepositAtomic} from '../../chains/shared/contracts/minimum-deposit-v3.mjs';
 const owned = new WeakMap();
 const bare = value => value.slice(2);
 export function assertOwnedFlatPoolAdmissionPolicy(policy, expected) {
@@ -40,8 +42,9 @@ export async function createFlatPoolAdmissionPolicy(input) {
     assert.equal(asset.pool, bare(pool.address), 'FLAT_POOL_ROUTES_POOL');
     assert.equal(asset.assetIdentity, bare(pool.assetIdentity), 'FLAT_POOL_ROUTES_ASSET');
     assert.ok(routeOrder.includes(asset.assetId) && !routes.has(asset.assetId), 'FLAT_POOL_ROUTES_ORDER');
-    const identity = immutable({ version: 1, profile: system.deploymentProfile === 'LIANUM_FLAT_APPEND_ONLY_POOLS_V2' ? 'ORIGINAL_FLAT_POOL_ROUTE_V2' : 'ORIGINAL_FLAT_POOL_ROUTE_V1',
-      ...(system.deploymentProfile === 'LIANUM_FLAT_APPEND_ONLY_POOLS_V2' ? {
+    const identity = immutable({ version: 1, profile: system.deploymentProfile===FLAT_MINIMUM_PROFILE ? 'ORIGINAL_FLAT_POOL_ROUTE_V3' : system.deploymentProfile === 'LIANUM_FLAT_APPEND_ONLY_POOLS_V2' ? 'ORIGINAL_FLAT_POOL_ROUTE_V2' : 'ORIGINAL_FLAT_POOL_ROUTE_V1',
+      ...(system.deploymentProfile===FLAT_MINIMUM_PROFILE ? {minimumDepositAtomic:normalizeMinimumDepositAtomic(pool.minimumDepositAtomic)} : {}),
+      ...([FLAT_MINIMUM_PROFILE,'LIANUM_FLAT_APPEND_ONLY_POOLS_V2'].includes(system.deploymentProfile) ? {
         registryProfile: system.deploymentProfile,
         predecessorPool: pool.registrationPin?.predecessor.slice(2) ?? null,
         sourceManifestSHA256: system.provenance.sourceManifestSHA256,
@@ -110,8 +113,27 @@ export async function createFlatPoolAdmissionPolicy(input) {
     if (original) assert.deepEqual(original.request, request, 'FLAT_POOL_ROUTES_REQUEST_REBOUND');
     return original;
   }
+  async function rotateOriginal(from, to, before, next) {
+    assert.equal(current.get(from.identity.economicIdentitySHA256), from.identity.assetId, 'FLAT_POOL_ROUTES_CURRENT_CHANGED');
+    assert.ok(routeOrder.indexOf(to.identity.assetId) > routeOrder.indexOf(from.identity.assetId), 'FLAT_POOL_ROUTES_FORWARD_ONLY');
+    assert.ok(![...operations.values()].some(value => value.request.assetId === to.identity.assetId), 'FLAT_POOL_ROUTES_SUCCESSOR_ALREADY_BOUND');
+    const status = await to.account.privateStatus();
+    assert.equal(status.operations.length, 0, 'FLAT_POOL_ROUTES_SUCCESSOR_OWNER_USED');
+    assert.deepEqual(before.view.head, next.view.head, 'FLAT_POOL_ROUTES_INCOHERENT_HEAD');
+    await from.reader.assertCurrent(before.view); await to.reader.assertCurrent(next.view);
+    assertFreshPoolSuccessor(from.identity, to.identity, next.capacity);
+    const record = immutable({ version: 1, previous: rotations.length ? poolRouteDigest(rotations.at(-1)) : null,
+      from: from.identity, to: to.identity, observed: next.observation,
+      retainedOriginal: before.observation, sequence: rotations.length + 1 });
+    rotations.push(record); current.set(from.identity.economicIdentitySHA256, to.identity.assetId); return record;
+  }
   const policy = Object.freeze({
     identityForAsset: assetId => routeFor(assetId).identity,
+    async capacityDecision({ assetId }) { return guarded(async () => {
+      const route = routeFor(assetId), checked = await read(route);
+      return immutable({ route: route.identity, observed: checked.observation,
+        ...projectPoolContinuity(checked.capacity) });
+    }); },
     async verifyFreshGeneration() { return guarded(async () => {
       const checked = [];
       for (const route of routes.values()) {
@@ -127,28 +149,31 @@ export async function createFlatPoolAdmissionPolicy(input) {
       }
       return immutable(checked.map(({ route, observed }) => ({ route, observed })));
     }); },
-    async selectTopUp({ assetId }) { return guarded(async () => {
-      const anchor = routeFor(assetId), selected = routeFor(current.get(anchor.identity.economicIdentitySHA256));
-      const observed = await read(selected);
-      assert.equal(observed.capacity.topUp, true, 'FLAT_POOL_ROUTES_TOP_UP_CAPACITY');
+    async selectTopUp({ assetId, allowRotation = true }) { return guarded(async () => {
+      assert.equal(typeof allowRotation, 'boolean', 'FLAT_POOL_ROUTES_SELECTION_ARGUMENTS');
+      const anchor = routeFor(assetId); let selected = routeFor(current.get(anchor.identity.economicIdentitySHA256));
+      let observed = await read(selected);
+      const decision = projectPoolContinuity(observed.capacity).decision;
+      assert.ok(decision !== 'FULL_HUB_ROTATION_REQUIRED', 'FLAT_POOL_ROUTES_FULL_HUB_ROTATION_REQUIRED');
+      if (decision === 'POOL_SUCCESSOR_REQUIRED' && allowRotation) {
+        const candidates = routeOrder.slice(routeOrder.indexOf(selected.identity.assetId) + 1)
+          .map(routeFor).filter(route => route.identity.economicIdentitySHA256 === anchor.identity.economicIdentitySHA256);
+        for (const candidate of candidates) {
+          const next = await read(candidate);
+          if (!next.capacity.fresh || !next.capacity.topUp) continue;
+          await rotateOriginal(selected, candidate, observed, next); selected = candidate; observed = next; break;
+        }
+      }
+      assert.equal(projectPoolContinuity(observed.capacity).decision,'AVAILABLE','FLAT_POOL_ROUTES_POOL_SUCCESSOR_REQUIRED');
+      assert.equal(observed.capacity.topUp, true, 'FLAT_POOL_ROUTES_POOL_SUCCESSOR_REQUIRED');
       return immutable({ assetId: selected.identity.assetId, route: selected.identity,
         observed: observed.observation, keeperRestart: false });
     }); },
     async rotateFreshAdmissions({ fromAssetId, toAssetId }) { return guarded(async () => {
       const from = routeFor(fromAssetId), to = routeFor(toAssetId);
-      assert.equal(current.get(from.identity.economicIdentitySHA256), fromAssetId, 'FLAT_POOL_ROUTES_CURRENT_CHANGED');
-      assert.ok(routeOrder.indexOf(toAssetId) > routeOrder.indexOf(fromAssetId), 'FLAT_POOL_ROUTES_FORWARD_ONLY');
-      assert.ok(![...operations.values()].some(value => value.request.assetId === toAssetId), 'FLAT_POOL_ROUTES_SUCCESSOR_ALREADY_BOUND');
-      const status = await to.account.privateStatus();
-      assert.equal(status.operations.length, 0, 'FLAT_POOL_ROUTES_SUCCESSOR_OWNER_USED');
       const before = await read(from), next = await read(to);
-      assert.deepEqual(before.view.head, next.view.head, 'FLAT_POOL_ROUTES_INCOHERENT_HEAD');
-      await from.reader.assertCurrent(before.view); await to.reader.assertCurrent(next.view);
-      assertFreshPoolSuccessor(from.identity, to.identity, next.capacity);
-      const record = immutable({ version: 1, previous: rotations.length ? poolRouteDigest(rotations.at(-1)) : null,
-        from: from.identity, to: to.identity, observed: next.observation,
-        retainedOriginal: before.observation, sequence: rotations.length + 1 });
-      rotations.push(record); current.set(from.identity.economicIdentitySHA256, toAssetId); return record;
+      assert.ok(projectPoolContinuity(next.capacity).decision !== 'FULL_HUB_ROTATION_REQUIRED', 'FLAT_POOL_ROUTES_FULL_HUB_ROTATION_REQUIRED');
+      return rotateOriginal(from, to, before, next);
     }); },
     // Portfolio calls these at its original boundary. EXIT/reconcile/recover and
     // repeated already-started requests never consult a preferred fresh route.
@@ -158,7 +183,10 @@ export async function createFlatPoolAdmissionPolicy(input) {
         const prior = operation(request); if (prior) return;
         const route = routeFor(request.assetId);
         assert.equal(current.get(route.identity.economicIdentitySHA256), request.assetId, 'FLAT_POOL_ROUTES_FRESH_ROUTE_CHANGED');
-        const { capacity } = await read(route); assert.equal(capacity.topUp, true, 'FLAT_POOL_ROUTES_TOP_UP_CAPACITY');
+        const { capacity } = await read(route);
+        assert.ok(projectPoolContinuity(capacity).decision !== 'FULL_HUB_ROTATION_REQUIRED', 'FLAT_POOL_ROUTES_FULL_HUB_ROTATION_REQUIRED');
+        assert.equal(projectPoolContinuity(capacity).decision,'AVAILABLE','FLAT_POOL_ROUTES_POOL_SUCCESSOR_REQUIRED');
+        assert.equal(capacity.topUp, true, 'FLAT_POOL_ROUTES_TOP_UP_CAPACITY');
         operations.set(request.ownerOperationRef, { request: immutable(request), started: false });
       });
     },
@@ -169,6 +197,7 @@ export async function createFlatPoolAdmissionPolicy(input) {
       if (original.started) return;
       return guarded(async () => {
         const { capacity } = await read(routeFor(request.assetId));
+        assert.equal(projectPoolContinuity(capacity).decision,'AVAILABLE','FLAT_POOL_ROUTES_POOL_SUCCESSOR_REQUIRED');
         assert.equal(capacity.topUp, true, 'FLAT_POOL_ROUTES_TOP_UP_CAPACITY');
         original.started = true;
       });
