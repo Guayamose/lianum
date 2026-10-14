@@ -28,7 +28,8 @@ test('Paged wire epochs stay real while owner and graph frames retain monotonic 
  const permissionBytes=C.devicePagedGraphPermissionMessageV3(graphConsent);
  assert.deepEqual(C.devicePagedGraphPermissionMessageV3(C.validateDevicePagedGraphConsentFreshV3(graphConsent)),permissionBytes,'diagnostic classification never changes the signed frame');
  assert.throws(()=>C.validateDevicePagedGraphConsentFreshV3(graphConsent,NaN),consentCode('MOBILE_PAGED_GRAPH_CONSENT_CLOCK_INVALID'));
- assert.throws(()=>C.validateDevicePagedGraphConsentFreshV3(graphConsent,wall-1001),consentCode('MOBILE_PAGED_GRAPH_CONSENT_FUTURE'));
+ assert.equal(C.validateDevicePagedGraphConsentFreshV3(graphConsent,wall-1001).expiresAt,graphConsent.expiresAt,'an already registered exact permission retains its elapsed deadline through wall rollback');
+ assert.throws(()=>C.validateDevicePagedGraphConsentFreshV3({...graphConsent,challengeId:'clock-new-future-frame'},wall-1001),consentCode('MOBILE_PAGED_GRAPH_CONSENT_FUTURE'));
  assert.throws(()=>C.validateDevicePagedGraphConsentFreshV3(graphConsent,graphConsent.expiresAt),consentCode('MOBILE_PAGED_GRAPH_CONSENT_EXPIRED'));
  assert.throws(()=>C.validateDevicePagedGraphConsentFreshV3({...graphConsent,descriptor:{...descriptor,deadlineMs:graphConsent.expiresAt}},graphConsent.expiresAt),consentCode('MOBILE_PAGED_GRAPH_CONSENT_DEADLINE'));
  const exactWindow={...graphConsent,challengeId:'clock-challenge-boundary',nonce:hex('1'),expiresAt:wall+15000};

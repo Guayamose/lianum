@@ -1,3 +1,4 @@
+import type {DevicePagedProviderQuoteV4} from './device-paged-provider-quote-v4.mjs';
 export const DEVICE_PAGED_ECONOMIC_VIEW_V3:'DEVICE_PAGED_ECONOMIC_VIEW_V3';
 export type DevicePagedEconomicProviderV3=Readonly<{publicKey:string;signerIdentity:string;address:string}>;
 export type DevicePagedEconomicRequestV3=Readonly<{outputs:readonly Readonly<{id:string;nullifier:string}>[]}>;
@@ -6,7 +7,7 @@ export type DevicePagedEconomicConservationV3=Readonly<{status:'UNKNOWN';balance
 export type DevicePagedEconomicNativeV3=Readonly<{family:'EVM'|'BTC'|'SOL'|'UNISWAP';chainDomain:string;genesis:string;asset:string;amount:string;source:string;destination:string;nativeId:string;status:'OBSERVED'|'UNKNOWN'|'ADVERSE';finalityKind:'1'|'2'|'3';confirmations:string|null;fee:DevicePagedEconomicFeeV3;conservation:DevicePagedEconomicConservationV3}>;
 /** The beneficiary controls the provider receipt-signing point. Payout values
  * are preparation declarations; the original Vault must compare its note. */
-export type DevicePagedEconomicSettlementRowV3=Readonly<{profile:'ORIGINAL_PAGED_NATIVE_ECONOMIC_SETTLEMENT_V3';classification:'LOCAL_SYNTHETIC_COMMON_OPERATOR_3_OF_4';descriptor:any;providerIdentity:string;checkpoint:Readonly<{profile:'ORIGINAL_PAGED_NATIVE_PROVIDER_CHECKPOINT_V3';providerIdentity:string;configurationSHA256:string;revision:number;dataSHA256:string}>;id:string;authorizationRoot:string;actionCommitment:string;signerIdentity:string;payoutCommitment:string;payoutAmount:string;beneficiary:Readonly<{chainId:string;genesis:string;assetIdentity:string;address:string;publicKey:string}>;native:DevicePagedEconomicNativeV3}>;
+export type DevicePagedEconomicSettlementRowV3=Readonly<{profile:'ORIGINAL_PAGED_NATIVE_ECONOMIC_SETTLEMENT_V3';classification:'LOCAL_SYNTHETIC_COMMON_OPERATOR_3_OF_4'|'PAGED_PUBLIC_TESTNET_RPC_PROVIDER_V1';descriptor:any;providerIdentity:string;checkpoint:Readonly<{profile:'ORIGINAL_PAGED_NATIVE_PROVIDER_CHECKPOINT_V3';providerIdentity:string;configurationSHA256:string;revision:number;dataSHA256:string}>;id:string;authorizationRoot:string;actionCommitment:string;signerIdentity:string;payoutCommitment:string;payoutAmount:string;beneficiary:Readonly<{chainId:string;genesis:string;assetIdentity:string;address:string;publicKey:string}>;native:DevicePagedEconomicNativeV3;quote?:DevicePagedProviderQuoteV4|null}>;
 /** Public nullifiers came from the OWNER request. This DATA is not evidence
  * that an arbitrary nullifier belongs to a commitment; private Vault joins it. */
 export type DevicePagedEconomicOutputV3=Readonly<{role:'payout';id:string;amount:string;commitment:string;nullifier:string;withdrawn:boolean}>;

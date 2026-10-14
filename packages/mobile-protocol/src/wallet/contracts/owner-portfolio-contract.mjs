@@ -39,7 +39,8 @@ function observation(value) {
 function account(value) {
   record(value, ['version', 'status', 'asset', 'observed', 'balances', 'backing', 'requests']);
   need(value.version === 1 && ['LIVE', 'STALE', 'UNAVAILABLE'].includes(value.status));
-  record(value.asset, ['assetId', 'symbol', 'decimals']); digest(value.asset.assetId);
+  record(value.asset, ['assetId', 'symbol', 'decimals'],['minimumDepositAtomic']); digest(value.asset.assetId);
+  if(Object.hasOwn(value.asset,'minimumDepositAtomic'))need(matches(value.asset.minimumDepositAtomic,/^[1-9][0-9]{0,19}$/)&&BigInt(value.asset.minimumDepositAtomic)<1n<<64n);
   need(matches(value.asset.symbol, /^[A-Z0-9]{2,12}$/) && Number.isInteger(value.asset.decimals)
     && value.asset.decimals >= 0 && value.asset.decimals <= 18);
   need(Array.isArray(value.requests) && value.requests.length <= 128);
@@ -156,7 +157,21 @@ function catalogue(value) {
   }
   if (Object.hasOwn(value, 'freshAdmissions')) {
     const admission = value.freshAdmissions;
-    record(admission, ['version', 'fenced', 'routes']); need(admission.version === 1 && typeof admission.fenced === 'boolean');
+    record(admission, ['version', 'fenced', 'routes'], ['budget']); need(admission.version === 1 && typeof admission.fenced === 'boolean');
+    if (Object.hasOwn(admission, 'budget')) {
+      const budget = admission.budget;
+      record(budget, ['profile', 'maximumFreshAdmissions', 'maximumGenerations', 'consumed', 'remaining',
+        'generations', 'remainingGenerations', 'nonrefundable', 'monetaryFee', 'globalSybilProtection']);
+      need(budget.profile === 'NONREFUNDABLE_ORIGINAL_CATALOGUE_ADMISSION_V1'
+        && budget.maximumFreshAdmissions === 64 && budget.maximumGenerations === 8
+        && Number.isSafeInteger(budget.consumed) && budget.consumed >= 0 && budget.consumed <= 128
+        && !Object.is(budget.consumed, -0)
+        && budget.remaining === Math.max(0, budget.maximumFreshAdmissions - budget.consumed)
+        && budget.generations === value.generations.length
+        && budget.remainingGenerations === budget.maximumGenerations - budget.generations
+        && budget.nonrefundable === true && budget.monetaryFee === null && budget.globalSybilProtection === false);
+      need(budget.remaining > 0 || admission.fenced === true);
+    }
     boundedArray(admission.routes, 1, 8);
     const selected = new Set();
     for (const route of admission.routes) {

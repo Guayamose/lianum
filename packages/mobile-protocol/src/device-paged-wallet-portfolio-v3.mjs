@@ -1,5 +1,6 @@
 /** Encrypted wallet observations are DATA, never a spend authorization. */
 import * as P from './device-paged-owner-v3.mjs';
+import {DEVICE_PAGED_PAYMENT_LIMIT_V3} from './device-paged-payment-list-v3.mjs';
 
 export const DEVICE_PAGED_WALLET_PORTFOLIO_V3='DEVICE_PAGED_WALLET_PORTFOLIO_V3';
 const need=value=>{if(!value)throw Error('MOBILE_PAGED_WALLET_PORTFOLIO');};
@@ -24,7 +25,7 @@ function output(raw,observed=false){
  return value;
 }
 function outputs(raw,observed=false){
- need(Array.isArray(raw)&&raw.length>=1&&raw.length<=67);
+ need(Array.isArray(raw)&&raw.length>=1&&raw.length<=DEVICE_PAGED_PAYMENT_LIMIT_V3+3);
  const ids=new Set(),cms=new Set(),nfs=new Set();
  return raw.map(rawOutput=>{const value=output(rawOutput,observed),id=value.role+':'+(value.id??'');need(!ids.has(id)&&!cms.has(value.commitment)&&!nfs.has(value.nullifier));ids.add(id);cms.add(value.commitment);nfs.add(value.nullifier);return value;});
 }
@@ -45,5 +46,5 @@ export function normalizeDevicePagedWalletPortfolioV3(raw,rawDescriptor){
  value.ledger=ledger;value.outputs=outputs(value.outputs,true);
  if(value.pending)need(value.outputs.every(row=>row.state==='UNKNOWN'));
  need(value.outputs.filter(row=>row.state==='LIVE').reduce((sum,row)=>sum+uint(row.available),0n)+(ledger.reservedAmount===null?0n:uint(ledger.reservedAmount))<=uint(ledger.backedAmount));
- need(new TextEncoder().encode(JSON.stringify(value)).length<=128*1024);return freeze(value);
+ need(new TextEncoder().encode(JSON.stringify(value)).length<=512*1024);return freeze(value);
 }

@@ -1,0 +1,15 @@
+import type {DevicePagedBudgetAssetDataV4} from './device-paged-budget-asset-v4.mjs';
+import type {DevicePagedDescriptorV3} from './device-paged-owner-v3.mjs';
+export const DEVICE_PAGED_PROVIDER_QUOTE_V4:'DEVICE_PAGED_PROVIDER_QUOTE_V4';
+export type DevicePagedProviderQuoteTermsV4={profile:typeof DEVICE_PAGED_PROVIDER_QUOTE_V4;classification:'LOCAL_FIXED_PROVIDER_OFFER_NOT_MARKET_PRICE'|'PUBLIC_TESTNET_FIXED_PROVIDER_OFFER_NOT_MARKET_PRICE';descriptor:DevicePagedDescriptorV3;providerIdentity:string;providerPublicKey:string;signerIdentity:string;graphId:string;rootId:string;revision:number;budget:string;budgetAsset?:DevicePagedBudgetAssetDataV4;fundingOrigin?:'OPERATOR_TESTNET';preparationId:string;id:string;ordinal:string;dispatchId:string;actionSalt:string;deliver:{networkId?:'ethereum-sepolia'|'bitcoin-testnet'|'solana-devnet';family:'EVM'|'BTC'|'SOL'|'UNISWAP';genesis:string;assetIdentity:string;chainDomain:string;unit:'wei'|'satoshi'|'lamport'|'atomic';decimals:number;amountAtomic:string;recipient:string;sourceCommitment:string;destinationCommitment:string;receiptKeyCommitment:string;receiptRho:string};payout:{genesis:string;chainId:string;assetIdentity:string;unit:'atomic';amountAtomic:string;commitment:string;beneficiary:string};feeCeiling:{assetIdentity:string;unit:'wei'|'satoshi'|'lamport';amountAtomic:string;bearer:'PROVIDER'};inputCeiling:{assetIdentity:string;unit:'atomic';amountAtomic:string}|null;issuedAt:string;expiresAt:string;policy:Readonly<{payout:'FULL_ONLY';full:'ORIGINAL_FULFILL_THEN_OWNER_WITHDRAWAL';partial:'NO_PAYOUT_RESERVED_BUDGET_REFUND_AFTER_ORIGINAL_CUTOFF';timeout:'NO_PAYOUT_RESERVED_BUDGET_REFUND_AFTER_ORIGINAL_CUTOFF';irreversibleDelivery:'PROVIDER_BEAR_DELIVERED_ASSETS_AND_FEES';atomicity:'NO_CROSS_CHAIN_ROLLBACK';marketFairness:'NOT_ESTABLISHED'}>};
+export type DevicePagedProviderQuoteV4=Readonly<{terms:Readonly<DevicePagedProviderQuoteTermsV4>;termsSHA256:string;actionCommitment:string;signature:string}>;
+export function devicePagedProviderQuotePolicyV4():Readonly<DevicePagedProviderQuoteTermsV4['policy']>;
+export function normalizeDevicePagedProviderQuoteTermsV4(raw:unknown):Readonly<DevicePagedProviderQuoteTermsV4>;
+export function devicePagedProviderQuoteTermsHashV4(raw:unknown):string;
+export function devicePagedProviderQuoteRiskSaltV4(rawTerms:unknown):string;
+export function devicePagedProviderQuoteDeliveryRiskV4(rawTerms:unknown):string;
+export function devicePagedProviderQuoteActionCommitmentV4(rawAction:unknown):string;
+export function assertDevicePagedProviderQuoteActionV4(rawQuote:unknown,rawAction:unknown):DevicePagedProviderQuoteV4;
+export function normalizeDevicePagedProviderQuoteV4(raw:unknown):DevicePagedProviderQuoteV4;
+export function devicePagedProviderQuoteFrameV4(termsSHA256:string,actionCommitment:string):Uint8Array;
+export function assertDevicePagedProviderQuoteBindingV4(raw:unknown,expected:{descriptor:DevicePagedDescriptorV3;graphId:string;rootId:string;revision:number;budget:string;id:string;ordinal:string;actionCommitment:string;recipient:string;payoutCommitment:string;payoutAmount:string},now:string):DevicePagedProviderQuoteV4;

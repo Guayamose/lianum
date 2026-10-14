@@ -3,11 +3,12 @@
  * This module has no keys, RPC, pricing or authority to create another payout. */
 import * as P from './device-paged-owner-v3.mjs';
 import * as C from './device-paged-graph-v3.mjs';
+import {DEVICE_PAGED_PAYMENT_LIMIT_V3} from './device-paged-payment-list-v3.mjs';
 export const DEVICE_PAGED_PAYOUT_SETTLEMENT_V3='DEVICE_PAGED_OWNER_PAYOUT_SETTLEMENT_V3';
 const need=(value,code='MOBILE_PAGED_PAYOUT_SETTLEMENT')=>{if(!value)throw Error(code);};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const live=signal=>{if(signal?.aborted)throw Error('MOBILE_PAGED_CANCELLED');};
-function list(value,min=0){need(Array.isArray(value)&&Object.getPrototypeOf(value)===Array.prototype&&value.length>=min&&value.length<=64&&Reflect.ownKeys(value).length===value.length+1);for(let i=0;i<value.length;i++)need(Object.hasOwn(Object.getOwnPropertyDescriptor(value,String(i))??{},'value'));return value;}
+function list(value,min=0,max=DEVICE_PAGED_PAYMENT_LIMIT_V3){need(Array.isArray(value)&&Object.getPrototypeOf(value)===Array.prototype&&value.length>=min&&value.length<=max&&Reflect.ownKeys(value).length===value.length+1);for(let i=0;i<value.length;i++)need(Object.hasOwn(Object.getOwnPropertyDescriptor(value,String(i))??{},'value'));return value;}
 function uint(value,bits=256){need(typeof value==='string'&&/^(0|[1-9][0-9]{0,77})$/.test(value));const number=BigInt(value);need(number<(1n<<BigInt(bits)));return number;}
 function hash(value){P.pagedOwnerHexV3(value);need(value!=='0'.repeat(64));return value;}
 export function normalizeDevicePagedPayoutSettlementV3(raw){
@@ -20,7 +21,7 @@ function readState(raw,plan){
  need(same(status.descriptor,plan.descriptor)&&status.graphId===plan.graphId&&status.authorizationRoot===plan.authorizationRoot,'MOBILE_PAGED_PAYOUT_SCOPE');need(ledger.blockHash===status.blockHash&&ledger.blockNumber===status.blockNumber,'MOBILE_PAGED_PAYOUT_HEAD');for(const key of ['heldAmount','backedAmount','beneficiaryBalance'])uint(ledger[key]);need(uint(ledger.heldAmount)>=uint(ledger.backedAmount),'MOBILE_PAGED_PAYOUT_CONSERVATION');
  const seen=new Set();ledger.spentNullifiers=list(ledger.spentNullifiers).map(raw=>{const row=P.pagedOwnerExactV3(raw,['nullifier','spent']);hash(row.nullifier);need(typeof row.spent==='boolean'&&!seen.has(row.nullifier)&&plan.payouts.some(p=>p.nullifier===row.nullifier));seen.add(row.nullifier);return row;});need(seen.size===plan.payouts.length);return{status,ledger};
 }
-function readOutputs(raw,plan){return list(raw).map(value=>{const row=P.pagedOwnerExactV3(value,['role','id','amount','nullifier','withdrawn']);need(['change','payout','recovery'].includes(row.role)&&typeof row.withdrawn==='boolean');uint(row.amount);hash(row.nullifier);if(row.role==='payout'){const original=plan.payouts.find(p=>p.id===row.id);need(original&&original.amount===row.amount&&original.nullifier===row.nullifier,'MOBILE_PAGED_PAYOUT_SCOPE');}return row;});}
+function readOutputs(raw,plan){return list(raw,0,DEVICE_PAGED_PAYMENT_LIMIT_V3+3).map(value=>{const row=P.pagedOwnerExactV3(value,['role','id','amount','nullifier','withdrawn']);need(['change','payout','recovery'].includes(row.role)&&typeof row.withdrawn==='boolean');uint(row.amount);hash(row.nullifier);if(row.role==='payout'){const original=plan.payouts.find(p=>p.id===row.id);need(original&&original.amount===row.amount&&original.nullifier===row.nullifier,'MOBILE_PAGED_PAYOUT_SCOPE');}return row;});}
 function matchingProof(job,row,plan){if(!job||job.mode!=='withdraw'||job.stage!=='PROVED')return false;const inputs=job.publicInputs;need(P.devicePagedWordsHexV3(inputs,0)===plan.descriptor.scope&&P.devicePagedWordsHexV3(inputs,8)===plan.descriptor.policy&&P.devicePagedWordsHexV3(inputs,25)===row.nullifier&&inputs[33]===row.amount&&'0x'+P.devicePagedWordsHexV3(inputs,34,5)===plan.beneficiary,'MOBILE_PAGED_PAYOUT_PROOF_SCOPE');return true;}
 /** Required approval is for the exact immutable OWNER plan. It issues no
  * consent: each command port must challenge/sign/accept through the original

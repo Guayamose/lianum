@@ -72,6 +72,38 @@
     "./device/paged-wallet-portfolio-v3": {
       "types": "./src/device-paged-wallet-portfolio-v3.d.mts",
       "default": "./src/device-paged-wallet-portfolio-v3.mjs"
+    },
+    "./device/paged-payment-list-v3": {
+      "types": "./src/device-paged-payment-list-v3.d.mts",
+      "default": "./src/device-paged-payment-list-v3.mjs"
+    },
+    "./device/paged-provider-quote-v4": {
+      "types": "./src/device-paged-provider-quote-v4.d.mts",
+      "default": "./src/device-paged-provider-quote-v4.mjs"
+    },
+    "./device/paged-economic-operation-v4": {
+      "types": "./src/device-paged-economic-operation-v4.d.mts",
+      "default": "./src/device-paged-economic-operation-v4.mjs"
+    },
+    "./device/paged-automation-v4": {
+      "types": "./src/device-paged-automation-v4.d.mts",
+      "default": "./src/device-paged-automation-v4.mjs"
+    },
+    "./device/paged-source-continuation-v4": {
+      "types": "./src/device-paged-source-continuation-v4.d.mts",
+      "default": "./src/device-paged-source-continuation-v4.mjs"
+    },
+    "./device/paged-channel-lease-v4": {
+      "types": "./src/device-paged-channel-lease-v4.d.mts",
+      "default": "./src/device-paged-channel-lease-v4.mjs"
+    },
+    "./device/paged-source-renewal-v4": {
+      "types": "./src/device-paged-source-renewal-v4.d.mts",
+      "default": "./src/device-paged-source-renewal-v4.mjs"
+    },
+    "./device/paged-budget-asset-v4": {
+      "types": "./src/device-paged-budget-asset-v4.d.mts",
+      "default": "./src/device-paged-budget-asset-v4.mjs"
     }
   },
   "types": "./src/authorization.d.mts",

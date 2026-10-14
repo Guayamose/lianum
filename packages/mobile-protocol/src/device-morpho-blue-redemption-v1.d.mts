@@ -1,4 +1,5 @@
 import type {ExternalFlatDescriptor,ExternalFlatObserved} from './device-external-flat-note-v1.mjs';
+export const DEVICE_PRIVATE_REDEMPTION_PERMISSION_MILLISECONDS_V1:15000;
 export const DEVICE_MORPHO_BLUE_REDEMPTION_V1:'LIANUM_DEVICE_MORPHO_BLUE_REDEMPTION_V1';
 export type DeviceMorphoBlueAccessV1=Readonly<{profile:typeof DEVICE_MORPHO_BLUE_REDEMPTION_V1;action:'ACCESS_BLUE';descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number}>;
 export type DeviceMorphoBlueConsentV1=Readonly<{profile:typeof DEVICE_MORPHO_BLUE_REDEMPTION_V1;action:'REDEEM_BLUE'|'OBSERVE_BLUE';descriptor:ExternalFlatDescriptor;challengeId:string;nonce:string;expiresAt:number;withdrawalJobId:string;rootId:string;withdrawalTransactionHash:string;shares:string;minimumAssets:string;deadline:string;reference:string;position:string;underlying:string;recipient:string;observed:ExternalFlatObserved}>;

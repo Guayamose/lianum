@@ -1,0 +1,41 @@
+/** Portable request/frame/ordered quote commitments. Real ECDSA signatures;
+ * synthetic local offer DATA, no OWNER, SNARK, ledger or market acceptance. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {freshKey} from '@lianum/engine/notes/private-note-encoding';
+import {fundedPagedGraphDeliveryRiskCommitmentV3,pagedGraphHashV3} from '@lianum/engine/execution/graph/funded-graph-paged-v3';
+import {nativeTransferActionCommitment} from '@lianum/engine/execution/native/dispatch/native-capsules';
+import {devicePagedEconomicProviderV3} from '../src/device-paged-economic-provider-v3.mjs';
+import * as Q from '../src/device-paged-provider-quote-v4.mjs';
+import * as A from '../src/device-paged-automation-v4.mjs';
+import {signPagedNativeProviderQuoteV4,verifyPagedNativeProviderQuoteV4} from '../../backend/src/providers/paged-native-quote-v4.mjs';
+const h=v=>createHash('sha256').update('SYNTHETIC_PROVIDER_OFFER:'+v).digest('hex');
+function fixture(){const key=freshKey(),point=devicePagedEconomicProviderV3('04'+key.x.toString('hex')+key.y.toString('hex')),descriptor={profile:'LIANUM_DEVICE_PAGED_OWNER_V3',graphProfile:'LIANUM_PAEG_FUNDED_PAGED_V3',sparseEncoding:'BN254_POSEIDON2_SPARSE_V3',origin:'https://127.0.0.1:9445',pairingId:'pairing-synthetic',devicePublicKey:point.publicKey,deadlineMs:Date.now()+60000,chainId:'31337',genesis:h('hub genesis'),pool:'0x'+'11'.repeat(20),state:'0x'+'22'.repeat(20),native:'0x'+'33'.repeat(20),scope:h('scope'),policy:h('policy'),assetIdentity:h('hub asset'),domain:h('domain'),hubDomain:h('hub'),registryCommitment:h('registry'),manifestSHA256:h('manifest'),consumerSHA256:h('consumer'),poolCodeHash:h('pool'),stateCodeHash:h('state'),nativeCodeHash:h('native'),math:'0x'+'44'.repeat(20),mathCodeHash:h('math')};
+ const terms={profile:Q.DEVICE_PAGED_PROVIDER_QUOTE_V4,classification:'LOCAL_FIXED_PROVIDER_OFFER_NOT_MARKET_PRICE',descriptor,providerIdentity:h('provider'),providerPublicKey:point.publicKey,signerIdentity:point.signerIdentity,graphId:'graph-synthetic',rootId:h('root'),revision:1,budget:'400',preparationId:'paged-page-'+h('page').slice(0,32),id:'ethereum',ordinal:'0',dispatchId:h('dispatch'),actionSalt:h('salt'),deliver:{family:'EVM',genesis:h('native genesis'),assetIdentity:h('native asset'),chainDomain:h('chain'),unit:'wei',decimals:18,amountAtomic:'1000000000000000',recipient:'0x'+'55'.repeat(20),sourceCommitment:h('source'),destinationCommitment:h('destination'),receiptKeyCommitment:h('receipt key'),receiptRho:h('receipt rho')},payout:{genesis:descriptor.genesis,chainId:descriptor.chainId,assetIdentity:descriptor.assetIdentity,unit:'atomic',amountAtomic:'100',commitment:h('payout'),beneficiary:point.address},feeCeiling:{assetIdentity:h('native asset'),unit:'wei',amountAtomic:'100000000000000',bearer:'PROVIDER'},inputCeiling:null,issuedAt:'1000',expiresAt:'2000',policy:Q.devicePagedProviderQuotePolicyV4()};
+ const d=terms.deliver,riskSalt=Q.devicePagedProviderQuoteRiskSaltV4(terms),risk=fundedPagedGraphDeliveryRiskCommitmentV3({scope:descriptor.scope,policy:descriptor.policy,asset:descriptor.assetIdentity,hubDomain:descriptor.hubDomain,registryCommitment:descriptor.registryCommitment,chainDomain:d.chainDomain,sourceCommitment:d.sourceCommitment,destinationCommitment:d.destinationCommitment,amount:d.amountAtomic,payoutCommitment:terms.payout.commitment,settleBefore:terms.expiresAt,salt:riskSalt});
+ const action={chainDomain:d.chainDomain,signerIdentity:point.signerIdentity,sourceCommitment:d.sourceCommitment,destinationCommitment:d.destinationCommitment,amount:d.amountAtomic,custodyKind:1,custodyCommitment:h('custody'),executionFrom:'1000',executionUntil:'2000',settleBefore:'2000',receiptKeyCommitment:d.receiptKeyCommitment,receiptRho:d.receiptRho,deliveryRiskCommitment:risk,actionSalt:terms.actionSalt},quote=signPagedNativeProviderQuoteV4(key,terms,nativeTransferActionCommitment(action));
+ const expected={descriptor,graphId:terms.graphId,rootId:terms.rootId,revision:1,budget:'400',id:'ethereum',ordinal:'0',actionCommitment:quote.actionCommitment,recipient:d.recipient,payoutCommitment:terms.payout.commitment,payoutAmount:'100'};return {key,terms,action,quote,expected};}
+
+function wipe(f){for(const value of Object.values(f.key))if(Buffer.isBuffer(value))value.fill(0);}
+function terms(request={quoteRoot:h('quotes'),maxCommands:4096,expiresAt:1900000000000}){return{profile:A.DEVICE_PAGED_AUTOMATION_V4,descriptorSHA256:h('descriptor'),graphId:'paged-graph-'+h('graph').slice(0,32),rootId:h('root'),revision:1,authorizationRoot:h('auth'),reserveNullifier:h('reserve'),budget:'400',nodes:'256',settleBefore:'1900000000',...request};}
+test('continuation request and signed frame have finite exact command/deadline scope',()=>{
+ const request={quoteRoot:h('quotes'),maxCommands:4096,expiresAt:1900000000000};assert.deepEqual(A.normalizeDevicePagedAutomationRequestV4(Object.freeze(request)),request);
+ for(const patch of [{maxCommands:0},{maxCommands:4097},{maxCommands:1.5},{maxCommands:Infinity},{expiresAt:0},{expiresAt:1.1},{expiresAt:Number.MAX_SAFE_INTEGER+1},{quoteRoot:'0'.repeat(64)},{quoteRoot:h('quotes').toUpperCase()},{withdrawals:true}])assert.throws(()=>A.normalizeDevicePagedAutomationRequestV4({...request,...patch}));
+ const normalized=A.normalizeDevicePagedAutomationTermsV4(terms()),frame=A.devicePagedAutomationTermsMessageV4(normalized);assert.ok(frame.length<8192);assert.equal(Buffer.from(frame).toString(),'LIANUM/APPROVED-CONTINUATION/4\n'+JSON.stringify(normalized));
+ for(const patch of [{revision:0},{nodes:'257'},{nodes:'0'},{budget:'0'},{authorizationRoot:'0'.repeat(64)},{descriptorSHA256:'0'.repeat(64)},{allow:'WITHDRAW_OUTPUT_W39'}])assert.throws(()=>A.normalizeDevicePagedAutomationTermsV4({...normalized,...patch}));
+ for(const patch of [{maxCommands:4095},{expiresAt:request.expiresAt+1},{rootId:h('another root')},{authorizationRoot:h('another auth')},{quoteRoot:h('another quote root')}])assert.notDeepEqual(A.devicePagedAutomationTermsMessageV4({...normalized,...patch}),frame);
+ let called=0;const accessor={...request};Object.defineProperty(accessor,'maxCommands',{enumerable:true,get(){called++;return 2;}});assert.throws(()=>A.normalizeDevicePagedAutomationRequestV4(accessor));assert.equal(called,0);frame.fill(0);
+});
+test('ordered authentic quotes commit fees and identity; changed signed fee fails original verification',()=>{
+ const f=fixture();try{
+  verifyPagedNativeProviderQuoteV4(f.quote);const nextTerms={...structuredClone(f.terms),id:'second',ordinal:'1',dispatchId:h('second dispatch')},next=signPagedNativeProviderQuoteV4(f.key,nextTerms,f.quote.actionCommitment);verifyPagedNativeProviderQuoteV4(next);
+  const root=A.devicePagedAutomationQuoteRootV4(Object.freeze([f.quote,next]));assert.match(root,/^[0-9a-f]{64}$/);assert.notEqual(root,'0'.repeat(64));assert.equal(A.devicePagedAutomationQuoteRootV4([f.quote,next]),root);
+  assert.throws(()=>A.devicePagedAutomationQuoteRootV4([next,f.quote]));assert.throws(()=>A.devicePagedAutomationQuoteRootV4([f.quote,f.quote]));assert.throws(()=>A.devicePagedAutomationQuoteRootV4([]));assert.throws(()=>A.devicePagedAutomationQuoteRootV4(Array(2)));
+  const changed=structuredClone(f.quote);changed.terms.feeCeiling.amountAtomic='100000000000001';changed.termsSHA256=Q.devicePagedProviderQuoteTermsHashV4(changed.terms);assert.throws(()=>verifyPagedNativeProviderQuoteV4(changed),/PAGED_ECONOMIC_QUOTE_SIGNATURE/);
+  // The portable hash is DATA: it changes but does not bless this invalid signature.
+  assert.notEqual(A.devicePagedAutomationQuoteRootV4([changed,next]),root);
+  const changedSigned=signPagedNativeProviderQuoteV4(f.key,changed.terms,changed.actionCommitment);verifyPagedNativeProviderQuoteV4(changedSigned);assert.notEqual(A.devicePagedAutomationQuoteRootV4([changedSigned,next]),root);
+  const foreign=fixture();try{const foreignTerms={...structuredClone(foreign.terms),id:'second',ordinal:'1'},foreignQuote=signPagedNativeProviderQuoteV4(foreign.key,foreignTerms,foreign.quote.actionCommitment);assert.notEqual(A.devicePagedAutomationQuoteRootV4([f.quote,foreignQuote]),root);}finally{wipe(foreign);}
+ }finally{wipe(f);}
+});
