@@ -1,0 +1,8 @@
+{
+  "classification": "RETAINED_BUILD_SOURCE_BYTES_READ_ONLY_NOT_EXECUTABLE",
+  "path": "scripts/development/ledger_owned_processes.py",
+  "commit": "3a0d703c4adfe17c72bfb0a46f61eb3fed7b73c3",
+  "sha256": "88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09",
+  "bytes": 19979,
+  "purpose": "Original build.inputs.ownedProcessHelperSHA256; current helper is separately authenticated and remains active."
+}

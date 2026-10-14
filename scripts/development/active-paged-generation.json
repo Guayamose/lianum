@@ -1,0 +1,6 @@
+{
+  "directory": ".local/exact-payouts-v4",
+  "securityGeneration": "EXACT_PAYOUT_SET_V4",
+  "manifestSHA256": "b9ea61d9944b74cafa59b79e2049767d00aa65e06dbf3eed7deb0590919715d9",
+  "consumerSHA256": "27649ee59274bc12b5602d10f87af2322cddebcb2263278aefe40c1e7eed0eca"
+}
