@@ -1,11 +1,17 @@
 /** Explicit synthetic unit dependency seams only. No EVM, compiler, prover,
- * key generation or signing. Wire cryptography/runtime brands and the full
+ * private custody keys or runtime signing. A fixed public ECDSA/RLP test
+ * vector exercises the original wire codec. Runtime brands and the full
  * system reader have their separate tests; none of these fixtures are evidence.
  * Run with --experimental-test-module-mocks. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import {join} from 'node:path';
+import {signedDeliveryWire,TEST_EVM_SOLVER} from '../../../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs';
+import {decodeCanonicalEvmTransaction} from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
+import {resourceRoot} from '@lianum/environment';
+import {DEVELOPMENT_EVM_BUILD_PIN} from '../../../../src/operations/deployments/system/development-evm-build.mjs';
 import { PrivateNoteTree, privateSpentDigest } from '@lianum/engine/notes/private-note-tree';
 import { derivePrivateAssetIdentity } from '@lianum/engine/notes/private-asset-runtime';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
@@ -19,29 +25,24 @@ const word = n => BigInt(n).toString(16).padStart(64, '0'), digest = n => word(n
 const prefix = value => '0x' + value, words = values => prefix(values.map(word).join('')), hex = n => '0x' + BigInt(n).toString(16);
 const bare = value => value.slice(2), zero = word(0), selector = signature => publicKeccak256(Buffer.from(signature)).subarray(0, 4).toString('hex');
 const brands = { runtimes: new WeakSet(), systems: new WeakMap(), routers: new WeakMap(), assets: new WeakSet() };
-mock.module(new URL('./owned-evm-v2-runtime.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs', import.meta.url).href, { exports: {
   LOCAL_EVM_PROFILE: { maxGas: 30000000 },
   async assertOwnedLocalEvmV2(runtime) { assert.ok(brands.runtimes.has(runtime), 'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED'); },
-  assertSignedEvmTransaction(raw, expected) {
-    assert.equal(raw, current.originalWire.nativeWire, 'SYNTHETIC_ORIGINAL_WIRE');
-    assert.deepEqual(expected, current.originalTransaction, 'SYNTHETIC_ORIGINAL_SIGNED_FIELDS');
-    return structuredClone(current.originalWire);
-  },
 } });
-mock.module(new URL('../ops/deploy-system.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/operations/deployments/system/deploy-system.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatSystem(runtime, system) { assert.equal(brands.systems.get(system), runtime, 'FLAT_OWNED_SYSTEM_CAPABILITY_REQUIRED'); },
 } });
-mock.module(new URL('../ops/deploy-evm-vault-router.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/operations/deployments/defi/deploy-evm-vault-router.mjs', import.meta.url).href, { exports: {
   assertOwnedEvmVaultRouter(runtime, system, router) { assert.deepEqual(brands.routers.get(router), { runtime, system }, 'EVM_ROUTER_OWNED_CAPABILITY_REQUIRED'); },
 } });
-mock.module(new URL('./owned-pool-asset.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/shared/contracts/owned-pool-asset.mjs', import.meta.url).href, { exports: {
   assertOwnedPoolAsset(runtime, capability) { assert.ok(brands.runtimes.has(runtime) && brands.assets.has(capability), 'OWNED_POOL_ASSET_CAPABILITY_REQUIRED'); },
 } });
 const decodeWords = (raw, count) => {
   assert.match(raw, /^0x[0-9a-f]*$/); assert.equal(raw.length, 2 + count * 64);
   return Array.from({ length: count }, (_, i) => prefix(raw.slice(2 + 64 * i, 66 + 64 * i)));
 };
-mock.module(new URL('../paeg/flat-system-state.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/execution/account/reconciliation/flat-system-state.mjs', import.meta.url).href, { exports: {
   decodeFlatWords: decodeWords,
   async createFlatSystemStateReader() { return {
     async read() { assert.ok(!current.badCurrentState, 'SYNTHETIC_CURRENT_SYSTEM_INVALID'); return { header: structuredClone(current.tip) }; },
@@ -50,7 +51,11 @@ mock.module(new URL('../paeg/flat-system-state.mjs', import.meta.url).href, { ex
 } });
 const { createEvmVaultDeliveryObserver, assertOwnedEvmVaultDeliveryObserver, assertOwnedEvmVaultDeliveryObservation,
   assertOwnedEvmVaultDeliveryFacts } = await import('../../../../src/chains/evm/vault/evm-vault-delivery-observer.mjs');
-const artifact = JSON.parse(readFileSync(new URL('../../../.local/evm-vault-router/v1/compiled.json', import.meta.url)))
+// The current authenticated public rebuild is not the missing historical
+// artifact and does not assert deployment, proof or financial acceptance.
+const routerBytes=readFileSync(join(resourceRoot('wallet'),'.local/development-evm/v1/router/compiled.json'));
+assert.equal(createHash('sha256').update(routerBytes).digest('hex'),DEVELOPMENT_EVM_BUILD_PIN.routerSHA256);
+const artifact = JSON.parse(routerBytes)
   .contracts['PrivateVaultDeliveryRouter.sol'].PrivateVaultDeliveryRouter;
 
 function snapshot(identity, after) {
@@ -69,7 +74,7 @@ function snapshot(identity, after) {
 async function fixture() {
   const shareCodeHash = prefix(digest(55));
   const id = { chainId: '31337', genesisHash: digest(1), ledgerNamespace: digest(2), adapterVersion: '1',
-    router: address(3), routerCodeSHA256: digest(4), routerVersion: '1', solver: address(5),
+    router: address(3), routerCodeSHA256: digest(4), routerVersion: '1', solver: TEST_EVM_SOLVER,
     asset: address(6), assetCodeSHA256: digest(7), assetIdentity: digest(8), vault: address(9),
     vaultCodeSHA256: digest(10), shareIdentity: bare(derivePrivateAssetIdentity(31337, prefix(address(9)), shareCodeHash)),
     vaultDomain: digest(12), vaultRuntimeId: digest(13), targetPool: address(14), targetPoolCodeSHA256: digest(15),
@@ -82,13 +87,14 @@ async function fixture() {
   const call = { descriptor: { identity: id, route: { assetAmount: '100', shareAmount: '100', executionFrom: '1000', executionUntil: '1100' },
     publicInputs: [...limbs(id.targetScope), ...limbs(id.targetPolicy), word(900), word(1200), word(100), ...limbs(digest(19))] },
     receiptKeyCommitment: digest(20), proof: 'deadbeef' };
-  const transactionHash = prefix(digest(21)), calldata = encodeEvmVaultDeliveryCall(call);
+  const vector=signedDeliveryWire(call,{nonce:'3',gas:'30000000'}), originalWire=decodeCanonicalEvmTransaction(prefix(vector.nativeWire));
+  assert.equal(originalWire.from,prefix(TEST_EVM_SOLVER));
+  const transactionHash = originalWire.nativeId, calldata = encodeEvmVaultDeliveryCall(call);
   const headers = { '0x0': { number: '0x0', hash: prefix(id.genesisHash), timestamp: hex(990), transactions: [] },
     '0xa': { number: '0xa', hash: prefix(digest(23)), parentHash: prefix(digest(24)), timestamp: hex(1000), transactions: [] },
     '0xb': { number: '0xb', hash: prefix(digest(22)), parentHash: prefix(digest(23)), timestamp: hex(1001), transactions: [transactionHash] } };
   const originalTransaction = { chainId: '31337', from: prefix(id.solver), to: prefix(id.router), nonce: '3',
     gasPrice: '1000000000', gas: '30000000', value: '0', data: calldata };
-  const originalWire = { ...originalTransaction, nativeId: transactionHash, nativeWire: '0xca11', unsignedWire: '0xabcd', transactionSHA256: sha(Buffer.from('ca11', 'hex')) };
   const signed = { nativeId: transactionHash, nativeWire: originalWire.nativeWire, transactionSHA256: originalWire.transactionSHA256 };
   const before = snapshot(identity, false), after = snapshot(identity, true);
   const log = (target, topics, data, index) => ({ address: prefix(target), topics: topics.map(prefix), data: prefix(data), logIndex: hex(index),
@@ -185,7 +191,7 @@ test('exact owned dependency path returns compatible owner arrival and branded c
   assert.deepEqual(f.c.verified, [{ role: 'deposit_intent', proof: 'deadbeef', inputs, at: '0xa' }]);
   const facts = await f.observer.observeFacts(f.query);
   assertOwnedEvmVaultDeliveryFacts(facts, { observer: f.observer });
-  assert.deepEqual(facts, { status: 'observed', genesis: digest(1), asset: f.call.descriptor.identity.shareIdentity, nativeWire: 'ca11',
+  assert.deepEqual(facts, { status: 'observed', genesis: digest(1), asset: f.call.descriptor.identity.shareIdentity, nativeWire: bare(f.c.originalWire.nativeWire),
     intent: f.call, blockId: digest(22), blockHeight: '11', finalityKind: '3', confirmations: '1',
     nativeContext: { observedTipId: digest(22), observedTipHeight: '11', transactionSlot: '0', parentSlot: '0', observedSlot: '0' } });
   assert.deepEqual(await f.observer.observe(f.query), o); assert.ok(Object.isFrozen(o.delivery.descriptor.identity));
@@ -290,7 +296,7 @@ test('facts adverse classification requires original signed identity and same-ne
   }
   const f = await fixture();
   assert.equal((await f.observer.observeFacts({ ...f.query, calldataSHA256: digest(99) })).status, 'unknown');
-  assert.deepEqual(await f.observer.observeDispatch(f.query), { status: 'observed', nativeId: f.query.transactionHash, nativeWire: 'ca11' });
+  assert.deepEqual(await f.observer.observeDispatch(f.query), { status: 'observed', nativeId: f.query.transactionHash, nativeWire: bare(f.c.originalWire.nativeWire) });
   f.c.entry.phase = 'uncertain-no-resend'; delete f.c.entry.receipt; f.c.nullReceipt = true; f.c.nullTransaction = true;
   assert.deepEqual(await f.observer.observeDispatch(f.query), { status: 'pending', nativeId: f.query.transactionHash, nativeWire: null });
 });

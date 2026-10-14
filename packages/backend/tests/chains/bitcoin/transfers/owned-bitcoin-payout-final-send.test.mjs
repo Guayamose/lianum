@@ -6,9 +6,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createOwnedCustodyReservationReadWindow } from '../../../../src/chains/shared/runtime/owned-native-custody.mjs';
-const source = readFileSync(new URL('./owned-bitcoin-runtime.mjs', import.meta.url), 'utf8');
+import {PAGED_RUNTIME_CAPACITY_V3} from '../../../../src/chains/shared/runtime/paged-runtime-capacity-v3.mjs';
+const source = readFileSync(new URL('../../../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs', import.meta.url), 'utf8');
 const excerpt = (from, until) => { const a = source.indexOf(from), b = source.indexOf(until, a); assert.ok(a >= 0 && b > a); return source.slice(a, b); };
 const transferSource = excerpt('      const transfer = async (', '      const recordFor = ');
+const recipientSource = excerpt('      async function recipientInfo(', '      async function registerPagedRecipient(');
 const preparationSource = excerpt('      async function assertPrepared(', '      function bindNativeAsset(');
 const exactOptions = vm.runInThisContext('(need => {' + excerpt('function exactOptions(', 'function uint(') + '; return exactOptions; })')((x, m) => assert.ok(x, m));
 const immutable = value => { if (value && typeof value === 'object') { Object.values(value).forEach(immutable); Object.freeze(value); } return value; };
@@ -27,7 +29,8 @@ function fixture(routeName = 'redeem', fault = {}) {
       assert.equal(value,keyToken,'KEY_TOKEN_REQUIRED'); assert.equal(purpose,'payout'); assert.equal(genesis,'genesis');assert.equal(routeValue,routeName);assert.equal(prepared,keyPrepared);assert.equal(keyConsumed,false);keyConsumed=true;
       if(fault.keyConsume)throw Error('KEY_AUTHORITY_REFUSED');events.push('key-consume');return 0;
     }}, immutable, clone, exactOptions, need: (x,m) => assert.ok(x,m), custody, runtime, records, allRecords, reservationReads,
-    sats: BigInt, hex32: x => x, index: x => x, graphRoute: () => route, BITCOIN_REGTEST_GENESIS: 'genesis',
+    pagedGraphProfile:!custody,retainedRecordLimit:custody?64:PAGED_RUNTIME_CAPACITY_V3.nativeRecords,
+    sats: BigInt, hex32: x => x, index: x => x, graphRecipientIndex(value){assert.equal(value,0);return value;}, graphRoute: () => route, BITCOIN_REGTEST_GENESIS: 'genesis',
     BITCOIN_TRANSFER_LIMITS: { maximumFeeSatoshi: '10000', minimumConfirmations: 6 }, roles: {}, cwd: 'inert',
     bitcoinSatoshiFromAmount: String, bitcoinAmountFromSatoshi: String,
     encodeWireCommitment: () => Buffer.from([0]), join: (...parts) => parts.join('/'),
@@ -78,7 +81,7 @@ function fixture(routeName = 'redeem', fault = {}) {
   };
   env.bitcoinPayoutController = Object.fromEntries(['assertNativeClaimBitcoinPayoutSendToken', 'authorizeNativeClaimBitcoinPayoutSend', 'authorizeNativeClaimBitcoinPayoutLatch', 'consumeNativeClaimBitcoinPayoutSend'].map(name => [name, env[name]]));
   api = vm.runInThisContext('(env => { const {' + Object.keys(env).join(',') + '} = env;\n' +
-    'const preparedObservations=new WeakMap();let readGeneration=0n,mutationGeneration=0n,activeNativeReadOperations=0;let busy=false, observationBusy=false, inventoryBusy=false, preSignReadWindow=false, payoutReadWindow=false, activePrepared=null, activeRoute=null, signingUnresolved=false;\n' + transferSource + preparationSource +
+    'const preparedObservations=new WeakMap();let readGeneration=0n,mutationGeneration=0n,activeNativeReadOperations=0;let busy=false, observationBusy=false, inventoryBusy=false, preSignReadWindow=false, payoutReadWindow=false, activePrepared=null, activeRoute=null, signingUnresolved=false;\n' + recipientSource + transferSource + preparationSource +
     '\nreturn { transfer, assertPrepared, state:()=>({busy,activePrepared,activeRoute,preSignReadWindow,payoutReadWindow}) }; })')(env);
   const callbacks = () => ({ wireKeyCommitment: key, beforeSign: async value => { events.push('beforeSign');
       if(custody&&routeName!=='deposit')assert.equal(value,api.state().activePrepared);else assert.notEqual(value,api.state().activePrepared);
@@ -126,9 +129,9 @@ for (const route of ['deposit',null]) test(`${route??'graph'}: original callback
 });
 
 test('source token invocation is fixed; latch/send do not contain another awaitable preflight',()=>{
-  const gate=excerpt('          if (payout) {\n            // Fixed, branded', '        } catch (error) {');
+  const gate=excerpt('          if (payout) {\n            // Fixed, branded', '          try {\n            if(!custody');
   const tail=gate.slice(gate.indexOf("record.phase = 'BROADCAST_UNKNOWN'"));
-  assert.equal((tail.match(/await /g)??[]).length,1); assert.ok(tail.includes("await rpc('sendrawtransaction'"));
+  assert.equal((tail.match(/\bawait\s+(?!,)/g)??[]).length,0); assert.ok(transferSource.includes("await rpc('sendrawtransaction'"));
   assert.ok(!source.includes('resumeReservedPayout'));
 });
 

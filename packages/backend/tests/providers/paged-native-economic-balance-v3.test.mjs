@@ -1,7 +1,7 @@
 /** Arithmetic fixtures only; no runtime ownership, RPC, proof or acceptance. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {nativeTransferConservationV3,pagedLocalEvmFeeAssetV3} from '../../src/providers/paged-native-economic-balance-v3.mjs';
+import {nativeTransferConservationV3,pagedLocalEvmFeeAssetV3,pagedNativeEconomicOutcomeV4} from '../../src/providers/paged-native-economic-balance-v3.mjs';
 import {evmNativeTransferNetwork} from '../../src/chains/evm/observations/evm-native-transfer-observer.mjs';
 test('native conservation preserves each asset and rejects fee, change and recipient mismatches',()=>{
  const account={amount:'1000000',fee:'5000',sourceBefore:'2000000',sourceAfter:'995000',recipientBefore:'0',recipientAfter:'1000000'};
@@ -11,3 +11,5 @@ test('native conservation preserves each asset and rejects fee, change and recip
 });
 
 test('local gas asset uses the original chain ID and genesis in the canonical native namespace',()=>{const genesis='0x'+'a'.repeat(64);assert.equal(pagedLocalEvmFeeAssetV3('1',genesis),evmNativeTransferNetwork({chain:'ethereum',genesisHash:genesis}).nativeAssetCommitment);assert.notEqual(pagedLocalEvmFeeAssetV3('31337',genesis),pagedLocalEvmFeeAssetV3('1',genesis));assert.notEqual(pagedLocalEvmFeeAssetV3('31337',genesis),pagedLocalEvmFeeAssetV3('31337','0x'+'b'.repeat(64)));assert.throws(()=>pagedLocalEvmFeeAssetV3('8453',genesis),/PAGED_ECONOMIC_LOCAL_EVM_CHAIN/);});
+
+test('FULL alone permits payout; partial and timeout retain original refund and provider loss policy',()=>{const input={phase:'RESERVED',settleBefore:'2000',now:'1000',expectedNodes:'4',deliveredNodes:'1',reservedBudget:'400',payoutWithdrawn:'0'};let view=pagedNativeEconomicOutcomeV4(input);assert.equal(view.result,'PENDING');assert.equal(view.reservedRefundAvailable,false);view=pagedNativeEconomicOutcomeV4({...input,now:'2000'});assert.equal(view.result,'PARTIAL');assert.equal(view.uncompensatedDeliveredNodes,'1');assert.equal(view.providerPayoutEligibleAtomic,'0');assert.equal(view.reservedRefundAvailable,false);view=pagedNativeEconomicOutcomeV4({...input,now:'2000',phase:'RECOVERED'});assert.equal(view.reservedRefundAvailable,true);assert.equal(view.reservedRefundAtomic,'400');assert.equal(pagedNativeEconomicOutcomeV4({...input,now:'2000',deliveredNodes:'0'}).result,'TIMEOUT');view=pagedNativeEconomicOutcomeV4({...input,phase:'FULFILLED',deliveredNodes:'4',payoutWithdrawn:'100'});assert.equal(view.result,'FULL');assert.equal(view.providerPayoutOutstandingAtomic,'300');assert.equal(view.crossAssetValueConservation,false);assert.equal(pagedNativeEconomicOutcomeV4({...input,phase:'UNKNOWN',now:'2000'}).result,'UNKNOWN');assert.throws(()=>pagedNativeEconomicOutcomeV4({...input,payoutWithdrawn:'1'}),/PAGED_ECONOMIC_FULL_ONLY_PAYOUT/);assert.throws(()=>pagedNativeEconomicOutcomeV4({...input,phase:'FULFILLED'}),/PAGED_ECONOMIC_FULL_DELIVERY/);});

@@ -2,6 +2,8 @@
  * runtime, token, signing, issuer or restore authority. The original private
  * factory and one-use External5 token select this format in the runtime. */
 import assert from 'node:assert/strict';
+import {decodePagedRuntimeHistoryV3} from '../../shared/runtime/paged-runtime-history-v3.mjs';
+import {PAGED_RUNTIME_CAPACITY_V3} from '../../shared/runtime/paged-runtime-capacity-v3.mjs';
 import {createHash} from 'node:crypto';
 import {types} from 'node:util';
 import {gunzipSync} from 'node:zlib';
@@ -46,7 +48,7 @@ export function decodeOwnedExternalDefiStateV3(value){
  assert.deepEqual(Object.keys(state).sort(),['accounts','best_block_number','block','blocks','historical_states','transactions']);
  assert.ok(state.block&&typeof state.block==='object'&&!Array.isArray(state.block));
  assert.ok(state.accounts&&typeof state.accounts==='object'&&!Array.isArray(state.accounts));
- assert.ok(Array.isArray(state.blocks)&&Array.isArray(state.transactions)&&Array.isArray(state.historical_states));
+ assert.ok(Array.isArray(state.blocks)&&state.blocks.length<=PAGED_RUNTIME_CAPACITY_V3.blocks&&Array.isArray(state.transactions)&&state.transactions.length<=PAGED_RUNTIME_CAPACITY_V3.transactions&&Array.isArray(state.historical_states)&&state.historical_states.length<=PAGED_RUNTIME_CAPACITY_V3.historicalStates,'EXTERNAL_RECEIVER_V3_STATE_COLLECTION_BOUND');
  assert.ok(Number.isSafeInteger(state.best_block_number)&&state.best_block_number>=0,'EXTERNAL_RECEIVER_V3_STATE_HEIGHT');
  return {bytes:decoded,originalSHA256:sha(original),sha256:sha(decoded)};
 }
@@ -56,7 +58,7 @@ export function assertOwnedExternalDefiPrivateRecordV3(value){
  assert.deepEqual(Object.keys(value).sort(),[...stateFields].sort());
  assert.equal(value.schema,EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3);assert.equal(value.family,'receiver');
  assert.equal(value.profile,'PAEG_LOCAL_FAKE_CLOCK_V1');assert.equal(value.sourceLineageCommitment,null);
- assert.ok(value.transactions.length<=512&&value.receipts.length<=512,'EXTERNAL_RECEIVER_V3_RETAINED_HISTORY_BOUND');
+ const history=decodePagedRuntimeHistoryV3(value);assert.ok(Array.isArray(history.transactions)&&history.transactions.length<=PAGED_RUNTIME_CAPACITY_V3.transactions&&Array.isArray(history.receipts)&&history.receipts.length<=PAGED_RUNTIME_CAPACITY_V3.transactions,'EXTERNAL_RECEIVER_V3_RETAINED_HISTORY_BOUND');
  assertOwnedExternalDefiStateDumpV3(value.stateDump);
  const {stateDump,...metadata}=value,metadataBytes=Buffer.byteLength(JSON.stringify(metadata)),encodedBytes=Buffer.byteLength(',"stateDump":'+JSON.stringify(stateDump));
  assert.ok(metadataBytes<=MAX_METADATA,'EXTERNAL_RECEIVER_V3_METADATA_BOUND');assert.ok(encodedBytes<=MAX_ENCODED,'EXTERNAL_RECEIVER_V3_ENCODED_BOUND');

@@ -48,3 +48,21 @@ test('encoding/metadata/decoded bounds remain real and diagnostics reveal only f
  const bomb='0x'+gzipSync(Buffer.alloc(PAGED_HUB_EVM_STATE_LIMITS_V3.decodedBytes+1,32),{level:1}).toString('hex');assert.throws(()=>decodeOwnedPagedHubEvmStateV3(bomb));
  assert.throws(()=>decodeOwnedPagedHubEvmStateV3('0x'+gzipSync(Buffer.from('{"extra":true}')).toString('hex')));
 });
+
+test('retention crosses512 original DATA rows and4096 blocks without truncation, then file tamper and finite limits reject',async()=>{
+ const {state,record}=fixture(),count=1025,blockCount=16642;
+ state.transactions=Array.from({length:count},(_,i)=>({id:'HOST-inert-wire-'+i,number:i}));
+ state.blocks=Array.from({length:blockCount},(_,i)=>({header:{number:'0x'+i.toString(16),timestamp:'0x'+i.toString(16),hash:'0x'+i.toString(16).padStart(64,'0'),parentHash:'0x'+Math.max(0,i-1).toString(16).padStart(64,'0')}}));
+ state.historical_states=Array.from({length:blockCount},(_,i)=>({height:i}));state.best_block_number=blockCount-1;state.block={number:state.blocks.at(-1).header.number,timestamp:state.blocks.at(-1).header.timestamp};record.genesisHeader=state.blocks[0].header;record.genesisHash=record.genesisHeader.hash;record.head=state.blocks.at(-1).header;
+ record.transactions=state.transactions.map(row=>({...row,phase:'mined'}));record.receipts=record.transactions.map(row=>({...row}));record.lastTimestamp=String(blockCount-1);record.stateDump='0x'+gzipSync(Buffer.from(JSON.stringify(state))).toString('hex');
+ assert.ok(record.transactions.length>512&&state.blocks.length>4096);assertOwnedPagedHubEvmPrivateRecordV3(record);
+ const scratch=join(projectRoot,'.local/integrations');await mkdir(scratch,{recursive:true,mode:0o700});const cwd=await mkdtemp(join(scratch,'flat-economic-receiver-v2-paged-history-host-'));
+ try{
+  const pin=await writeOwnedPagedHubEvmStateFileV3({cwd,suffix:'1',stateDump:record.stateDump});await assertOwnedEvmStateFileV1(pin);const loaded=JSON.parse(await readFile(pin.path,'utf8'));
+  assert.deepEqual(loaded,state);assert.equal(loaded.transactions.at(-1).number,count-1);assert.equal(loaded.blocks.length,blockCount);
+  for(let i=1;i<loaded.blocks.length;i++)assert.equal(loaded.blocks[i].header.parentHash,loaded.blocks[i-1].header.hash);
+  const altered={...record,transactions:Array.from({length:PAGED_HUB_EVM_STATE_LIMITS_V3.transactions+1},()=>({}))};assert.throws(()=>assertOwnedPagedHubEvmPrivateRecordV3(altered),/PAGED_RUNTIME_HISTORY_COLLECTION_BOUND|PAGED_HUB_STATE_RETAINED_HISTORY_BOUND/);
+  const over={...state,blocks:Array.from({length:PAGED_HUB_EVM_STATE_LIMITS_V3.blocks+1},()=>({}))};assert.throws(()=>decodeOwnedPagedHubEvmStateV3('0x'+gzipSync(Buffer.from(JSON.stringify(over))).toString('hex')),/PAGED_HUB_STATE_COLLECTION_BOUND/);
+  await writeFile(pin.path,JSON.stringify({...loaded,transactions:loaded.transactions.slice(0,512)}),{mode:0o600});await assert.rejects(assertOwnedEvmStateFileV1(pin));
+ }finally{await rm(cwd,{recursive:true,force:true});}
+});

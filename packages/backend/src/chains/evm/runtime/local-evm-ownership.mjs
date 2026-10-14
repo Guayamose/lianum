@@ -1,6 +1,7 @@
 /** Exact ownership facade. No copying, branding, endpoint discovery or wrapping. */
 import { assertLocalEvm as assertGoldenLocalEvm } from '@lianum/engine/execution/local/local-evm';
 import assert from 'node:assert/strict';
+import {buildPoolCreationQuotaBackendV1} from '../../../operations/deployments/quota/pool-creation-quota-backend-v1.mjs';
 import { LOCAL_EVM_PROFILE, LOCAL_OSAKA_EVM_PROFILE_V1 } from './local-evm-profiles.mjs';
 import { isOwnedLocalEvmV2, assertOwnedLocalEvmV2 } from './owned-evm-v2-runtime.mjs';
 export async function assertLocalEvm(runtime) {
@@ -16,3 +17,12 @@ export async function assertLocalEvmDeploymentProfile(runtime) {
   assert.deepEqual(runtime.metadata.profile, LOCAL_EVM_PROFILE);
   return LOCAL_EVM_PROFILE;
 }
+
+// One closed quota owner uses this facade's existing original runtime guard.
+const originalPoolQuota=buildPoolCreationQuotaBackendV1(assertLocalEvm);
+export const createOriginalPoolCreationQuotaV1=originalPoolQuota.createOriginalPoolCreationQuotaV1;
+export const openOriginalPoolCreationQuotaV1=originalPoolQuota.openOriginalPoolCreationQuotaV1;
+export const assertOriginalPoolCreationQuotaV1=originalPoolQuota.assertOriginalPoolCreationQuotaV1;
+export const chargeOriginalPoolCreationV1=originalPoolQuota.chargeOriginalPoolCreationV1;
+export const consumeOriginalPoolCreationTicketV1=originalPoolQuota.consumeOriginalPoolCreationTicketV1;
+export const reconcileOriginalPoolCreationV1=originalPoolQuota.reconcileOriginalPoolCreationV1;

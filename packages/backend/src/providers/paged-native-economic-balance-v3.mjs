@@ -19,3 +19,14 @@ export function pagedLocalEvmFeeAssetV3(chainId,genesisHash){
  const nativeAssetId=`eip155:${chainId}/genesis:${genesisHash}/native`;
  return createHash('sha256').update('LIANUM/native-value-asset/1\0'+JSON.stringify({nativeAssetId})).digest('hex');
 }
+
+/** Classify an original graph/ledger observation. Never authorizes a refund or
+ * turns delivered assets into a claim paid before global fulfillment. */
+export function pagedNativeEconomicOutcomeV4(input){
+ assert.equal(arguments.length,1);const keys=['phase','settleBefore','now','expectedNodes','deliveredNodes','reservedBudget','payoutWithdrawn'];assert.ok(input&&Object.getPrototypeOf(input)===Object.prototype);assert.deepEqual(Reflect.ownKeys(input).sort(),keys.sort());for(const key of keys)assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(input,key),'value'));
+ assert.ok(['BUILDING','PREPARED','RESERVED','FULFILLED','RECOVERED','UNKNOWN','FAILED'].includes(input.phase),'PAGED_ECONOMIC_OUTCOME_PHASE');const count=uint(input.expectedNodes),delivered=uint(input.deliveredNodes),budget=uint(input.reservedBudget),paid=uint(input.payoutWithdrawn),now=uint(input.now),cutoff=uint(input.settleBefore);assert.ok(count>0n&&delivered<=count&&budget>0n&&paid<=budget,'PAGED_ECONOMIC_OUTCOME_COUNTS');
+ const full=input.phase==='FULFILLED';if(full)assert.equal(delivered,count,'PAGED_ECONOMIC_FULL_DELIVERY');else assert.equal(paid,0n,'PAGED_ECONOMIC_FULL_ONLY_PAYOUT');
+ const uncertain=input.phase==='UNKNOWN'||input.phase==='FAILED',terminal=input.phase==='RECOVERED'||now>=cutoff;
+ const result=uncertain?'UNKNOWN':full?'FULL':terminal?delivered>0n?'PARTIAL':'TIMEOUT':'PENDING';
+ return Object.freeze({profile:'PAGED_NATIVE_ECONOMIC_OUTCOME_V4',result,payoutPolicy:'FULL_ONLY',providerPayoutEligibleAtomic:full?input.reservedBudget:'0',providerPayoutWithdrawnAtomic:input.payoutWithdrawn,providerPayoutOutstandingAtomic:full?(budget-paid).toString():'0',reservedRefundAtomic:full?'0':input.reservedBudget,reservedRefundAvailable:input.phase==='RECOVERED',reservedRefundRequires:'ORIGINAL_CUTOFF_RECOVERY_AND_OWNER_WITHDRAWAL',irreversibleDeliveriesBorneBy:'PROVIDER',uncompensatedDeliveredNodes:full?'0':input.deliveredNodes,nativeFeesBorneBy:'PROVIDER',atomicity:'NO_CROSS_CHAIN_ROLLBACK',crossAssetValueConservation:false,marketFairness:'NOT_ESTABLISHED'});
+}

@@ -56,7 +56,7 @@ test('invalid and accessor outpoints reject before RPC; empty inventories do not
 });
 
 test('runtime retains original fence, per-output checks and before/after tip checks', () => {
-  const source = readFileSync(new URL('./owned-bitcoin-runtime.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs', import.meta.url), 'utf8');
   const start = source.indexOf('async function inventory()');
   const inventory = source.slice(start, source.indexOf('const runtime = Object.freeze', start));
   const batch = inventory.indexOf('await readBitcoinInventoryOutputs(selectedCoins, inventoryRpc)');

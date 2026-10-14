@@ -30,25 +30,25 @@ const lifecycle = { verifierCreated: 0, verifierDisposed: 0, hashCreated: 0, has
 const sha = value => createHash('sha256').update(value).digest('hex');
 const copy = value => structuredClone(value), p = value => '0x' + value;
 const fixtureModule = relative => new URL(relative, import.meta.url).href;
-mock.module(fixtureModule('../ops/deploy-system.mjs'), { exports: {
+mock.module(fixtureModule('../../src/operations/deployments/system/deploy-system.mjs'), { exports: {
   assertOwnedFlatSystem(runtime, system) { assert.equal(systems.get(system), runtime, 'TEST_OWNED_SYSTEM'); },
 } });
-mock.module(fixtureModule('../chain-adapters/owned-evm-v2-runtime.mjs'), { exports: { ...actualRuntime,
+mock.module(fixtureModule('../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'), { exports: { ...actualRuntime,
   async assertOwnedLocalEvmV2(runtime) { assert.ok(runtimes.has(runtime), 'TEST_OWNED_EVM'); },
 } });
-mock.module(fixtureModule('../ops/deploy-evm-vault-router.mjs'), { exports: {
+mock.module(fixtureModule('../../src/operations/deployments/defi/deploy-evm-vault-router.mjs'), { exports: {
   assertOwnedEvmVaultRouter(runtime, system, router) { assert.deepEqual(routers.get(router), { runtime, system }, 'TEST_OWNED_ROUTER'); },
 } });
-mock.module(fixtureModule('../chain-adapters/evm-vault-delivery-observer.mjs'), { exports: {
+mock.module(fixtureModule('../../src/chains/evm/vault/evm-vault-delivery-observer.mjs'), { exports: {assertOwnedEvmVaultDeliveryFacts(){throw Error('UNUSED_DELIVERY_FACTS');},
   assertOwnedEvmVaultDeliveryObserver(observer, binding) { assert.deepEqual(observers.get(observer), binding, 'TEST_OWNED_OBSERVER'); },
 } });
-mock.module(fixtureModule('../ops/native-operators.mjs'), { exports: {
+mock.module(fixtureModule('../../src/operations/operators/claims/native-operators.mjs'), { exports: {
   assertOwnedFlatOperatorQuorum(quorum, binding) { assert.deepEqual(quorums.get(quorum), binding, 'TEST_OWNED_QUORUM'); },
 } });
-mock.module(fixtureModule('../../../../../omnichain-product/src/paeg/native-recipient-process.mjs'), { exports: {
+mock.module(fixtureModule('../../src/execution/native/recipients/native-recipient-process.mjs'), { exports: {
   assertOwnedNativeRecipientProcess(recipient) { assert.ok(recipients.has(recipient), 'TEST_OWNED_RECIPIENT'); },
 } });
-mock.module(fixtureModule('../paeg/flat-system-state.mjs'), { exports: {
+mock.module(fixtureModule('../../src/execution/account/reconciliation/flat-system-state.mjs'), { exports: {
   async createFlatSystemStateReader({ system, poolIndex }) {
     const issued = new WeakSet(); return Object.freeze({
       async read() { const result = { domainCommitment: system.pools[poolIndex].domainCommitment.slice(2) };
@@ -57,11 +57,11 @@ mock.module(fixtureModule('../paeg/flat-system-state.mjs'), { exports: {
     });
   },
 } });
-mock.module(fixtureModule('../../../proof-workers/pinned-verifier.mjs'), { exports: {
+mock.module('@lianum/proofs/verification', { exports: {
   async createPinnedVerifier(role) { assert.equal(role, 'dispatch'); lifecycle.verifierCreated++;
     return Object.freeze({ async dispose() { lifecycle.verifierDisposed++; } }); },
 } });
-mock.module(fixtureModule('../../../proof-workers/tooling.mjs'), { exports: {
+mock.module('@lianum/proofs/tooling/tooling', { exports: {
   resourceModuleURL: 'data:text/javascript,export function verifyToolchain(){return {barretenberg:"5.2.0"}}',
   async loadPinned(name) { assert.equal(name, '@aztec/bb.js'); return { BackendType: { Wasm: 'TEST_WASM_LABEL' },
     Barretenberg: { async new(options) {
@@ -70,7 +70,7 @@ mock.module(fixtureModule('../../../proof-workers/tooling.mjs'), { exports: {
         async poseidon2Hash() { throw new Error('TEST_NEVER_HASH_OR_VERIFY'); } };
     } } }; },
 } });
-mock.module(fixtureModule('../chain-adapters/evm-dispatch-gate.mjs'), { exports: {
+mock.module(fixtureModule('../../src/chains/evm/dispatch/evm-dispatch-gate.mjs'), { exports: {
   async createOwnedEvmVaultDispatchGate(config) {
     if (lifecycle.failGate) throw new Error('TEST_GATE_CREATE_FAILURE');
     const state = await config.store.load();
@@ -97,7 +97,9 @@ mock.module(fixtureModule('../chain-adapters/evm-dispatch-gate.mjs'), { exports:
     });
   },
 } });
-const { createOwnedFlatEvmVaultProvider, ownedFlatEvmVaultProviderReview } = await import('../../src/providers/evm-vault-provider.mjs');
+const originalGraphDelivery=await import('../../src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs?after-host-ports');
+mock.module(fixtureModule('../../src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs'),{exports:{...originalGraphDelivery}});
+const { createOwnedFlatEvmVaultProvider, ownedFlatEvmVaultProviderReview } = await import('../../src/providers/evm-vault-provider.mjs?after-host-ports');
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'flat-evm-provider-host-test-')), directory = join(root, 'provider');

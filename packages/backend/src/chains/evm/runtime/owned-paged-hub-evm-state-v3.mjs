@@ -2,6 +2,8 @@
  * checks issue no runtime, token, signing capability or recovery authority. The
  * private EVM factory selects this codec after its original family admission. */
 import assert from 'node:assert/strict';
+import {decodePagedRuntimeHistoryV3} from '../../shared/runtime/paged-runtime-history-v3.mjs';
+import {PAGED_RUNTIME_CAPACITY_V3} from '../../shared/runtime/paged-runtime-capacity-v3.mjs';
 import {createHash} from 'node:crypto';
 import {constants} from 'node:fs';
 import {open,lstat,realpath} from 'node:fs/promises';
@@ -11,7 +13,7 @@ import {gunzipSync} from 'node:zlib';
 import {assertOwnedEvmStateFileV1} from './owned-evm-state-file-v1.mjs';
 import {assertOwnedRecoveryScratchV1} from '../../shared/runtime/owned-runtime-recovery-files-v1.mjs';
 
-export const PAGED_HUB_EVM_STATE_LIMITS_V3=Object.freeze({encodedBytes:48*1024*1024,metadataBytes:16*1024*1024,recordBytes:64*1024*1024,decodedBytes:128*1024*1024,accounts:4096,blocks:4096,transactions:512,historicalStates:4096});
+export const PAGED_HUB_EVM_STATE_LIMITS_V3=Object.freeze({encodedBytes:48*1024*1024,metadataBytes:16*1024*1024,recordBytes:64*1024*1024,decodedBytes:128*1024*1024,accounts:4096,blocks:PAGED_RUNTIME_CAPACITY_V3.blocks,transactions:PAGED_RUNTIME_CAPACITY_V3.transactions,historicalStates:PAGED_RUNTIME_CAPACITY_V3.historicalStates});
 const limits=PAGED_HUB_EVM_STATE_LIMITS_V3,failures=new WeakMap(),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const fields=['schema','family','cwd','profile','runtimePin','processGeneration','originalProcessId','genesisHash','genesisHeader','accounts','head','accountState','stateDump','localCustodyCommitment','lastTimestamp','ingressMutationEpoch','uncertainMutation','uncertainSignedHash','transactions','receipts','lifecycle','sourceLineageCommitment'];
 function own(value,key){if(!value||typeof value!=='object'||types.isProxy(value))return null;const d=Object.getOwnPropertyDescriptor(value,key);return d&&Object.hasOwn(d,'value')?d.value:null;}
@@ -44,7 +46,7 @@ export function decodeOwnedPagedHubEvmStateV3(value){assert.equal(arguments.leng
 export function assertOwnedPagedHubEvmPrivateRecordV3(value){
  assert.equal(arguments.length,1);const stateDump=own(value,'stateDump'),measure={};return guarded(stateDump,measure,()=>{
   plainData(value);assert.ok(value&&!Array.isArray(value),'PAGED_HUB_STATE_PRIVATE_RECORD');assert.deepEqual(Object.keys(value).sort(),[...fields].sort());assert.equal(value.schema,'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2');assert.equal(value.family,'receiver');assert.equal(value.profile,'PAEG_LOCAL_FAKE_CLOCK_V1');assert.equal(value.sourceLineageCommitment,null);
-  assert.ok(Array.isArray(value.transactions)&&value.transactions.length<=limits.transactions&&Array.isArray(value.receipts)&&value.receipts.length<=limits.transactions,'PAGED_HUB_STATE_RETAINED_HISTORY_BOUND');assert.ok(Array.isArray(value.accounts)&&value.accounts.length===5&&new Set(value.accounts).size===5&&Array.isArray(value.accountState)&&value.accountState.length===value.accounts.length,'PAGED_HUB_STATE_RETAINED_ACCOUNTS');assert.ok(value.accountState.every((row,index)=>row.address===value.accounts[index]),'PAGED_HUB_STATE_RETAINED_ACCOUNTS');
+  const history=decodePagedRuntimeHistoryV3(value);assert.ok(Array.isArray(history.transactions)&&history.transactions.length<=limits.transactions&&Array.isArray(history.receipts)&&history.receipts.length<=limits.transactions,'PAGED_HUB_STATE_RETAINED_HISTORY_BOUND');assert.ok(Array.isArray(value.accounts)&&value.accounts.length===5&&new Set(value.accounts).size===5&&Array.isArray(value.accountState)&&value.accountState.length===value.accounts.length,'PAGED_HUB_STATE_RETAINED_ACCOUNTS');assert.ok(value.accountState.every((row,index)=>row.address===value.accounts[index]),'PAGED_HUB_STATE_RETAINED_ACCOUNTS');
   assertDump(stateDump);const {stateDump:ignored,...metadata}=value;measure.metadataBytes=Buffer.byteLength(JSON.stringify(metadata));measure.encodedBytes=stateDump.length+15;measure.recordBytes=measure.metadataBytes+measure.encodedBytes;
   assert.ok(measure.metadataBytes<=limits.metadataBytes,'PAGED_HUB_STATE_METADATA_BOUND');assert.ok(measure.recordBytes<=limits.recordBytes,'PAGED_HUB_STATE_RECORD_BOUND');
   const decoded=decode(stateDump,measure,value);return Object.freeze({metadataBytes:measure.metadataBytes,encodedBytes:measure.encodedBytes,recordBytes:measure.recordBytes,decodedBytes:decoded.bytes.length,originalSHA256:decoded.originalSHA256,decodedSHA256:decoded.sha256});

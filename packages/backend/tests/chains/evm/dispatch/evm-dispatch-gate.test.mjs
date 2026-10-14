@@ -22,18 +22,31 @@ import { evmDeliveryFixture, signedDeliveryWire } from '../../../fixtures/chains
 
 const runtimes = new WeakSet(), systems = new WeakMap(), routers = new WeakMap(), observers = new WeakMap(), factsBrands = new WeakMap();
 const fixtureModule = relative => new URL(relative, import.meta.url).href;
-mock.module(fixtureModule('./owned-evm-v2-runtime.mjs'), { exports: { LOCAL_EVM_PROFILE,
+mock.module(fixtureModule('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'), { exports: { LOCAL_EVM_PROFILE,
   async assertOwnedLocalEvmV2(runtime) { assert.ok(runtimes.has(runtime), 'TEST_RUNTIME_BRAND'); } } });
-mock.module(fixtureModule('../ops/deploy-system.mjs'), { exports: {
+mock.module(fixtureModule('../../../../src/operations/deployments/system/deploy-system.mjs'), { exports: {
   assertOwnedFlatSystem(runtime, system) { assert.equal(systems.get(system), runtime, 'TEST_SYSTEM_BRAND'); } } });
-mock.module(fixtureModule('../ops/deploy-evm-vault-router.mjs'), { exports: {
+mock.module(fixtureModule('../../../../src/operations/deployments/defi/deploy-evm-vault-router.mjs'), { exports: {
   assertOwnedEvmVaultRouter(runtime, system, router) { assert.deepEqual(routers.get(router), { runtime, system }, 'TEST_ROUTER_BRAND'); } } });
-mock.module(fixtureModule('./evm-vault-delivery-observer.mjs'), { exports: {
+mock.module(fixtureModule('../../../../src/chains/evm/vault/evm-vault-delivery-observer.mjs'), { exports: {
   assertOwnedEvmVaultDeliveryObserver(observer, expected) { assert.deepEqual(observers.get(observer), expected, 'TEST_OBSERVER_BRAND'); },
   assertOwnedEvmVaultDeliveryFacts(facts, { observer }) { assert.equal(factsBrands.get(facts), observer, 'TEST_FACTS_BRAND'); },
 } });
+// The original closed graph-delivery module is already loaded by the real
+// brand rejection checks above. Substitute its exact dependency seam too;
+// these private registries belong only to this synthetic HOST fixture.
+mock.module(fixtureModule('../../../../src/chains/evm/dispatch/owned-evm-graph-delivery-v1.mjs'), {exports:{
+  assertOwnedEvmGraphDeliveryRouterV1(runtime,system,router){assert.deepEqual(routers.get(router),{runtime,system},'TEST_ROUTER_BRAND');},
+  assertOwnedEvmGraphDeliveryObserverV1(observer,expected){assert.deepEqual(observers.get(observer),expected,'TEST_OBSERVER_BRAND');},
+  assertOwnedEvmGraphDeliveryFactsV1(facts,{observer}){assert.equal(factsBrands.get(facts),observer,'TEST_FACTS_BRAND');},
+  assertOwnedEvmGraphDeliveryDescriptorV1(runtime,system,router,observer,descriptor){
+    assert.deepEqual(routers.get(router),{runtime,system},'TEST_ROUTER_BRAND');
+    assert.deepEqual(observers.get(observer),{runtime,system,poolIndex:router.destinationPoolIndex},'TEST_OBSERVER_BRAND');
+    assert.deepEqual(descriptor.identity,router.identity,'TEST_DESCRIPTOR_JOIN');assert.deepEqual(observer.identity,router.identity,'TEST_OBSERVER_JOIN');
+  }
+}});
 let control;
-mock.module(fixtureModule('./native-dispatch-gate.mjs'), { exports: { normalizeNativeDispatchBinding,
+mock.module(fixtureModule('../../../../src/chains/shared/dispatch/native-dispatch-gate.mjs'), { exports: { normalizeNativeDispatchBinding,
   async createNativeDispatchGate(configuration) {
     const { nativeAdapter, binding } = configuration;
     control.events.push('original-gate-created'); control.adapter = nativeAdapter;

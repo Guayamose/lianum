@@ -1,3 +1,4 @@
+import {PAGED_RUNTIME_CAPACITY_V3} from '../../shared/runtime/paged-runtime-capacity-v3.mjs';
 import { SOLANA_CUSTODY_PROFILE, SOLANA_NONCE_INGRESS_PROFILE,
   SOLANA_PAYOUT_FINAL_SEND_PROFILE, SOLANA_CUSTODY_SYNTHETIC_SURPLUS,
   SOLANA_NONCE_BOOTSTRAP_GRANT, SOLANA_GRAPH_SYNTHETIC_LIQUIDITY,
@@ -601,6 +602,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     try { return await fixedOwnedSolanaSend(ownedEndpoint, nativeWire); }
     finally { activeNativeMutations--; }
   };
+  const pagedGraphProfile=!custody&&cohort&&!combined&&!jupiterPublic&&!jupiterSpl&&!originalClaimIngress,retainedRecordLimit=pagedGraphProfile?PAGED_RUNTIME_CAPACITY_V3.nativeRecords:64,graphRecipientLimit=pagedGraphProfile?PAGED_RUNTIME_CAPACITY_V3.recipients:64;
   const keys = {}, records = new Map(), graphRecords = new Map(), signedPreparations = new Map(), reservationReads = createOwnedCustodyReservationReadWindow();
   const bootstrapRecordsByAuthority = { depositor: null, escrow: null };
   const allRecords = () => [...records.values(), ...graphRecords.values()];
@@ -671,7 +673,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       .map(([role, key]) => [role, { address: key.address, endpoint: key.publicBytes.toString('hex') }])));
     const custodyRoute = name => ({ name, ...ownedCustodyRoute(name) });
     const pagedGraphRecipients=new Map();
-    if(pagedRecovery){requireCondition(Array.isArray(restored.pagedGraphRecipients)&&restored.pagedGraphRecipients.length<=62,'SOLANA_RECOVERY_RECIPIENT_BOUND');for(const row of restored.pagedGraphRecipients){const route=cloneInput(row);exactRecord(route,['name','recipientIndex','sourceRole','destinationRole','externalRecipient']);requireCondition(route.name===null&&route.recipientIndex===recipientAddresses.length+pagedGraphRecipients.size&&route.sourceRole==='depositor'&&route.destinationRole==='recipient','SOLANA_RECOVERY_RECIPIENT_ORDER');const bytes=base58Decode(route.externalRecipient,32);requireCondition(base58Encode(bytes)===route.externalRecipient&&route.externalRecipient!==keys.solver.address&&!recipientAddresses.includes(route.externalRecipient),'SOLANA_RECOVERY_RECIPIENT_ADDRESS');pagedGraphRecipients.set(route.recipientIndex,frozenInput(route));}}
+    if(pagedRecovery){requireCondition(Array.isArray(restored.pagedGraphRecipients)&&restored.pagedGraphRecipients.length<=PAGED_RUNTIME_CAPACITY_V3.payments,'SOLANA_RECOVERY_RECIPIENT_BOUND');for(const row of restored.pagedGraphRecipients){const route=cloneInput(row);exactRecord(route,['name','recipientIndex','sourceRole','destinationRole','externalRecipient']);requireCondition(route.name===null&&route.recipientIndex===recipientAddresses.length+pagedGraphRecipients.size&&route.sourceRole==='depositor'&&route.destinationRole==='recipient','SOLANA_RECOVERY_RECIPIENT_ORDER');const bytes=base58Decode(route.externalRecipient,32);requireCondition(base58Encode(bytes)===route.externalRecipient&&route.externalRecipient!==keys.solver.address&&!recipientAddresses.includes(route.externalRecipient),'SOLANA_RECOVERY_RECIPIENT_ADDRESS');pagedGraphRecipients.set(route.recipientIndex,frozenInput(route));}}
     const graphRoute = recipientIndex => pagedGraphRecipients.get(recipientIndex)??({ name: null, recipientIndex, sourceRole: 'depositor',
       destinationRole: recipientIndex === 0 ? 'escrow' : 'recipient' });
     const graphRoleKeys = combined ? { depositor: keys.graphSolver, escrow: keys.graphRecipient, recipient: keys.graphRecipient1 } : roleKeys;
@@ -1064,7 +1066,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
     }
     if(restored){
       if(pagedRecovery){requireCondition(genesis===restored.genesis&&identity===restored.validatorIdentity,'SOLANA_RECOVERY_ORIGINAL_GENESIS');assert.deepEqual(metadata.publicKeys,restored.publicKeys,'SOLANA_RECOVERY_ORIGINAL_KEYS');}
-      requireCondition(Array.isArray(restored.records)&&restored.records.length<=64&&Array.isArray(restored.graphRecords)&&restored.graphRecords.length===0,'SOLANA_RECOVERY_RECORD_BOUND');
+      requireCondition(Array.isArray(restored.records)&&restored.records.length<=retainedRecordLimit&&Array.isArray(restored.graphRecords)&&restored.graphRecords.length===0,'SOLANA_RECOVERY_RECORD_BOUND');
       for(const row of restored.records){const record=cloneInput(row),decoded=(pagedRecovery?validateSolanaBindingTransaction:validateSolanaNonceBindingTransaction)(record.nativeWire,record.intent);if(pagedRecovery){requireCondition(!Object.hasOwn(record,'route')&&!Object.hasOwn(record.intent,'nonceAccountPublicKey'),'SOLANA_RECOVERY_GRAPH_ROUTE');const route=graphRoute(record.recipientIndex);requireCondition(record.intent.sourcePublicKey===keys.solver.publicBytes.toString('hex')&&record.intent.recipientPublicKey===base58Decode(recipientAddress(route),32).toString('hex'),'SOLANA_RECOVERY_RETAINED_ROUTE');}requireCondition(decoded.signatureHex===record.nativeId&&decoded.transactionSHA256===record.transactionSHA256,'SOLANA_RECOVERY_SIGNED_IDENTITY');requireCondition(!records.has(record.nativeId),'SOLANA_RECOVERY_DUPLICATE_RECORD');records.set(record.nativeId,record);}
       // Historical prepared bytes are retained as evidence; original in-memory
       // preparation/authorization WeakMaps are deliberately never recreated.
@@ -1111,7 +1113,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
       const balances={};for(const [role,row]of Object.entries(roles))balances[role]=safeInteger((await ownRead('getBalance',[row.address,{commitment:'finalized',minContextSlot:finalizedSlot}])).value,'SOLANA_UNSAFE_BALANCE').toString();
       const keyRows={};for(const [role,key]of Object.entries(keys))keyRows[role]={publicHex:key.publicBytes.toString('hex'),address:key.address,seedHex:['depositorNonceBootstrapPayer','depositorNonce','nonceBootstrapPayer','escrowNonce'].includes(role)&&key.seed.every(x=>x===0)?null:key.seed.toString('hex')};
       const state={schema:'OWNED_FIXED_SOLANA_PRIVATE_RECOVERY_V1',family:'solana',...(!custody&&cohort&&!combined&&!jupiterPublic?{pagedProfile:'PAGED_GRAPH_ONLY_V3',pagedGraphRecipients:cloneInput([...pagedGraphRecipients.values()])}:{}),cwd,validatorPin:[...selectedValidatorPin],options:cloneInput(options),processGeneration,originalProcessId:handle.child.pid,originalLifetimeId:lifetimeId,genesis,validatorIdentity:identity,publicKeys:cloneInput(metadata.publicKeys),keys:keyRows,finalizedSlot,finalizedBlock,balances,records:cloneInput([...records.values()]),graphRecords:cloneInput([...graphRecords.values()]),historicalSignedPreparations:cloneInput([...signedPreparations]),bootstrapRecordsByAuthority:cloneInput(bootstrapRecordsByAuthority),nonceInfrastructureByAuthority:cloneInput(nonceInfrastructureByAuthority),signingUnresolved,boundNativeAsset,nativePersistenceFailed:Boolean(nativePersistenceFailure),isolationFailed:Boolean(isolationFailure),mutationGeneration:mutationGeneration.toString()};
-      requireCondition(state.records.length<=64&&state.graphRecords.length===0,'SOLANA_RECOVERY_RECORD_BOUND');const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);captureDiagnosticStage='STOP';await close();requireCondition(cleanupOutcome.ownedProcessStopped===true&&cleanupOutcome.forced===false&&cleanupOutcome.nativeOrderlyExit===true,'SOLANA_RECOVERY_REQUIRES_ORDERLY_NATIVE_TERMINAL');
+      requireCondition(state.records.length<=retainedRecordLimit&&state.graphRecords.length===0,'SOLANA_RECOVERY_RECORD_BOUND');const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);captureDiagnosticStage='STOP';await close();requireCondition(cleanupOutcome.ownedProcessStopped===true&&cleanupOutcome.forced===false&&cleanupOutcome.nativeOrderlyExit===true,'SOLANA_RECOVERY_REQUIRES_ORDERLY_NATIVE_TERMINAL');
       captureDiagnosticStage='SEAL';
       const files=await sealStoppedNativeFilesV1(cwd),captured={schema:'OWNED_FIXED_SOLANA_CAPTURE_V1',family:'solana',...(!custody&&cohort&&!combined&&!jupiterPublic?{pagedProfile:'PAGED_GRAPH_ONLY_V3'}:{}),cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false,nativeOrderlyExit:true},processGeneration,genesis};await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);recoveryCaptureResult=captured;return cloneInput(captured);
     } catch(error){if(originalPagedGraph){try{const row=solanaCaptureFailureDiagnosticV1(captureDiagnosticStage,error,cleanupOutcome,{nativeExitTimeoutObserved,nativeChildCloseObserved,nativeExitZero:handle.child.exitCode===0,nativeSignalPresent:handle.child.signalCode!==null});if(row)console.error('LIANUM_PAGED_SOLANA_CAPTURE_FAILURE',JSON.stringify(row));}catch{/* Diagnostics must not alter the original failure or cleanup. */}}try{await close();}catch(cleanup){throw new AggregateError([error,cleanup],'SOLANA_RECOVERY_CAPTURE_AND_STOP_FAILED');}throw error;}
@@ -1675,7 +1677,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         requireCondition(input.recipient!==graphSource.address,'SOLANA_GRAPH_SELF_PAYMENT');
         const existing=viewRecipients.indexOf(input.recipient);if(existing>=0)return {recipientIndex:existing};
         for(const route of pagedGraphRecipients.values())if(route.externalRecipient===input.recipient)return {recipientIndex:route.recipientIndex};
-        requireCondition(pagedGraphRecipients.size<62,'SOLANA_GRAPH_RECIPIENT_CAPACITY');const recipientIndex=viewRecipients.length+pagedGraphRecipients.size;
+        requireCondition(pagedGraphRecipients.size<graphRecipientLimit-viewRecipients.length,'SOLANA_GRAPH_RECIPIENT_CAPACITY');const recipientIndex=viewRecipients.length+pagedGraphRecipients.size;
         pagedGraphRecipients.set(recipientIndex,frozenInput({name:null,recipientIndex,sourceRole:'depositor',destinationRole:'recipient',externalRecipient:input.recipient}));return {recipientIndex};
       }
       function route(options) {
@@ -1684,7 +1686,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         if (custody) selectedRoute = custodyRoute(options.route);
         else {
           requireCondition(Number.isSafeInteger(options.recipientIndex) && !Object.is(options.recipientIndex, -0)
-            && options.recipientIndex >= 0 && options.recipientIndex < 64 && (options.recipientIndex<viewRecipients.length||pagedGraphRecipients.has(options.recipientIndex)), 'SOLANA_INVALID_RECIPIENT_INDEX');
+            && options.recipientIndex >= 0 && options.recipientIndex < graphRecipientLimit && (options.recipientIndex<viewRecipients.length||pagedGraphRecipients.has(options.recipientIndex)), 'SOLANA_INVALID_RECIPIENT_INDEX');
           selectedRoute = graphRoute(options.recipientIndex);
         }
         bindNativeAsset(options.asset); return { asset: options.asset, selectedRoute };
@@ -1699,6 +1701,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         const result = Object.freeze({ binding,
           async transfer(request, callbacks) {
             const copied = cloneInput(request); exactRecord(copied, ['amount', 'wireKeyCommitment']);
+            if(pagedGraphProfile)requireCondition(namespace.size<retainedRecordLimit,'SOLANA_PAGED_RETAINED_RECORD_CAPACITY');
             return transfer(selectedRoute, copied.amount, copied.wireKeyCommitment, callbacks);
           },
           ...(usesNonce(selectedRoute) && ['refund', 'redeem'].includes(selectedRoute.name) ? {
@@ -1735,7 +1738,7 @@ async function createOwnedSolanaRuntimeProfile(progress, options, cohort, custod
         return Object.freeze({ async observe(request) {
           const input = cloneInput(request); exactRecord(input, ['family', 'recipientIndex', 'nativeId']);
           requireCondition(input.family === '2', 'SOLANA_FACT_FAMILY');
-          const recipientIndex = Number(inputUint(input.recipientIndex, 8, custody?1n:63n)), record = recordFor(input.nativeId, namespace);
+          const recipientIndex = Number(inputUint(input.recipientIndex, custody?8:16, custody?1n:BigInt(graphRecipientLimit-1))), record = recordFor(input.nativeId, namespace);
           requireCondition(!custody || record.route === selectedRoute.name, 'SOLANA_OTHER_ROUTE');
           requireCondition(record.recipientIndex === recipientIndex, 'SOLANA_OTHER_RECIPIENT');
           const observed = await observeRecord(record, { timeoutMs: 0 });

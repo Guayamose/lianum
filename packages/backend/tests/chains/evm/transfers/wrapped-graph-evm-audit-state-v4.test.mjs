@@ -1,27 +1,35 @@
 /** Synthetic host boundaries only. No Anvil, real transfers, prover or compiler.
  * Independently exercises public recovery against OpenSSL-generated standard
  * ECDSA signatures. Run with --experimental-test-module-mocks. */
-import test, { mock } from 'node:test';
+import test, { mock,after } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign, verify, createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, rm, open as actualOpen, readFile } from 'node:fs/promises';
+import * as actualFs from 'node:fs/promises';
+const {mkdtemp,rm,open:actualOpen,readFile}=actualFs;
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {writeFileSync} from 'node:fs';
+// Synthetic process configuration is retained by the actual filesystem guard.
+const hostProjectRoot=await mkdtemp(join(tmpdir(),'host-evm-fixture-'));
+await actualFs.mkdir(join(hostProjectRoot,'.local/integrations'),{recursive:true});
+after(()=>rm(hostProjectRoot,{recursive:true,force:true}));
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
-mock.module(new URL('../../../../../omnichain-product/src/private-asset-runtime.mjs', import.meta.url).href, { exports: {
+import * as actualAssetHelpers from '@lianum/engine/notes/private-asset-runtime';
+import * as actualGoldenRuntime from '@lianum/engine/execution/local/local-evm';
+mock.module(new URL('../../../../../engine/src/notes/private-asset-runtime.mjs', import.meta.url).href, { exports: { ...actualAssetHelpers,
   decodePrivateRevert() { throw new Error('SYNTHETIC_REVERT_TRACE_NOT_USED'); },
 } });
 const realBrands = new WeakSet(), scopes = new WeakMap();
 let control;
-mock.module(new URL('./evm-dispatch-gate.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/evm/dispatch/evm-dispatch-gate.mjs', import.meta.url).href, { exports: {
   assertOwnedEvmDispatchRequest(request, runtime) { const scope = scopes.get(request);
     assert.ok(scope && scope.runtime === runtime, 'SYNTHETIC_ORIGINAL_SCOPE_REQUIRED'); return scope.callbacks; },
 } });
-mock.module(new URL('../../../../../omnichain-product/src/paeg/local-evm.mjs', import.meta.url).href, { exports: {
+mock.module('@lianum/engine/execution/local/local-evm', { exports: { ...actualGoldenRuntime,
   async assertLocalEvm(runtime) { assert.ok(realBrands.has(runtime), 'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED'); return runtime.health(); },
 } });
-mock.module('node:fs/promises', { exports: { readFile, async open(path, flags, mode) {
+mock.module('node:fs/promises', { exports: { ...actualFs, async open(path, flags, mode) {
   if (String(path).includes('/signed-')) {
     control.events.push('persist-open'); if (control.failPersist) throw new Error('SYNTHETIC_FSYNC_FAILED');
     const file = await actualOpen(path, flags, mode);
@@ -32,15 +40,18 @@ mock.module('node:fs/promises', { exports: { readFile, async open(path, flags, m
 } } });
 const hash = char => '0x' + char.repeat(64), hex = n => '0x' + BigInt(n).toString(16);
 const target = '0x' + '99'.repeat(20), code = '0x6000', initialTime = 1900000310;
-mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../../engine/src/chains/shared/runtime-harness.mjs', import.meta.url).href, { exports: {
+  projectRoot:hostProjectRoot,isolatedRuntimeEnvironment(){throw Error('HOST_FOREIGN_RUNTIME_ENV_NOT_USED');},
+  originalOwnedRuntimeRpcFailureV1(){return null;},
   async pinnedBinary(...pin) { assert.equal(pin[0], 'foundry-v1.8.4/anvil'); return '/synthetic/pinned-anvil'; },
-  async scratchDirectory() { control.directory = await mkdtemp(join(tmpdir(), 'evm-v2-synthetic-')); return control.directory; },
+  async scratchDirectory(prefix) { control.directory = await mkdtemp(join(hostProjectRoot,'.local/integrations',prefix)); return control.directory; },
   async removeOwnScratch(path) { assert.equal(path, control.directory); },
   async unusedLoopbackPort() { return 31338; }, async sleep() {},
   startOwnProcess(binary, args) {
     assert.equal(binary, '/synthetic/pinned-anvil');
     assert.deepEqual(args, ['--host','127.0.0.1','--port','31338','--chain-id','1','--hardfork','cancun',
-      '--timestamp', String(initialTime), '--accounts','5','--balance','10','--mnemonic-random','12','--no-cors','--no-mining','--gas-limit','30000000']);
+      '--timestamp', String(initialTime), '--accounts','5','--balance','10','--mnemonic-random','12','--config-out',join(control.directory,'anvil-private-config.json'),'--quiet','--no-cors','--no-mining','--gas-limit','30000000']);
+    writeFileSync(join(control.directory,'anvil-private-config.json'),JSON.stringify({available_accounts:control.accounts,wallet:{mnemonic:'test test test test test test test test test test test junk'}}),{mode:0o600});
     const child = new EventEmitter(); control.child = child; Object.assign(child,{pid:12345,exitCode:null,signalCode:null});
     return {child, assertAlive(){assert.equal(child.exitCode,null);}};
   },

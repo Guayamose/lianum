@@ -5,8 +5,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('./owned-solana-runtime.mjs',import.meta.url),'utf8');
-const part=source.slice(source.indexOf('    async function prepareNonceAtCurrentHead('),source.indexOf('    function assertPayoutNativeObservation('));
+const source=readFileSync(new URL('../../../../src/chains/solana/runtime/owned-solana-runtime.mjs',import.meta.url),'utf8');
+const transfers=readFileSync(new URL('../../../../src/chains/solana/transfers/solana-transfers.mjs',import.meta.url),'utf8');
+const start=source.indexOf('    async function prepareNonceAtCurrentHead('),end=source.indexOf('    // Fixed private composition;',start);assert.ok(start>=0&&end>start);
+const part=source.slice(start,end)+transfers.slice(transfers.indexOf('  function retainNonceObservation('),transfers.indexOf('  function assertPayoutNativeObservation('));
 function fixture(route='redeem') {
  const state={now:100,closed:false,shuttingDown:false,isolationFailure:null,nativePersistenceFailure:null,healthMs:0,hook:null,reject:false,reads:[]};
  const prepared=Object.freeze({intent:Object.freeze({sourcePublicKey:'11',recipientPublicKey:'22',nonceAccountPublicKey:'33',durableNonce:'44',lamports:'10',wireKeyCommitment:'55'}),unsignedWire:'wire',funds:Object.freeze({feeLamports:'1'})});
@@ -27,7 +29,7 @@ function fixture(route='redeem') {
  const api=vm.runInThisContext(`(function(env,state){const {requireCondition,performance,sourceKey,recipientAddress,selectedNonce,healthy,nonceObservations,preparationContexts,read,contextSlot,decodeSolanaNonceAccountData,accountBytes,base58Decode,lamportsValue,bytes32,genesis,MEMO_PROGRAM,encodeSolanaNonceBindingMessage,same,Buffer,frozenInput,cloneInput,close,handle,checkedNoncePreparedState,revalidateSolanaNoncePreparedState}=env;
  let closed=false,shuttingDown=false,isolationFailure=null,nativePersistenceFailure=null;
  ${part}
- return {prepare:expected=>prepareNonceAtCurrentHead(env.selectedRoute,'10','55',expected),setState(p){({closed,shuttingDown,isolationFailure,nativePersistenceFailure}={closed,shuttingDown,isolationFailure,nativePersistenceFailure,...p});}};
+ return {prepare:expected=>prepareNonceAtCurrentHead(env.selectedRoute,'10','55',expected),setState(p){({closed,shuttingDown,isolationFailure,nativePersistenceFailure}={closed,shuttingDown,isolationFailure,nativePersistenceFailure,...p});Object.assign(state,{closed,shuttingDown,isolationFailure,nativePersistenceFailure});}};
  })`)({...env,selectedRoute},state);
  return{state,prepared,contexts,observations,api};
 }

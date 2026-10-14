@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {cloneInput,frozenInput} from '@lianum/components/plain-input';
-const source=readFileSync(new URL('./owned-solana-runtime.mjs',import.meta.url),'utf8');
+const source=readFileSync(new URL('../../../../src/chains/solana/runtime/owned-solana-runtime.mjs',import.meta.url),'utf8');
 const cut=(a,b)=>{const start=source.indexOf(a),end=source.indexOf(b,start);assert.ok(start>=0&&end>start);return source.slice(start,end);};
 const registry=cut('const ownedSolanaRuntimes =','const safeInteger =').replaceAll('export ','');
 const install=cut('      ownedSolanaRuntimes.add(runtime);','      return runtime;');
-const readSource=cut('    const read = async (method, params = []) => {',"    await progress('Starting Solana validator");
+const readSource=cut('    const read = async (method, params = [], timeoutMs = 5000) => {',"    await progress('Starting Solana validator");
 function fixture(){
  const input={assert,cloneInput,frozenInput,requireCondition:(ok,msg)=>assert.ok(ok,msg),rpc:async()=>({checked:true})};
  const factory=vm.runInThisContext(`(function(env){
@@ -18,7 +18,7 @@ function fixture(){
  const records=new Map(),graphRecords=new Map(),lifetimeId='fixed-physical-lifetime',genesis='fixture-genesis';
  const allRecords=()=>[...records.values(),...graphRecords.values()];
  let readGeneration=0n,mutationGeneration=0n,activeNativeReads=0,activeNativeMutations=0,activeNativeReadOperations=0;
- let closed=false,shuttingDown=false,isolationFailure=null,nativePersistenceFailure=null,busy=false,observationBusy=false,inventoryBusy=false,signingUnresolved=false,activeRoute=null,activePrepared=null,dead=false;
+ let closed=false,shuttingDown=false,recoveryCapturing=false,isolationFailure=null,nativePersistenceFailure=null,busy=false,observationBusy=false,inventoryBusy=false,signingUnresolved=false,activeRoute=null,activePrepared=null,dead=false;
  const handle={assertAlive(){assert.equal(dead,false,'SOLANA_PROCESS_DEAD');}},READ_METHODS=new Set(['getHealth']),endpoint='INERT';
  const ownedRuntimeRpc=(...args)=>env.rpc(...args);
  ${readSource}

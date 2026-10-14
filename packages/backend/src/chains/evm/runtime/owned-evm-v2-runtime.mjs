@@ -4,6 +4,8 @@ export { OWNED_LOCAL_EVM_V2, OWNED_LOCAL_EVM_NATIVE_VALUE_V1, LOCAL_EVM_PROFILE,
 export { recoverSecp256k1Sender, encodeCanonicalEvmUnsignedTransaction, decodeCanonicalEvmTransaction, assertSignedEvmTransaction } from '../contracts/transaction-wire-codec.mjs';
 export { assertOwnedReceiverPreopenRepairV1 } from './owned-evm-preopen-repair-v1.mjs';
 export {
+  createOwnedPagedObservedHubEvmV4,
+  assertOwnedPagedObservedHubEvmV4,
   createOwnedLocalEvmObservedClockV1,
   refreshNativeValueReceiverClock,
   nativeValueReceiverInclusionSecondV1,

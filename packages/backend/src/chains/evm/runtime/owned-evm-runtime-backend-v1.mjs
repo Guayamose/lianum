@@ -1,3 +1,5 @@
+import {encodePagedRuntimeHistoryV3,decodePagedRuntimeHistoryV3} from '../../shared/runtime/paged-runtime-history-v3.mjs';
+import {PAGED_RUNTIME_CAPACITY_V3} from '../../shared/runtime/paged-runtime-capacity-v3.mjs';
 import {dispatchOriginalEvmClaimV1} from './original-claim-dispatch-v1.mjs';
 import {reemitRetainedRecoveryWireV1} from './recovery-reorg-wire-v1.mjs';
 import {signExternalNoteAfterGuardV1} from './external-note-signing-v1.mjs';
@@ -65,6 +67,16 @@ export function buildOwnedEvmRuntimeBackendV1(contracts) {
  */
 const DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2='DEVICE_EXTERNAL_FLAT_SOURCE_RUNTIME_V2';
 
+const ownedPagedObservedHubsV4=new WeakSet();
+const PAGED_OBSERVED_HUB_PROFILE_V4=Object.freeze({...LOCAL_OBSERVED_RECEIVER_PROFILE_V1,
+ name:'PAEG_LOCAL_OBSERVED_PAGED_HUB_V4',clockMode:'OBSERVED_WALLCLOCK_SECONDS_V1',publicNetwork:false});
+async function createOwnedPagedObservedHubEvmV4(){
+ assert.equal(arguments.length,0,'PAGED_OBSERVED_HUB_FIXED_BIRTH');assertLocalObservedReceiverReleaseV1();
+ const runtime=await createFixedOwnedLocalEvm(PAGED_OBSERVED_HUB_PROFILE_V4);ownedPagedObservedHubsV4.add(runtime);return runtime;
+}
+function assertOwnedPagedObservedHubEvmV4(runtime){
+ assert.equal(arguments.length,1);assert.ok(ownedPagedObservedHubsV4.has(runtime),'PAGED_OBSERVED_HUB_ORIGINAL_REQUIRED');assertOwnedLocalEvmObservedClockV1(runtime);return runtime;
+}
 const observedReceiverClocks=new WeakMap();
 async function createOwnedLocalEvmObservedClockV1(){
   assert.equal(arguments.length,0,'LOCAL_OBSERVED_CLOCK_FIXED_CONSTRUCTOR');
@@ -610,6 +622,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
   assert.ok(!deviceExternalFlatV1||processProfile===LOCAL_EVM_PROFILE&&!poolGenerationAcceptance&&!preopenRepair,'DEVICE_EXTERNAL_FLAT_RECEIVER_FIXED_FACTORY');
   const receiverRecoveryV3=externalDefiV3||deviceExternalFlatV1;
   const pagedHubRecoveryV3=pagedDurableV3&&processProfile===LOCAL_EVM_PROFILE;
+  const retainedTransactionLimit=pagedDurableV3||receiverRecoveryV3?PAGED_RUNTIME_CAPACITY_V3.transactions:512;
   const liveArmedV1=recoveryAdmitted===NATIVE_LIVE_ARMED_OBSERVED_RUNTIME_V1;
   const sourceDurableV1=recoveryAdmitted===NATIVE_DURABLE_SOURCE_RUNTIME_V1;
   const sourceIdentity=sourceDurableV1?sourceJournal.originalNativeSourceRuntimeRequestIdentityV1(sourceRequest):null;
@@ -617,7 +630,8 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
   assert.equal(Boolean(sourceJournal),sourceDurableV1,'NATIVE_SOURCE_PRIVATE_JOURNAL');
   let sourceFrame = null,deviceReceiverCapture=null,deviceReceiverSource=null;
   const observedEconomicV2=recoveryAdmitted===NATIVE_ECONOMIC_OBSERVED_RUNTIME_V2||liveArmedV1||sourceDurableV1;
-  const observedClock=processProfile===LOCAL_OBSERVED_RECEIVER_PROFILE_V1||processProfile===LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2||processProfile===LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2;
+  const pagedObservedV4=processProfile===PAGED_OBSERVED_HUB_PROFILE_V4;
+  const observedClock=pagedObservedV4||processProfile===LOCAL_OBSERVED_RECEIVER_PROFILE_V1||processProfile===LOCAL_ECONOMIC_OBSERVED_RECEIVER_PROFILE_V2||processProfile===LOCAL_ECONOMIC_OBSERVED_GRAPH_PROFILE_V2;
   const osaka=processProfile===LOCAL_OSAKA_EVM_PROFILE_V1;
   assert.ok(processProfile === LOCAL_EVM_PROFILE || nativeDescriptor || observedClock || osaka, 'LOCAL_EVM_PRIVATE_FIXED_PROFILE');
   const nativeValueOnly = Boolean(nativeDescriptor), nativeValueProfile = nativeDescriptor?.profile;
@@ -651,7 +665,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
     assert.ok(!poolGenerationAcceptance&&(liveArmedV1?observedEconomicV2:!observedClock&&(processProfile===LOCAL_EVM_PROFILE||processProfile===LOCAL_NATIVE_VALUE_PROCESS_PROFILE)));
     assert.equal(recovery.schema,liveArmedV1?LIVE_ARMED_CAPTURE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1');assert.equal(recovery.family,recoveryFamily);assert.equal(recovery.terminal.ownedProcessStopped,true);assert.equal(recovery.terminal.forced,false);
     await assertOwnedRecoveryScratchV1(recovery.cwd,recoveryPrefix);if(preopenRepair)await assertOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await assertStoppedNativeFilesV1(recovery.cwd,recovery.files);
-    restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);assert.equal(restored.schema,liveArmedV1?LIVE_ARMED_PRIVATE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1');if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(restored);else if(pagedHubRecoveryV3)assertOwnedPagedHubEvmPrivateRecordV3(restored);assert.equal(restored.family,recoveryFamily);assert.equal(restored.cwd,recovery.cwd);assert.deepEqual(restored.runtimePin,runtimePin);assert.equal(restored.profile,processProfile.name);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(preopenRepair)await claimOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);
+    restored=await readPrivateRuntimeRecoveryV1(recovery.cwd,recovery.privateRecord);assert.equal(restored.schema,liveArmedV1?LIVE_ARMED_PRIVATE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1');if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(restored);else if(pagedHubRecoveryV3)assertOwnedPagedHubEvmPrivateRecordV3(restored);if(pagedDurableV3||receiverRecoveryV3)restored=decodePagedRuntimeHistoryV3(restored);assert.equal(restored.family,recoveryFamily);assert.equal(restored.cwd,recovery.cwd);assert.deepEqual(restored.runtimePin,runtimePin);assert.equal(restored.profile,processProfile.name);assert.equal(restored.processGeneration,recovery.processGeneration,'NATIVE_RECOVERY_GENERATION_MISMATCH');if(preopenRepair)await claimOwnedReceiverPreopenRepairV1({record:recovery,repair:preopenRepair});else await claimStoppedNativeRecoveryV1(recovery.cwd,recovery);
   }
   const cwd = restored?restored.cwd:await scratchDirectory(recoveryPrefix);
   let initialPrivateRecord=null,stateFilePin=null,localCustody=null,localCustodyPublic=null;
@@ -830,7 +844,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       assert.deepEqual(await rpc('eth_getBlockByNumber',['0x0',false]),restored.genesisHeader,'EVM_RECOVERY_GENESIS_HEADER');
       assert.deepEqual(await rpc('eth_getBlockByNumber',['latest',false]),restored.head,'EVM_RECOVERY_HEAD');
       for(const row of restored.accountState){assert.equal(await rpc('eth_getBalance',[row.address,'latest']),row.balance);assert.equal(await rpc('eth_getTransactionCount',[row.address,'latest']),row.nonce);assert.equal(await rpc('eth_getCode',[row.address,'latest']),row.code);}
-      assert.ok(Array.isArray(restored.transactions)&&restored.transactions.length<=512);transactions.push(...cloneRuntimeRecoveryV1(restored.transactions));
+      assert.ok(Array.isArray(restored.transactions)&&restored.transactions.length<=retainedTransactionLimit);transactions.push(...cloneRuntimeRecoveryV1(restored.transactions));
       for(const row of restored.receipts){const entry=transactions.find(x=>x.transactionHash===row.transactionHash);assert.deepEqual(entry,row);receipts.push(entry);assert.deepEqual(await rpc('eth_getTransactionReceipt',[row.transactionHash]),row.receipt,'EVM_RECOVERY_RECEIPT');}
       for(const row of transactions)if(row.transactionHash&&row.receipt)assert.equal((await rpc('eth_getBlockByNumber',[row.receipt.blockNumber,false])).hash,row.receipt.blockHash,'EVM_RECOVERY_CANONICAL');
       lifecycle.push(...cloneRuntimeRecoveryV1(restored.lifecycle));uncertainMutation=restored.uncertainMutation;uncertainSignedHash=restored.uncertainSignedHash;
@@ -916,6 +930,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
     const mutate = async operation => {
       assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');
       assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION');
+      if(pagedDurableV3||receiverRecoveryV3)assert.ok(transactions.length<retainedTransactionLimit,'PAGED_RUNTIME_RETAINED_TRANSACTION_CAPACITY');
       assert.ok(!observedFinalityV2||observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_PENDING');
       assert.ok(!uncertainMutation, 'LOCAL_EVM_UNCERTAIN_MUTATION_REQUIRES_RECONCILIATION');
       busy = true; ingressMutationEpoch++; let sourceMutation=null,deviceSourceActivity=null,deviceSourceFailed=false;
@@ -933,6 +948,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
     };
     const mineAt = async timestamp => {
       const before = await block();
+      if(pagedDurableV3||receiverRecoveryV3)assert.ok(BigInt(before.number)+1n<BigInt(PAGED_RUNTIME_CAPACITY_V3.blocks),'PAGED_RUNTIME_RETAINED_BLOCK_CAPACITY');
       assert.equal(BigInt(before.timestamp), lastTimestamp, 'LOCAL_EVM_UNCONTROLLED_TIME');
       assert.ok(timestamp > lastTimestamp && timestamp <= BigInt(Number.MAX_SAFE_INTEGER), 'LOCAL_EVM_MONOTONIC_TIME');
       if(observedClock)assert.ok(timestamp<=BigInt(Math.floor(Date.now()/1000)),'LOCAL_OBSERVED_CLOCK_FUTURE_REJECTED');
@@ -1152,7 +1168,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
     // Only the two fixed wrappers below select the private clock branch.
     // Both retain the same original preparation, final authority and wire path.
     const dispatchOriginal = (scopedRequest, observedClaim) => dispatchOriginalEvmClaimV1(scopedRequest, observedClaim, {
-      profile: {observedClock, observedEconomicV2, economicV2, runtime, genesisHash},
+      profile: {observedClock, observedEconomicV2, economicV2, pagedObservedV4, runtime, genesisHash},
       lifetime: {
         assertMutable(){assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');},
         assertAlive, mutate,
@@ -1177,6 +1193,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       const scope=openOriginalPagedNativeDispatchV3(scopedRequest,runtime),tx=cloned(request(scope.transaction,true));
       assert.deepEqual(Object.keys(tx).sort(),['data','from','gas','to','value']);assert.ok(BigInt(tx.value)>0n&&BigInt(tx.value)<(1n<<128n));assert.ok(tx.to&&tx.from!==tx.to);assert.equal(tx.data,scope.memo);assert.equal(scope.chainId,String(processProfile.chainId));
       return mutate(async()=>{let keyUsePossible=false,outcomeKnown=false,entry,localSigningLease=null;try{
+        if(pagedDurableV3)assert.ok(BigInt((await block()).number)+65n<BigInt(PAGED_RUNTIME_CAPACITY_V3.blocks),'PAGED_RUNTIME_RETAINED_BLOCK_CAPACITY');
         // LOCAL_SYNTHETIC Paged clock follows the canonical receiver head
         // captured by the original READY grant, never a caller timestamp.
         const receiverTimestamp=uint(scope.receiverTimestamp,64);assert.ok(receiverTimestamp<=BigInt(Number.MAX_SAFE_INTEGER),'PAGED_NATIVE_RECEIVER_CLOCK_BOUND');
@@ -1203,6 +1220,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       const {openOriginalPagedUniswapProviderDispatchV3}=await dispatchContract.paged(),scope=openOriginalPagedUniswapProviderDispatchV3(scopedRequest,runtime),tx=cloned(request(scope.transaction,true));
       assert.deepEqual(Object.keys(tx).sort(),['data','from','gas','to','value']);assert.equal(tx.value,'0x0');assert.equal(scope.chainId,'31337');assert.ok(tx.to&&tx.data.length>=10);
       return mutate(async()=>{let keyUsePossible=false,outcomeKnown=false,entry,localSigningLease=null;try{
+        if(pagedDurableV3)assert.ok(BigInt((await block()).number)+65n<BigInt(PAGED_RUNTIME_CAPACITY_V3.blocks),'PAGED_RUNTIME_RETAINED_BLOCK_CAPACITY');
         const receiverTimestamp=uint(scope.receiverTimestamp,64);assert.ok(receiverTimestamp<=BigInt(Number.MAX_SAFE_INTEGER));if(receiverTimestamp>lastTimestamp)try{await mineAt(receiverTimestamp);}catch(error){uncertainMutation=true;throw error;}
         const head=await block();assert.equal(BigInt(head.timestamp),lastTimestamp);const pending=quantity(await rpc('eth_getTransactionCount',[tx.from,'pending']));assert.equal(await rpc('eth_getTransactionCount',[tx.from,'latest']),pending);
         const gasPrice=1000000000n;assert.ok(BigInt(head.baseFeePerGas)<=gasPrice);const targetCode=await rpc('eth_getCode',[tx.to,head.number]);assert.notEqual(targetCode,'0x');const balanceWei=BigInt(await rpc('eth_getBalance',[tx.from,head.number]));assert.ok(balanceWei>=BigInt(tx.gas)*gasPrice);
@@ -1219,6 +1237,10 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
 
     const dispatch = async scopedRequest => {
       assert.equal(observedClock&&!observedEconomicV2,false,'LOCAL_OBSERVED_RECEIVER_NO_LEGACY_DISPATCH');
+      return dispatchOriginal(scopedRequest,false);
+    };
+    const dispatchOriginalPagedObservedV4=async scopedRequest=>{
+      assertOwnedPagedObservedHubEvmV4(runtime);assert.equal(pagedObservedV4,true);
       return dispatchOriginal(scopedRequest,false);
     };
     // The observed receiver exposes only the original native-claim capability.
@@ -1521,7 +1543,8 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       assert.equal(economicRecoveryFence,null,'EVM_ECONOMIC_CAPTURE_FENCED_MUTATION');assert.ok(!deviceSourceObservationOnly,'DEVICE_GRAPH_SOURCE_OBSERVATION_ONLY');
       assert.match(hash, /^0x[0-9a-f]{64}$/);
       assert.ok(!observedFinalityV2||observedFinalityV2.completed,'ECONOMIC_OBSERVED_ORIGINAL_FINALITY_PENDING');
-      assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION'); busy = true; ingressMutationEpoch++;
+      assert.ok(!busy, 'LOCAL_EVM_CONCURRENT_MUTATION');
+      if(pagedDurableV3||receiverRecoveryV3)assert.ok(transactions.length<retainedTransactionLimit,'PAGED_RUNTIME_RETAINED_TRANSACTION_CAPACITY'); busy = true; ingressMutationEpoch++;
       try {
         await health();
         const entry = transactions.find(item => item.transactionHash === hash && item.signed);
@@ -1571,7 +1594,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       transaction: logicalReadV4(transaction), checkReceipt: logicalReadV4(checkReceipt),
       ...(economicV2?{dispatchOriginalDeviceExternalFlatNoteV1}:{}),
       ...(nativeValueOnly ? { dispatchNativeValueV1, assertNativeValuePreparedCurrent: logicalReadV4(assertNativeValuePreparedCurrent),
-        observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : observedEconomicV2?{send,refreshObservedClock,dispatch}:observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
+        observeNativeValueOriginal: logicalReadV4(observeNativeValueOriginal) } : pagedObservedV4?{send,refreshObservedClock,dispatch:dispatchOriginalPagedObservedV4}:observedEconomicV2?{send,refreshObservedClock,dispatch}:observedClock?{send,refreshObservedClock,dispatch:dispatchObservedClaimV1}:{ send, advanceTo, dispatch }),
       signedTransaction: logicalReadV4(signedTransaction), reconcileSignedTransaction,
       dispatchOriginalPagedNativeV3,readOriginalPagedNativeTransferV3,
       ...(deviceExternalFlatV1?{dispatchOriginalPagedUniswapV3}:{}),
@@ -1647,8 +1670,8 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
       if(economicV2){retainedLocalCustody=await captureNativeEconomicLocalCustodyV2(localCustody);assert.deepEqual(retainedLocalCustody.accounts,accounts);}
       else {const st=await lstat(walletConfigPath);assert.ok(st.isFile()&&!st.isSymbolicLink()&&st.nlink===1&&st.size<16384);assert.equal(st.mode&0o777,0o600);
         const wallet=JSON.parse(await readFile(walletConfigPath,'utf8'));assert.deepEqual(wallet.available_accounts.map(address),accounts);mnemonic=wallet.wallet?.mnemonic;assert.ok(typeof mnemonic==='string'&&/^[a-z]+(?: [a-z]+){11}$/.test(mnemonic),'EVM_RECOVERY_PRIVATE_MNEMONIC');}
-      const state={schema:liveArmedV1?LIVE_ARMED_PRIVATE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1',family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,...(economicV2?{localCustodyCommitment:localCustodyPublic.commitment}:{mnemonic}),lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
-      assert.ok(state.transactions.length<=512&&state.receipts.length<=512);if(pagedHubRecoveryV3)assertOwnedPagedHubEvmPrivateRecordV3(state);else if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(state);const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);
+      let state={schema:liveArmedV1?LIVE_ARMED_PRIVATE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V2':'OWNED_FIXED_EVM_PRIVATE_RECOVERY_V1',family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,...(economicV2?{localCustodyCommitment:localCustodyPublic.commitment}:{mnemonic}),lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
+      assert.ok(state.transactions.length<=retainedTransactionLimit&&state.receipts.length<=retainedTransactionLimit);if(pagedDurableV3||receiverRecoveryV3)state=encodePagedRuntimeHistoryV3(state);if(pagedHubRecoveryV3)assertOwnedPagedHubEvmPrivateRecordV3(state);else if(receiverRecoveryV3)assertOwnedExternalDefiPrivateRecordV3(state);const privateRecord=await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-capture.json',state);
       await close();const stopped=lifecycle.findLast(row=>row.event==='stopped-owned-process');assert.ok(stopped?.stopped===true&&stopped.forced===false,'EVM_RECOVERY_REQUIRES_GRACEFUL_TERMINAL');
       const files=await sealStoppedNativeFilesV1(cwd);const captured={schema:liveArmedV1?LIVE_ARMED_CAPTURE_SCHEMA_V1:receiverRecoveryV3?EXTERNAL_DEFI_RECEIVER_CAPTURE_SCHEMA_V3:economicV2?'OWNED_FIXED_EVM_CAPTURE_V2':'OWNED_FIXED_EVM_CAPTURE_V1',family:recoveryFamily,cwd,privateRecord,files,terminal:{ownedProcessStopped:true,forced:false},processGeneration,genesis:genesisHash};
       await writePrivateRuntimeRecoveryV1(cwd,'wrapped-runtime-terminal.json',captured);
@@ -1913,7 +1936,7 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
         const accountState=[];for(const holder of accounts)accountState.push({address:holder,balance:await ownRead('eth_getBalance',[holder,'latest']),nonce:await ownRead('eth_getTransactionCount',[holder,'latest']),code:await ownRead('eth_getCode',[holder,'latest'])});
         const stateDump=await ownRead('anvil_dumpState',[true]);assertOwnedEvmRecoveryStateDumpV1(stateDump);assert.deepEqual(await ownRead('eth_getBlockByNumber',['latest',false]),head,'NATIVE_SOURCE_SNAPSHOT_HEAD_CHANGED');
         assert.deepEqual(await checkNativeEconomicLocalCustodyV2(localCustody),localCustodyPublic,'NATIVE_SOURCE_ORIGINAL_CUSTODY_CHANGED');assertAlive();
-        assert.ok(transactions.length<=512&&receipts.length<=512,'NATIVE_SOURCE_ORIGINAL_HISTORY_BOUND');
+        assert.ok(transactions.length<=retainedTransactionLimit&&receipts.length<=retainedTransactionLimit,'NATIVE_SOURCE_ORIGINAL_HISTORY_BOUND');
         return {schema:'OWNED_NATIVE_SOURCE_PRIVATE_STATE_V1',family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,localCustodyCommitment:localCustodyPublic.commitment,lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
       };
       sourceFrame = { runtime, family:recoveryFamily, identity:sourceIdentity.identity, generation:processGeneration, assertAlive, snapshot, clock:observedEconomicRuntimeClocksV2.get(runtime) };
@@ -1930,8 +1953,8 @@ async function createFixedOwnedLocalEvm( processProfile, poolGenerationAcceptanc
         const accountState=[];for(const holder of accounts)accountState.push({address:holder,balance:await ownRead('eth_getBalance',[holder,'latest']),nonce:await ownRead('eth_getTransactionCount',[holder,'latest']),code:await ownRead('eth_getCode',[holder,'latest'])});
         const stateDump=await ownRead('anvil_dumpState',[true]);assertOwnedExternalDefiStateDumpV3(stateDump);assert.deepEqual(await ownRead('eth_getBlockByNumber',['latest',false]),head,'NATIVE_SOURCE_SNAPSHOT_HEAD_CHANGED');
         assert.deepEqual(await checkNativeEconomicLocalCustodyV2(localCustody),localCustodyPublic,'NATIVE_SOURCE_ORIGINAL_CUSTODY_CHANGED');assertAlive();
-        assert.ok(transactions.length<=512&&receipts.length<=512,'NATIVE_SOURCE_ORIGINAL_HISTORY_BOUND');
-        return {schema:EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3,family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,localCustodyCommitment:localCustodyPublic.commitment,lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null};
+        assert.ok(transactions.length<=retainedTransactionLimit&&receipts.length<=retainedTransactionLimit,'NATIVE_SOURCE_ORIGINAL_HISTORY_BOUND');
+        return encodePagedRuntimeHistoryV3({schema:EXTERNAL_DEFI_RECEIVER_PRIVATE_SCHEMA_V3,family:recoveryFamily,cwd,profile:processProfile.name,runtimePin:[...runtimePin],processGeneration,originalProcessId:handle.child.pid,genesisHash,genesisHeader,accounts:[...accounts],head,accountState,stateDump,localCustodyCommitment:localCustodyPublic.commitment,lastTimestamp:lastTimestamp.toString(),ingressMutationEpoch:ingressMutationEpoch.toString(),uncertainMutation,uncertainSignedHash,transactions:cloneRuntimeRecoveryV1(transactions),receipts:cloneRuntimeRecoveryV1(receipts),lifecycle:cloneRuntimeRecoveryV1(lifecycle),sourceLineageCommitment:nativeValueOnly?(restored?.sourceLineageCommitment??ownedNativeValueFamily.get(runtime).instanceCommitment):null});
       };
       if(deviceSourceObservationOnly){
         for(const row of transactions)if(row.transactionHash&&row.receipt){
@@ -1969,6 +1992,8 @@ const {assertRecoverable:assertOwnedNativeEconomicRuntimeRecoverableV1,fence:fen
   const sourceRuntime = buildOriginalNativeSourceRuntimeBackendV1(sourceJournal);
   return Object.freeze({
     sourceRuntime,
+    createOwnedPagedObservedHubEvmV4,
+    assertOwnedPagedObservedHubEvmV4,
     createOwnedLocalEvmObservedClockV1,
     refreshNativeValueReceiverClock,
     nativeValueReceiverInclusionSecondV1,

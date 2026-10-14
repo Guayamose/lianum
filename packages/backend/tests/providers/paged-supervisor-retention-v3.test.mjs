@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {createOriginalPagedSupervisorRetentionV3,openOriginalPagedSupervisorRetentionV3,createOriginalPagedMixedSupervisorRetentionV3,openOriginalPagedMixedSupervisorRetentionV3,consumeOriginalPagedRuntimeRecoveryV3,consumeOriginalPagedComponentRecoveryV3} from '../../src/operations/recovery/paged-runtime-recovery-authority-v3.mjs';
+import {createOriginalPagedSupervisorRetentionV3,openOriginalPagedSupervisorRetentionV3,createOriginalPagedMixedSupervisorRetentionV3,openOriginalPagedMixedSupervisorRetentionV3,consumeOriginalPagedRuntimeRecoveryV3,consumeOriginalPagedComponentRecoveryV3,splitOriginalPagedSourceAuthorityRecoveryV4,PAGED_SOURCE_AUTHORITY_COLLECTION_RETENTION_V4} from '../../src/operations/recovery/paged-runtime-recovery-authority-v3.mjs';
 const descriptor={profile:'LIANUM_DEVICE_PAGED_OWNER_V3',graphProfile:'LIANUM_PAEG_FUNDED_PAGED_V3',sparseEncoding:'BN254_POSEIDON2_SPARSE_V3',origin:'https://127.0.0.1:9449',pairingId:'paged-cold-retention-fixture',devicePublicKey:'04'+'a'.repeat(128),deadlineMs:1900000000000,chainId:'31337',...Object.fromEntries(['genesis','scope','policy','assetIdentity','domain','hubDomain','registryCommitment','manifestSHA256','consumerSHA256','poolCodeHash','stateCodeHash','nativeCodeHash','mathCodeHash'].map(key=>[key,'b'.repeat(64)])),...Object.fromEntries(['pool','state','native','math'].map((key,i)=>[key,'0x'+String(i+1).repeat(40)]))};
 test('captured private supervisor opens once, binds every token and rejects incomplete/partial reopening',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'paged-supervisor-v3-')),config={directory,password:'synthetic-supervisor-password-32-byte'},runtimes={};let current;
@@ -46,5 +46,33 @@ test('mixed capture keeps the target receiver separate, requires all nine tokens
   assert.deepEqual(consumeOriginalPagedComponentRecoveryV3(component,'uniswap'),snapshot.uniswap);assert.throws(()=>consumeOriginalPagedComponentRecoveryV3(component,'uniswap'),/PAGED_SUPERVISOR_ORIGINAL_OPEN_TOKEN/);
   const reopened=await current.complete();assert.equal(reopened.phase,'ACTIVE');assert.equal(reopened.generation,1);await current.close();for(const token of issued)assert.throws(()=>consumeOriginalPagedRuntimeRecoveryV3(token,'uniswap'));
   await assert.rejects(openOriginalPagedMixedSupervisorRetentionV3(config),/PAGED_SUPERVISOR_NO_CAPTURED_REOPEN/);
+ }finally{await current?.close();await rm(directory,{recursive:true,force:true});}
+});
+
+
+test('original captured source collection requires every original child and rejects DATA, copying and replay',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'paged-source-supervisor-v4-')),config={directory,password:'inert-source-collection-password-32-bytes'},runtimes={};let current;
+ try{
+  for(const family of ['receiver','graphNative','bitcoin','solana']){const cwd=join(directory,family);await mkdir(cwd,{mode:0o700});const row={schema:'HOST_INERT_RUNTIME_CAPTURE',family,cwd,processGeneration:0,terminal:{ownedProcessStopped:true,forced:false,...(family==='solana'?{nativeOrderlyExit:true}:{})},genesis:'a'.repeat(64),files:{files:[],totalBytes:0}};await writeFile(join(cwd,'wrapped-runtime-terminal.json'),JSON.stringify(row),{mode:0o600});runtimes[family]=row;}
+  const next={...descriptor,pairingId:'paged-next-retention-fixture'},capture=d=>({profile:'DEVICE_PAGED_AUTHORITY_RETAINED_V3',descriptor:d,identity:'c'.repeat(64),journalRevision:3,journalDataSHA256:'d'.repeat(64),ownerCheckpoint:{profile:'HOST_INERT_OWNER_CHECKPOINT'}});
+  const authority={profile:PAGED_SOURCE_AUTHORITY_COLLECTION_RETENTION_V4,entries:[{authority:capture(descriptor),systemIndex:0,journalRelative:'authority/journal.vault'},{authority:capture(next),systemIndex:0,journalRelative:'sources/source-1/journal.vault'}]};
+  const snapshot={deployment:{profile:'ORIGINAL_PAGED_DEPOSIT_CATALOGUE_RETENTION_V1',principal:'e'.repeat(64),systems:[{profile:'HOST_INERT_DEPLOYMENT'}]},authority,provider:{inert:true},runtimes};
+  current=await createOriginalPagedSupervisorRetentionV3(config,descriptor);
+  const aliased=structuredClone(snapshot);aliased.authority.entries[1].journalRelative='../authority/journal.vault';await assert.rejects(current.capture(aliased),/PAGED_SUPERVISOR_SOURCE_COLLECTION_JOURNAL/);
+  const otherOwner=structuredClone(snapshot);otherOwner.authority.entries[1].authority.descriptor.devicePublicKey='04'+'f'.repeat(128);await assert.rejects(current.capture(otherOwner),/PAGED_SUPERVISOR_SOURCE_COLLECTION_BINDING/);
+  await current.capture(snapshot);await current.close();current=await openOriginalPagedSupervisorRetentionV3(config);
+  for(const family of Object.keys(runtimes))consumeOriginalPagedRuntimeRecoveryV3(await current.issueRuntime(family),family);
+  for(const kind of ['deployment','provider'])consumeOriginalPagedComponentRecoveryV3(await current.issueComponent(kind),kind);
+  const parent=await current.issueComponent('authority');assert.throws(()=>splitOriginalPagedSourceAuthorityRecoveryV4(authority),/PAGED_SUPERVISOR_ORIGINAL_SOURCE_COLLECTION_TOKEN/);
+  assert.throws(()=>consumeOriginalPagedComponentRecoveryV3(parent,'authority'),/PAGED_SUPERVISOR_SOURCE_COLLECTION_SPLIT_REQUIRED/);
+  const entries=splitOriginalPagedSourceAuthorityRecoveryV4(parent);assert.equal(entries.length,2);assert.throws(()=>splitOriginalPagedSourceAuthorityRecoveryV4(parent),/PAGED_SUPERVISOR_ORIGINAL_SOURCE_COLLECTION_TOKEN/);
+  await assert.rejects(current.complete(),/PAGED_SUPERVISOR_OPEN_COMPONENTS/);
+  assert.throws(()=>consumeOriginalPagedComponentRecoveryV3({...entries[0].token},'authority'),/PAGED_SUPERVISOR_ORIGINAL_OPEN_TOKEN/);
+  assert.deepEqual(consumeOriginalPagedComponentRecoveryV3(entries[0].token,'authority'),authority.entries[0].authority);
+  await assert.rejects(current.complete(),/PAGED_SUPERVISOR_OPEN_COMPONENTS/);
+  assert.deepEqual(consumeOriginalPagedComponentRecoveryV3(entries[1].token,'authority'),authority.entries[1].authority);
+  assert.throws(()=>consumeOriginalPagedComponentRecoveryV3(entries[1].token,'authority'),/PAGED_SUPERVISOR_ORIGINAL_OPEN_TOKEN/);
+  assert.equal((await current.complete()).phase,'ACTIVE');await current.close();
+  for(const entry of entries)assert.throws(()=>consumeOriginalPagedComponentRecoveryV3(entry.token,'authority'),/PAGED_SUPERVISOR_ORIGINAL_OPEN_TOKEN/);
  }finally{await current?.close();await rm(directory,{recursive:true,force:true});}
 });

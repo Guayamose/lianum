@@ -2,7 +2,7 @@
  * transport, key, wire, proof, funded action or process is executed. */
 import test,{mock} from 'node:test';import assert from 'node:assert/strict';
 let control;
-mock.module(new URL('./owned-tron-node-driver.mjs',import.meta.url).href,{exports:{
+mock.module(new URL('../../../../src/chains/tron/transfers/owned-tron-node-driver.mjs',import.meta.url).href,{exports:{
  async startFixedOwnedTronDriver(){const c=control;return {directory:'/tmp/inert-tron-no-io',metadata:{genesis:'0000000000000000'+'11'.repeat(24),solverEndpoint:'41'+'11'.repeat(20),recipientEndpoint:'41'+'22'.repeat(20)},
   assertAlive(){assert.equal(c.closed,false,'INERT_TRON_CLOSED');},async health(){await c.hold;return {genesis:'0000000000000000'+'11'.repeat(24)};},async close(){c.closed=true;}};},
  inspectOwnedTronRuntimePrerequisites(){throw Error('TEST_NO_NATIVE_PREREQUISITES');}

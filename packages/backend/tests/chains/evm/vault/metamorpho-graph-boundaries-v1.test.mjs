@@ -262,8 +262,9 @@ test('Blue shares-mode redemption preserves original floor rounding rather than 
  const debt=structuredClone(after);debt.market.totalBorrowShares='1';assert.throws(()=>assertMorphoBluePositionRedemptionAccountingV1({before,after:debt,shares:'1000001',assets:'1'}));
 });
 
-test('actual device Blue and Aave redemption require confirmed original SHARE W39 and a separate one-use PoP before native latch',async()=>{
- for(const originalAave of [false,true]){
+// Reuse the same explicit inert native ports with the actual journal, issuer,
+// protocol and device PoP; clock tests never receive native send authority.
+async function withOriginalPrivateExitHost(originalAave,work){
  const mapped=import.meta.url.includes('/modules/chain-adapters/');
  const protocolURL=mapped?new URL('../../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs',import.meta.url):new URL('../../../../../mobile-protocol/src/device-morpho-blue-redemption-v1.mjs',import.meta.url);
  const noteURL=mapped?new URL('../../../../../mobile-protocol/src/device-external-flat-note-v1.mjs',import.meta.url):new URL('../../../../../mobile-protocol/src/device-external-flat-note-v1.mjs',import.meta.url);
@@ -290,14 +291,101 @@ test('actual device Blue and Aave redemption require confirmed original SHARE W3
  ports.createRetainedPrivateVaultExitJournalV1=originalLifetime;ports.openRetainedPrivateVaultExitJournalV1=async(r,i,c,record,saved)=>{assert.ok(originalAave);assert.deepEqual(c,saved.credentials);assert.deepEqual(record,saved.checkpoint);return originalLifetime(r,i,c,record);};ports.assertOriginalExternalVaultJournalV1=async(r,path)=>{assert.equal(r,runtime);assert.equal(dirname(dirname(path)),directory);};ports.captureRetainedOwnedOfficialStaticVaultV1=async value=>{assert.ok(originalAave);assert.equal(value,adapter);return{variant:'DEVICE_AAVE_STATIC',explicitInertNativePort:true};};ports.hostOriginalRecoveryParts=async()=>({consumeOriginalDeviceExternalFlatGraphRecoveryPartV1(token,kind){assert.equal(token,originalRecoveryToken);assert.equal(kind,'aave-redemption');assert.equal(recoveryConsumed,false);recoveryConsumed=true;return token.value;}});
  const host=await loadDevicePrivateExitHost(ports,await ports.hostOriginalRecoveryParts()),loaded=host.api;
  const signature=value=>{const frame=frameFor(value);try{assert.ok(frame.length<=4096);const bytes=sign('sha256',frame,{key:pair.privateKey,dsaEncoding:'ieee-p1363'});const order=BigInt('0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141'),scalar=BigInt('0x'+bytes.subarray(32).toString('hex'));if(scalar>order/2n)Buffer.from((order-scalar).toString(16).padStart(64,'0'),'hex').copy(bytes,32);return bytes.toString('hex');}finally{frame.fill(0);}};
- try{service=await (originalAave?loaded.createOriginalDeviceAaveStaticPrivateExitV1:loaded.createOriginalDeviceMorphoBluePrivateExitV1)({runtime,system,account,...(originalAave?{protocols}:{position}),adapter});const denied=service.challenge();await assert.rejects(service.review({access:denied,signature:signature(denied),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}}),/HOST_ORIGINAL_SHARE_UNCONFIRMED/);assert.equal(sends,0);assert.equal(adapterCalls,0);
-  confirmed=true;const access=service.challenge(),{consent}=await service.review({access,signature:signature(access),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}});const altered={...consent,recipient:a(5)};await assert.rejects(service.operate({consent:altered,signature:signature(consent)}));assert.equal(sends,0);
-  if(originalAave){await assert.rejects(service.operate({consent,signature:signature(consent)}),/HOST_SAME_NATIVE_REPLY_LOST/);lost=false;}else{const row=await service.operate({consent,signature:signature(consent)});assert.equal(row.stage,'REDEEMED');assert.equal(row.redeemedUnderlying,'1');}assert.equal(sends,1);assert.equal(adapterCalls,1);
-  await assert.rejects(service.operate({consent,signature:signature(consent)}));assert.equal(sends,1);assert.throws(()=>loaded.assertOriginalBluePositionRedemptionRequestV1(Object.freeze(Object.create(null)),adapter,consent.reference));
-  if(originalAave){const snapshot=await loaded.captureOriginalDeviceAaveStaticPrivateExitV1(service);assert.equal(snapshot.record.data.operations[0].stage,'REDEMPTION_UNKNOWN');assert.equal(snapshot.record.data.operations[0].reference,consent.reference);originalRecoveryToken={value:{input:{runtime,system,account,protocols,adapter},saved:snapshot}};service=await loaded.reopenOriginalDeviceAaveStaticPrivateExitV1(originalRecoveryToken);await assert.rejects(loaded.reopenOriginalDeviceAaveStaticPrivateExitV1(originalRecoveryToken));const access=service.challenge(),review=await service.review({access,signature:signature(access),draft:{action:observeAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}});const observedRow=await service.operate({consent:review.consent,signature:signature(review.consent)});assert.equal(observedRow.stage,'REDEEMED');assert.equal(observedRow.reference,consent.reference);assert.equal(sends,1);const deny=service.challenge();await assert.rejects(service.review({access:deny,signature:signature(deny),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}}));assert.equal(adapterCalls,1);}
-  const again=service.challenge(),status=await service.status({access:again,signature:signature(again)});assert.equal(status.observationOnly,originalAave);assert.equal(status.operations.length,1);assert.equal(status.operations[0].withdrawalTransactionHash,consent.withdrawalTransactionHash);assert.equal(status.operations[0].stage,'REDEEMED');assert.equal(sends,1);assert.ok(subjectReads>=4);
- }finally{try{if(service)await service.close();}finally{host.restore();await rm(directory,{recursive:true,force:true});}}
- }
+ try{service=await (originalAave?loaded.createOriginalDeviceAaveStaticPrivateExitV1:loaded.createOriginalDeviceMorphoBluePrivateExitV1)({runtime,system,account,...(originalAave?{protocols}:{position}),adapter});await work({P,service,loaded,signature,redeemAction,observeAction,binding,jobId,
+  confirmShare(){confirmed=true;},disableLostReply(){lost=false;},
+  counters(){return{sends,subjectReads,adapterCalls};},replaceService(value){service=value;},
+  makeRecoveryToken(snapshot){originalRecoveryToken={value:{input:{runtime,system,account,protocols,adapter},saved:snapshot}};return originalRecoveryToken;}
+ });}finally{try{if(service)await service.close();}finally{host.restore();await rm(directory,{recursive:true,force:true});}}
+}
+
+test('actual device Blue and Aave redemption require confirmed original SHARE W39 and a separate one-use PoP before native latch',async()=>{
+ for(const originalAave of [false,true])await withOriginalPrivateExitHost(originalAave,async ctx=>{
+  let {service}=ctx;const {loaded,signature,redeemAction,observeAction,binding,jobId}=ctx;
+  const denied=service.challenge();await assert.rejects(service.review({access:denied,signature:signature(denied),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}}),/HOST_ORIGINAL_SHARE_UNCONFIRMED/);assert.equal(ctx.counters().sends,0);assert.equal(ctx.counters().adapterCalls,0);
+  ctx.confirmShare();const access=service.challenge(),{consent}=await service.review({access,signature:signature(access),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}});const altered={...consent,recipient:a(5)};await assert.rejects(service.operate({consent:altered,signature:signature(consent)}));assert.equal(ctx.counters().sends,0);
+  if(originalAave){await assert.rejects(service.operate({consent,signature:signature(consent)}),/HOST_SAME_NATIVE_REPLY_LOST/);ctx.disableLostReply();}else{const row=await service.operate({consent,signature:signature(consent)});assert.equal(row.stage,'REDEEMED');assert.equal(row.redeemedUnderlying,'1');}assert.equal(ctx.counters().sends,1);assert.equal(ctx.counters().adapterCalls,1);
+  await assert.rejects(service.operate({consent,signature:signature(consent)}));assert.equal(ctx.counters().sends,1);assert.throws(()=>loaded.assertOriginalBluePositionRedemptionRequestV1(Object.freeze(Object.create(null)),adapter,consent.reference));
+  if(originalAave){const snapshot=await loaded.captureOriginalDeviceAaveStaticPrivateExitV1(service);assert.equal(snapshot.record.data.operations[0].stage,'REDEMPTION_UNKNOWN');assert.equal(snapshot.record.data.operations[0].reference,consent.reference);const originalRecoveryToken=ctx.makeRecoveryToken(snapshot);service=await loaded.reopenOriginalDeviceAaveStaticPrivateExitV1(originalRecoveryToken);ctx.replaceService(service);await assert.rejects(loaded.reopenOriginalDeviceAaveStaticPrivateExitV1(originalRecoveryToken));const access=service.challenge(),review=await service.review({access,signature:signature(access),draft:{action:observeAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}});const observedRow=await service.operate({consent:review.consent,signature:signature(review.consent)});assert.equal(observedRow.stage,'REDEEMED');assert.equal(observedRow.reference,consent.reference);assert.equal(ctx.counters().sends,1);const deny=service.challenge();await assert.rejects(service.review({access:deny,signature:signature(deny),draft:{action:redeemAction,withdrawalJobId:jobId,minimumAssets:'1',deadline:'1180'}}));assert.equal(ctx.counters().adapterCalls,1);}
+  const again=service.challenge(),status=await service.status({access:again,signature:signature(again)});assert.equal(status.observationOnly,originalAave);assert.equal(status.operations.length,1);assert.equal(status.operations[0].withdrawalTransactionHash,consent.withdrawalTransactionHash);assert.equal(status.operations[0].stage,'REDEEMED');assert.equal(ctx.counters().sends,1);assert.ok(ctx.counters().subjectReads>=4);
+ });
+});
+
+// Only this test harness changes process clocks. Neither a clock callback nor
+// issuer timestamps can be supplied through the original production service.
+async function withRedemptionTestClock(t,work){
+ const clock={wall:1900000000000,tick:10000.875,sequence:null};
+ const wall=t.mock.method(Date,'now',()=>clock.wall),monotonic=t.mock.method(performance,'now',()=>clock.sequence?.length?clock.sequence.shift():clock.tick);
+ try{await work(clock);}finally{monotonic.mock.restore();wall.mock.restore();}
+}
+
+test('original redemption issuance survives forward and backward wall correction with unchanged signed expiry and real one-use PoP',async t=>{
+ for(const originalAave of [false,true])await withOriginalPrivateExitHost(originalAave,async({P,service,signature,counters})=>withRedemptionTestClock(t,async clock=>{
+  const fresh=originalAave?P.validateDeviceAaveStaticRedemptionFreshV1:P.validateDeviceMorphoBlueRedemptionFreshV1;
+  assert.equal(P.DEVICE_PRIVATE_REDEMPTION_PERMISSION_MILLISECONDS_V1,15000);
+  for(const shift of [86400000,-86400000]){
+   const issuedWall=clock.wall,issuedTick=Math.floor(clock.tick),access=service.challenge(),signed=signature(access),before=structuredClone(access);
+   assert.equal(access.expiresAt,issuedWall+15000);
+   clock.tick=issuedTick+37.75;clock.wall+=shift;
+   // The default DATA validator remains strict against the wall clock. Its
+   // rejection reproduces both directions of the former server inconsistency.
+   assert.throws(()=>fresh(access),/DEVICE_BLUE_REDEMPTION_DATA/);
+   assert.deepEqual(fresh(access,issuedWall+37),access);
+   const status=await service.status({access,signature:signed});
+   assert.equal(status.observedAt,clock.wall);assert.equal(status.expiresAt,clock.wall+15000);
+   assert.equal(status.operations.length,0);assert.deepEqual(access,before);
+   await assert.rejects(service.status({access,signature:signed}),/BLUE_REDEMPTION_ONE_USE_PERMISSION/);
+  }
+  assert.deepEqual(counters(),{sends:0,subjectReads:0,adapterCalls:0});
+ }));
+});
+
+test('original redemption deadline stays half-open at 15000ms despite new challenges, wall rollback and repeated status reads',async t=>{
+ for(const originalAave of [false,true])await withOriginalPrivateExitHost(originalAave,async({service,signature,counters})=>withRedemptionTestClock(t,async clock=>{
+  const issued=Math.floor(clock.tick),lastValid=service.challenge(),atDeadline=service.challenge(),afterDeadline=service.challenge();
+  const expiry=atDeadline.expiresAt;clock.wall-=86400000;clock.tick=issued+14999.99;
+  await service.status({access:lastValid,signature:signature(lastValid)});
+  const newer=service.challenge();assert.notEqual(newer.challengeId,atDeadline.challengeId);
+  clock.tick=issued+15000;
+  await assert.rejects(service.status({access:atDeadline,signature:signature(atDeadline)}),/BLUE_REDEMPTION_PERMISSION_EXPIRED/);
+  assert.equal(atDeadline.expiresAt,expiry);
+  // Even an unconsumed original cannot be renewed by issuing another grant.
+  clock.tick=issued+16000;clock.wall+=172800000;
+  await assert.rejects(service.status({access:afterDeadline,signature:signature(afterDeadline)}),/BLUE_REDEMPTION_PERMISSION_EXPIRED/);
+  await service.status({access:newer,signature:signature(newer)});
+  assert.deepEqual(counters(),{sends:0,subjectReads:0,adapterCalls:0});
+ }));
+});
+
+test('original redemption monotonic regressions and nonnumeric clocks fail closed without consuming an unused signature',async t=>{
+ for(const originalAave of [false,true])await withOriginalPrivateExitHost(originalAave,async({service,signature,counters})=>withRedemptionTestClock(t,async clock=>{
+  const issued=Math.floor(clock.tick),first=service.challenge(),unused=service.challenge();
+  clock.tick=issued+10;await service.status({access:first,signature:signature(first)});
+  clock.tick=issued+9;
+  await assert.rejects(service.status({access:unused,signature:signature(unused)}),/BLUE_REDEMPTION_MONOTONIC_CLOCK/);
+  for(const invalid of [false,null,'10011',NaN,Infinity,-1,-0,Number.MAX_SAFE_INTEGER+1]){
+   clock.tick=invalid;
+   assert.throws(()=>service.challenge(),/BLUE_REDEMPTION_MONOTONIC_CLOCK/);
+  }
+  clock.tick=issued+11;await service.status({access:unused,signature:signature(unused)});
+  await assert.rejects(service.status({access:unused,signature:signature(unused)}),/BLUE_REDEMPTION_ONE_USE_PERMISSION/);
+  clock.wall=false;assert.throws(()=>service.challenge(),/BLUE_REDEMPTION_WALL_CLOCK/);
+  assert.deepEqual(counters(),{sends:0,subjectReads:0,adapterCalls:0});
+ }));
+});
+
+test('original redemption checks elapsed time again after authentication and still requires the actual device signature',async t=>{
+ for(const originalAave of [false,true])await withOriginalPrivateExitHost(originalAave,async({service,signature,counters})=>withRedemptionTestClock(t,async clock=>{
+  const issued=Math.floor(clock.tick),access=service.challenge();
+  await assert.rejects(service.status({access}),/DEVICE_EXTERNAL_FLAT/);
+  await assert.rejects(service.status({access,signature:'01'.repeat(64)}),/BLUE_REDEMPTION_DEVICE_SIGNATURE|DEVICE_EXTERNAL_FLAT/);
+  // The first original check passes. Expiry during the operation rejects its
+  // result at the second check, even when the wall clock has moved backward.
+  clock.wall-=86400000;clock.tick=issued+15000;clock.sequence=[issued+14999,issued+15000];
+  await assert.rejects(service.status({access,signature:signature(access)}),/BLUE_REDEMPTION_PERMISSION_EXPIRED/);
+  assert.equal(clock.sequence.length,0);
+  await assert.rejects(service.status({access,signature:signature(access)}),/BLUE_REDEMPTION_ONE_USE_PERMISSION/);
+  assert.deepEqual(counters(),{sends:0,subjectReads:0,adapterCalls:0});
+ }));
 });
 
 test('Aave adapter checks the original Aave fixture on every healthy read and legacy Meta retains its own brand',async()=>{

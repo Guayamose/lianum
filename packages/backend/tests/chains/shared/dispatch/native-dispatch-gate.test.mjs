@@ -23,8 +23,8 @@ import { PrivateNoteTree } from '@lianum/engine/notes/private-note-tree';
 import { decodeBitcoinTransaction } from '@lianum/engine/chains/bitcoin/bitcoin-runtime';
 
 const syntheticVerifiers = new WeakSet();
-mock.module(new URL('../../../proof-workers/pinned-verifier.mjs', import.meta.url).href, {
-  exports: { assertPinnedVerifier(value, role) {
+mock.module(new URL('../../../../../proofs/src/verification/pinned-verifier.mjs', import.meta.url).href, {
+  exports: { createPinnedVerifier(){throw Error('TEST_PROVIDER_VERIFIER_NOT_USED');}, assertPinnedVerifier(value, role) {
     assert.ok(syntheticVerifiers.has(value) && role === 'dispatch', 'TEST_SYNTHETIC_VERIFIER_BRAND');
   } },
 });
@@ -80,8 +80,7 @@ function endpoint(family, genesis, asset, raw) {
   return sha(Buffer.concat(parts.flatMap(part => { const n = Buffer.alloc(4); n.writeUInt32BE(part.length); return [n, part]; })));
 }
 const memo = { ...MEMO_PROGRAM, executable: true,
-  dataBase64: readFileSync(new URL('../../../../../omnichain-product/.local/agave-linux-bounded-build/derived/'
-    + 'agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url)).toString('base64') };
+  dataBase64: readFileSync(new URL('../../../../../../tests/integration/chains/solana/fixtures/spl_memo-3.0.0.so', import.meta.url)).toString('base64') };
 delete memo.codeSHA256;
 
 async function fixture(family = '2') {

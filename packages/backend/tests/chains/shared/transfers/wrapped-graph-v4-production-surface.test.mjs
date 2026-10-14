@@ -25,20 +25,25 @@ test('actual original provider and runtime gate factories reject substitutes bef
  assert.equal(touched,0);
 });
 test('native/provider codecs finish before the fixed synchronous V4 consumption and terminal key seams',()=>{
- const evm=source('./owned-evm-runtime-backend-v1.mjs'),tron=source('./owned-tron-native-value-runtime.mjs'),owner=source('./wrapped-claim-dispatch-owner-v1.mjs');
+ const evm=source('../../../../src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs'),tron=source('../../../../src/chains/tron/runtime/owned-tron-native-value-runtime.mjs'),owner=source('../../../../src/chains/shared/dispatch/wrapped-claim-dispatch-owner-v1.mjs');
  const e=evm.slice(evm.indexOf('const dispatchNativeValueV1 ='),evm.indexOf('/** Only the exact immutable preparation delivered'));
- assert.match(e,/wrappedV4 = wrapped\.isWrappedClaimGraphDispatchRequestV1\(scopedRequest\)/);
+ assert.match(e,/wrappedV4 = isWrappedClaimGraphDispatchRequestV1\(scopedRequest\)/);
  assert.ok(e.indexOf('encodeCanonicalEvmUnsignedTransaction(prepared.transaction)')<e.indexOf("consumeWrappedGraphDispatchAuthorityV4(authority, 'native-key'"));
- assert.match(e,/terminalV4\(wrapped\.consumeWrappedGraphDispatchAuthorityV4\(authority, 'send'/);
- assert.match(e,/finally \{ if \(operationV4\) wrappedGraphOperationsV4.delete\(operationV4\)/);
+ assert.match(e,/terminalV4\(consumeWrappedGraphDispatchAuthorityV4\(authority, 'send'/);
+ assert.match(e,/finally \{[^}]*if \(operationV4\) wrappedGraphOperationsV4.delete\(operationV4\)/);
  assert.match(tron,/WRAPPED_GRAPH_ORIGINAL_NATIVE_PHASE_REQUIRED/);assert.match(tron,/wrappedGraphOperationsV4.delete\(operationV4\)/);
  const p=owner.slice(owner.indexOf('signDispatchOnce(statement,authority,operation)'),owner.indexOf('observeOriginal:'));
  assert.ok(p.indexOf('nativeDispatchStatementFrame(statement)')<p.indexOf('consumeWrappedGraphProviderAuthorityV4('));
  assert.ok(!/await\s/.test(p));assert.ok(p.indexOf('elapsed<30000')<p.indexOf('return signature(key,frame)'));
 });
-test('all original wrapped release gates remain null and each stage durably retains the exact original authorization',()=>{
- for(const [name,value] of Object.entries(Release))if(name.includes('RELEASE')&&!name.includes('SCHEMA'))assert.equal(value,null,name);
- const gate=source('./wrapped-claim-graph-dispatch-gate-v1.mjs');assert.match(gate,/CURRENT_CHECKED_V4/);
+test('reviewed wrapped release gates keep their provenance and each stage durably retains the exact original authorization',()=>{
+ const operational=Release.WRAPPED_CLAIM_OPERATIONAL_RELEASE_V1,proof=Release.WRAPPED_CLAIM_PROOF_RELEASE_V1,deployment=Release.WRAPPED_CLAIM_DEPLOYMENT_RELEASE_V1;
+ assert.equal(operational.schema,Release.WRAPPED_CLAIM_RELEASE_SCHEMA_V1);assert.equal(deployment.schema,Release.WRAPPED_CLAIM_RELEASE_SCHEMA_V1);
+ assert.equal(proof.schema,'LIANUM_WRAPPED_CLAIM_PROOF_RELEASE_V3_RETAINED_PREPARATION');
+ assert.equal(operational.sourceClosureSHA256,deployment.sourceClosureSHA256);
+ for(const value of [operational,proof,deployment])for(const [key,pin]of Object.entries(value))if(key.endsWith('SHA256'))assert.match(pin,/^[0-9a-f]{64}$/);
+ assert.ok(deployment.sourceFiles.length>0&&deployment.contracts);
+ const gate=source('../../../../src/chains/shared/dispatch/wrapped-claim-graph-dispatch-gate-v1.mjs');assert.match(gate,/CURRENT_CHECKED_V4/);
  assert.ok(gate.indexOf("await append(operation?'CURRENT_CHECKED_V4'")<gate.indexOf('validateWrappedGraphOriginalAuthorizationV4(quorum,permit)'));
  assert.ok(gate.indexOf('validateWrappedGraphOriginalAuthorizationV4(quorum,permit)')<gate.indexOf('authoritiesV4.set(token,'));
  assert.match(gate,/WRAPPED_GRAPH_ORIGINAL_RETAINED_PHASE/);assert.match(gate,/WRAPPED_GRAPH_AUTHORITY_PROVIDER_OWNER/);

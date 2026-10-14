@@ -7,6 +7,8 @@ import { readFile, readdir, lstat, realpath, readlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { projectRoot } from '@lianum/engine/chains/shared/runtime-harness';
 import { ROOT } from '@lianum/proofs/catalog';
+import {sourcePath} from '@lianum/environment';
+import {assertAdoptedSourceGeneration} from '@lianum/proofs/toolchain/current-source-generation';
 import { TRON_UPSTREAM, OWNED_TRON_RUNTIME_RELEASE } from './tron-upstream-release-v1.mjs';
 const RUNTIME=join(projectRoot,'.local/owned-tron-native-value-v1'),DESTINATION=join(RUNTIME,'reviewed-aligned-rocksdb-v2');
 const FIXTURE=join(ROOT,'integration/chains/tron/fixtures');
@@ -62,7 +64,12 @@ export async function inspectOwnedTronAlignedCandidateMaterialV1() {
  assert.equal(build.inputs.sourceSHA256,SOURCE);assert.equal(build.inputs.originalSourceSHA256,ORIGINAL);
  for(const [name,key] of [['build.py','builderSHA256'],['launch.py','launcherSHA256'],['compile-child.py','compilerChildSHA256']])
   await pin(join(aligned,name),build.inputs[key]);
- await pin(join(resolve(ROOT,'../../../..'),'scripts/development/ledger_owned_processes.py'),build.inputs.ownedProcessHelperSHA256);
+ // Read the unchanged original build input as evidence. Never execute it.
+ await pin(sourcePath('archive/source-evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source'),build.inputs.ownedProcessHelperSHA256);
+ const adopted=assertAdoptedSourceGeneration(),helperSource='scripts/development/ledger_owned_processes.py';
+ const helper=adopted.sourceFiles.find(row=>row.source===helperSource);
+ assert.ok(helper,'TRON_PRODUCT_CURRENT_HELPER_SOURCE');
+ await pin(sourcePath(helperSource),helper.sourceSHA256);
  assert.deepEqual((await readdir(join(DESTINATION,'classes'))).sort(),NAMES);
  assert.deepEqual(build.outputs.map(r=>r.path).sort(),NAMES);
  for(const row of build.outputs) {const hash=row.path===NAMES[1]?RELEASE.classSHA256:RELEASE.innerClassSHA256;

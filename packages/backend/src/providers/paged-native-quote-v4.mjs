@@ -1,0 +1,10 @@
+/** Provider signatures are offers, not FX valuations, notes or execution grants. */
+import assert from 'node:assert/strict';
+import {createPublicKey,verify} from 'node:crypto';
+import {signature} from '@lianum/engine/notes/private-note-encoding';
+import {normalizeDevicePagedProviderQuoteTermsV4,devicePagedProviderQuoteTermsHashV4,normalizeDevicePagedProviderQuoteV4,devicePagedProviderQuoteFrameV4} from '@lianum/mobile-protocol/device/paged-provider-quote-v4';
+export function signPagedNativeProviderQuoteV4(key,rawTerms,actionCommitment){const terms=normalizeDevicePagedProviderQuoteTermsV4(rawTerms),termsSHA256=devicePagedProviderQuoteTermsHashV4(terms),frame=devicePagedProviderQuoteFrameV4(termsSHA256,actionCommitment),signed=signature(key,frame);try{const quote=normalizeDevicePagedProviderQuoteV4({terms,termsSHA256,actionCommitment,signature:signed.toString('hex')});verifyPagedNativeProviderQuoteV4(quote);return quote;}finally{frame.fill(0);signed.fill(0);}}
+export function verifyPagedNativeProviderQuoteV4(raw){const quote=normalizeDevicePagedProviderQuoteV4(raw),point=quote.terms.providerPublicKey,key=createPublicKey({format:'jwk',key:{kty:'EC',crv:'secp256k1',x:Buffer.from(point.slice(2,66),'hex').toString('base64url'),y:Buffer.from(point.slice(66),'hex').toString('base64url')}}),frame=devicePagedProviderQuoteFrameV4(quote.termsSHA256,quote.actionCommitment);try{assert.ok(verify('sha256',frame,{key,dsaEncoding:'ieee-p1363'},Buffer.from(quote.signature,'hex')),'PAGED_ECONOMIC_QUOTE_SIGNATURE');return quote;}finally{frame.fill(0);}}
+/** Technical ceilings published and signed by this LOCAL provider, never a market fee estimate. */
+export const PAGED_LOCAL_PROVIDER_FEE_CEILINGS_V4=Object.freeze({EVM:'100000000000000',UNISWAP:'30000000000000000',BTC:'10000',SOL:'1000000'});
+export function assertPagedNativeProviderFeeV4(raw,amount){const quote=verifyPagedNativeProviderQuoteV4(raw);assert.match(amount,/^(0|[1-9][0-9]{0,77})$/,'PAGED_ECONOMIC_QUOTE_FEE');assert.ok(BigInt(amount)<=BigInt(quote.terms.feeCeiling.amountAtomic),'PAGED_ECONOMIC_QUOTE_FEE_CEILING');return quote;}

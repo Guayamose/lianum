@@ -31,7 +31,7 @@ const cloned = (value) => freeze(structuredClone(value));
  * @typedef {Scope & {consumeBeforeKey(token:unknown,prepared:Prepared):number}} ClaimScope
  * @typedef {{label:string,request:DispatchTransaction,senderNonce:string,prepared:Prepared,phase:string,signed?:Signed,transactionHash?:string,originalObservedInclusionSecond?:string,receipt?:Receipt,gasUsed?:string,uncertaintyCause?:string}} TransactionRecord
  * @typedef {{assertOwnedEvmDispatchRequest(request:object,runtime:object):Scope,isOwnedClaimEvmDispatchRequest(request:object):boolean,assertOwnedClaimEvmDispatchRequest(request:object,runtime:object):ClaimScope,isWrapped(request:object):boolean,openWrapped(request:object,runtime:object):ClaimScope}} ClaimGate
- * @typedef {{profile:{observedClock:boolean,observedEconomicV2:boolean,economicV2:boolean,runtime:object,genesisHash:string},
+ * @typedef {{profile:{observedClock:boolean,observedEconomicV2:boolean,economicV2:boolean,pagedObservedV4?:boolean,runtime:object,genesisHash:string},
  * lifetime:{assertMutable():void,assertAlive():void,mutate<T>(work:()=>Promise<T>):Promise<T>},
  * requests:{loadGate():Promise<ClaimGate>,prepare(transaction:DispatchTransaction):DispatchTransaction,used(request:object):boolean,consume(request:object):void},
  * chain:{block():Promise<Head>,rpc(method:'eth_getTransactionCount'|'eth_getCode'|'eth_getBalance'|'eth_estimateGas'|'eth_signTransaction'|'eth_sendRawTransaction',params:unknown[]):Promise<string>,receipt(hash:string):Promise<Receipt|null>,assertCanonical(receipt:Receipt):Promise<Head>},
@@ -44,12 +44,12 @@ const cloned = (value) => freeze(structuredClone(value));
 /** @param {object} scopedRequest @param {boolean} observedClaim @param {ClaimDispatchPorts} ports */
 export async function dispatchOriginalEvmClaimV1(scopedRequest, observedClaim, ports) {
   const { profile, lifetime, requests, chain, clock, custody, records, wire } = ports;
-  const { observedClock, observedEconomicV2, economicV2, runtime, genesisHash } = profile;
+  const { observedClock, observedEconomicV2, economicV2, pagedObservedV4=false, runtime, genesisHash } = profile;
   const { block, rpc, receipt, assertCanonical } = chain;
 
   lifetime.assertMutable();
   assert.equal(
-    observedClock && !observedEconomicV2,
+    observedClock && !observedEconomicV2 && !pagedObservedV4,
     observedClaim,
     'LOCAL_EVM_FIXED_DISPATCH_CLOCK',
   );
@@ -64,6 +64,9 @@ export async function dispatchOriginalEvmClaimV1(scopedRequest, observedClaim, p
     openWrapped,
   } = await requests.loadGate();
 
+  // Only the runtime's fixed private birth can select this branch. The
+  // original wrapped gate still consumes its opaque request and exact scope.
+  if(pagedObservedV4)assert.ok(observedClock&&!observedEconomicV2&&!observedClaim&&isWrapped(scopedRequest),'PAGED_OBSERVED_ORIGINAL_WRAPPED_REQUEST');
   if (observedClaim)
     assert.ok(
       isOwnedClaimEvmDispatchRequest(scopedRequest),
@@ -237,7 +240,7 @@ export async function dispatchOriginalEvmClaimV1(scopedRequest, observedClaim, p
       assert.equal(hash, entry.transactionHash, 'EVM_BROADCAST_HASH_CHANGED');
       entry.phase = 'broadcast';
       const includedSecond =
-        observedClaim || observedEconomicV2
+        observedClaim || observedEconomicV2 || pagedObservedV4
           ? await clock.nextObservedSecond()
           : clock.current() + 1n;
       if (observedEconomicV2) entry.originalObservedInclusionSecond = includedSecond.toString();

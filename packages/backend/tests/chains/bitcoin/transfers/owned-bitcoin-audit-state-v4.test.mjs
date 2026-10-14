@@ -73,7 +73,8 @@ mock.module('node:http', { exports: { request(options, callback) {
   return req;
 } } });
 
-mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../../engine/src/chains/shared/runtime-harness.mjs', import.meta.url).href, { exports: {
+  originalOwnedRuntimeRpcFailureV1(){return null;},
   projectRoot:'/host-only-project',async ownedRuntimeRpc(){throw Error('HOST_SOLANA_RPC_DISABLED');},
   async pinnedBinary(name) { return name.endsWith('/bitcoind') ? '/host-only/bitcoind' : '/host-only/bitcoin-cli'; },
   async scratchDirectory() { control.directory = await fs.mkdtemp(join(tmpdir(), 'combined-btc-host-')); return control.directory; },
@@ -90,8 +91,8 @@ mock.module(new URL('../../../../../omnichain-product/src/chains/runtime-harness
   async stopOwnProcess(handle) { assert.equal(handle, control.handle); assert.equal(control.httpActive, 0); control.stops++; handle.child.exitCode = 0;
     return { stopped: true, forced: false }; },
 } });
-mock.module(new URL('../native-claims/payout-controller-dispatch-v1.mjs',import.meta.url).href,{exports:{}});
-mock.module(new URL('../native-claims/controller.mjs',import.meta.url).href,{exports:{consumeNativeClaimOriginalKeyAuthorityV4(){throw Error('HOST_PAYOUT_KEYS_DISABLED');}}});
+mock.module(new URL('../../../../src/claims/payouts/payout-controller-dispatch-v1.mjs',import.meta.url).href,{exports:{}});
+mock.module(new URL('../../../../src/claims/controller/controller.mjs',import.meta.url).href,{exports:{consumeNativeClaimOriginalKeyAuthorityV4(){throw Error('HOST_PAYOUT_KEYS_DISABLED');},consumeNativeSplClaimPayoutPreparationV1(){throw Error('HOST_PAYOUT_KEYS_DISABLED');},consumeNativeSplClaimBeginAuthorizationV1(){throw Error('HOST_PAYOUT_KEYS_DISABLED');},openNativeClaimSolanaPayoutAuthority(){throw Error('HOST_PAYOUT_KEYS_DISABLED');}}});
 const { createOwnedCombinedBitcoinRuntime, createOwnedBitcoinCustodyRuntime, createOwnedFlatBitcoinRuntime,
   assertOwnedBitcoinRuntime, readOwnedBitcoinRuntimeAuditState, BITCOIN_REGTEST_GENESIS, BITCOIN_CUSTODY_PROFILE, BITCOIN_OWNED_PROFILE,
   BITCOIN_TRANSFER_LIMITS, decodeBitcoinTransaction, bitcoinSatoshiFromAmount, bitcoinAmountFromSatoshi }

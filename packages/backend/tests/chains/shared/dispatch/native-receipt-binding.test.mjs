@@ -129,7 +129,7 @@ test('SOL program/order/account/instruction/amount and trailing-byte substitutio
 });
 
 test('Memo requirement matches exact existing official ELF and rejects forged metadata/code', () => {
-  const elf = readFileSync(new URL('../../../../../omnichain-product/.local/agave-linux-bounded-build/derived/agave-2.3.13-loopback-memtable-128m/program-test/src/programs/spl_memo-3.0.0.so', import.meta.url));
+  const elf = readFileSync(new URL('../../../../../../tests/integration/chains/solana/fixtures/spl_memo-3.0.0.so', import.meta.url));
   const snapshot = { address: binding.MEMO_PROGRAM.address, owner: binding.MEMO_PROGRAM.owner,
     executable: true, dataBase64: elf.toString('base64') };
   assert.equal(sha(elf), binding.MEMO_PROGRAM.codeSHA256);

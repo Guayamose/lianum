@@ -6,9 +6,9 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const clone=structuredClone,need=(ok,msg)=>assert.ok(ok,msg);
 function fixture(family){
- const isBTC=family==='BTC',source=readFileSync(new URL(isBTC?'./owned-bitcoin-runtime.mjs':'./owned-solana-runtime.mjs',import.meta.url),'utf8');
- const begin=isBTC?'            const expected = clone(readOwnedBitcoinRuntimeAuditState(runtime));':'        const expected = cloneInput(readPayoutAuditState());';
- const end=isBTC?'\n            };':'\n        };',a=source.indexOf(begin),b=source.indexOf(end,a)+end.length;assert.ok(a>0&&b>a);
+ const isBTC=family==='BTC',source=readFileSync(new URL(isBTC?'../../../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs':'../../../../src/chains/solana/transfers/solana-transfers.mjs',import.meta.url),'utf8');
+ const begin=isBTC?'            const expected = clone(readOwnedBitcoinRuntimeAuditState(runtime));':'      const expected = cloneInput(readPayoutAuditState());';
+ const end=isBTC?'\n            };':'\n      };',a=source.indexOf(begin),b=source.indexOf(end,a)+end.length;assert.ok(a>0&&b>a);
  const id=isBTC?'txid':'nativeId',record={[id]:'original',phase:'SIGNED_NOT_BROADCAST',broadcastAttempts:0,nativeWire:'original-wire',intent:{amount:'7'}};
  const other={[id]:'other',phase:'OBSERVED_CONFIRMED',broadcastAttempts:1,nativeWire:'other-wire'},records=new Map([['original',record]]),graph=[other];
  const state={readGeneration:'8',mutationGeneration:'3',signingUnresolved:false,persistenceFailed:false,isolationFailed:false,adverseHistory:false,lifetimeId:'original-lifetime'};

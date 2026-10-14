@@ -9,7 +9,7 @@ import { assertOwnedPoolAsset as actualBrand, createOwnedPoolAsset as actualFact
   createNativePoolAsset as actualNativeFactory } from '../../../../src/chains/shared/contracts/owned-pool-asset.mjs';
 
 const runtimes = new WeakSet();
-mock.module(new URL('./local-evm-ownership.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url).href, { exports: {
   async assertLocalEvm(runtime) { assert.ok(runtimes.has(runtime), 'TEST_ONLY_RUNTIME_CAPABILITY'); },
 } });
 const { createOwnedPoolAsset, createNativePoolAsset, assertOwnedPoolAsset } = await import('../../../../src/chains/shared/contracts/owned-pool-asset.mjs?synthetic-fixture-only');

@@ -1,4 +1,9 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {fixture} from '../../../fixtures/chains/shared/runtime/wrapped-graph-v4-runtime.fixture.mjs';
+import nodeTest from 'node:test';import assert from 'node:assert/strict';
+// This file substitutes the chain/process ports. Its monotonic clock is also
+// explicit HOST DATA; deadline cases below move that same port to the exact
+// 29999/30000ms boundary. Production clocks and budgets remain unchanged.
+const test=(name,callback)=>nodeTest(name,async t=>{t.mock.method(performance,'now',()=>0);await callback(t);});
+import {fixture} from '../../../fixtures/chains/shared/runtime/wrapped-graph-v4-runtime.fixture.mjs';
 for(const family of ['EVM','TRON'])test('actual '+family+' native factory + original wrapped gate/provider source consumes three original busy-phase authorities once',async()=>{
  const f=await fixture({family});try{f.c.issueHook=(_phase,_result)=>{const operation=f.c.operations.at(-1),reader=family==='EVM'?f.Evm.readOwnedEvmWrappedGraphOperationV4:f.Tron.readOwnedTronWrappedGraphOperationV4;assert.throws(()=>reader(operation,f.c.native,{}),/ORIGINAL_NATIVE_OPERATION/);assert.equal(reader(operation,f.c.native,f.c.runtimeRequest).phase,_phase);};const result=await f.provider.execute(f.data.request);assert.equal(result.phase,'BROADCAST');assert.equal(f.c.signs,1);assert.equal(f.c.providerSigns,1);assert.equal(f.c.sends,1);
  assert.deepEqual(f.c.validations.map(v=>v.phase),['native-key','provider-key','send']);
@@ -18,7 +23,7 @@ for(const family of ['EVM','TRON'])for(const phase of ['native-key','provider-ke
 for(const phase of ['native-key','provider-key','send'])test(`EVM physical read after final all-signer await invalidates ${phase} even if it finishes`,async()=>{
  const f=await fixture();let late;
  try{f.c.afterValidationHook=purpose=>{if(purpose===phase)queueMicrotask(()=>{late=f.c.native.block();});};
-  await assert.rejects(f.provider.execute(f.data.request),/STATE_CHANGED|OPERATION_CHANGED/);await late;
+  await assert.rejects(f.provider.execute(f.data.request),/STATE_CHANGED|OPERATION_CHANGED|WRAPPED_GRAPH_NATIVE_READ_IN_FLIGHT/);await late;
   assert.equal(f.c.signs,phase==='native-key'?0:1);assert.equal(f.c.providerSigns,phase==='send'?1:0);assert.equal(f.c.sends,0);
  }finally{await f.close();}
 });
