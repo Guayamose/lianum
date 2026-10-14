@@ -1,11 +1,29 @@
 /** Executes the exact screen refresh/invalidation/lifecycle method bodies,
  * selected by TypeScript AST. React rendering, hardware, storage and HTTP are
  * controlled boundaries; this is a late-response regression, not device proof. */
-import test from 'node:test';
+import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
+import {createHash} from 'node:crypto';
 import ts from 'typescript';
+// Original SDK reads use Node SHA over the exact bytes. These tests never
+// request entropy, ciphertext, proofs or a financial submission.
+mock.module('expo-crypto',{exports:{CryptoDigestAlgorithm:{SHA256:'SHA-256'},
+ async digest(algorithm,bytes){assert.equal(algorithm,'SHA-256');assert.ok(bytes instanceof Uint8Array);return Uint8Array.from(createHash('sha256').update(bytes).digest()).buffer;},
+ getRandomBytesAsync(){assert.fail('No key generation or encrypted financial operation in a screen lifecycle fixture');},
+}});
+const {createDeviceExternalFlatNoteApiV1}=await import('../src/api/device-external-flat-note-api-v1.mjs');
+const {observeDeviceExternalFlatReceptionV1}=await import('../src/api/device-external-flat-reception-observer-v1.mjs');
+function installConnectionScopePorts(globals){
+ const controllers=[];
+ Object.assign(globals,{AbortController:class extends AbortController{constructor(){super();controllers.push(this);}},
+  transportAbort:{current:null},publicTls:{current:null},activeRef:{current:true},receptionRequestRef:{current:null},callbacks:{current:{}},
+  observeDeviceExternalFlatReceptionV1,retainPairedReception(){},setSettingsOpen(){},setNoticeError(){},
+  advanced:true,flowRecipient:globals.recipient??'',destinationInput:'',fundingInput:'',setRecoveryOpen(){},
+  createDeviceExternalFlatPinnedTransportV1(){assert.fail('No TLS handle is supplied by these descriptor-only HOST fixtures');},
+ });return controllers;
+}
 const source = readFileSync(new URL('../src/screens/OriginalAccountScreen.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('OriginalAccountScreen.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const screen = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'OriginalAccountScreen');
@@ -185,8 +203,17 @@ test('MetaMorpho four pairing screen keeps original routed notes, a common D27 w
   Object.assign(globals,{mounted:{current:true},epoch:{current:0},connection:{current:null},AppState:{currentState:'active'},acquiring:{current:null},closing:{current:null},metaFourRef:{current:pairing},metaFourWindowRef:{current:null},metaFourText:JSON.stringify(packet),parseMetaFourPairing:parse,descriptorText:JSON.stringify(source),custodyRoute:'LEGACY',recipient:'0x'+'17'.repeat(20),amount:'100',validUntil:'',expoFetch:'EXPLICIT_ORIGINAL_TRANSPORT_PORT',preparedRef:{current:null},onObservation:()=>events.push('original-observation'),
     clearReview(){events.push('clear-review');},hideRecovery(){},setConnected:v=>{state.connected=v;},setSummary:v=>{state.summary=v;},setStatus(){},setGraphStatus(){},setBlueStatus(){},setAaveStatus(){},setRecipient(){},setAmount:v=>{state.amount=v;},setNotice(){},setRecoveryPreparation:v=>{state.prepared=v;},setDescriptorText(){},setMetaFour(){},setMetaFourWindow:v=>{state.window=v;},setValidUntil(){},setGraphValidFrom(){},setGraphSettleBefore(){},setGraphAssetAmount(){},setGraphShareAmount(){},setGraphPayoutAmount(){},
     setMetaFourReads:fn=>{const next=typeof fn==='function'?fn(reads):fn;for(let i=0;i<4;i++)reads[i]=next[i];},readDevicePublicKey:async()=>pub,
-    sign:async selected=>{events.push('same-device-pop-'+selected.descriptor.pairingId);return 'EXPLICIT_INERT_POP';},
-    createDeviceExternalFlatNoteApiV1({descriptor}){events.push('sdk-'+descriptor.pairingId);return{async challenge(){return{descriptor};},async status(){const now=Date.now();return P.normalizeExternalFlatStatusV1({descriptor,jobs:[],observed:{blockNumber:head.toString(),blockHash:hash(50),timestamp:head.toString()},observedAt:now,expiresAt:now+15000,note:{state:'UNISSUED',commitment:null,available:null,backing:null},...(descriptor.profile===P.DEVICE_EXTERNAL_FLAT_NOTE_V1?{graphClaimed:false}:{})});},close(){events.push('sdk-close-'+descriptor.pairingId);}};},
+    sign:async selected=>{events.push('same-device-pop-'+selected.descriptor.pairingId);return '01'.repeat(64);},
+    createDeviceExternalFlatNoteApiV1({descriptor}){events.push('sdk-'+descriptor.pairingId);let ordinal=60;
+     const client=createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl:async(url,request)=>{
+      assert.equal(request.method,'POST');assert.equal(request.redirect,'error');
+      const originalPrefix=descriptor.origin+(descriptor.profile===P.DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/');
+      assert.ok(url.startsWith(originalPrefix));const path=url.slice(originalPrefix.length);
+      let value;if(path==='challenges')value={profile:descriptor.profile,action:'ACCESS',origin:descriptor.origin,pairingId:descriptor.pairingId,devicePublicKey:descriptor.devicePublicKey,challengeId:hash(++ordinal),nonce:hash(++ordinal),expiresAt:Date.now()+15000};
+      else if(path==='status'){const now=Date.now();value={descriptor,jobs:[],observed:{blockNumber:head.toString(),blockHash:hash(50),timestamp:head.toString()},observedAt:now,expiresAt:now+15000,note:{state:'UNISSUED',commitment:null,available:null,backing:null},...(descriptor.profile===P.DEVICE_EXTERNAL_FLAT_NOTE_V1?{graphClaimed:false}:{})};}
+      else assert.fail('Only original SDK ACCESS/STATUS routes are allowed in the HOST lifecycle fixture');
+      return new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
+     }});return{...client,close(){events.push('sdk-close-'+descriptor.pairingId);return client.close();}};},
     createDeviceExternalFlatGraphApiV1({descriptor}){assert.equal(descriptor.profile,P.DEVICE_EXTERNAL_FLAT_NOTE_V1);events.push('graph-source-only');return{close(){events.push('graph-close');}};},
     createDeviceMorphoBlueRedemptionApiV1(){throw Error('META_IS_NOT_BLUE');},readBlueStatus(){throw Error('META_IS_NOT_BLUE');},readGraphStatus(){throw Error('NO_EXISTING_GRAPH_IN_EXPLICIT_PORT');},makeReview(){throw Error('D27_REQUIRES_RECOVERY_COPY');},
   });
@@ -195,6 +222,7 @@ test('MetaMorpho four pairing screen keeps original routed notes, a common D27 w
   globals.createDeviceExternalFlatRoutedNoteVaultV1=async descriptor=>{events.push('routed-'+descriptor.pairingId);if(lateAcquisition)return lateAcquisition.promise;return custody(descriptor);};
   globals.clearUniswap=()=>{};globals.clearAave=()=>{};globals.aaveRef={current:null};globals.createDeviceAaveStaticRedemptionApiV1=()=>{throw Error('META_IS_NOT_AAVE');};globals.readAaveStatus=()=>{throw Error('META_IS_NOT_AAVE');};
   globals.metaRef??={current:null};globals.clearMeta??=()=>{};globals.setMetaStatus??=()=>{};globals.setGraphPreparationPending??=()=>{};
+ const originalControllers=installConnectionScopePorts(globals);
  for(const name of ['closeConnection','current','requireConnection','clearMetaFour','metaFourSlot','retainMetaFourWindow','recordMetaFourStatus','invalidateMetaFourStatus','readStatus','connect','loadMetaFour','selectMetaFour','prepareDeposit'])globals[name]=new Script(selected(name)+'\n'+name+';').runInNewContext(globals);
   for(let slot=0;slot<4;slot++){head=1000n+BigInt(slot);await globals.selectMetaFour(slot);await globals.prepareDeposit();assert.equal(globals.connection.current.descriptor.pairingId,targets[slot].pairingId);assert.equal(reads[slot].note.available,null);}
   assert.equal(events.filter(v=>v.startsWith('routed-')).length,4);assert.deepEqual(calls.map(v=>[v.start,v.end,v.amount]),Array.from({length:4},()=>['1000','29740','100']));assert.equal(state.window.settleBefore,'29800');assert.equal(state.prepared,'SHARE');
@@ -227,10 +255,11 @@ test('Aave mobile pairing routes own source and shares and drains late acquisiti
  function vault(descriptor){return{async summary(){return{descriptor:null,recipient:null,amount:null,graph:null};},async close(){events.push('vault-close-'+descriptor.pairingId);}};}
  globals.createDeviceExternalFlatRoutedNoteVaultV1=async descriptor=>{events.push('routed-'+descriptor.pairingId);return late?late.promise:vault(descriptor);};
  globals.metaRef??={current:null};globals.clearMeta??=()=>{};globals.setMetaStatus??=()=>{};globals.setGraphPreparationPending??=()=>{};
+ const originalControllers=installConnectionScopePorts(globals);
  for(const name of ['closeConnection','current','requireConnection','clearAave','loadAave','selectAave','connect'])globals[name]=new Script(selected(name)+'\n'+name+';').runInNewContext(globals);
  await globals.loadAave();assert.equal(globals.connection.current.descriptor.pairingId,source.pairingId);await globals.selectAave('target');assert.equal(globals.connection.current.descriptor.pairingId,target.pairingId);assert.equal(globals.connection.current.graphClient,null);assert.ok(globals.connection.current.aaveClient);assert.equal(events.filter(v=>v==='aave-read').length,1);await globals.selectAave('source');assert.equal(events.filter(v=>v==='aave-sdk-close').length,1);assert.equal(events.filter(v=>v.startsWith('routed-')).length,3);assert.ok(events.indexOf('vault-close-'+source.pairingId)<events.indexOf('routed-'+target.pairingId));
  const key=deferred(),before=events.filter(v=>v.startsWith('sdk-')).length;globals.readDevicePublicKey=()=>key.promise;const obsolete=globals.loadAave();globals.epoch.current++;key.resolve(pub);await assert.rejects(obsolete,/MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);assert.equal(events.filter(v=>v.startsWith('sdk-')).length,before);globals.readDevicePublicKey=async()=>pub;
- late=deferred();const pending=globals.selectAave('target');while(!globals.acquiring.current)await Promise.resolve();globals.AppState.currentState='background';const drain=globals.closeConnection();late.resolve(vault(target));await assert.rejects(pending,/MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED|MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);await drain;assert.equal(globals.connection.current,null);assert.equal(events.some(v=>/fund|proof|reserve|execute|send/.test(v)),false);
+ late=deferred();const pending=globals.selectAave('target');while(!globals.acquiring.current)await Promise.resolve();globals.AppState.currentState='background';const drain=globals.closeConnection();late.resolve(vault(target));await assert.rejects(pending,/MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED|MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);await drain;assert.equal(globals.connection.current,null);assert.ok(originalControllers.at(-1).signal.aborted,'the original transport scope is cancelled before late custody drains');assert.equal(events.some(v=>/fund|proof|reserve|execute|send/.test(v)),false);
 });
 
 test('original Aave SDK keeps redemption PoP separate and observes the same job after one lost reply',async()=>{
@@ -276,10 +305,11 @@ test('Uniswap mobile pairing keeps original output terms and drains changed cont
  function vault(descriptor){return{async summary(){return{descriptor:null,recipient:null,amount:null,graph:null};},async close(){events.push('vault-close-'+descriptor.pairingId);}};}
  globals.createDeviceExternalFlatRoutedNoteVaultV1=async descriptor=>{events.push('routed-'+descriptor.pairingId);return late?late.promise:vault(descriptor);};
  globals.metaRef??={current:null};globals.clearMeta??=()=>{};globals.setMetaStatus??=()=>{};globals.setGraphPreparationPending??=()=>{};
+ const originalControllers=installConnectionScopePorts(globals);
  for(const name of ['closeConnection','current','requireConnection','clearUniswap','loadUniswap','selectUniswap','connect'])globals[name]=new Script(selected(name)+'\n'+name+';').runInNewContext(globals);
  await globals.loadUniswap();assert.equal(globals.connection.current.descriptor.pairingId,source.pairingId);await globals.selectUniswap('target');assert.equal(globals.connection.current.descriptor.pairingId,target.pairingId);assert.equal(globals.connection.current.graphClient,null);assert.equal(globals.connection.current.aaveClient,null);assert.equal(globals.connection.current.blueClient,null);assert.equal(state.output,'1000');assert.equal(state.from,'1000');assert.equal(state.cutoff,'1260');await globals.selectUniswap('source');assert.equal(events.filter(v=>v.startsWith('routed-')).length,3);assert.ok(events.indexOf('vault-close-'+source.pairingId)<events.indexOf('routed-'+target.pairingId));
  const key=deferred(),before=events.filter(v=>v.startsWith('sdk-')).length;globals.readDevicePublicKey=()=>key.promise;const obsolete=globals.loadUniswap();globals.epoch.current++;key.resolve(pub);await assert.rejects(obsolete,/MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);assert.equal(events.filter(v=>v.startsWith('sdk-')).length,before);globals.readDevicePublicKey=async()=>pub;
- late=deferred();const pending=globals.selectUniswap('target');while(!globals.acquiring.current)await Promise.resolve();globals.AppState.currentState='background';const drain=globals.closeConnection();late.resolve(vault(target));await assert.rejects(pending,/MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED|MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);await drain;assert.equal(globals.connection.current,null);assert.equal(events.some(v=>/fund|proof|reserve|execute|send/.test(v)),false);
+ late=deferred();const pending=globals.selectUniswap('target');while(!globals.acquiring.current)await Promise.resolve();globals.AppState.currentState='background';const drain=globals.closeConnection();late.resolve(vault(target));await assert.rejects(pending,/MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED|MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);await drain;assert.equal(globals.connection.current,null);assert.ok(originalControllers.at(-1).signal.aborted,'the original transport scope is cancelled before late custody drains');assert.equal(events.some(v=>/fund|proof|reserve|execute|send/.test(v)),false);
 });
 
 test('original MetaMorpho SDK keeps redemption PoP separate and observes the same job after one lost reply',async()=>{
@@ -317,8 +347,9 @@ test('Meta mobile pairing routes own source and shares and drains late acquisiti
  function vault(descriptor){return{async summary(){return{descriptor:null,recipient:null,amount:null,graph:null};},async close(){events.push('vault-close-'+descriptor.pairingId);}};}
  globals.createDeviceExternalFlatRoutedNoteVaultV1=async descriptor=>{events.push('routed-'+descriptor.pairingId);return late?late.promise:vault(descriptor);};
  globals.metaRef??={current:null};globals.clearMeta??=()=>{};globals.setMetaStatus??=()=>{};globals.setGraphPreparationPending??=()=>{};
+ const originalControllers=installConnectionScopePorts(globals);
  for(const name of ['closeConnection','current','requireConnection','clearMeta','loadMeta','selectMeta','connect'])globals[name]=new Script(selected(name)+'\n'+name+';').runInNewContext(globals);
  await globals.loadMeta();assert.equal(globals.connection.current.descriptor.pairingId,source.pairingId);await globals.selectMeta('target');assert.equal(globals.connection.current.descriptor.pairingId,target.pairingId);assert.equal(globals.connection.current.graphClient,null);assert.ok(globals.connection.current.metaClient);assert.equal(events.filter(v=>v==='meta-read').length,1);await globals.selectMeta('source');assert.equal(events.filter(v=>v==='meta-sdk-close').length,1);assert.equal(events.filter(v=>v.startsWith('routed-')).length,3);assert.ok(events.indexOf('vault-close-'+source.pairingId)<events.indexOf('routed-'+target.pairingId));
  const key=deferred(),before=events.filter(v=>v.startsWith('sdk-')).length;globals.readDevicePublicKey=()=>key.promise;const obsolete=globals.loadMeta();globals.epoch.current++;key.resolve(pub);await assert.rejects(obsolete,/MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);assert.equal(events.filter(v=>v.startsWith('sdk-')).length,before);globals.readDevicePublicKey=async()=>pub;
- late=deferred();const pending=globals.selectMeta('target');while(!globals.acquiring.current)await Promise.resolve();globals.AppState.currentState='background';const drain=globals.closeConnection();late.resolve(vault(target));await assert.rejects(pending,/MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED|MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);await drain;assert.equal(globals.connection.current,null);assert.equal(events.some(v=>/fund|proof|reserve|execute|send/.test(v)),false);
+ late=deferred();const pending=globals.selectMeta('target');while(!globals.acquiring.current)await Promise.resolve();globals.AppState.currentState='background';const drain=globals.closeConnection();late.resolve(vault(target));await assert.rejects(pending,/MOBILE_EXTERNAL_FLAT_CONNECTION_REQUIRED|MOBILE_EXTERNAL_FLAT_CONTEXT_CHANGED/);await drain;assert.equal(globals.connection.current,null);assert.ok(originalControllers.at(-1).signal.aborted,'the original transport scope is cancelled before late custody drains');assert.equal(events.some(v=>/fund|proof|reserve|execute|send/.test(v)),false);
 });

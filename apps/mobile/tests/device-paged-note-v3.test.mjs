@@ -7,8 +7,7 @@ import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,wipePrivateProofInputsV1} from '../../../packages/engine/src/crypto/private-proof-transit-v1.mjs';
-import {deriveOriginalDevicePagedPrivateJobV3} from '../../../packages/engine/src/execution/local/device-paged-private-input-v3.mjs';
-import * as P from '../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
+let P,deriveOriginalDevicePagedPrivateJobV3;
 import {noteNodeHash} from '../../../packages/engine/src/notes/private-note-tree.mjs';
 const sha=v=>createHash('sha256').update(v).digest('hex'),hex=v=>'0x'+v,word=v=>'0x'+BigInt(v).toString(16).padStart(64,'0'),Z='0'.repeat(64);
 function pop(key,consent){let sig=sign('sha256',P.devicePagedPermissionMessageV3(consent),{key,dsaEncoding:'ieee-p1363'});const order=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n,n=BigInt('0x'+sig.subarray(32).toString('hex'));if(n>order/2n)sig=Buffer.concat([sig.subarray(0,32),Buffer.from((order-n).toString(16).padStart(64,'0'),'hex')]);return sig.toString('hex');}
@@ -17,6 +16,7 @@ test('Paged mobile same note uses sealed D26/W39, lost FUND is observed once, co
  // fixture backwards. Original 15-second SDK/consent limits still elapse.
  const clockDescriptor=Object.getOwnPropertyDescriptor(Date,'now'),clockOrigin=Date.now(),clockStarted=performance.now();
  Object.defineProperty(Date,'now',{...clockDescriptor,value:()=>clockOrigin+Math.floor(performance.now()-clockStarted)});t.after(()=>Object.defineProperty(Date,'now',clockDescriptor));
+ P=await import('../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs');({deriveOriginalDevicePagedPrivateJobV3}=await import('../../../packages/engine/src/execution/local/device-paged-private-input-v3.mjs'));
  let originalServiceFailure=null;const closedFailure=e=>({name:e?.name??null,code:e?.code??null,frames:String(e?.stack??'').split('\n').filter(x=>/^\s+at /.test(x)).slice(0,5).map(x=>x.trim())});
  const store=new Map(),keys=new WeakMap(),sends=[],receipts=[],transactions=new Map(),lowerResults=new WeakMap();let leaf=null,spent=false,drop=true;
  t.mock.module('expo-secure-store',{exports:{WHEN_UNLOCKED_THIS_DEVICE_ONLY:6,isAvailableAsync:async()=>true,canUseBiometricAuthentication:()=>true,getItemAsync:async key=>store.get(key)??null,setItemAsync:async(key,value,options)=>{if(key.endsWith('.root'))assert.ok(options.requireAuthentication&&options.keychainAccessible===6);store.set(key,value);}}});

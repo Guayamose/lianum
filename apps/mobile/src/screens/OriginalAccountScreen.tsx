@@ -1,3 +1,4 @@
+import {originalFlatIngressFailureMessageV3} from './flat-ingress-feedback-v3.mjs';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fetch as expoFetch } from 'expo/fetch';
@@ -70,7 +71,7 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true);
     try { await work(); }
-    catch { if (mounted.current) setNotice('No se pudo completar la consulta. Conserva la petición original y comprueba el servicio.'); }
+    catch(error) { if (mounted.current) setNotice(originalFlatIngressFailureMessageV3(error)??'No se pudo completar la consulta. Conserva la petición original y comprueba el servicio.'); }
     finally { busyRef.current = false; if (mounted.current) setBusy(false); }
   }
   function api() {

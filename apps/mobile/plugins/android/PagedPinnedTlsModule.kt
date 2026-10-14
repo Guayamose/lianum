@@ -47,7 +47,7 @@ import org.json.JSONObject
 
 /** No keys, signing, arbitrary URLs, RPC, global trust changes or persistence. */
 class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPagedPinnedTlsSpec(context), LifecycleEventListener {
-  private data class Session(val group: String, val origin: String, val deadline: Long, val client: OkHttpClient, val routes: Map<String, Int>, val replyLimit: Int) {
+  private data class Session(val group: String, val origin: String, val deadline: Long, val client: OkHttpClient, val routes: Map<String, Int>, val replyLimit: Int, val pairingId: String) {
     val closed = AtomicBoolean(false)
     val active = AtomicReference<Pair<String, Call>?>(null)
     val cancelledRequest = AtomicReference<String?>(null)
@@ -58,6 +58,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
   private val limit = 4 * 1024 * 1024
   private fun routeLimits(group: String): Map<String, Int> = when (group) {
     "PAGED" -> listOf("/v1/mobile/paged-owner/challenges", "/v1/mobile/paged-owner/operations", "/v1/mobile/paged-owner/graph/pairing", "/v1/mobile/paged-owner/graph/challenges", "/v1/mobile/paged-owner/graph/operations").associateWith { limit }
+    "PAGED_SOURCE_RENEWAL_V4" -> listOf("/v1/mobile/paged-owner/source-renewal/challenges", "/v1/mobile/paged-owner/source-renewal/renewals").associateWith { 8192 }
     "POSITIONS" -> listOf("/v1/mobile/defi-positions/challenges", "/v1/mobile/defi-positions/reviews", "/v1/mobile/defi-positions/observations").associateWith { 8192 }
     "EXTERNAL_FLAT" -> buildMap {
       for (family in listOf("external-flat", "external-flat-share")) for (route in listOf("challenges", "reviews", "operations", "private-operations", "status")) put("/v1/mobile/$family/$route", if (route == "private-operations") 16384 else 8192)
@@ -94,16 +95,17 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
   }
 
   @ReactMethod @Synchronized
-  override fun open(group: String, origin: String, certificatePEM: String, certificateSHA256: String, deadlineMs: Double, promise: Promise) {
+  override fun open(group: String, origin: String, certificatePEM: String, certificateSHA256: String, deadlineMs: Double, pairingId: String, promise: Promise) {
     try {
       require(sessions.isEmpty() && certificatePEM.length <= 32768)
+      require(if (group == "PAGED" || group == "PAGED_SOURCE_RENEWAL_V4") pairingId.matches(Regex("[a-z0-9-]{8,100}")) else pairingId.isEmpty())
       val uri = URI(origin)
-      require(uri.scheme == "https" && uri.host != null && uri.port in 1..65535 && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null && uri.rawUserInfo == null)
+      require(uri.scheme == "https" && uri.host != null && (uri.port == -1 || uri.port in 1..65535) && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null && uri.rawUserInfo == null)
       require(certificateSHA256.matches(Regex("[a-f0-9]{64}")))
       val now = System.currentTimeMillis()
       require(deadlineMs.isFinite() && deadlineMs == deadlineMs.toLong().toDouble())
       val deadline = deadlineMs.toLong()
-      require(deadline > now && deadline - now <= 9L * 60 * 60 * 1000)
+      require(deadline > now && deadline - now <= if (group == "PAGED_SOURCE_RENEWAL_V4") 60000L else 9L * 60 * 60 * 1000)
       val certificates = CertificateFactory.getInstance("X.509").generateCertificates(ByteArrayInputStream(certificatePEM.toByteArray(Charsets.UTF_8)))
       require(certificates.size == 1)
       val certificate = certificates.single() as X509Certificate
@@ -134,7 +136,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
         .connectTimeout(15, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS)
         .readTimeout(900, TimeUnit.SECONDS).callTimeout(900, TimeUnit.SECONDS).build()
       val id = UUID.randomUUID().toString()
-      val session = Session(group, origin, minOf(deadline, certificate.notAfter.time), client, routeLimits(group), if (group == "PAGED") limit else 65536)
+      val session = Session(group, origin, minOf(deadline, certificate.notAfter.time), client, routeLimits(group), if (group == "PAGED") limit else 65536, pairingId)
       require(live(session))
       sessions[id] = session
       session.expiry = expiryTimer.schedule({ closeSession(id) }, session.deadline - now, TimeUnit.MILLISECONDS)
@@ -157,7 +159,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
       val request = Request.Builder().url(session.origin + path)
         .header("Content-Type", "application/json").header("Accept", "application/json")
         .header("Connection", "close")
-        .header("Cache-Control", "no-store").apply { if (session.group != "PAGED") header("Origin", session.origin) }
+        .header("Cache-Control", "no-store").apply { if (session.group == "PAGED" || session.group == "PAGED_SOURCE_RENEWAL_V4") header("x-lianum-paged-pairing-id", session.pairingId) else header("Origin", session.origin) }
         .post(bytes.toRequestBody("application/json".toMediaType())).build()
       val call = session.client.newCall(request)
       active = Pair(requestId, call)

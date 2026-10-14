@@ -1,11 +1,27 @@
-export type PagedNativeNetworkV3={family:'EVM'|'BTC'|'SOL';label:string;chainDomain:string;evidencePolicy:string;assetSymbol:string;decimals:number;destinations?:Array<{id:string;address:string;label:string}>};
+import {pagedBitcoinRecipientDataValidV4} from '../custody/paged-bitcoin-recipient-data-v4.mjs';
+import {DEVICE_PAGED_PAYMENT_BUFFER_LIMIT_V3} from '@lianum/mobile-protocol/device/paged-payment-list-v3';
+export type PagedNativeNetworkV3={family:'EVM'|'BTC'|'SOL';networkId?:'ethereum-sepolia'|'bitcoin-testnet'|'solana-devnet';label:string;chainDomain:string;evidencePolicy:string;assetSymbol:string;decimals:number;destinations?:Array<{id:string;address:string;label:string}>};
 // Existing local demo policy, not a price quote or a conversion from native
 // currency. The original Vault derives and validates dates from chain time.
 export const PAGED_GUIDED_DEFAULTS_V3=Object.freeze({reservePerPayment:'100',reservationMinutes:'60',executionMinutes:'120'});
+/** Input defaults from the original provider network configuration only.
+ * No new terms/grant: custom fields and existing operations retain their values. */
+export function pagedGuidedDefaultsV4(configuration:any,payments?:readonly {intent?:unknown}[]){
+ const bitcoin=pagedNativeNetworksV3(configuration).some(network=>network.networkId==='bitcoin-testnet'&&network.family==='BTC');
+ return bitcoin&&(payments===undefined||payments.some(payment=>{const intent=payment.intent;return !!intent&&typeof intent==='object'&&'family' in intent&&intent.family==='BTC';}))?{...PAGED_GUIDED_DEFAULTS_V3,executionMinutes:'360'}:PAGED_GUIDED_DEFAULTS_V3;
+}
+/** Input hint only; the original Vault checks the descriptor again at prepare. */
+export function pagedDepositAmountValidV3(value:string,minimumAtomic:unknown):boolean{
+ if(!/^[1-9][0-9]{0,19}$/.test(value)||BigInt(value)>=(1n<<64n))return false;
+ if(minimumAtomic===undefined)return true;
+ return typeof minimumAtomic==='string'&&/^[1-9][0-9]{0,19}$/.test(minimumAtomic)
+  &&BigInt(minimumAtomic)<(1n<<64n)&&BigInt(value)>=BigInt(minimumAtomic);
+}
 export type PagedNativePaymentDraftV3={id:string;amount:string;dependsOn:string[];intent:{family:'EVM'|'BTC'|'SOL';recipient:string;amount:string}};
 
 export function pagedPaymentBudgetV3(payments:readonly {amount:string}[]):string{
- if(payments.length===0||payments.length>64)throw Error('MOBILE_PAGED_STEP_ID');
+ if(payments.length===0)throw Error('MOBILE_PAGED_STEP_ID');
+ if(payments.length>DEVICE_PAGED_PAYMENT_BUFFER_LIMIT_V3)throw Error('MOBILE_PAGED_PAYMENT_LIST_CAPACITY');
  const total=payments.reduce((sum,payment)=>{if(!/^[1-9][0-9]{0,19}$/.test(payment.amount))throw Error('MOBILE_PAGED_STEP_AMOUNT');return sum+BigInt(payment.amount);},0n);
  if(total>=(1n<<64n))throw Error('MOBILE_PAGED_STEP_BUDGET');
  return total.toString();
@@ -45,7 +61,7 @@ export function pagedNativeAmountV3(value:string,decimals:number):string{
 
 export function pagedNativeRecipientV3(family:'EVM'|'BTC'|'SOL',value:string):string{
  const address=value.trim();
- const valid=family==='EVM'?/^0x[0-9a-fA-F]{40}$/.test(address)&&address.toLowerCase()!=='0x'+'0'.repeat(40):family==='BTC'?/^bcrt1[023456789acdefghjklmnpqrstuvwxyz]{39}$/.test(address):/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+ const valid=family==='EVM'?/^0x[0-9a-fA-F]{40}$/.test(address)&&address.toLowerCase()!=='0x'+'0'.repeat(40):family==='BTC'?pagedBitcoinRecipientDataValidV4(address):/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
  if(!valid)throw Error('MOBILE_PAGED_STEP_DESTINATION');
  return family==='EVM'?address.toLowerCase():address;
 }

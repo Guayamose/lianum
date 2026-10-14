@@ -219,7 +219,11 @@ test('private-state transport binds the original asset/lifetime and rejects stal
   const later=stateFixture('c1'.repeat(32),'original_request_0052');later.value.request.state='CONFIRMED';later.value.request.disposition='APPLIED';
   wallet.acceptAccount(await later.api.privateState.submit(later.stateSignedReview));snapshot=wallet.snapshot();assert.equal(snapshot.rows.length,2);assert.equal(snapshot.rows[0].requests.length,2);assert.equal(snapshot.rows[0].state,'UNKNOWN');assert.equal(snapshot.rows[0].available,null);
   assert.equal(f.calls.length,3);assert.equal(other.calls.length,1);assert.equal(Object.isFrozen(snapshot.rows[1]),true);
-  const realNow=Date.now;t.mock.method(Date,'now',()=>realNow()+15001);snapshot=wallet.snapshot();assert.equal(snapshot.rows.every(row=>row.state==='STALE'&&row.available===null&&row.recovery===null),true);t.mock.restoreAll();
+  const realNow=Date.now;t.mock.method(Date,'now',()=>realNow()+15001);snapshot=wallet.snapshot();
+  const unresolved=snapshot.rows.find(row=>row.route.genesis==='c1'.repeat(32)),expiredConfirmed=snapshot.rows.find(row=>row.route.genesis==='c2'.repeat(32));
+  assert.equal(unresolved.state,'UNKNOWN','an unresolved original outcome never becomes merely an aged confirmed balance');
+  assert.equal(expiredConfirmed.state,'STALE','the confirmed original reading loses its current spendable display after15s');
+  assert.ok(snapshot.rows.every(row=>row.available===null&&row.recovery===null));t.mock.restoreAll();
   wallet.clear();assert.equal(wallet.snapshot().rows.length,0);assert.equal(createPrivateWalletStateV1().snapshot().rows.length,0);
   // An unavailable response has no live head to expire. The READ review must
   // still be fresh after the original response stream has been received.

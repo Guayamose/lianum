@@ -81,7 +81,10 @@ mock.module('expo-crypto', { exports: {
     return new Uint8Array(Buffer.concat([decipher.update(bytes.subarray(12, -16)), decipher.final()]));
   },
 } });
-mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
+const appListeners=new Set();
+mock.module('react-native', { exports: { Platform: { OS: 'android' }, AppState: {
+  currentState:'active',addEventListener(name,listener){assert.equal(name,'change');appListeners.add(listener);return{remove(){appListeners.delete(listener);}};},
+} } });
 const expoFetchURL = new URL('../node_modules/expo/fetch.js', import.meta.url).href;
 const expoFetchResolution = registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === 'expo/fetch' && context.parentURL?.startsWith(new URL('../src/api/', import.meta.url).href))

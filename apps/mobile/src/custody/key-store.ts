@@ -558,10 +558,14 @@ export async function openDevicePagedGraphExecutionSessionV3(rawReview:unknown,s
  });
 }
 export function closeDevicePagedGraphExecutionSessionV3(session:object):void{WalletSession.closeWalletSessionPagedExecutionV1(session);pagedExecutionClosers.get(session)?.();pagedExecutionClosers.delete(session);}
-export async function signDevicePagedGraphExecutionPermissionV3(session:object,rawConsent:unknown,signal?:AbortSignal):Promise<string>{
+/** Server continuation still needs this protected, explicit original review. */
+export async function openDevicePagedGraphAutomationSessionV4(review:unknown,signal?:AbortSignal,refreshOriginalReview?:()=>Promise<unknown>):Promise<object>{
+ if(!WalletSession.walletSessionStatusV1().managed)throw Error('MOBILE_WALLET_SESSION_LOCKED');return WalletSession.openWalletSessionPagedAutomationV4(review,signal,refreshOriginalReview);
+}
+export async function signDevicePagedGraphExecutionPermissionV3(session:object,rawConsent:unknown,signal?:AbortSignal,command?:unknown):Promise<string>{
  const permission=await import('./device-paged-permission-v3.mjs'),binding=permission.readDevicePagedGraphExecutionSessionV3(session);
  if(signal?.aborted||AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');
  await assertProtectedStorage();if(await readDevicePublicKey()!==binding.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
  if(signal?.aborted||AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');
- return permission.signDevicePagedGraphSessionConsentV3(session,rawConsent);
+ return permission.signDevicePagedGraphSessionConsentV3(session,rawConsent,command);
 }

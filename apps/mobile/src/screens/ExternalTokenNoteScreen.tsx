@@ -1,3 +1,4 @@
+import {originalFlatIngressFailureMessageV3} from './flat-ingress-feedback-v3.mjs';
 import {sameDeviceRecoveryCheckpointV1 as sameRecoveryCheckpoint,verifyDeviceRecoveryCopyV1,reviewDeviceRecoveryPreparationV1} from '../custody/device-recovery-copy-gate-v1.ts';
 import {readDeviceMetaMorphoRedemptionStatusV2,readDeviceMorphoBlueRedemptionStatusV1,readDeviceAaveStaticRedemptionStatusV1,createDeviceMetaMorphoRedemptionApiV2,createDeviceMorphoBlueRedemptionApiV1,createDeviceAaveStaticRedemptionApiV1} from '../api/device-morpho-blue-redemption-api-v1.mjs';
 import type {DeviceMetaMorphoConsentV2,DeviceMetaMorphoStatusV2,DeviceMorphoBlueConsentV1,DeviceMorphoBlueStatusV1,DeviceAaveStaticConsentV1,DeviceAaveStaticStatusV1} from '../../../../packages/mobile-protocol/src/device-morpho-blue-redemption-v1.mjs';
@@ -333,7 +334,7 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  useEffect(()=>{const pending=metaFourReads.filter((v):v is ExternalFlatStatus=>v!==null&&v.expiresAt>Date.now());if(!pending.length)return;const timer=setTimeout(()=>{if(mounted.current)setMetaFourReads(previous=>previous.map(v=>v&&v.expiresAt>Date.now()?v:null));},Math.max(0,Math.min(...pending.map(v=>v.expiresAt))-Date.now()));return()=>clearTimeout(timer);},[metaFourReads]);
  async function run(work:()=>Promise<void>,failureNotice='No se ha confirmado el resultado. Vuelve a conectar y consulta la misma operación; no repitas el envío.') {
   if(busyRef.current||!activeRef.current||AppState.currentState!=='active')return;busyRef.current=true;setBusy(true);callbacks.current.onBusyChange?.(true);setNoticeError(false);
-  try{await work();}catch(error){if(error instanceof Error&&(error.message==='MOBILE_EXTERNAL_FLAT_REVIEW_CANCELLED'||beforePostCancellations.current.has(error))){if(mounted.current){setNoticeError(false);setNotice('Operación cancelada. Puedes continuar la preparación guardada.');}}else{closeConnection();if(mounted.current){setNoticeError(true);setNotice(failureNotice);}}}
+  try{await work();}catch(error){if(error instanceof Error&&(error.message==='MOBILE_EXTERNAL_FLAT_REVIEW_CANCELLED'||beforePostCancellations.current.has(error))){if(mounted.current){setNoticeError(false);setNotice('Operación cancelada. Puedes continuar la preparación guardada.');}}else{closeConnection();if(mounted.current){setNoticeError(true);setNotice(originalFlatIngressFailureMessageV3(error)??failureNotice);}}}
   finally{busyRef.current=false;callbacks.current.onBusyChange?.(false);if(mounted.current)setBusy(false);}
  }
  async function sign(selected:Connection,value:ExternalFlatConsent|Awaited<ReturnType<Client['challenge']>>,ticket:number,authorization?:object) {

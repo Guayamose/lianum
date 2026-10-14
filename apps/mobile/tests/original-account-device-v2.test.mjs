@@ -31,8 +31,15 @@ mock.module('expo-local-authentication', { exports: {
   hasHardwareAsync: async () => control.supported, isEnrolledAsync: async () => control.supported,
   authenticateAsync: async () => { assert.fail('Protected read supplies authentication; no key is generated here'); },
 } });
-mock.module('expo-crypto', { exports: { getRandomBytesAsync: async () => { assert.fail('No new entropy/identity'); } } });
-mock.module('react-native', { exports: { Platform: { OS: 'android' } } });
+const unreachableCrypto=()=>assert.fail('Diagnostic signing never enters an AES/note operation');
+mock.module('expo-crypto', { exports: { getRandomBytesAsync: async () => { assert.fail('No new entropy/identity'); },
+  AESEncryptionKey:{import:unreachableCrypto},AESSealedData:{fromCombined:unreachableCrypto},
+  aesEncryptAsync:unreachableCrypto,aesDecryptAsync:unreachableCrypto,
+} });
+const appListeners=new Set();
+mock.module('react-native', { exports: { Platform: { OS: 'android' },AppState:{currentState:'active',
+  addEventListener(name,listener){assert.equal(name,'change');appListeners.add(listener);return{remove(){appListeners.delete(listener);}};},
+} } });
 mock.module(new URL('../src/custody/signing.mjs', import.meta.url).href, { exports: { ...signing,
   privateKeyFromHex(value) { const bytes = signing.privateKeyFromHex(value); privateBuffers.push(bytes); return bytes; },
 } });

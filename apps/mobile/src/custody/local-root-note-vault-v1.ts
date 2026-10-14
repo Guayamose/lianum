@@ -1,4 +1,6 @@
 import {walletSessionStatusV1,readWalletSessionSecret,writeWalletSessionSecret} from './wallet-session-v1.ts';
+import * as RecoverySession from './wallet-session-v1.ts';
+import {readWalletRecoveryPartsInventoryV4} from './wallet-recovery-parts-v4.mjs';
 import {decryptExpoAesBase64V1} from './expo-aes-base64-v1.mjs';
 /** Device-local protected encryption root + one PC23 source and its retained
  * change/recovery custody. No network, native send, U/S proof or backend brand.
@@ -768,7 +770,7 @@ export function inspectLocalRootNoteVaultV1(): Promise<LocalRootNoteInspectionV1
 export function restoreLocalRootNoteVaultBackupV1(backupJSON: string, passphrase?: string, expectedRootId?: string, signal?: AbortSignal) {
   return createLocalRootNoteOperationV1().restore(backupJSON, passphrase, expectedRootId, signal);
 }
-async function restoreWithinScope(scope: RootOperationScope, backupJSON: string, passphrase?: string, expectedRootId?: string, signal?: AbortSignal) {
+async function restoreWithinScope(scope: RootOperationScope, backupJSON: string, passphrase?: string, expectedRootId?: string, signal?: AbortSignal, recoveryScope?:object,preflightOnly=false,expectedRevision?:number) {
   const originalScope = scope;
   scope = { current() { originalScope.current(); if (signal?.aborted) bad('MOBILE_CUSTODY_BACKUP_CANCELLED'); },
     writeStarted() { scope.current(); originalScope.writeStarted(); } };
@@ -790,13 +792,13 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string,
       if (b.version !== 1 || b.profile !== 'LIANUM_DEVICE_LOCAL_NOTE_BACKUP_V1'
         || typeof b.encryptedRecord !== 'string') bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID');
       const raw = b.encryptedRecord, e = envelope(raw), rootId = hex(b.rootId), revision = integer(b.revision);
-      if (expectedRootId !== undefined && rootId !== hex(expectedRootId)) bad('MOBILE_CUSTODY_BACKUP_BINDING');
+      if (expectedRootId !== undefined && rootId !== hex(expectedRootId)||expectedRevision!==undefined&&revision!==expectedRevision) bad('MOBILE_CUSTODY_BACKUP_BINDING');
       if (e.rootId !== rootId || e.revision !== revision || await checked(scope, () => digest(encoded(e))) !== hex(b.recordSHA256))
         bad('MOBILE_LOCAL_NOTE_BACKUP_INVALID');
       const root = localNoteHexBytesV1(hex(b.rootHex));
       let key: Crypto.AESEncryptionKey | null = null;
       try {
-        await protectedConsent('Restaurar esta copia local exacta: contiene la raíz secreta y el registro cifrado', scope);
+        if(recoveryScope){if(!(signal instanceof AbortSignal))bad('MOBILE_CUSTODY_BACKUP_CANCELLED');RecoverySession.assertWalletSessionRecoveryBatchV4(recoveryScope,'RESTORE',walletSessionStatusV1().publicKey!,signal!);}else await protectedConsent('Restaurar esta copia local exacta: contiene la raíz secreta y el registro cifrado', scope);
         if (root.every(byte => byte === 0) || await checked(scope, () => rootIdentity(root)) !== rootId) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
         const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
         const value = await checked(scope, () => decrypted(activeKey, raw)); // Authenticate and validate the original opening before any write.
@@ -835,7 +837,7 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string,
             ? await checked(scope, () => SecureStore.getItemAsync(RECORD, DATA)) !== originalPhysical
             : await readStoredRecord(scope) !== originalRecord)
           || await checked(scope, () => readRootSecret()) !== originalRoot) bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');
-        const target = { version: 1 as const, rootId, revision, recordSHA256: hex(b.recordSHA256), state: 'ACTIVE' as const };
+        if(preflightOnly){scope.current();return Object.freeze({rootId,revision,note:summary(value)});}const target = { version: 1 as const, rootId, revision, recordSHA256: hex(b.recordSHA256), state: 'ACTIVE' as const };
         try {
           const retainedPointer = before ?? JSON.stringify({ ...target, state: 'CREATING' });
           if (before === null) await writeCheckedScoped(scope, POINTER, retainedPointer, DATA);
@@ -1065,9 +1067,9 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     readPreparedNote: () => sessionRead('Leer tu nota local preparada; todavía no es saldo disponible', async value => summary(value)),
     /** Only ciphertext leaves this capability. RootNote has its own rootId;
      * no unrelated device PoP identity is required or invented for its backup. */
-    exportBackup(passphrase: string, signal?: AbortSignal) {
-      if (arguments.length < 1 || arguments.length > 2) bad('MOBILE_CUSTODY_BACKUP_PASSWORD');
-      return original('Crear una copia cifrada de tu custodia local con la contraseña elegida',
+    exportBackup(passphrase: string, signal?: AbortSignal,recoveryScope?:object) {
+      if (arguments.length < 1 || arguments.length > 3) bad('MOBILE_CUSTODY_BACKUP_PASSWORD');
+      if(recoveryScope){if(!(signal instanceof AbortSignal))bad('MOBILE_CUSTODY_BACKUP_CANCELLED');RecoverySession.assertWalletSessionRecoveryBatchV4(recoveryScope,'EXPORT',walletSessionStatusV1().publicKey!,signal!);}return original('Crear una copia cifrada de tu custodia local con la contraseña elegida',
         async (value, _key, before, raw, root) => {
           let clear: Uint8Array | undefined;
           try {
@@ -1084,7 +1086,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             current(); if (signal?.aborted) bad('MOBILE_CUSTODY_BACKUP_CANCELLED');
             return sealed;
           } finally { clear?.fill(0); passphrase = ''; }
-        });
+        },recoveryScope===undefined);
     },
     /** Creates a real cryptographic opening with native random entropy, while
      * retaining UNISSUED. It neither issues a note nor signs a spend. */
@@ -2021,4 +2023,16 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       for (const witness of outstandingExitWitnesses) wipeExit(witness); },
 
   });
+}
+
+
+/** Detects orphan/corrupt RootNote storage too; absence is explicit and only
+ * valid when metadata, encrypted record and protected root are all absent. */
+export async function exportLocalRootNoteWalletRecoveryCutV4(scope:object,expectedPublicKey:string,passphrase:string,signal:AbortSignal){
+ RecoverySession.assertWalletSessionRecoveryBatchV4(scope,'EXPORT',expectedPublicKey,signal);const inspection=await inspectLocalRootNoteVaultV1(),root=await readRootSecret();RecoverySession.assertWalletSessionRecoveryBatchV4(scope,'EXPORT',expectedPublicKey,signal);if(inspection.status==='ABSENT_METADATA'&&root===null)return null;if(inspection.status!=='ACTIVE'||!inspection.rootId||root===null)bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');const vault=openLocalRootNoteVaultV1(inspection.rootId!);try{const backup=await vault.exportBackup(passphrase,signal,scope),after=await inspectLocalRootNoteVaultV1();RecoverySession.assertWalletSessionRecoveryBatchV4(scope,'EXPORT',expectedPublicKey,signal);if(after.status!=='ACTIVE'||after.rootId!==inspection.rootId||after.revision!==inspection.revision)bad('MOBILE_LOCAL_NOTE_STORAGE_CHANGED');return{kind:'LOCAL_ROOT_NOTE' as const,rootId:inspection.rootId!,revision:inspection.revision!,backup};}finally{vault.close();passphrase='';}
+}
+/** Reuses the exact original RootNote restorer and conflict/AEAD checks. A
+ * decoded DTO cannot enter this branch without the original bundle instance. */
+export async function restoreLocalRootNoteWalletRecoveryCutV4(rawInventory:unknown,serialized:string,passphrase:string,batch:object,signal:AbortSignal,preflightOnly=false){
+ const inventory=readWalletRecoveryPartsInventoryV4(rawInventory,serialized,signal),cut=inventory.custodies.find(c=>c.kind==='LOCAL_ROOT_NOTE');if(!cut)return null;RecoverySession.assertWalletSessionRecoveryBatchV4(batch,'RESTORE',inventory.devicePublicKey,signal);const context=localRootOperationScope(),scope:RootOperationScope={current(){context.scope.current();RecoverySession.assertWalletSessionRecoveryBatchV4(batch,'RESTORE',inventory.devicePublicKey,signal);},writeStarted(){context.scope.writeStarted();}};try{const result=await context.run(()=>restoreWithinScope(scope,cut.backup,passphrase,cut.rootId,signal,batch,preflightOnly,cut.revision));if(result.rootId!==cut.rootId||result.revision!==cut.revision)bad('MOBILE_CUSTODY_BACKUP_BINDING');return result;}finally{context.close();passphrase='';}
 }

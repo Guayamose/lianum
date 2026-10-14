@@ -1,0 +1,11 @@
+export const WALLET_RECOVERY_PART_MAX_BYTES_V4:number;
+export const WALLET_RECOVERY_TOTAL_MAX_BYTES_V4:number;
+export type WalletRecoveryPagedCutV4=Readonly<{kind:'PAGED_NOTE'|'PAGED_GRAPH';descriptor:any;rootId:string;sourceRevision:number;sourceId:string|null;snapshot:Readonly<{header:any;record:string;events:readonly any[]}>}>;
+export type WalletRecoveryCutV4=WalletRecoveryPagedCutV4|Readonly<{kind:'NATIVE_WALLET';rootId:string;backup:string}>|Readonly<{kind:'LOCAL_ROOT_NOTE';rootId:string;revision:number;backup:string}>|Readonly<{kind:'EXTERNAL_FLAT';descriptor:any;backup:string}>;
+export type WalletRecoverySourceCatalogueV4=Readonly<{rootId:string;selectedPairingId:string;entries:readonly Readonly<{profile:string;revision:number}>[]}>;
+export type WalletRecoveryPartsInventoryV4=Readonly<{devicePublicKey:string;identityBackup:string;connections:readonly string[];catalogues:readonly WalletRecoverySourceCatalogueV4[];custodies:readonly WalletRecoveryCutV4[];createdAt:number;backendRequired:readonly any[];excluded:readonly string[];requiresOriginalReads:true}>;
+export function createWalletRecoveryPartsV4(input:{devicePublicKey:string;identityBackup:string;connections:readonly string[];catalogues:readonly WalletRecoverySourceCatalogueV4[];custodies:readonly WalletRecoveryCutV4[]},passphrase:string,signal?:AbortSignal):Promise<Readonly<{files:readonly string[];serialized:string}>>;
+export function isWalletRecoveryPartsV4(serialized:string):boolean;
+export function walletRecoveryPartsPublicKeyV4(serialized:string):string;
+export function openWalletRecoveryPartsV4(serialized:string,passphrase:string,expectedPublicKey:string,signal?:AbortSignal):Promise<WalletRecoveryPartsInventoryV4>;
+export function readWalletRecoveryPartsInventoryV4(raw:unknown,serialized:string,signal:AbortSignal):WalletRecoveryPartsInventoryV4;

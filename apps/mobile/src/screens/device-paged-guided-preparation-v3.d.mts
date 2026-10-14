@@ -1,2 +1,2 @@
-export type DevicePagedPreparationStateV3={phase:string|null;beginPrepared:boolean;pending:boolean;pagePending:boolean;pagesMatch:boolean;savedPayments:number;draftPayments:number};
-export function prepareDevicePagedPaymentListV3(options:{read:()=>Promise<DevicePagedPreparationStateV3>;begin:()=>Promise<unknown>;resumeBegin:()=>Promise<unknown>;append:()=>Promise<unknown>;seal:()=>Promise<unknown>;signal?:AbortSignal;onStage?:(stage:'begin'|'resume-begin'|'append'|'seal')=>void;maximumTransitions?:number}):Promise<{type:'ready'|'complete';phase:string}>;
+export {prepareDevicePagedPaymentListV3} from '@lianum/mobile-protocol/device/paged-payment-list-v3';
+export type {DevicePagedPreparationStateV3} from '@lianum/mobile-protocol/device/paged-payment-list-v3';
