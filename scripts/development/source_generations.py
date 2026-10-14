@@ -41,6 +41,22 @@ PREFIXES = (
 )
 MAX_BYTES = 128 * 1024 * 1024
 CURRENT_SOURCE_INPUTS = (
+    "packages/backend/src/operations/local/funded-paged-public-testnet-native-graph-operator-v4.mjs",
+    "contracts/wallet/v2/PrivateFlatAssetNotePoolV3.sol",
+    "archive/source-evidence/tron-original-builder-v1/provenance.json",
+    "archive/source-evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source",
+    "apps/platform/src/paged-native-bootstrap-v3.mjs",
+    "apps/platform/src/gateway-pairing.mjs",
+    "apps/platform/src/diagnostics.mjs",
+    "packages/backend/src/providers/paged-native-quote-v4.mjs",
+    "packages/mobile-protocol/src/device-paged-provider-quote-v4.mjs",
+    "packages/mobile-protocol/src/device-paged-provider-quote-v4.d.mts",
+    "packages/mobile-protocol/src/device-paged-payment-list-v3.mjs",
+    "packages/mobile-protocol/src/device-paged-payment-list-v3.d.mts",
+    "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json",
+    "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json",
+    "scripts/development/active-paged-generation.json",
+    "archive/source-evidence/paged-original-compiler-v4/provenance.json",
     "apps/mobile/src/screens/NativeWalletScreen.tsx",
     "apps/mobile/src/native-wallet/native-wallet-ui-port.ts",
     "apps/mobile/src/native-wallet/native-wallet-controller.ts",

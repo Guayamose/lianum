@@ -25,6 +25,12 @@ FAMILIES = {'engine': 'omnichain-product', 'protocol': 'golden-overlay-v17',
             'components': 'omnichain-flat-profile'}
 PUBLIC_KINDS = {'toolchain', 'public-parameter', 'public-artifact', 'historical-source', 'npm-package'}
 SOURCE_AREAS = {'apps', 'packages', 'contracts', 'experiments', 'scripts', 'tests'}
+# Already declared by CurrentSourceInputs; immutable evidence is DATA, never
+# an executable historical source alias. Do not broaden the archive prefix.
+SOURCE_EVIDENCE_PATHS = frozenset({
+    'archive/source-evidence/tron-original-builder-v1/provenance.json',
+    'archive/source-evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source',
+})
 IGNORED = {'node_modules', '.git', '.local', '.internal', '__pycache__', 'dist', 'build'}
 URL_RESOURCE = re.compile(r"\bnew\s+URL\(\s*['\"]([^'\"]+)['\"]\s*,\s*import\.meta\.url\s*\)")
 SOURCE_RESOURCE = re.compile(r"\b(?:sourceURL|sourcePath)\(\s*['\"]([^'\"]+)['\"]\s*\)")
@@ -67,6 +73,8 @@ def file_record(path):
 
 def source_allowed(relative):
     parts = PurePosixPath(safe_relative(relative)).parts
+    if relative in SOURCE_EVIDENCE_PATHS:
+        return relative
     if parts[0] not in SOURCE_AREAS or set(parts).intersection(IGNORED):
         raise ValueError(f'Not a public source path: {relative}')
     if any(part.startswith('.env') for part in parts):
@@ -187,11 +195,25 @@ def external_resources(document):
 
 ADOPTION = 'scripts/development/adopted-generation.json'
 ADOPTION_READER = 'packages/proofs/src/toolchain/current-source-generation.mjs'
+NATIVE_NPM_POLICY = 'scripts/development/source-pins.json'
+NATIVE_NPM_PACKAGES = {'@noble/ciphers', '@noble/curves', '@noble/hashes', '@scure/base',
+                       '@scure/bip32', '@scure/bip39', '@scure/btc-signer',
+                       'micro-eth-signer', 'micro-key-producer', 'micro-sol-signer',
+                       'micro-packed'}
+NATIVE_NPM_ROOTS = {('node_modules/' + name): name for name in NATIVE_NPM_PACKAGES}
+NATIVE_NPM_ROOTS.update({
+    'node_modules/micro-sol-signer/node_modules/@scure/base': '@scure/base',
+    'node_modules/micro-sol-signer/node_modules/micro-packed': 'micro-packed',
+})
 # Two retained public compiler records also occur in the adopted inventory.
 # Keep their exact original bytes; this grants no general access to .local and
 # does not turn either record into executable source. The manifest is separately
 # checked by the paged reader; the complete consumer program is retained evidence.
 ADOPTED_RETAINED_PUBLIC_FILES = {
+    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json':
+        '27649ee59274bc12b5602d10f87af2322cddebcb2263278aefe40c1e7eed0eca',
+    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json':
+        'b9ea61d9944b74cafa59b79e2049767d00aa65e06dbf3eed7deb0590919715d9',
     'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/consumer.json':
         'd3ad4ad81918ef832f35f4399ad64aa15a47f7fe99359b8d0a719a7eb9287fc3',
     'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/manifest.json':
@@ -200,11 +222,19 @@ ADOPTED_RETAINED_PUBLIC_FILES = {
 
 
 def adopted_npm_package(parts):
-    """Only the two reviewed application dependency inventories are transportable.
+    """Transport only reviewed application inventories and the closed native one.
 
     Ordinary source discovery still refuses node_modules. This path is reached
     only for an exact row of an already adopted, hash-authenticated inventory.
     """
+    if parts[0] == 'node_modules':
+        name = '/'.join(parts)
+        for package_root in sorted(NATIVE_NPM_ROOTS, key=len, reverse=True):
+            if name.startswith(package_root + '/'):
+                suffix = name[len(package_root) + 1:]
+                if 'node_modules' not in suffix.split('/'):
+                    return 'native-wallet', package_root, NATIVE_NPM_ROOTS[package_root]
+        raise ValueError('Root npm file is outside the reviewed native-wallet package names')
     if (len(parts) < 5 or parts[:2] not in {('apps', 'mobile'), ('apps', 'platform')}
             or parts[2] != 'node_modules' or parts.count('node_modules') != 1):
         raise ValueError('Adopted npm file is outside a reviewed application inventory')
@@ -225,6 +255,8 @@ def validate_adopted_npm(root, files, packages):
 
     locks = {}
     for application, package_root, name in sorted(packages):
+        if application == 'native-wallet':
+            continue
         if application not in locks:
             owner = pinned_json(application + '/package.json')
             if owner.get('name') != '@lianum/' + application.split('/')[1]:
@@ -240,6 +272,63 @@ def validate_adopted_npm(root, files, packages):
                 or not isinstance(locked.get('resolved'), str)
                 or not locked['resolved'].startswith('https://registry.npmjs.org/')):
             raise ValueError('Adopted npm dependency differs from its public manifest and lock: ' + name)
+    roots = {package_root for application, package_root, _ in packages if application == 'native-wallet'}
+    if not roots:
+        return
+    policy = pinned_json(NATIVE_NPM_POLICY).get('nativeWalletNpm')
+    if (not isinstance(policy, dict)
+            or set(policy) != {'schema', 'manifest', 'lock', 'consumerPrefixes', 'directDependencies', 'packages'}
+            or policy['schema'] != 'LIANUM_REVIEWED_NATIVE_WALLET_NPM_V1'
+            or policy['manifest'] != 'packages/crypto/package.json' or policy['lock'] != 'package-lock.json'
+            or policy['consumerPrefixes'] != ['packages/crypto/src/']
+            or not isinstance(policy['packages'], list) or not 0 < len(policy['packages']) <= 16):
+        raise ValueError('Root npm transport requires the exact reviewed native-wallet policy')
+    owner, lock = pinned_json(policy['manifest']), pinned_json(policy['lock'])
+    direct = policy['directDependencies']
+    if (owner.get('name') != '@lianum/crypto' or not isinstance(direct, dict)
+            or not direct or not set(direct).issubset(NATIVE_NPM_PACKAGES)
+            or any(owner.get('dependencies', {}).get(name) != version for name, version in direct.items())):
+        raise ValueError('Native-wallet direct dependencies differ from their adopted manifest')
+    approved, expected_files, total = set(), {}, 0
+    for row in policy['packages']:
+        if (not isinstance(row, dict)
+                or set(row) != {'path', 'name', 'version', 'resolved', 'integrity', 'dependencies', 'files'}
+                or NATIVE_NPM_ROOTS.get(row['path']) != row['name']
+                or row['path'] in approved or not isinstance(row['files'], list)
+                or not 0 < len(row['files']) <= 4096):
+            raise ValueError('Root npm package is outside the reviewed native-wallet policy')
+        approved.add(row['path'])
+        installed = pinned_json(row['path'] + '/package.json')
+        locked = lock.get('packages', {}).get(row['path'])
+        if (not isinstance(locked, dict) or locked.get('link')
+                or not isinstance(row['resolved'], str) or not row['resolved'].startswith('https://registry.npmjs.org/')
+                or not isinstance(row['integrity'], str)
+                or not re.fullmatch(r'sha(?:1|256|384|512)-[A-Za-z0-9+/]+=*', row['integrity'])
+                or any(locked.get(key) != row[key] for key in ('version', 'resolved', 'integrity'))
+                or installed.get('name') != row['name'] or installed.get('version') != row['version']
+                or installed.get('dependencies', {}) != row['dependencies']
+                or locked.get('dependencies', {}) != row['dependencies']):
+            raise ValueError('Root npm package differs from its adopted manifest, lock or SRI: ' + row['name'])
+        if not any(item.get('path') in {'LICENSE', 'LICENSE.md', 'LICENSE.txt'}
+                   for item in row['files'] if isinstance(item, dict)):
+            raise ValueError('Native-wallet npm package lacks its public license: ' + row['name'])
+        for item in row['files']:
+            if (not isinstance(item, dict) or set(item) != {'path', 'bytes', 'sha256'}
+                    or type(item['bytes']) is not int or not 0 <= item['bytes'] <= 16 * 1024 * 1024
+                    or not isinstance(item['sha256'], str) or not re.fullmatch('[0-9a-f]{64}', item['sha256'])):
+                raise ValueError('Invalid bounded native-wallet npm file')
+            name = row['path'] + '/' + safe_relative(item['path'])
+            if name in expected_files or files.get(name) != item['sha256']:
+                raise ValueError('Root npm file differs from its exact adopted policy: ' + name)
+            path = physical(root, name)
+            if path.stat().st_size != item['bytes'] or sha(path) != item['sha256']:
+                raise ValueError('Root npm bytes changed: ' + name)
+            expected_files[name] = item['sha256']; total += item['bytes']
+            if total > 128 * 1024 * 1024:
+                raise ValueError('Native-wallet npm transport byte bound exceeded')
+    actual = {name for name in files if name.startswith('node_modules/')}
+    if roots != approved or actual != set(expected_files):
+        raise ValueError('Native-wallet npm inventory has extra or missing package files')
 
 
 def adopted_source_inventory(root):
@@ -274,7 +363,7 @@ def adopted_source_inventory(root):
         parts = PurePosixPath(name).parts
         if row['path'] != name or name.startswith('.internal/'):
             raise ValueError('Adopted execution still requires a compatibility alias: ' + row['path'])
-        if (name not in {'dev', 'package.json', 'package-lock.json'} and
+        if (name not in {'dev', 'package.json', 'package-lock.json'} and not name.startswith('node_modules/') and
                 not (parts[0] in SOURCE_AREAS or name.startswith('archive/source-evidence/'))):
             raise ValueError('Adoption names a non-source path: ' + name)
         npm = 'node_modules' in parts
@@ -347,7 +436,15 @@ def build(root, output, entry, resource_document, external_root, node_resource, 
     for consumer, specifier in sorted(dependencies):
         parts = specifier.split('/')
         name = '/'.join(parts[:2]) if specifier.startswith('@') else parts[0]
-        if 'node_modules/' + name + '/package.json' not in destinations:
+        package_manifest = 'node_modules/' + name + '/package.json'
+        # The adopted reader already checks the complete, closed native-wallet
+        # npm inventory, public licenses and lock/SRI. Its files are copied as
+        # adopted sources; duplicating them as resources would collide. Only an
+        # authenticated crypto consumer may use this separately reviewed path.
+        adopted_crypto_dependency = (adopted_generation and consumer in adopted
+            and consumer.startswith('packages/crypto/src/')
+            and name in NATIVE_NPM_PACKAGES and package_manifest in adopted)
+        if package_manifest not in destinations and not adopted_crypto_dependency:
             errors.append(f'Missing pinned npm dependency: {consumer}: {specifier}')
     if errors:
         raise ValueError('\n'.join(errors))

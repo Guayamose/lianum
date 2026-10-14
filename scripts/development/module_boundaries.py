@@ -173,7 +173,8 @@ def historical_inventory_errors(root, policy):
     present = {path.relative_to(root).as_posix()
                for path in (root / historical / "src").rglob("*") if path.is_file()}
     for path in sorted(present - retained.keys()):
-        errors.append(f"{path}: new source in the frozen historical package")
+        if not declared_keeper_compatibility_forwarder(root, historical, path):
+            errors.append(f"{path}: new source in the frozen historical package")
     for path, digest in retained.items():
         if not path.startswith(historical + "/src/"):
             errors.append(f"{path}: historical inventory path is outside its package")
@@ -188,6 +189,37 @@ def historical_inventory_errors(root, policy):
                 or not (root / pair["active"]).is_file()):
             errors.append(f"{pair.get('historical')}: invalid active/historical implementation pair")
     return errors
+
+
+def declared_keeper_compatibility_forwarder(root, historical, path):
+    """Only the existing public keeper ABI may forward to its original factory.
+
+    This does not exempt retained bytes or permit code in a compatibility
+    directory generally. The whole new module must be a single exact public
+    named re-export, also declared by both package manifests/dependencies.
+    """
+    expected = 'packages/protocol/src/compatibility/account-keeper.mjs'
+    source = root / path
+    if historical != 'packages/protocol' or path != expected or source.is_symlink():
+        return False
+    manifests = packages(root)
+    protocol, engine = manifests.get('@lianum/protocol'), manifests.get('@lianum/engine')
+    if not protocol or not engine or protocol.get('lianum', {}).get('status') != 'compatibility':
+        return False
+    if default_export(protocol.get('exports', {}).get('./accounts/keeper')) != './src/compatibility/account-keeper.mjs':
+        return False
+    if '@lianum/engine' not in protocol.get('dependencies', {}):
+        return False
+    target, error = resolve_package('@lianum/engine/accounts/keeper', manifests)
+    if error or not (root / target).is_file() or (root / target).is_symlink():
+        return False
+    tokens = [(match.lastgroup, match.group()) for match in TOKEN.finditer(source.read_text())
+              if match.lastgroup != 'comment']
+    if len(tokens) != 7:
+        return False
+    return ([value for _, value in tokens[:5]] == ['export', '{', 'createGenericAccountKeeper', '}', 'from']
+            and tokens[5][0] == 'string' and tokens[5][1][1:-1] == '@lianum/engine/accounts/keeper'
+            and tokens[6] == ('symbol', ';'))
 
 
 def inspect(root, policy):

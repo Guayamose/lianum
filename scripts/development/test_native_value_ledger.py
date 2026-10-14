@@ -456,6 +456,47 @@ while not pathlib.Path(sys.argv[1]).exists():time.sleep(.01)
         finally:
             self.close_fixture(state)
 
+    def test_missing_rss_of_a_live_owned_child_is_rejected_without_signalling(self):
+        state = self.fixture()
+        _temporary, inventory, child, _descendant, _pidfd, _release = state
+        original_read_text = Path.read_text
+        def missing_rss(path, *args, **kwargs):
+            value = original_read_text(path, *args, **kwargs)
+            if str(path) == f"/proc/{child.pid}/status":
+                return __import__('re').sub(r"^VmRSS:.*\n", "", value, flags=__import__('re').M)
+            return value
+        try:
+            with patch.object(Path, "read_text", missing_rss), patch.object(signal, "pidfd_send_signal") as sent:
+                with self.assertRaisesRegex(processes.LedgerProcessError, "LEDGER_PROCESS_RSS_UNAVAILABLE"):
+                    inventory._read_retained(child.pid)
+                sent.assert_not_called()
+            self.assertTrue(inventory.unsafe); self.assertIsNone(child.poll())
+        finally:
+            self.close_fixture(state)
+
+    def test_missing_rss_exit_race_requires_the_original_pidfd_and_popen_exit(self):
+        state = self.fixture()
+        _temporary, inventory, child, _descendant, _pidfd, release = state
+        original_identity = processes.identity
+        hint = original_identity(child.pid)
+        try:
+            # Capture the actual original live identity, then let that original
+            # fixture parent exit. Its retained pidfd proves kernel termination.
+            release.touch(); child.wait(timeout=2)
+            def exit_race(pid, **options):
+                if pid == child.pid:
+                    error = processes.LedgerProcessError("LEDGER_PROCESS_RSS_UNAVAILABLE")
+                    error.observed_identity = {**hint, "rssBytes": 0}
+                    raise error
+                return original_identity(pid, **options)
+            with patch.object(processes, "identity", side_effect=exit_race), patch.object(signal, "pidfd_send_signal") as sent:
+                self.assertIsNone(inventory._read_retained(child.pid)); sent.assert_not_called()
+            self.assertTrue(inventory.records[child.pid]["gone"])
+            self.assertFalse(inventory.unsafe)
+            self.assertTrue(any(row["kind"] == "pidfd-confirmed-original-exit" for row in inventory.events))
+        finally:
+            self.close_fixture(state)
+
 
 if __name__ == "__main__":
     unittest.main()

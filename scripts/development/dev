@@ -56,6 +56,7 @@ case "$task_command" in
   prepare) exec python3 -B "$task_helpers/workflow.py" prepare "$@" ;;
   workflows) exec python3 -B "$task_helpers/workflow.py" catalog "$@" ;;
   boundaries) exec python3 -B "$task_helpers/module_boundaries.py" "$@" ;;
+  block-check) exec python3 -B "$task_helpers/block_check.py" "$@" ;;
   static)
     python3 -B "$task_helpers/source_runtime.py" --quiet
     exec "$task_node_dir/node" --max-old-space-size=384 "$task_helpers/static-check.mjs" "$@" ;;

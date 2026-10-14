@@ -52,6 +52,12 @@ def layout(project_root=None):
             name = package['name'] + (key[1:] if key != '.' else '')
             exports[name] = (manifest.parent / target).relative_to(root).as_posix()
     config['_workspaceExports'] = exports
+    pins = root / 'scripts/development/source-pins.json'
+    current_inputs = set()
+    if pins.is_file():
+        for profile in json.loads(pins.read_text()).get('profiles', {}).values():
+            current_inputs.update(profile.get('mutablePaths', []))
+    config['_canonicalSourceInputs'] = sorted(current_inputs)
     return config
 
 

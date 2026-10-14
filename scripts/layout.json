@@ -2786,6 +2786,10 @@
     {
       "source": "packages/backend/src/api/mobile/paired-original-account-actor-contract-v2.mjs",
       "runtime": "omnichain-flat-profile/flat-wallet/wallet-platform/modules/mobile/paired-original-account-actor-contract-v2.mjs"
+    },
+    {
+      "source": "packages/protocol/src/compatibility/account-keeper.mjs",
+      "runtime": "lianum-current/compatibility/protocol/account-keeper.mjs"
     }
   ],
   "files": [

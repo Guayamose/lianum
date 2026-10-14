@@ -297,6 +297,10 @@
       "description": "Comprobar m\u00f3dulos, an\u00e1lisis est\u00e1tico y selecci\u00f3n host"
     },
     {
+      "usage": "./dev block-check [--plan]",
+      "description": "Bater\u00eda mantenida completa, imports runtime y tipos m\u00f3viles; sin omisiones ni adopci\u00f3n"
+    },
+    {
       "usage": "./dev test [rutas] [--timeout 120]",
       "description": "Pruebas host con salida en directo y plazo por selecci\u00f3n"
     },

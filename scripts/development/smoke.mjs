@@ -33,7 +33,7 @@ assert.equal(process.version, 'v24.19.0', 'Use ./dev smoke');
 
 await check('solidity-source-compilation', async () => {
   const require = createRequire(join(dev, 'npm-solc/package.json'));
-  const solc = require('solc');
+  const solc = require(require.resolve('solc'));
   assert.match(solc.version(), /^0\.8\.37\+commit\.f401782d/);
   const freeze = JSON.parse(readFileSync(join(root, 'archive/delivery/CLOSED1684-FREEZE.json')));
   // The ops snapshot is historical text whose relative imports refer to its

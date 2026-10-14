@@ -59,7 +59,20 @@ def translate(text, source, runtime, config, direction, original_spellings=None)
             target = (config.get('_workspaceExports', {}).get(specifier)
                       if specifier.startswith('@lianum/') else
                       posixpath.normpath(posixpath.join(posixpath.dirname(base), specifier)))
-            if target in config.get('canonicalRuntimeSources', {}).values():
+            canonical = target in config.get('canonicalRuntimeSources', {}).values()
+            root = config.get('_workspaceRoot')
+            if not canonical and target is not None and root and map_path(target, config, 'runtime') is None:
+                raw = Path(target)
+                authorized = (target in config.get('_canonicalSourceInputs', [])
+                              or target in config.get('_workspaceExports', {}).values()
+                              or any(target == name.rstrip('/') or target.startswith(name.rstrip('/') + '/')
+                                     for name in config.get('sourceRoots', [])))
+                if authorized and not raw.is_absolute() and '..' not in raw.parts:
+                    path = Path(root) / raw
+                    if path.exists() and (path.is_symlink() or path.resolve() != path.absolute()):
+                        raise RuntimeError(f'Canonical source reference has symlink ancestors: {target}')
+                    canonical = path.is_file()
+            if canonical:
                 converted = posixpath.relpath(target, posixpath.dirname('.internal/runtime/' + destination))
                 start, end = match.span(2)
                 return match.group(0)[:start - match.start()] + converted + match.group(0)[end - match.start():]

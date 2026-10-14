@@ -47,11 +47,18 @@ def public_resources():
                      'kind': kind, 'sha256': digest, 'mode': mode})
 
     add(NODE, 'tools/node', 'toolchain', '0755')
-    for variant, digest in [('poseidon-sparse-v3', inspected['originalManifestSHA256']),
-                            ('poseidon-sparse-v3-consumer-fix-v1', inspected['manifestSHA256'])]:
+    selection = json.loads((ROOT / 'scripts/development/active-paged-generation.json').read_text())
+    if selection['securityGeneration'] != inspected['securityGeneration']:
+        raise ValueError('Active public generation differs from inspected artifacts')
+    variant = selection['directory'].removeprefix('.local/')
+    if variant != 'exact-payouts-v4':
+        raise ValueError('Active exact payout artifact directory changed')
+    for variant, digest in [(variant, inspected['manifestSHA256'])]:
         base = PAGED + '/.local/' + variant + '/'
         destination = PROOF + '/funded-graph-paged-v3/.local/' + variant + '/'
         add(base + 'manifest.json', destination + 'manifest.json', expected=digest)
+        add(base + 'consumer.json', destination + 'consumer.json',
+            expected=inspected['consumerSHA256'])
         for role, record in inspected['roles'].items():
             for ext, key in [('json', 'programSHA256'), ('vk', 'keySHA256'), ('sol', 'soliditySHA256')]:
                 suffix = 'prepared/' + role + '.' + ext
@@ -114,6 +121,21 @@ def public_resources():
     add('.internal/runtime/' + solc + 'node_modules/solc/soljson.js',
         solc + 'node_modules/solc/soljson.js', 'toolchain',
         expected='221d7a667378b5068d913e75fe092507e061363cd1d23b64c49ae82febabad4c')
+    # New V3 public compilation is separately pinned; no old V2 publication,
+    # proof job, native key or private wallet state is recreated here.
+    minimum_loader = ROOT / 'packages/backend/src/operations/deployments/system/append-only-deployment-artifacts-v3.mjs'
+    minimum_pins = ROOT / 'packages/backend/src/operations/deployments/system/append-only-build-v3.mjs'
+    minimum_script = ('const loader=await import(' + json.dumps(minimum_loader.as_uri()) +
+                      ');loader.loadMinimumDepositLedgerArtifacts();const pins=await import(' +
+                      json.dumps(minimum_pins.as_uri()) +
+                      ');process.stdout.write(JSON.stringify(pins.FLAT_MINIMUM_ARTIFACT_FILES));')
+    minimum_child = subprocess.run([str(node), '--input-type=module', '-e', minimum_script],
+                                   cwd=ROOT, capture_output=True, text=True, timeout=30)
+    if minimum_child.returncode:
+        raise ValueError('New V3 public compilation failed readback: ' + minimum_child.stderr)
+    for row in json.loads(minimum_child.stdout).values():
+        destination = 'omnichain-flat-profile/flat-wallet/' + row['path']
+        add('.internal/runtime/' + destination, destination, expected=row['sha256'])
     return {'schema': bundle.RESOURCE_SCHEMA, 'files': rows}
 
 
@@ -193,6 +215,7 @@ class EconomicSourceBundleTests(unittest.TestCase):
                 (abi + 'abi-tools/node_modules/ethers/lib.commonjs/index.js', 'PROTOCOL_FIXTURE_ARTIFACT_PIN'),
                 (solc + 'package-lock.json', 'GENERIC_SOLC_LOCK_HASH'),
                 (solc + 'node_modules/solc/soljson.js', 'GENERIC_SOLJSON_HASH'),
+                ('omnichain-flat-profile/flat-wallet/.local/development-flat-minimum/v3/compiled.json', 'APPEND_ONLY_EXACT_FILE_PIN'),
             ]
             for name, reason in tool_changes:
                 target = moved / 'resources' / name
@@ -209,7 +232,7 @@ class EconomicSourceBundleTests(unittest.TestCase):
                     target.write_bytes(retained)
             # The production reader, independently of the bundle inventory,
             # must still reject a changed original verification key.
-            key = moved / 'resources' / PROOF / 'funded-graph-paged-v3/.local/poseidon-sparse-v3/prepared/reserve.vk'
+            key = moved / 'resources' / PROOF / 'funded-graph-paged-v3/.local/exact-payouts-v4/prepared/reserve.vk'
             key.write_bytes(b'changed-original-verification-key')
             rejected = subprocess.run(command, cwd='/', env={'LANG': 'C.UTF-8', 'PATH': '/usr/bin:/bin'},
                                       capture_output=True, text=True, timeout=30)
@@ -225,7 +248,7 @@ class EconomicSourceBundleTests(unittest.TestCase):
                               'retainedI84ReaderIncluded': True, 'i84TamperCasesRejected': 4,
                               'originalCompilerLoaded': True, 'originalAbiToolsLoaded': True,
                               'originalClaimDriverLoaded': True, 'claimProfileConstructorCalled': False,
-                              'toolTamperCasesRejected': 4}))
+                              'toolTamperCasesRejected': 4, 'newMinimumLedgerTamperRejected': True}))
 
 
 if __name__ == '__main__':

@@ -116,6 +116,31 @@ class ModuleBoundariesTests(unittest.TestCase):
         self.write("packages/backend/src/session.mjs", "import '@lianum/protocol/api';\n")
         self.assertIn("cannot consume the historical package", "\n".join(self.report()["errors"]))
 
+    def test_only_declared_exact_keeper_forwarder_is_allowed_outside_frozen_inventory(self):
+        historical='packages/protocol/src/crypto/privacy.mjs';original='export const retained=1;\n'
+        self.write(historical,original)
+        inventory={'historicalPackage':'packages/protocol','activePackage':'packages/engine',
+                   'historicalFiles':[{'path':historical,'sha256':hashlib.sha256(original.encode()).hexdigest()}],'pairs':[]}
+        self.write('scripts/history.json',json.dumps(inventory));policy={'historicalInventory':'scripts/history.json'}
+        self.manifest('engine',{'./accounts/keeper':'./src/api.mjs'})
+        manifest={'name':'@lianum/protocol','lianum':{'status':'compatibility'},
+                  'exports':{'./accounts/keeper':'./src/compatibility/account-keeper.mjs'},
+                  'dependencies':{'@lianum/engine':'file:../engine'}}
+        self.write('packages/protocol/package.json',json.dumps(manifest))
+        path='packages/protocol/src/compatibility/account-keeper.mjs'
+        forward="/** Public compatibility ABI only. */\nexport {createGenericAccountKeeper} from '@lianum/engine/accounts/keeper';\n"
+        self.write(path,forward)
+        self.assertEqual(boundaries.historical_inventory_errors(self.root,policy),[])
+        for text in [forward+'throw Error("side effect");',forward.replace('createGenericAccountKeeper','invented'),
+                     forward.replace('@lianum/engine/accounts/keeper','@lianum/engine/api')]:
+            self.write(path,text)
+            self.assertIn('new source in the frozen historical package','\n'.join(boundaries.historical_inventory_errors(self.root,policy)))
+        self.write(path,forward);manifest['exports']={};self.write('packages/protocol/package.json',json.dumps(manifest))
+        self.assertTrue(boundaries.historical_inventory_errors(self.root,policy))
+        manifest['exports']={'./accounts/keeper':'./src/compatibility/account-keeper.mjs'}
+        self.write('packages/protocol/package.json',json.dumps(manifest));self.write(historical,original+'// changed\n')
+        self.assertIn('frozen historical source changed','\n'.join(boundaries.historical_inventory_errors(self.root,policy)))
+
     def test_package_local_test_support_is_an_execution_dependency(self):
         source = "packages/backend/src/session.mjs"
         target = "packages/backend/tests/fixture.mjs"

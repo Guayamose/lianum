@@ -177,7 +177,9 @@ class SourceGenerationsTest(unittest.TestCase):
         self.write(active, b"export const current=true;\n")
         report, capture = self.closure_fixture([frozen, active])
         contract = generations.current_source_contract(report, capture)
-        self.assertEqual(contract["retainedEvidenceRoots"], [frozen])
+        self.assertEqual(contract["retainedEvidenceRoots"], sorted([frozen,
+            "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json",
+            "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json"]))
         self.assertIn(frozen, {row["path"] for row in contract["files"]})
         self.write(active, b"import '../../../experiments/old/frozen.mjs';\n")
         with self.assertRaisesRegex(ValueError, "Current source dependency is missing"):

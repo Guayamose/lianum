@@ -1,0 +1,35 @@
+[Unit]
+Description=Lianum original PAEG private demo staging
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/var/lib/lianum-paeg/realm-parent/realm/operator.json
+
+[Service]
+Type=simple
+User=lianum-paeg
+Group=lianum-paeg
+UMask=0077
+WorkingDirectory=/var/lib/lianum-paeg/current/candidate
+ExecStart=/var/lib/lianum-paeg/current/candidate/resources/tools/node --max-old-space-size=384 /var/lib/lianum-paeg/current/infra/run-operator.mjs
+# Signal only the original supervisor. Its own capture drains and closes ledgers.
+# Never turn an unsuccessful/abrupt close into a new wallet or an automatic retry.
+KillMode=process
+KillSignal=SIGTERM
+SendSIGKILL=no
+TimeoutStopSec=240
+Restart=no
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/lianum-paeg
+MemoryMax=48G
+TasksMax=256
+LimitNOFILE=65536
+Environment=LANG=C.UTF-8 PATH=/usr/bin:/bin
+UnsetEnvironment=NODE_OPTIONS NODE_PATH NODE_TLS_REJECT_UNAUTHORIZED LD_PRELOAD LD_LIBRARY_PATH PYTHONPATH PYTHONHOME
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

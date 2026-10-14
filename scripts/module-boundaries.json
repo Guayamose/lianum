@@ -36,7 +36,9 @@
     "packages/components": [
       "packages/environment"
     ],
-    "packages/protocol": [],
+    "packages/protocol": [
+      "packages/engine"
+    ],
     "packages/mobile-protocol": [],
     "apps/wallet": [
       "packages/backend",

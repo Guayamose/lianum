@@ -1,5 +1,6 @@
 """Static original-layout regression. Never imports or executes a backend entry."""
 import hashlib
+import json
 import os
 import posixpath
 from pathlib import Path
@@ -41,11 +42,12 @@ def specifiers(text):
                 if depth == 0: break
                 if kind == "string":
                     name = item[1:-1]
-                    if name.startswith((".", "@", "node:")):
+                    if name.startswith(("@", "node:")) or (name.startswith(".") and name.endswith((".mjs", ".js", ".ts"))):
                         names.add(name)
         elif value == "new" and [item for _, item in tokens[index + 1:index + 3]] == ["URL", "("]:
             name = quoted(index + 3)
-            if name is not None and name.endswith(".mjs"):
+            parent = [item for _, item in tokens[index + 4:index + 11]]
+            if name is not None and name.endswith(".mjs") and parent == [",", "import", ".", "meta", ".", "url", ")"]:
                 names.add(name)
     return names
 
@@ -72,11 +74,62 @@ def successor_closure(overrides=None):
                 if mapped in inverse and inverse[mapped] != source:
                     raise AssertionError("STATIC_LAYOUT_MODULE_ALIAS")
                 inverse[mapped] = source
+    virtual_prefix = ".internal/runtime/"
+    canonical = set(config.get("canonicalRuntimeSources", {}).values())
     overrides = overrides or {}
     visited, failures, packages = {}, [], {}
     pending = [ENTRY]
-    protocol = {"@lianum/mobile-protocol": "authorization.mjs",
-                "@lianum/mobile-protocol/original-account-v2": "original-account-review-v2.mjs"}
+    def public_package(source, name):
+        """Locate actual public package metadata; exact fixed ESM subpaths remain data."""
+        parts = name.split("/")
+        package = "/".join(parts[:2]) if name.startswith("@") else parts[0]
+        subpath = name[len(package):].lstrip("/")
+        if package in ("@aztec/bb.js", "@noir-lang/noir_js", "@noir-lang/noir_wasm"):
+            directory = workspace.RUNTIME / "omnichain-product/experiments/private-core-proof/node_modules" / package
+        else:
+            declared = False
+            for parent in (workspace.ROOT / source).parents:
+                if parent != workspace.ROOT and workspace.ROOT not in parent.parents:
+                    break
+                manifest = parent / "package.json"
+                if manifest.is_file():
+                    owner = json.loads(manifest.read_text())
+                    declared = package == owner.get("name") or package in owner.get("dependencies", {})
+                    break
+            if not declared:
+                failures.append({"source": source, "kind": "UNKNOWN_BARE_MODULE", "specifier": name})
+                return
+            directory = None
+            for parent in (workspace.ROOT / source).parents:
+                if parent != workspace.ROOT and workspace.ROOT not in parent.parents:
+                    break
+                candidate = parent / "node_modules" / package
+                if (candidate / "package.json").is_file():
+                    directory = candidate
+                    break
+        if directory is None or not (directory / "package.json").is_file():
+            failures.append({"source": source, "kind": "ORIGINAL_PUBLIC_PACKAGE_ABSENT", "specifier": name})
+            return
+        metadata = json.loads((directory / "package.json").read_text())
+        exports = metadata.get("exports")
+        if isinstance(exports, dict) and any(key.startswith(".") for key in exports):
+            entry = workspace.node_export(exports.get("./" + subpath if subpath else "."))
+        elif exports is not None and not subpath:
+            entry = workspace.node_export(exports)
+        else:
+            entry = subpath or metadata.get("main")
+        # The official resource loader reads these physical entry files through
+        # its pinned package resource, rather than an arbitrary Node subpath.
+        if entry is None and subpath and package in ("@aztec/bb.js", "@noir-lang/noir_js", "@noir-lang/noir_wasm"):
+            entry = subpath
+        if not isinstance(entry, str) or Path(entry).is_absolute() or ".." in Path(entry).parts:
+            failures.append({"source": source, "kind": "PUBLIC_MODULE_EXPORT_ABSENT", "specifier": name})
+            return
+        file = directory / entry
+        if not file.is_file() or file.is_symlink():
+            failures.append({"source": source, "kind": "PINNED_PUBLIC_MODULE_ABSENT", "specifier": name})
+            return
+        packages[name] = hashlib.sha256(file.read_bytes()).hexdigest()
     while pending:
         source = pending.pop()
         if source in visited: continue
@@ -85,30 +138,29 @@ def successor_closure(overrides=None):
             failures.append({"source": source, "kind": "SOURCE_ABSENT"}); continue
         text = overrides.get(source, path.read_text())
         target = workspace.runtime_relative(source, config)
-        if target is None:
-            failures.append({"source": source, "kind": "LAYOUT_ABSENT"}); continue
-        rendered = translate(text, source, target, config, "runtime",
+        current_owner = source in canonical or target is None
+        execution = source if current_owner else virtual_prefix + target
+        rendered = text if current_owner else translate(text, source, target, config, "runtime",
                              config.get("importSpellings", {}).get(source))[0]
-        visited[source] = {"runtime": target, "sha256": hashlib.sha256(text.encode()).hexdigest()}
+        visited[source] = {"runtime": target, "execution": execution,
+                           "sha256": hashlib.sha256(text.encode()).hexdigest()}
         original_names, runtime_names = specifiers(text), specifiers(rendered)
         for name in runtime_names:
             if name.startswith("node:"): continue
-            if name in protocol:
-                pending.append("packages/mobile-protocol/src/" + protocol[name]); continue
-            if name.startswith("@noble/"):
-                file = workspace.ROOT / "apps/mobile/node_modules" / name
-                if not file.is_file(): failures.append({"source": source, "kind": "PINNED_PUBLIC_MODULE_ABSENT", "specifier": name})
-                else: packages[name] = hashlib.sha256(file.read_bytes()).hexdigest()
-                continue
-            if name in ("@aztec/bb.js", "@noir-lang/noir_js", "@noir-lang/noir_wasm"):
-                manifest = workspace.RUNTIME / "omnichain-product/experiments/private-core-proof/node_modules" / name / "package.json"
-                if not manifest.is_file(): failures.append({"source": source, "kind": "ORIGINAL_PUBLIC_PACKAGE_ABSENT", "specifier": name})
-                else: packages[name] = hashlib.sha256(manifest.read_bytes()).hexdigest()
+            if name.startswith("@lianum/"):
+                physical = config["_workspaceExports"].get(name)
+                if physical is None or not (workspace.ROOT / physical).is_file():
+                    failures.append({"source": source, "kind": "PUBLIC_WORKSPACE_EXPORT_ABSENT", "specifier": name})
+                else:
+                    pending.append(physical)
                 continue
             if not name.startswith("."):
-                failures.append({"source": source, "kind": "UNKNOWN_BARE_MODULE", "specifier": name}); continue
-            resolved = posixpath.normpath(posixpath.join(posixpath.dirname(target), name))
-            physical = inverse.get(resolved)
+                public_package(source, name)
+                continue
+            resolved_execution = posixpath.normpath(posixpath.join(posixpath.dirname(execution), name))
+            in_runtime = resolved_execution.startswith(virtual_prefix)
+            resolved = resolved_execution[len(virtual_prefix):] if in_runtime else resolved_execution
+            physical = inverse.get(resolved) if in_runtime else resolved
             if physical is None or not (workspace.ROOT / physical).is_file():
                 failures.append({"source": source, "kind": "RUNTIME_MODULE_ABSENT", "runtime": resolved}); continue
             if Path(physical).suffix == ".mjs": pending.append(physical)
@@ -135,8 +187,13 @@ class ExternalDefiSuccessorImportsTests(unittest.TestCase):
         a, b = ("../../../tests/fixtures/operations/deployments/system/" + Path(f).name for f in FIXTURES)
         fixed = f"row.vault.variant==='AAVE_STATIC'?await import('{a}'):await import('{b}')"
         rejected = f"await import(row.vault.variant==='AAVE_STATIC'?'{a}':'{b}')"
-        self.assertEqual(source.count(fixed), 1)
-        failed = successor_closure({RECOVERY: source.replace(fixed, rejected)})
+        # The current composition owns two separate lazy loaders. Retain the
+        # old parser regression as an inert in-memory consumer, without putting
+        # a conditional module selector back into that production composition.
+        self.assertNotIn(rejected, source)
+        restored = successor_closure({RECOVERY: source + "\n" + fixed + ";\n"})
+        self.assertEqual(restored["failures"], [])
+        failed = successor_closure({RECOVERY: source + "\n" + rejected + ";\n"})
         expected = "omnichain-flat-profile/flat-wallet/tests/fixtures/operations/deployments/system/official-protocol-fixture-v3.mjs"
         self.assertTrue(any(row.get("runtime") == expected and row["kind"] == "RUNTIME_MODULE_ABSENT"
                             for row in failed["failures"]))

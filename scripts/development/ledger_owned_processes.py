@@ -50,7 +50,14 @@ def identity(pid, *, allow_terminal_read=False):
         error.observed_identity = {**after, "uid": os.getuid(), "uids": [int(value) for value in uids.groups()], "rssBytes": 0}
         raise error
     rss = re.search(r"^VmRSS:\s+(\d+)\s+kB$", status, re.M)
-    require(rss or after["state"] in ("Z", "X"), "LEDGER_PROCESS_RSS_UNAVAILABLE")
+    if not (rss or after["state"] in ("Z", "X")):
+        # The kernel can remove VmRSS while exit is in progress, before stat
+        # publishes Z. This hint grants no live zero-RSS observation: only an
+        # already owned Popen/pidfd may confirm the actual kernel termination.
+        error = LedgerProcessError("LEDGER_PROCESS_RSS_UNAVAILABLE")
+        error.observed_identity = {**after, "uid": os.getuid(),
+                                   "uids": [int(value) for value in uids.groups()], "rssBytes": 0}
+        raise error
     return {**after, "uid": os.getuid(), "uids": [int(value) for value in uids.groups()],
             "rssBytes": int(rss[1]) * 1024 if rss else 0}
 
@@ -189,6 +196,25 @@ class LedgerOwnedProcesses:
                 "pidfd": pidfd, "gone": False, "origin": origin, "parentPID": parent_pid}
             pidfd = None
             self.event("retained", identity=captured, origin=origin, parentPID=parent_pid)
+        except LedgerProcessError as error:
+            hint = getattr(error, "observed_identity", None)
+            if not (original_child and str(error) in ("LEDGER_PROCESS_PROC_OWNER_CHANGED", "LEDGER_PROCESS_RSS_UNAVAILABLE")
+                    and hint is not None):
+                raise
+            require(stable_equal(captured, hint), "LEDGER_PROCESS_ENROLL_IDENTITY_CHANGED")
+            # Only the private original Popen birth can reach this branch.
+            # Unknown/terminal descendants still cannot open a pidfd. Cover
+            # both identity reads around opening this original descriptor.
+            if pidfd is None:
+                pidfd = os.pidfd_open(captured["pid"], 0)
+            budget = 0 if self.wait_deadline is None else max(0, min(0.020, self.wait_deadline - time.monotonic()))
+            ready, _, _ = select.select([pidfd], [], [], budget)
+            require(ready, str(error))
+            require(self.child.poll() is not None, "LEDGER_ORIGINAL_TERMINAL_REAP_UNCONFIRMED")
+            self.records[captured["pid"]] = {"original": captured, "current": hint,
+                "pidfd": None, "gone": True, "origin": origin, "parentPID": parent_pid}
+            self.event("pidfd-confirmed-original-exit-during-enrolment", identity=hint, exitCode=self.child.returncode)
+            return
         finally:
             if pidfd is not None:
                 os.close(pidfd)
@@ -208,13 +234,13 @@ class LedgerOwnedProcesses:
             # Only this already-retained pidfd may establish kernel termination;
             # an inode mismatch of a still-live process remains a rejection.
             hint = getattr(error, "observed_identity", None)
-            if str(error) == "LEDGER_PROCESS_PROC_OWNER_CHANGED" and hint is not None and record["pidfd"] is not None:
+            if str(error) in ("LEDGER_PROCESS_PROC_OWNER_CHANGED", "LEDGER_PROCESS_RSS_UNAVAILABLE") and hint is not None and record["pidfd"] is not None:
                 try:
                     require(immutable_equal(record["original"], hint), "LEDGER_RETAINED_IDENTITY_CHANGED")
                     self._ancestry(record, hint)
                     budget = 0 if self.wait_deadline is None else max(0, min(0.020, self.wait_deadline - time.monotonic()))
                     ready, _, _ = select.select([record["pidfd"]], [], [], budget)
-                    require(ready, "LEDGER_PROCESS_PROC_OWNER_CHANGED")
+                    require(ready, str(error))
                     if self.child is not None and pid == self.child.pid:
                         require(self.child.poll() is not None, "LEDGER_ORIGINAL_TERMINAL_REAP_UNCONFIRMED")
                         record["gone"] = True
@@ -328,6 +354,8 @@ class LedgerOwnedProcesses:
         # Reaping an unknown zombie prevents a kernel zombie leak. It grants no
         # signal/cleanup authority: unsafe remains latched and the lock retained.
         for pid in list(self.unknown):
+            if self.child is not None and pid == self.child.pid:
+                continue  # Popen owns the exit status even when birth capture failed.
             try:
                 # No signal or enrolment is authorized here. Kernel wait/reap
                 # alone may remove our previously observed unknown zombie.
