@@ -9,6 +9,7 @@ contrastado también con `apps/platform/src/entry.mjs` y su bootstrap.
 ./dev platform [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new] Arrancar el perfil explícito; new exige estado nuevo, reopen conserva el original
 ./dev build                             Preparar paquetes y lock; no genera la compatibilidad
 ./dev check                             Comprobar módulos, análisis estático y selección host
+./dev block-check [--plan]               Batería mantenida completa, imports runtime y tipos móviles; sin omisiones ni adopción
 ./dev test [rutas] [--timeout 120]      Pruebas host con salida en directo y plazo por selección
 ./dev test --changed [--plan]           Seleccionar pruebas del cambio; límite de 24 archivos y 120 s
 ./dev test --component NOMBRE           Comprobaciones acotadas de uno o varios componentes

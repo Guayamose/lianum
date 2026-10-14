@@ -53,6 +53,39 @@ explícito al agotar el plazo. Los informes incluyen revisión y huella de cambi
 Consulta [WORKFLOW.md](WORKFLOW.md) para el alcance y [COMMANDS.md](COMMANDS.md)
 para la referencia generada desde el mismo catálogo que `./dev help`.
 
+Para cerrar un bloque con toda la batería mantenida, utiliza:
+
+```sh
+./dev block-check --plan
+./dev block-check --timeout 7200 --stage-timeout 600
+```
+
+El plan enumera todos los archivos `*.test.mjs`, `*.test.cjs`, `*.test.js`,
+`*.test.ts`, `*.test.mts` y `*.test.cts` de `packages/*/tests`,
+`apps/*/tests`, `tests` y `scripts/development`, junto con sus pruebas
+`unittest` `test_*.py`. No utiliza la selección habitual de 35 archivos ni
+los componentes curados. Registra las exclusiones de dependencias instaladas,
+archivos generados, enlaces, estado privado y evidencia histórica. Un formato
+de prueba no soportado se declara como bloqueo en lugar de desaparecer del plan.
+
+La ejecución es secuencial: auditoría de imports runtime —incluido Mobile—,
+fronteras, análisis estático existente, TypeScript móvil y cada archivo Node o
+Python. El auditor lee AST y exports de paquetes sin evaluar los módulos del
+producto; distingue los nombres disponibles en runtime de las declaraciones
+de tipos. Las dependencias calculadas y la interoperabilidad de paquetes
+externos/CommonJS que no puede demostrar quedan explícitas en el informe.
+
+Cada ejecución conserva un informe propio en
+`.internal/dev/reports/block-check-<id>/report.json`, con inventario, huella de
+contenido, revisión antes/después y resultados por archivo. Pruebas saltadas,
+`todo`, fallos esperados o cero pruebas no cuentan como cierre completo. Un
+fallo normal permite comprobar las familias siguientes; cancelación, procesos
+huérfanos, plazo agotado o cambios de fuentes impiden un resultado completo.
+El comando no instala dependencias ni prepara o adopta una generación: fija
+primero las fuentes y el entorno con los responsables del bloque. Los drivers
+económicos, el navegador y el teléfono sin nombre `*.test.*` conservan sus
+recorridos de aceptación separados; un PASS de host no los acredita.
+
 El workflow [host-tests.yml](../.github/workflows/host-tests.yml) ejecuta esos
 controles desde un checkout vacío, sin credenciales del producto. No hay remoto
 Git configurado actualmente: su ejecución en GitHub queda pendiente de subir
