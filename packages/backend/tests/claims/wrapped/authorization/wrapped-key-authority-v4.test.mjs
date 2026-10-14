@@ -94,9 +94,9 @@ for(const phase of ['before-latch','after-latch'])test(`SOL V2 finalsend consume
 
 test('source key boundary contains no await after genuine authority consumption; wrapped payout has no fallback',()=>{
   for(const [file,consumeText,keyText] of [
-    ['../chain-adapters/owned-solana-runtime.mjs','originalKeyControllerV4.consumeNativeClaimOriginalKeyAuthorityV4','const signature = sign(null, message, privateKey)'],
-    ['../chain-adapters/owned-bitcoin-runtime.mjs','originalKeyControllerV4.consumeNativeClaimOriginalKeyAuthorityV4',"const signed = await rpc('signrawtransactionwithwallet'"],
-    ['../chain-adapters/owned-evm-runtime-backend-v1.mjs','scope.consumeBeforeKey(keyAuthorityV4, prepared)',"const raw = await rpc('eth_signTransaction'"]]){
+    ['../../../../src/chains/solana/transfers/solana-transfers.mjs','originalKeyControllerV4.consumeNativeClaimOriginalKeyAuthorityV4','const signature = sign(null, message, privateKey)'],
+    ['../../../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs','originalKeyControllerV4.consumeNativeClaimOriginalKeyAuthorityV4',"const signed = await rpc('signrawtransactionwithwallet'"],
+    ['../../../../src/chains/evm/runtime/original-claim-dispatch-v1.mjs','scope).consumeBeforeKey(',"const raw = economicV2"]]){
     const source=readFileSync(new URL(file,import.meta.url),'utf8'),a=source.indexOf(consumeText),b=source.indexOf(keyText,a);assert.ok(a>0&&b>a);
     const between=source.slice(a,b);assert.ok(!/await\s+(?!beforeSign)/.test(between));
     if(!file.includes('evm'))assert.ok(!between.includes('=== undefined'));

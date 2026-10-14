@@ -9,21 +9,23 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import vm from 'node:vm';
+import {validateRetainedClaimAuthorizationV1} from '../../../src/claims/authorization/retained-authorization-record-v1.mjs';
 import { CLAIM_ACTIONS as A } from '@lianum/engine/claims/permits';
 import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 
-const claimSource = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
-const controllerSource = readFileSync(new URL('./controller.mjs', import.meta.url), 'utf8');
+const claimSource = readFileSync(new URL('../../../src/claims/operations/operators.mjs', import.meta.url), 'utf8');
+const controllerSource = readFileSync(new URL('../../../src/claims/controller/controller.mjs', import.meta.url), 'utf8');
 const cut = (source, start, end) => {
   const a = source.indexOf(start), b = source.indexOf(end, a);
   assert.ok(a >= 0 && b > a, 'TEST_EXACT_PRODUCTION_SOURCE_BOUNDARY'); return source.slice(a, b);
 };
-const quorumSource = cut(claimSource, 'export function createClaimOperatorQuorum(input) {', '\nexport function assertOwnedClaimOperatorQuorum').replace(/^export /, '');
+const quorumSource = cut(claimSource, 'export function createClaimOperatorQuorum(input) {', '\n/** Original-brand private diagnostics,').replace(/^export /, '');
 const leaseSource = cut(claimSource, 'export function openClaimOriginalAuthorizationLeaseV4(', '\nexport function createClaimOperatorQuorum').replace(/^export /, '');
 const keyConsumerSource = cut(controllerSource, 'export function consumeNativeClaimOriginalKeyAuthorityV4(', '\n// Only the genuine completed payout').replace(/^export /, '');
 const controllerLeaseSource = cut(controllerSource, '  async function originalLeaseV4(', '\n  async function payoutKeyAuthorityV4(');
 const originalGuardSource = cut(claimSource, '  function assertOriginalAuthorization(', '\n  async function signed(');
 const controllerHelpers = cut(controllerSource, "const FINAL_AUDIT_PROFILE =", '/** Runtime gate calls this once.');
+const timingSource=cut(controllerSource,'  function retainFinalAuditTiming(evidence) {','\n  const authorizationStarts');
 const authorizeSource = cut(controllerSource, '  async function authorize(method, request) {', '\n  const readers =');
 const evmSource = cut(controllerSource, '  async function evm({', '\n  function endpoint(');
 const redeemSource = cut(controllerSource, '    requestRedemption: request =>', '\n    payout: request =>').trim().replace(/,$/, '');
@@ -76,7 +78,7 @@ function fixture() {
       let permit, healthCertificate;
       if (original) {
         c.validations.push(signerIndex);
-        const guard = compile(originalGuardSource + '; return assertOriginalAuthorization;', { assert, equal: assert.deepEqual,
+        const guard = compile(originalGuardSource + '; return assertOriginalAuthorization;', { validateRetainedClaimAuthorizationV1,assert, equal: assert.deepEqual,
           claimUint: uint, claimHash: hash, signerIndex, activeView: { head }, record: operatorJournals[signerIndex] });
         permit = guard('backing', message, frame('backing', message), original.result, original.frameHex);
         healthCertificate = guard('health', health, frame('health', health), original.result.healthCertificate, original.healthFrameHex);
@@ -159,7 +161,7 @@ function fixture() {
   } };
   const live = () => { for (const actor of actors) states.get(actor).ready(); };
   const updateEvm = async (id, change) => journal.update(data => { Object.assign(data.evm.find(row => row.id === id), copy(change)); return data; });
-  const env = { assert, copy, freeze, claimUint: uint, claimHash: hash, exactRecord, Buffer, performance: { now: () => c.time },
+  const env = { privateFinalAuditTiming:null,nativeValueReceiverInclusionSecondV1:()=>null,assert, copy, freeze, claimUint: uint, claimHash: hash, exactRecord, Buffer, performance: { now: () => c.time },
     A: { PREPOSITION: '0', ISSUE: '3', REDEEM: '5', BEGIN_PAYOUT: '6', RESERVE_INGRESS: '2', RESERVE_PAYOUT: '7' },
     decodeDepositIntentInputs: emptyDecode, decodeClaimIngressInputs: emptyDecode, decodeClaimDischargeInputs: emptyDecode,
     authorizationStarts, authorizationOrigins, originalKeyAuthoritiesV4, quorum, dispatchTokens, journal, runtime, observer, claimOperators,
@@ -172,14 +174,14 @@ function fixture() {
     retainFailure: async (_error, work) => work(), resolveEvm: async row => row,
     originalClaimEvmRecord: () => c.runtimeOriginal, assertSignedEvmTransaction: value => assert.equal(value, 'SYNTHETIC_NO_KEY_OR_TRANSACTION'),
     serial: async work => work(), bytes32: value => { assert.match(value, /^[0-9a-f]{64}$/); },
-    view: async () => view, route: async () => { c.route = { endpoint: 'de'.repeat(32), quotedFee: '5' }; return c.route; },
+    authorizationView: async () => view, view: async () => view, route: async () => { c.route = { endpoint: 'de'.repeat(32), quotedFee: '5' }; return c.route; },
     destination: () => 'ef'.repeat(32), claimTicketId: () => id, terms: (_state, value) => value,
     claimRouteCommitment: value => hash(codec(value)), claimTicketSecret: () => '01'.repeat(32),
     receiptKeyCommitment: () => '02'.repeat(32), ZERO: '00'.repeat(32), prefix: value => '0x' + value,
     assertAuthorizationSnapshot: async (value, expected) => { assert.deepEqual(value.head, expected); await observer.assertCurrent(value); },
     ticket: async id => copy(journalData.tickets.find(row => row.id === id)), syncRow: async row => row,
   };
-  const api = compile(keyConsumerSource + controllerHelpers + authorizeSource + controllerLeaseSource + evmSource + '; return { ' + redeemSource + ' };', env);
+  const api = compile(keyConsumerSource + controllerHelpers + timingSource + authorizeSource + controllerLeaseSource + evmSource + '; return { ' + redeemSource + ' };', env);
   c.run = () => api.requestRedemption({ claimDomain: domain, caller, amount: '1800000', maxFee: '5000', requestId: '03'.repeat(32) });
   c.data = journalData; return c;
 }

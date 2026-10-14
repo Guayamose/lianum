@@ -4,7 +4,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { evmFunctionSelector } from '../../../chains/evm/contracts/evm-code-hash.mjs';
-import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
+import {assertLocalEvm} from '../../../chains/evm/runtime/local-evm-ownership.mjs';
+import * as originalQuotaOwner from '../../../chains/evm/runtime/local-evm-ownership.mjs';
+function assertOriginalPoolCreationQuotaV1(...args){return originalQuotaOwner.assertOriginalPoolCreationQuotaV1(...args);}
+function chargeOriginalPoolCreationV1(...args){return originalQuotaOwner.chargeOriginalPoolCreationV1(...args);}
+function consumeOriginalPoolCreationTicketV1(...args){return originalQuotaOwner.consumeOriginalPoolCreationTicketV1(...args);}
+function reconcileOriginalPoolCreationV1(...args){return originalQuotaOwner.reconcileOriginalPoolCreationV1(...args);}
 import { deriveNativeRuntimeCode, predictNativeCreateAddress, nativeStaticArguments,
   nativeProofCalldata } from '../../../execution/native/dispatch/native-deployment.mjs';
 import { linkPrivateBytecode } from '@lianum/engine/notes/private-asset-runtime';
@@ -15,10 +20,15 @@ import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER, buildFlatDeploymentPlan } from './
 import { loadFlatDeploymentArtifacts } from './deployment-artifacts.mjs';
 import { loadAppendOnlyDeploymentArtifacts, loadAppendOnlyLedgerArtifacts } from './append-only-deployment-artifacts.mjs';
 import { APPEND_ONLY_BUILD_PIN, buildAppendOnlyDeploymentPlan, buildAppendOnlySuccessorPlan } from './append-only-deployment-plan.mjs';
+import {loadMinimumDepositDeploymentArtifacts,loadMinimumDepositLedgerArtifacts} from './append-only-deployment-artifacts-v3.mjs';
+import {FLAT_MINIMUM_BUILD_PIN,FLAT_MINIMUM_PROFILE,buildMinimumDepositDeploymentPlan,buildMinimumDepositSuccessorPlan} from './append-only-deployment-plan-v3.mjs';
+import {normalizeMinimumDepositAtomic} from '../../../chains/shared/contracts/minimum-deposit-v3.mjs';
+import {projectPoolContinuity} from '../../../accounts/storage/flat-pool-route-state.mjs';
 // Source-only gate. Only a separately reviewed local-acceptance release may replace
 // this literal; neither options nor environment variables can enable deployment.
 const APPEND_ONLY_LOCAL_ACCEPTANCE_RELEASE = null;
-const appendOnlyRegistries = new WeakMap();
+const FLAT_MINIMUM_LOCAL_ACCEPTANCE_RELEASE=null;
+const appendOnlyRegistries = new WeakMap(), minimumAcceptanceTokens=new WeakMap(),minimumAcceptanceSystems=new WeakSet(),minimumPoolCampaignClaims=new WeakSet();
 
 import { assertOwnedPoolAsset, createNativePoolAsset } from '../../../chains/shared/contracts/owned-pool-asset.mjs';
 
@@ -92,7 +102,7 @@ export function assertOwnedFlatSystem(runtime, system) {
   assert.ok(ownedSystems.has(system) && ownedSystems.get(system) === runtime, 'FLAT_OWNED_SYSTEM_CAPABILITY_REQUIRED');
 }
 
-function checkedOptions(runtime, options) {
+function checkedOptions(runtime, options, minimumDeposits=false) {
   const required = ['deploymentDomain', 'registryEpoch', 'rulesRoot', 'attesterKeys', 'pools'];
   exactRecord(options, [...required, ...(Object.hasOwn(options, 'onDeployment') ? ['onDeployment'] : []),
     ...(Object.hasOwn(options, 'nativeClaimBootstrap') ? ['nativeClaimBootstrap'] : [])]);
@@ -105,11 +115,11 @@ function checkedOptions(runtime, options) {
     hubDomain: ZERO32.slice(2), registryEpoch: options.registryEpoch, rulesRoot: rulesRoot.slice(2), keys: options.attesterKeys });
   fixedArray(options.pools, 2);
   const pools = options.pools.map(pool => {
-    exactRecord(pool, ['policy', 'deploymentDomain', ...(Object.hasOwn(pool, 'assetCapability') ? ['assetCapability'] : [])]);
+    exactRecord(pool, ['policy', 'deploymentDomain', ...(minimumDeposits ? ['minimumDepositAtomic'] : []), ...(Object.hasOwn(pool, 'assetCapability') ? ['assetCapability'] : [])]);
     const policy = digest(pool.policy), deploymentDomain = digest(pool.deploymentDomain);
     assert.ok(policy !== ZERO32 && deploymentDomain !== ZERO32, 'FLAT_DEPLOY_NONZERO_POOL_IDENTITY');
     if (Object.hasOwn(pool, 'assetCapability')) assertOwnedPoolAsset(runtime, pool.assetCapability);
-    return { policy, deploymentDomain, assetCapability: pool.assetCapability,
+    return { ...(minimumDeposits ? {minimumDepositAtomic:normalizeMinimumDepositAtomic(pool.minimumDepositAtomic)} : {}), policy, deploymentDomain, assetCapability: pool.assetCapability,
       asset: pool.assetCapability?.metadata.address ?? ZERO_ADDRESS,
       assetCodeHash: pool.assetCapability?.metadata.codeHash ?? ZERO32 };
   });
@@ -191,7 +201,7 @@ async function assertConstructorStorage(runtime, hub, pools, libraries, verifier
     'revocationSequence', 'halted', 'revocationOverflowDigest', 'revocationOverflowCount', 'checkpointCount'])
     await expect(hub, name + '()', [], [0]);
   await expect(hub, 'stateSequence()', [], [2]);
-  if (plan.buildAttempt === APPEND_ONLY_BUILD_PIN.attempt) {
+  if ([APPEND_ONLY_BUILD_PIN.attempt,FLAT_MINIMUM_BUILD_PIN.attempt].includes(plan.buildAttempt)) {
     await expect(hub, 'MAX_REGISTERED_POOLS()', [], [8]);
     await expect(hub, 'CAPACITY()', [], [64]);
     await expect(hub, 'pinnedPoolCount()', [], [2]);
@@ -277,12 +287,35 @@ export async function deployFlatAppendOnlySystem(runtime, options) {
   assert.equal(Object.hasOwn(options, 'nativeClaimBootstrap'), false, 'APPEND_ONLY_NATIVE_PROFILE_UNSUPPORTED');
   return deploySystem(runtime, options, true);
 }
-async function deploySystem(runtime, options, appendOnly) {
-  const buildPin = appendOnly ? APPEND_ONLY_BUILD_PIN : FLAT_BUILD_PIN;
+/** New immutable V3 deployment only; no implicit replacement of a retained pool. */
+export async function deployMinimumDepositFlatSystem(runtime,options) {
+  checkedOptions(runtime,options,true);
+  assert.equal(Object.hasOwn(options,'nativeClaimBootstrap'),false,'FLAT_MINIMUM_NATIVE_PROFILE_UNSUPPORTED');
+  assert.ok(FLAT_MINIMUM_LOCAL_ACCEPTANCE_RELEASE,'FLAT_MINIMUM_LOCAL_ACCEPTANCE_NOT_RELEASED');
+  return deploySystem(runtime,options,'V3');
+}
+/** A separate controlled original local campaign, never a release or a public
+ * deployment switch. Issuance reads the genuine V3 compilation and old verifier
+ * bundle, and binds a one-use opaque token to this exact owned loopback runtime
+ * and explicit immutable minimums. Caller metadata cannot activate the gate. */
+export async function prepareOriginalMinimumDepositAcceptanceV3(runtime,options){
+  assert.equal(arguments.length,2,'FLAT_MINIMUM_ACCEPTANCE_ARITY');await assertLocalEvm(runtime);assert.equal(runtime.metadata.chainId,'31337','FLAT_MINIMUM_ACCEPTANCE_LOCAL_CHAIN');
+  checkedOptions(runtime,options,true);assert.equal(Object.hasOwn(options,'nativeClaimBootstrap'),false,'FLAT_MINIMUM_NATIVE_PROFILE_UNSUPPORTED');assert.equal(Object.hasOwn(options,'onDeployment'),false,'FLAT_MINIMUM_ACCEPTANCE_FIXED_EFFECTS');
+  await loadMinimumDepositDeploymentArtifacts();
+  const publicCopy=structuredClone({deploymentDomain:options.deploymentDomain,registryEpoch:options.registryEpoch,rulesRoot:options.rulesRoot,attesterKeys:options.attesterKeys,pools:options.pools.map(p=>({policy:p.policy,deploymentDomain:p.deploymentDomain,minimumDepositAtomic:p.minimumDepositAtomic}))});
+  for(const [i,pool]of options.pools.entries())if(Object.hasOwn(pool,'assetCapability'))publicCopy.pools[i].assetCapability=pool.assetCapability;
+  const token=Object.freeze(Object.create(null));minimumAcceptanceTokens.set(token,{kind:'INITIAL',runtime,options:publicCopy,used:false});return token;
+}
+export async function deployOriginalMinimumDepositAcceptanceV3(runtime,token){
+  assert.equal(arguments.length,2,'FLAT_MINIMUM_ACCEPTANCE_ARITY');const original=minimumAcceptanceTokens.get(token);assert.ok(original?.kind==='INITIAL'&&original.runtime===runtime&&!original.used,'FLAT_MINIMUM_ORIGINAL_ACCEPTANCE_TOKEN');original.used=true;await assertLocalEvm(runtime);const system=await deploySystem(runtime,original.options,'V3');minimumAcceptanceSystems.add(system);return system;
+}
+async function deploySystem(runtime, options, appendOnly,transition=null) {
+  const minimumDeposits=appendOnly==='V3';
+  const buildPin = minimumDeposits ? FLAT_MINIMUM_BUILD_PIN : appendOnly ? APPEND_ONLY_BUILD_PIN : FLAT_BUILD_PIN;
 
   await assertLocalEvm(runtime);
   assert.ok(!activeDeployments.has(runtime), 'FLAT_DEPLOY_CONCURRENT_BOOTSTRAP');
-  const configuration = checkedOptions(runtime, options), sender = address(runtime.accounts[0]);
+  const configuration = checkedOptions(runtime, options,minimumDeposits), sender = address(runtime.accounts[0]);
   let claimBootstrapModule = null;
   if (configuration.nativeClaimBootstrap) {
     claimBootstrapModule = await import('../claims/deploy-native-claims.mjs');
@@ -290,7 +323,7 @@ async function deploySystem(runtime, options, appendOnly) {
     assert.ok(configuration.pools.every(pool => !pool.assetCapability), 'FLAT_CLAIM_BOOTSTRAP_SELECTS_ASSETS');
   }
   assert.equal(runtime.metadata.chainId, '31337', 'FLAT_DEPLOY_LOCAL_CHAIN');
-  const deployments = [], registrationReceipts = [], generatedLibraries = new Map(), visiting = new Set();
+  const deployments = transition ? transition.prior.deployments.filter(r=>![transition.prior.hub.address,...transition.prior.pools.map(p=>p.address)].includes(r.address)) : [], registrationReceipts = [], generatedLibraries = transition ? new Map(Object.entries(transition.prior.generatedLibraries)) : new Map(), visiting = new Set();
   let plan, bundle;
   activeDeployments.add(runtime);
   try {
@@ -308,7 +341,7 @@ async function deploySystem(runtime, options, appendOnly) {
     }
     await unchangedHead(runtime, assetHeader);
     // All generated source/key/compiler validation completes before first send.
-    bundle = await (appendOnly ? loadAppendOnlyDeploymentArtifacts() : loadFlatDeploymentArtifacts());
+    bundle = await (minimumDeposits ? loadMinimumDepositDeploymentArtifacts() : appendOnly ? loadAppendOnlyDeploymentArtifacts() : loadFlatDeploymentArtifacts());
     async function deploy(source, contractName, artifact, immutableNames, immutableValues, links = {}, planned) {
       const nonce = await runtime.nonce(sender, 'pending');
       const target = predictNativeCreateAddress(sender, nonce);
@@ -317,7 +350,7 @@ async function deploySystem(runtime, options, appendOnly) {
         assert.equal(target, planned.address, 'FLAT_DEPLOY_PLANNED_ADDRESS');
       }
       assert.equal(await runtime.code(target), '0x', 'FLAT_DEPLOY_CREATE_ADDRESS_OCCUPIED');
-      const astLibrary = contractName !== 'HonkVerifier' && !['PrivateFlatReceiptHub', 'PrivateFlatAssetNotePool', 'PrivateFlatReceiptHubV2', 'PrivateFlatAssetNotePoolV2'].includes(contractName);
+      const astLibrary = contractName !== 'HonkVerifier' && !['PrivateFlatReceiptHub', 'PrivateFlatAssetNotePool', 'PrivateFlatReceiptHubV2', 'PrivateFlatAssetNotePoolV2','PrivateFlatAssetNotePoolV3'].includes(contractName);
       const guardedLibrary = astLibrary && /^73(?:00){20}3014/.test(artifact.evm.deployedBytecode.object);
       const expectedCode = deriveNativeRuntimeCode({ artifact, deployedAddress: target, libraries: links,
         immutableNames, immutableValues, isLibrary: guardedLibrary });
@@ -348,8 +381,9 @@ async function deploySystem(runtime, options, appendOnly) {
       assert.equal(await runtime.keccak(expectedCode), expectedHash, 'FLAT_DEPLOY_INDEPENDENT_KECCAK');
       freeze(record); deployments.push(record); await configuration.onDeployment(record); return record;
     }
-    const libraries = {};
-    for (const role of ['poseidon2Domains', 'hubCodec', ...(appendOnly ? ['poolRegistryCodec'] : [])]) {
+    const libraries = transition ? {...transition.prior.libraries} : {};
+    if(transition){const head=await runtime.block();for(const record of [transition.prior.hub,...transition.prior.pools,...Object.values(libraries),...Object.values(transition.prior.verifiers),...generatedLibraries.values()])await expectedCodeAt(runtime,record,head.number);await unchangedHead(runtime,head);}
+    for (const role of transition ? [] : ['poseidon2Domains', 'hubCodec', ...(appendOnly ? ['poolRegistryCodec'] : [])]) {
       const [source, name] = buildPin.artifacts[role], artifact = bundle.ledger.artifacts[role];
       const links = Object.fromEntries(Object.entries(libraries).map(([name, value]) => {
         const [file, contract] = buildPin.artifacts[name]; return [file + ':' + contract, value.address]; }));
@@ -373,8 +407,8 @@ async function deploySystem(runtime, options, appendOnly) {
       }
       return links;
     }
-    const verifiers = {};
-    for (const [role] of FLAT_VERIFIER_ORDER) {
+    const verifiers = transition ? {...transition.prior.verifiers} : {};
+    for (const [role] of transition ? [] : FLAT_VERIFIER_ORDER) {
       const entry = bundle.verifiers[role], links = await verifierLinks(entry, entry.artifact);
       const record = await deploy(entry.source, 'HonkVerifier', entry.artifact, entry.immutableNames, entry.immutableValues, links);
       verifiers[role] = { ...viewFacade(runtime, record, entry.artifact), lineage: entry.lineage };
@@ -416,7 +450,7 @@ async function deploySystem(runtime, options, appendOnly) {
       const result = rawWords(raw, 1)[0].slice(2); canonicalField(result, true);
       await unchangedHead(runtime, planningHeader); return result;
     };
-    plan = await (appendOnly ? buildAppendOnlyDeploymentPlan : buildFlatDeploymentPlan)({ compilation: bundle.ledger.compilation, sourceMap: bundle.ledger.sourceMap,
+    plan = await (minimumDeposits ? buildMinimumDepositDeploymentPlan : appendOnly ? buildAppendOnlyDeploymentPlan : buildFlatDeploymentPlan)({ compilation: bundle.ledger.compilation, sourceMap: bundle.ledger.sourceMap,
       chainId: '31337', sender, nextNonce: (await runtime.nonce(sender, 'pending')).toString(),
       deploymentDomain: configuration.deploymentDomain, registryEpoch: configuration.registryEpoch,
       rulesRoot: configuration.rulesRoot, attesterKeys: configuration.attesterKeys,
@@ -425,6 +459,11 @@ async function deploySystem(runtime, options, appendOnly) {
       verifiers: Object.fromEntries(Object.entries(verifiers).map(([role, value]) => [role, { address: value.address, codeHash: value.codeHash }])),
       ...(claimAuthority ? { claimAuthority } : {}) }, { hashFields });
     await unchangedHead(runtime, planningHeader);
+    if(transition){
+      const abi=bundle.ledger.artifacts.hub,transactions=[plan.hub,...plan.pools].map(p=>({nonce:p.nonce,to:null,data:p.creationData,value:'0',target:p.address,codeHash:p.codeHash.slice(2)}));
+      let next=BigInt(plan.pools.at(-1).nonce)+1n;for(const p of plan.pools)transactions.push({nonce:(next++).toString(),to:plan.hub.address,data:staticData(abi,'registerPoolDomain(address)',[p.address]),value:'0',target:null,codeHash:null});
+      const creationPlan={kind:'HUB',predecessor:transition.prior.hub.address,transactions},ticket=await chargeOriginalPoolCreationV1(runtime,transition.quota,transition.principal,creationPlan);await consumeOriginalPoolCreationTicketV1(runtime,transition.quota,ticket,creationPlan);
+    }
     const hub = viewFacade(runtime, await deploy(...buildPin.artifacts.hub.slice(0, 2), bundle.ledger.artifacts.hub,
       bundle.ledger.immutableNames.hub, plan.hub.immutableValues, plan.links, plan.hub), bundle.ledger.artifacts.hub);
     const pools = [];
@@ -434,6 +473,7 @@ async function deploySystem(runtime, options, appendOnly) {
       const assetCapability = configuration.pools[index].assetCapability;
       pools.push({ ...viewFacade(runtime, record, bundle.ledger.artifacts.pool), ...projected.immutableValues,
         assetCapability, assetMetadata: assetCapability.metadata,
+        ...(minimumDeposits ? {minimumDepositAtomic:projected.minimumDepositAtomic} : {}),
         domain: projected.domain, domainCommitment: projected.domainCommitment });
     }
     for (const pool of pools) {
@@ -441,10 +481,11 @@ async function deploySystem(runtime, options, appendOnly) {
         data: hub.data('registerPoolDomain(address)', [pool.address]) });
       registrationReceipts.push(receipt); await runtime.checkReceipt(receipt); await runtime.assertCanonical(receipt);
     }
+    if(transition)assert.equal((await reconcileOriginalPoolCreationV1(runtime,transition.quota)).stage,'CONFIRMED','FLAT_CAPACITY_CREATION_UNCONFIRMED');
     const bootstrap = await assertConstructorStorage(runtime, hub, pools, libraries, verifiers, [...generatedLibraries.values()], plan);
     const commonAsset = pools.every(pool => pool.asset === pools[0].asset && pool.assetCodeHash === pools[0].assetCodeHash)
       ? pools[0] : null;
-    const system = { ...(appendOnly ? { deploymentProfile: 'LIANUM_FLAT_APPEND_ONLY_POOLS_V2' } : {}),
+    const system = { ...(appendOnly ? { deploymentProfile: minimumDeposits ? FLAT_MINIMUM_PROFILE : 'LIANUM_FLAT_APPEND_ONLY_POOLS_V2' } : {}),
       classification: 'OWNED_LOCAL_FLAT_SYSTEM_NOT_PROOF_ACCEPTANCE', chainId: '31337', sender,
       plan, hub, pools, libraries, generatedLibraries: Object.fromEntries(generatedLibraries), verifiers,
       registry: plan.registry, hubDomain: plan.hubDomain, registryCommitment: plan.registryCommitment,
@@ -495,18 +536,72 @@ export function describeOwnedFlatPoolRegistry(runtime, system) {
     appendFenced: state?.appendFenced ?? false, maximumPools: state ? 8 : 2 });
 }
 
+async function readFlatHubCreationCapacityV3(runtime,system,header){
+  await expectedCodeAt(runtime,system.hub,header.number);const values={};
+  for(const name of ['halted','revokedCount','checkpointCount','spentTagCount','totalReservedTagCapacity','pinnedPoolCount','registeredPoolCount']){
+    const raw=rawWords(await system.hub.call(name+'()',[],header.number),1)[0];values[name]=BigInt(raw);
+  }
+  assert.ok(values.halted<=1n&&values.revokedCount<=64n&&(values.halted===1n)===(values.revokedCount===64n)&&values.checkpointCount<=64n&&values.spentTagCount<=64n&&values.totalReservedTagCapacity<=64n&&values.spentTagCount+values.totalReservedTagCapacity<=64n&&values.pinnedPoolCount<=8n&&values.registeredPoolCount<=values.pinnedPoolCount,'FLAT_CAPACITY_CORRUPT_HUB');
+  return Object.freeze({...Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v.toString()])),fullHub:values.halted===1n||values.checkpointCount===64n||values.spentTagCount+values.totalReservedTagCapacity+4n>64n||values.pinnedPoolCount===8n});
+}
+/** Reads actual shared versus per-pool bounds at one canonical head. A full
+ * receipt/auth tree belongs to its pool; only global tags/checkpoints/pool
+ * registration or a permanent halt require a fresh hub. */
+export async function readOriginalFlatCreationCapacityV3(runtime,system,predecessor){
+  assert.equal(arguments.length,3);assertOwnedFlatSystem(runtime,system);await assertLocalEvm(runtime);assert.equal(system.deploymentProfile,FLAT_MINIMUM_PROFILE,'FLAT_CAPACITY_MINIMUM_PROFILE');const state=appendOnlyRegistries.get(system);assert.ok(state?.runtime===runtime,'FLAT_CAPACITY_ORIGINAL_REGISTRY');assert.ok(!state.appendFenced&&!state.appendBusy,'FLAT_CAPACITY_APPEND_FENCED');
+  const pool=state.pools.find(p=>p.address===predecessor);assert.ok(pool,'FLAT_CAPACITY_ORIGINAL_PREDECESSOR');const header=await runtime.block();await runtime.assertCanonical(header);await expectedCodeAt(runtime,pool,header.number);const hub=await readFlatHubCreationCapacityV3(runtime,state.initial,header),counts={};
+  for(const name of ['leafCount','spentCount','liveReservations','outputCapacity','authorizationLeafCount'])counts[name]=BigInt(rawWords(await pool.call(name+'()',[],header.number),1)[0]);counts.receiptCount=BigInt(rawWords(await state.initial.hub.call('receiptCount(bytes32)',[pool.domainCommitment],header.number),1)[0]);assert.ok(Object.values(counts).every(n=>n>=0n&&n<=64n),'FLAT_CAPACITY_CORRUPT_POOL');assertOwnedPoolAsset(runtime,pool.assetCapability);const observed=await pool.assetCapability.read({holder:pool.address,blockNumber:header.number});assert.equal(observed.blockHash,header.hash);const backing=BigInt(rawWords(await pool.call('backedAmount()',[],header.number),1)[0]),native=pool.assetMetadata.kind==='ERC20'?(await runtime.balance(pool.address,header.number)).toString():'0';
+  const decision=projectPoolContinuity({leaves:Number(counts.leafCount),spent:Number(counts.spentCount),reservations:Number(counts.liveReservations),outputs:Number(counts.outputCapacity),authorizationLeaves:Number(counts.authorizationLeafCount),receipts:Number(counts.receiptCount),globalSpentTags:Number(hub.spentTagCount),globalReservedTags:Number(hub.totalReservedTagCapacity),checkpoints:Number(hub.checkpointCount),revoked:Number(hub.revokedCount),halted:hub.halted==='1',held:observed.balance,liabilities:backing.toString(),unrelatedNative:native});await unchangedHead(runtime,header);
+  return Object.freeze({hub:state.initial.hub.address,pool:pool.address,head:Object.freeze({...header}),global:hub,poolCounts:Object.freeze(Object.fromEntries(Object.entries(counts).map(([k,v])=>[k,v.toString()]))),transition:hub.fullHub?'HUB_SUCCESSOR':decision.decision==='POOL_SUCCESSOR_REQUIRED'?'POOL_SUCCESSOR':'AVAILABLE'});
+}
+/** Operator entry, separate from the retained closed public factory. The
+ * original one-use token selects exactly one capacity transition and binds its
+ * original operator quota. It supplies no spending permission or proof fact. */
+export async function prepareOriginalFlatCapacityTransitionV3(runtime,system,raw){
+  assert.equal(arguments.length,3);assertOwnedFlatSystem(runtime,system);await assertLocalEvm(runtime);exactRecord(raw,['kind','predecessor','options','quota','principal']);assert.ok(['POOL','HUB'].includes(raw.kind));assertOriginalPoolCreationQuotaV1(runtime,raw.quota);assert.match(raw.principal,/^[0-9a-f]{64}$/);const state=appendOnlyRegistries.get(system),capacity=await readOriginalFlatCreationCapacityV3(runtime,system,raw.predecessor);assert.equal(capacity.transition,raw.kind==='POOL'?'POOL_SUCCESSOR':'HUB_SUCCESSOR','FLAT_CAPACITY_TRANSITION_NOT_REQUIRED');
+  let options;
+  if(raw.kind==='POOL'){exactRecord(raw.options,['predecessor','deploymentDomain','policy','minimumDepositAtomic']);assert.equal(raw.options.predecessor,raw.predecessor);const predecessor=state.pools.find(p=>p.address===raw.predecessor);normalizeMinimumDepositAtomic(raw.options.minimumDepositAtomic);assert.ok(BigInt(raw.options.minimumDepositAtomic)>=BigInt(predecessor.minimumDepositAtomic),'FLAT_MINIMUM_SUCCESSOR_POLICY_DOWNGRADE');options=structuredClone(raw.options);loadMinimumDepositLedgerArtifacts();}
+  else{
+    checkedOptions(runtime,raw.options,true);assert.equal(Object.hasOwn(raw.options,'onDeployment'),false,'FLAT_CAPACITY_FIXED_EFFECTS');assert.equal(Object.hasOwn(raw.options,'nativeClaimBootstrap'),false,'FLAT_MINIMUM_NATIVE_PROFILE_UNSUPPORTED');const prior=state.initial;
+    assert.notEqual(raw.options.deploymentDomain,prior.plan.hub.configuration.deploymentDomain,'FLAT_CAPACITY_HUB_DOMAIN_REUSE');assert.equal(raw.options.registryEpoch,prior.registry.registryEpoch,'FLAT_CAPACITY_REGISTRY_CHANGED');assert.equal(raw.options.rulesRoot.slice(2),prior.registry.rulesRoot,'FLAT_CAPACITY_REGISTRY_CHANGED');assert.deepEqual(raw.options.attesterKeys,prior.registry.keys,'FLAT_CAPACITY_REGISTRY_CHANGED');
+    options=structuredClone({deploymentDomain:raw.options.deploymentDomain,registryEpoch:raw.options.registryEpoch,rulesRoot:raw.options.rulesRoot,attesterKeys:raw.options.attesterKeys,pools:raw.options.pools.map((p,i)=>({policy:p.policy,deploymentDomain:p.deploymentDomain,minimumDepositAtomic:p.minimumDepositAtomic}))});
+    for(const [i,p]of raw.options.pools.entries()){const original=prior.pools[i];assert.ok(!Object.hasOwn(p,'assetCapability')||p.assetCapability===original.assetCapability,'FLAT_CAPACITY_ASSET_CHANGED');options.pools[i].assetCapability=original.assetCapability;const minimum=state.pools.filter(old=>old.assetIdentity===original.assetIdentity).reduce((m,p)=>BigInt(p.minimumDepositAtomic)>m?BigInt(p.minimumDepositAtomic):m,0n);assert.ok(BigInt(p.minimumDepositAtomic)>=minimum,'FLAT_MINIMUM_SUCCESSOR_POLICY_DOWNGRADE');}
+    await loadMinimumDepositDeploymentArtifacts();
+  }
+  const token=Object.freeze(Object.create(null));minimumAcceptanceTokens.set(token,{kind:raw.kind,runtime,system,options,quota:raw.quota,principal:raw.principal,predecessor:raw.predecessor,used:false});return token;
+}
+/** One explicit same-asset candidate for the controlled local acceptance
+ * campaign. This is separate from automatic capacity routing. Only the actual
+ * initial V3 acceptance system can mint it, once; metadata/serialized systems,
+ * public deployment, unrelated or freshly recreated hubs cannot qualify. */
+export async function prepareOriginalMinimumPoolSuccessorAcceptanceV3(runtime,system,options,quota,principal){
+  assert.equal(arguments.length,5);await assertLocalEvm(runtime);assertOwnedFlatSystem(runtime,system);assert.ok(minimumAcceptanceSystems.has(system)&&!minimumPoolCampaignClaims.has(system),'FLAT_MINIMUM_ORIGINAL_SINGLE_POOL_CAMPAIGN');assertOriginalPoolCreationQuotaV1(runtime,quota);assert.match(principal,/^[0-9a-f]{64}$/);exactRecord(options,['predecessor','deploymentDomain','policy','minimumDepositAtomic']);const state=appendOnlyRegistries.get(system),prior=state.pools.find(p=>p.address===options.predecessor);assert.ok(prior,'FLAT_CAPACITY_ORIGINAL_PREDECESSOR');normalizeMinimumDepositAtomic(options.minimumDepositAtomic);assert.ok(BigInt(options.minimumDepositAtomic)>=BigInt(prior.minimumDepositAtomic),'FLAT_MINIMUM_SUCCESSOR_POLICY_DOWNGRADE');const header=await runtime.block();assert.ok(!(await readFlatHubCreationCapacityV3(runtime,state.initial,header)).fullHub,'FLAT_CAPACITY_HUB_SUCCESSOR_REQUIRED');await unchangedHead(runtime,header);loadMinimumDepositLedgerArtifacts();minimumPoolCampaignClaims.add(system);const token=Object.freeze(Object.create(null));minimumAcceptanceTokens.set(token,{kind:'POOL',campaign:true,runtime,system,options:structuredClone(options),quota,principal,predecessor:options.predecessor,used:false});return token;
+}
+export async function deployOriginalFlatCapacityTransitionV3(runtime,token){
+  assert.equal(arguments.length,2);const original=minimumAcceptanceTokens.get(token);assert.ok(original?.runtime===runtime&&!original.used&&['POOL','HUB'].includes(original.kind),'FLAT_CAPACITY_ORIGINAL_TRANSITION_TOKEN');original.used=true;assertOriginalPoolCreationQuotaV1(runtime,original.quota);const capacity=await readOriginalFlatCreationCapacityV3(runtime,original.system,original.predecessor);if(original.campaign){assert.ok(original.kind==='POOL'&&minimumAcceptanceSystems.has(original.system)&&minimumPoolCampaignClaims.has(original.system),'FLAT_MINIMUM_ORIGINAL_SINGLE_POOL_CAMPAIGN');assert.ok(!capacity.global.fullHub,'FLAT_CAPACITY_HUB_SUCCESSOR_REQUIRED');}else assert.equal(capacity.transition,original.kind==='POOL'?'POOL_SUCCESSOR':'HUB_SUCCESSOR','FLAT_CAPACITY_TRANSITION_NOT_REQUIRED');
+  if(original.kind==='POOL')return appendOriginalFlatPoolKernel(runtime,original.system,original.options,original);
+  const prior=appendOnlyRegistries.get(original.system).initial;try{return await deploySystem(runtime,original.options,'V3',{prior,quota:original.quota,principal:original.principal});}catch(error){await reconcileOriginalPoolCreationV1(runtime,original.quota).catch(()=>{});throw error;}
+}
+
 /** Appends one same-asset pool and returns a one-pool immutable generation view.
  * It neither creates nor replaces a catalogue, keeper, note, journal or consent.
  * Uncertain mutation fences future append attempts; old capabilities survive. */
 export async function appendFlatPoolSuccessor(runtime, system, options) {
-  assert.ok(APPEND_ONLY_LOCAL_ACCEPTANCE_RELEASE, 'APPEND_ONLY_LOCAL_ACCEPTANCE_NOT_RELEASED');
+  const minimumDeposits=system?.deploymentProfile===FLAT_MINIMUM_PROFILE;
+  assert.ok(minimumDeposits ? FLAT_MINIMUM_LOCAL_ACCEPTANCE_RELEASE : APPEND_ONLY_LOCAL_ACCEPTANCE_RELEASE,minimumDeposits ? 'FLAT_MINIMUM_LOCAL_ACCEPTANCE_NOT_RELEASED' : 'APPEND_ONLY_LOCAL_ACCEPTANCE_NOT_RELEASED');
+  return appendOriginalFlatPoolKernel(runtime,system,options,null);
+}
+async function appendOriginalFlatPoolKernel(runtime,system,options,admission){
+  const minimumDeposits=system?.deploymentProfile===FLAT_MINIMUM_PROFILE;
   assertOwnedFlatSystem(runtime, system); await assertLocalEvm(runtime);
   const state = appendOnlyRegistries.get(system);
   assert.ok(state && state.runtime === runtime, 'APPEND_ONLY_ORIGINAL_SYSTEM_REQUIRED');
   assert.ok(!state.appendBusy && !state.appendFenced, 'APPEND_ONLY_APPEND_FENCED');
-  exactRecord(options, ['predecessor', 'deploymentDomain', 'policy']);
+  exactRecord(options, ['predecessor', 'deploymentDomain', 'policy',...(minimumDeposits ? ['minimumDepositAtomic'] : [])]);
   const predecessor = state.pools.find(pool => pool.address === options.predecessor);
   assert.ok(predecessor, 'APPEND_ONLY_REGISTERED_PREDECESSOR');
+  const minimumDepositAtomic=minimumDeposits ? normalizeMinimumDepositAtomic(options.minimumDepositAtomic) : null;
+  if(minimumDeposits)assert.ok(BigInt(minimumDepositAtomic)>=BigInt(predecessor.minimumDepositAtomic),'FLAT_MINIMUM_SUCCESSOR_POLICY_DOWNGRADE');
   const deploymentDomain = digest(options.deploymentDomain), policy = digest(options.policy);
   assert.ok(deploymentDomain !== ZERO32 && policy !== ZERO32, 'APPEND_ONLY_NONZERO_POOL_IDENTITY');
   assert.ok(state.pools.length < 8, 'APPEND_ONLY_EIGHT_POOLS_TOTAL');
@@ -515,7 +610,7 @@ export async function appendFlatPoolSuccessor(runtime, system, options) {
   activeDeployments.add(runtime); state.appendBusy = true; let mutated = false, candidate = null;
   try {
     const initial = state.initial, { hub, libraries, verifiers } = initial;
-    const ledger = loadAppendOnlyLedgerArtifacts();
+    const ledger = minimumDeposits ? loadMinimumDepositLedgerArtifacts() : loadAppendOnlyLedgerArtifacts();
     const header = await runtime.block();
     for (const record of [hub, predecessor, ...Object.values(libraries), ...Object.values(verifiers),
       ...Object.values(initial.generatedLibraries)]) await expectedCodeAt(runtime, record, header.number);
@@ -526,6 +621,7 @@ export async function appendFlatPoolSuccessor(runtime, system, options) {
       encodedWords(values), 'APPEND_ONLY_REGISTRY_' + signature);
     await expect('poolRegistrar()', [], [initial.sender]);
     await expect('halted()', [], [0]);
+    const capacity=await readFlatHubCreationCapacityV3(runtime,initial,header);assert.ok(!capacity.fullHub,'FLAT_CAPACITY_HUB_SUCCESSOR_REQUIRED');
     await expect('pinnedPoolCount()', [], [state.pools.length]);
     await expect('registeredPoolCount()', [], [state.pools.length]);
     for (const [i, old] of state.pools.entries()) {
@@ -548,13 +644,13 @@ export async function appendFlatPoolSuccessor(runtime, system, options) {
         'domainCommitment(bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32)', words, header.number), 1)[0].slice(2);
       canonicalField(result, true); await unchangedHead(runtime, header); return result;
     };
-    const projected = await buildAppendOnlySuccessorPlan({ compilation: ledger.compilation, sourceMap: ledger.sourceMap,
+    const projected = await (minimumDeposits ? buildMinimumDepositSuccessorPlan : buildAppendOnlySuccessorPlan)({ compilation: ledger.compilation, sourceMap: ledger.sourceMap,
       chainId: '31337', sender: initial.sender, nextNonce: (nonce + 1n).toString(),
       hub: { address: hub.address, codeHash: hub.codeHash, hubDomain: initial.hubDomain,
         registryCommitment: initial.registryCommitment, ledgerNamespace: initial.ledgerNamespace },
       verifierSet: initial.plan.verifierSet, verifierSetCommitment: initial.verifierSetCommitment,
       libraries: Object.fromEntries(Object.entries(libraries).map(([role, value]) => [role, { address: value.address, codeHash: value.codeHash }])),
-      pool: { asset: predecessor.asset, assetCodeHash: predecessor.assetCodeHash, deploymentDomain, policy } }, { hashFields });
+      pool: { ...(minimumDeposits ? {minimumDepositAtomic} : {}), asset: predecessor.asset, assetCodeHash: predecessor.assetCodeHash, deploymentDomain, policy } }, { hashFields });
     assert.equal(projected.assetIdentity, predecessor.assetIdentity, 'APPEND_ONLY_SAME_ASSET');
     assert.ok(state.pools.every(pool => pool.domainCommitment !== projected.domainCommitment), 'APPEND_ONLY_UNIQUE_DOMAIN');
     assert.equal(await runtime.code(projected.address, header.number), '0x', 'APPEND_ONLY_PROSPECTIVE_EMPTY');
@@ -569,6 +665,11 @@ export async function appendFlatPoolSuccessor(runtime, system, options) {
     state.pendingPool = freeze({ ...projected, ...projected.immutableValues,
       expectedCode: projected.runtimeCode, registrationPin: pin,
       assetCapability: predecessor.assetCapability, assetMetadata: predecessor.assetMetadata });
+    if(admission){const creationPlan={kind:'POOL',predecessor:predecessor.address,transactions:[
+      {nonce:nonce.toString(),to:hub.address,data:hub.data('pinSuccessorPool((address,address,bytes32,bytes32,bytes32,bytes32,bytes32))',[pin]),value:'0',target:null,codeHash:null},
+      {nonce:(nonce+1n).toString(),to:null,data:projected.creationData,value:'0',target:projected.address,codeHash:projected.codeHash.slice(2)},
+      {nonce:(nonce+2n).toString(),to:hub.address,data:hub.data('registerPoolDomain(address)',[projected.address]),value:'0',target:null,codeHash:null}
+    ]},ticket=await chargeOriginalPoolCreationV1(runtime,admission.quota,admission.principal,creationPlan);await consumeOriginalPoolCreationTicketV1(runtime,admission.quota,ticket,creationPlan);}
     mutated = true;
     const pinReceipt = await runtime.send('pin exact prospective append-only pool', { from: initial.sender, to: hub.address,
       data: hub.data('pinSuccessorPool((address,address,bytes32,bytes32,bytes32,bytes32,bytes32))', [pin]) });
@@ -582,11 +683,11 @@ export async function appendFlatPoolSuccessor(runtime, system, options) {
     assert.equal(BigInt(tx[0].senderNonce), nonce + 1n); assert.equal(BigInt(tx[0].request.value ?? '0x0'), 0n);
     assert.equal(await runtime.nonce(initial.sender, 'pending'), nonce + 2n);
     const record = { ...projected, expectedCode: projected.runtimeCode, receipt,
-      source: 'v2/PrivateFlatAssetNotePoolV2.sol', contractName: 'PrivateFlatAssetNotePoolV2', proofAcceptanceClaim: false };
+      source: minimumDeposits ? 'v2/PrivateFlatAssetNotePoolV3.sol' : 'v2/PrivateFlatAssetNotePoolV2.sol', contractName: minimumDeposits ? 'PrivateFlatAssetNotePoolV3' : 'PrivateFlatAssetNotePoolV2', proofAcceptanceClaim: false };
     await expectedCodeAt(runtime, record, receipt.blockNumber);
     assert.equal(await runtime.keccak(projected.runtimeCode), projected.codeHash);
     const pool = { ...viewFacade(runtime, record, ledger.artifacts.pool), ...projected.immutableValues,
-      assetCapability: predecessor.assetCapability, assetMetadata: predecessor.assetMetadata, domain: projected.domain,
+      assetCapability: predecessor.assetCapability, assetMetadata: predecessor.assetMetadata, ...(minimumDeposits ? {minimumDepositAtomic:projected.minimumDepositAtomic} : {}), domain: projected.domain,
       domainCommitment: projected.domainCommitment, registrationPin: pin };
     const deployed = await runtime.block();
     for (const [name, value] of Object.entries(projected.immutableValues)) assert.equal(
@@ -611,6 +712,7 @@ export async function appendFlatPoolSuccessor(runtime, system, options) {
       assert.equal(await hub.call('pinnedPoolCodeHash(address)', [old.address], registered.number), encodedWords([old.codeHash]));
     }
     await unchangedHead(runtime, registered);
+    if(admission)assert.equal((await reconcileOriginalPoolCreationV1(runtime,admission.quota)).stage,'CONFIRMED','FLAT_CAPACITY_CREATION_UNCONFIRMED');
     freeze(pool); state.pools.push(pool); state.pendingPool = null;
     candidate = { ...initial, pools: [pool],
       plan: { ...initial.plan, pools: [projected] },
@@ -629,6 +731,7 @@ export async function appendFlatPoolSuccessor(runtime, system, options) {
     state.systems.push(candidate); return candidate;
   } catch (error) {
     if (mutated) state.appendFenced = true;
+    if(admission&&mutated)await reconcileOriginalPoolCreationV1(runtime,admission.quota).catch(()=>{});
     if (candidate) { ownedSystems.delete(candidate); appendOnlyRegistries.delete(candidate); }
     throw new Error('APPEND_ONLY_SUCCESSOR_FAILED', { cause: error });
   } finally { state.appendBusy = false; activeDeployments.delete(runtime); }

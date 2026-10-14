@@ -1,5 +1,5 @@
 import {randomBytes,createHash} from 'node:crypto';
-import {NATIVE_WALLET_AUTH_ROUTES_V1,nativeWalletAuthMessageV1,nativeWalletBodyHashV1,verifyNativeWalletAuthV1} from '../../../crypto/src/native-wallet-auth-v1.mjs';
+import {NATIVE_WALLET_AUTH_ROUTES_V1,nativeWalletAuthMessageV1,nativeWalletBodyHashV1,verifyNativeWalletAuthV1} from '@lianum/crypto/native-wallet-auth-v1';
 export function createPublicWalletAuthV1(origin,{now=Date.now,maxPending=2000}={}){
  const url=new URL(origin);if(url.origin!==origin||url.protocol!=='https:')throw Error('NATIVE_AUTH_ORIGIN');const pending=new Map();
  function clean(){const time=now();for(const [nonce,value]of pending)if(value.expiresAt<=time)pending.delete(nonce);}

@@ -35,8 +35,8 @@ test('nine-source integrity pins are mandatory, exact and checked before any com
 });
 
 test('all frozen assembly function bodies remain byte-identical in the wallet authority', async () => {
-  const old = await readFile(new URL('../contracts/PrivateAssemblyNativeNotePool.sol', import.meta.url), 'utf8');
-  const wallet = await readFile(new URL('../contracts/PrivateWalletNativeNotePool.sol', import.meta.url), 'utf8');
+  const old = await readFile(new URL('../../../../../contracts/engine/PrivateAssemblyNativeNotePool.sol', import.meta.url), 'utf8');
+  const wallet = await readFile(new URL('../../../../../contracts/engine/PrivateWalletNativeNotePool.sol', import.meta.url), 'utf8');
   assert.equal(sha(old), '8a41d0e76bd1f1d53b6690e1e052a180d23498125bb8d9964be060ecc5a186da');
   const functions = text => {
     const result = new Map();

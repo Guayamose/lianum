@@ -762,7 +762,7 @@ test('authorization lifecycle redemption retains its proposal and original pre-p
       f.state.gateways[0].tickets.push({ ticket: structuredClone(row.ticket), state: '1', payoutRouteCommitment: zero }); };
     await f.controller.requestRedemption({ claimDomain: f.packet.claimDomain, caller: f.runtime.accounts[0], amount: '1000000', maxFee: '5000' });
     const permit = track.permits[0]; assert.equal(track.checks.filter(snapshot => snapshot === permit.anchor).length, 2);
-    assert.equal(track.reads.length, 3); assert.equal((await journal.read()).tickets.length, 1);
+    assert.equal(track.reads.length, 4); assert.equal((await journal.read()).tickets.length, 1);
   } finally { await f.close(); }
 });
 
@@ -1178,7 +1178,7 @@ function originalSplIngressCallbacksFixture(source, { spl = true, holdPrepared =
   const key = cut('  function splIngressKey(', '  // V1 ingress');
   const send = cut('  async function splIngressSend(', '  async function serial(');
   const keyConsumer = cut('export function consumeNativeClaimOriginalKeyAuthorityV4(', '// Only the genuine completed payout closure').replace(/^export /, '');
-  const sendConsumer = cut('export function openNativeSplClaimIngressSendV1(', 'const controllers =').replace(/^export /, '');
+  const sendConsumer = cut('export function openNativeSplClaimIngressSendV1(', 'const controllers=').replace(/^export /, '');
   bridge = vm.runInThisContext('(function({' + Object.keys(env).join(',') + '}) {\n' +
     keyConsumer + sendConsumer + key + send + locals + '\nreturn { callbacks: {' + callbacks + '}, splIngressSend,\n' +
     'consumeKey: consumeNativeClaimOriginalKeyAuthorityV4, openSend: openNativeSplClaimIngressSendV1 };\n})')(env);

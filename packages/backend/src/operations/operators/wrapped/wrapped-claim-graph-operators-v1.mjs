@@ -46,7 +46,8 @@ function budget(started) {
 }
 function operationIdentityV4(operation) {
   if (operation === null) return null;
-  const value = copy(readWrappedGraphDispatchOperationV4(operation)); delete value.physicalState; delete value.nativeAuditStarted; return freeze(value);
+  const { physicalState, nativeAuditStarted, ...identity } = readWrappedGraphDispatchOperationV4(operation);
+  return freeze(copy(identity));
 }
 function graphNativeStateV4(rows, operation = null) {
   assert.ok(Array.isArray(rows) && rows.length > 0 && rows.length <= 5, 'WRAPPED_GRAPH_NATIVE_REGISTRY_REQUIRED');

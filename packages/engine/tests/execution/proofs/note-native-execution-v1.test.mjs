@@ -93,22 +93,24 @@ test('fixed D26/W39 preserve prepared lineage, native receipt and an opaque cons
  }
  // Execute original constructor bodies and original one-use recovery prefix.
  // These HOST stubs expose selection only, never an account/system authority.
- const physical=import.meta.url.includes('/packages/engine/tests/');
- const authority=readFileSync(new URL(physical?'../../../../backend/src/accounts/authority/native-value-account-authority-v2.mjs'
-  :'../../../omnichain-flat-profile/flat-wallet/wallet-platform/modules/global-state/native-value-account-authority-v2.mjs',import.meta.url),'utf8');
- const legacy=authority.slice(authority.indexOf('export async function createNativeValueAccountAuthority('),authority.indexOf('/** New fixed economic note producer;'));
- const begin=authority.indexOf('export async function createNativeEconomicNoteAccountAuthorityV1('),end=authority.indexOf('export async function createWrappedWalletAccountAuthorityV1(',begin);
- assert.ok(begin>=0&&end>begin);
+ const authority=readFileSync(new URL('../../../../backend/src/accounts/authority/native-value-account-backend-v2.mjs',import.meta.url),'utf8');
+ function originalFunction(name){
+  const start=authority.indexOf('  async function '+name+'(');assert.ok(start>=0);
+  const opening=authority.indexOf('{',authority.indexOf(') {',start));let end=opening+1,depth=1;
+  while(depth){assert.ok(end<authority.length);const c=authority[end++];if(c==='{')depth++;else if(c==='}')depth--;}
+  return authority.slice(start,end);
+ }
+ const legacy=originalFunction('createNativeValueAccountAuthority'),native=originalFunction('createNativeEconomicNoteAccountAuthorityV1');
  const context=createContext({assert,createAccountAuthority:(...values)=>values});
- const constructors=new Script(legacy.replace('export ','')+authority.slice(begin,end).replace('export ','')+
+ const constructors=new Script(legacy+native+
   ';({legacy:createNativeValueAccountAuthority,native:createNativeEconomicNoteAccountAuthorityV1})').runInContext(context);
  const input={},callbacks={};assert.deepEqual(Array.from(await constructors.legacy(input,callbacks)),[input,callbacks,false]);
  assert.deepEqual(Array.from(await constructors.native(input,callbacks)),[input,callbacks,false,null,true]);
  await assert.rejects(constructors.native(input,callbacks,'caller-backend'),/CONSTRUCTOR_ARITY/);
- const reopenBegin=authority.indexOf('export async function reopenOriginalNativeAccountEconomicRecoveryV1('),
-  reopenEnd=authority.indexOf("  assert.equal(retained.sourceSHA256, admitted.sourceSHA256);",reopenBegin);
- assert.ok(reopenBegin>=0&&reopenEnd>reopenBegin);
- const prefix=authority.slice(reopenBegin,reopenEnd).replace('export ','')+'return nativeNote; }';
+ const originalReopen=originalFunction('reopenOriginalNativeAccountEconomicRecoveryV1');
+ const reopenEnd=originalReopen.indexOf('    assert.equal(retained.sourceSHA256, admitted.sourceSHA256);');
+ assert.ok(reopenEnd>0);
+ const prefix=originalReopen.slice(0,reopenEnd)+'return nativeNote; }';
  const issued=Object.freeze(Object.create(null));let used=false,currentSchema;
  const recoveryContext=createContext({assert,exactRecord:(value,keys)=>assert.deepEqual(Object.keys(value).sort(),Array.from(keys).sort()),
   nativeEconomicRecoverySectionIdentityV1:token=>{assert.equal(token,issued);return{sourceSHA256:'56'.repeat(32)};},
@@ -126,7 +128,7 @@ test('fixed D26/W39 preserve prepared lineage, native receipt and an opaque cons
  // Execute the actual facade finish boundary: missing startup capture is
  // unknown, even after the original coordinator close. This synthetic HOST
  // metadata establishes no actual subprocess/lock or financial acceptance.
- const facade=readFileSync(new URL(physical?'../../../../proofs/src/execution/proof-process.mjs':'../../src/paeg/proof-process.mjs',import.meta.url),'utf8');
+ const facade=readFileSync(new URL('../../../../proofs/src/execution/proof-process.mjs',import.meta.url),'utf8');
  const finishBegin=facade.indexOf('const finish = (exitCode, signal) => {'),finishEnd=facade.indexOf('    current = { done, stop };',finishBegin);
  assert.ok(finishBegin>=0&&finishEnd>finishBegin);const finishBody=facade.slice(finishBegin,finishEnd);
  function finishFixture(body,identities){

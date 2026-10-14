@@ -148,7 +148,7 @@ test('concurrent cooperative writers commit exactly once at a revision', async (
 test('independent Node processes respect the same exclusive lock and revision CAS', async (t) => {
   const { store } = await setup(t);
   await store.initialize();
-  const moduleUrl = new URL('../src/private-operation-store.mjs', import.meta.url).href;
+  const moduleUrl = new URL('../../src/payments/private-operation-store.mjs', import.meta.url).href;
   const script = `import { PrivateOperationStore } from ${JSON.stringify(moduleUrl)};
     try {
       await new PrivateOperationStore(process.argv[1]).update(0, r => ({...r, operations:[{id:'winner'}]}));

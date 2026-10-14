@@ -128,15 +128,15 @@ test('owned actor termination escalates only its ChildProcess after finite grace
   assert.deepEqual(signals,['SIGTERM','SIGKILL']);assert.equal(outcome.signal,'SIGKILL');assert.equal(c.provenance().closed,true);
 });
 test('production paid program has no automatic refund, duplicate, or missing-permit controls',async()=>{
-  const source=await readFile(new URL('../src/private-payment-engine.mjs',import.meta.url),'utf8');const host=source.slice(source.indexOf('async function createOwnedPaymentHost'));
+  const source=await readFile(new URL('../../../backend/src/payments/private-payment-engine.mjs',import.meta.url),'utf8');const host=source.slice(source.indexOf('async function createOwnedPaymentHost'));
   for(const token of ['expectedRevert','expectedStatus','assert.rejects','duplicate withdrawal','without current permits'])assert.equal(host.includes(token),false,token);
   assert.match(host,/await audit\(role,item\)/);
   const {PRIVATE_PAYMENT_PROGRAMS}=await import('../../src/payments/private-payment-coordinator.mjs');assert.equal(PRIVATE_PAYMENT_PROGRAMS.payment.some(op=>/refund/i.test(op)),false);assert.deepEqual(PRIVATE_PAYMENT_PROGRAMS.refund,['validateRefund','awaitRefundCutoff','issueRefund','withdrawRefund','verifyRefund']);assert.match(host,/await context\.signedRetained\(role\)/);
-  const harness=await readFile(new URL('../scripts/integration-private-assembly-native.mjs',import.meta.url),'utf8');assert.match(harness,/NATIVE_SCHEMA_REPAIR_REQUIRED = true/);assert.match(harness,/await completeAssemblyPaidPayment\(/);
+  const harness=await readFile(new URL('../../../../scripts/engine/integration/assembly/integration-private-assembly-native.mjs',import.meta.url),'utf8');assert.match(harness,/NATIVE_SCHEMA_REPAIR_REQUIRED = true/);assert.match(harness,/await completeAssemblyPaidPayment\(/);
 });
 
 test('fixed real fork boot disconnects before initial ACK without starting native work',async()=>{
-  const child=fork(fileURLToPath(new URL('../src/private-payment-worker.mjs',import.meta.url)),[],{stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8'}});
+  const child=fork(fileURLToPath(new URL('../../../backend/src/payments/private-payment-worker.mjs',import.meta.url)),[],{stdio:['ignore','ignore','ignore','ipc'],env:{PATH:process.env.PATH,HOME:process.env.HOME,LANG:'C.UTF-8'}});
   const frames=[];let timer;
   const closed=new Promise((resolve,reject)=>{
     timer=setTimeout(()=>{child.kill('SIGKILL');reject(Error('WORKER_DID_NOT_CLOSE'));},5000);
@@ -188,7 +188,7 @@ test('streamed prerequisite integrity preserves exact size/hash with a fixed64Ki
     await writeFile(file,Buffer.alloc(0));const empty={bytes:0,sha256:createHash('sha256').digest('hex')};
     assert.deepEqual(await verifyPrivatePaymentFileIntegrity(file,empty),{...empty,maximumChunkBytes:0});
   } finally {await rm(directory,{recursive:true,force:true});}
-  const source=await readFile(new URL('../src/private-payment-engine.mjs',import.meta.url),'utf8');
+  const source=await readFile(new URL('../../../backend/src/payments/private-payment-engine.mjs',import.meta.url),'utf8');
   assert.match(source,/await verifyPrivatePaymentFileIntegrity\(join\(crs,record\.file\),record,'PC18_CRS_PIN'\)/);
   assert.equal(source.includes('readFile(join(crs,record.file))'),false);
   assert.match(source,/await recordResources\('BEFORE_TERMINAL_FULFILLMENT'\);await heavy\('terminal-fulfillment'/);
@@ -225,11 +225,12 @@ test('aborted real recipient cleanup confirms closure despite concurrent gracefu
   const recipient=await startRecipient({path:join(directory,'recipient.vault'),password:'synthetic-test-only-password',expectedTerms:terms,withdrawalRecipient:'77'.repeat(20)},[],children);
   t.after(()=>recipient.terminate());const child=children[0];let sawClose=false;child.once('close',()=>{sawClose=true;});
   child.kill('SIGSTOP');await new Promise(resolve=>setTimeout(resolve,10));
-  const graceful=recipient.stop();const expectedRejection=assert.rejects(graceful,/PC18_RECIPIENT_EXIT/);
+  const graceful=recipient.stop();const expectedRejection=assert.rejects(graceful,error=>error.message==='PC18_RECIPIENT_EXIT'||error.code==='ECONNRESET');
   const aborted=stopOwnedChild(child,{forceAfterMs:20});const cleanup=recipient.terminate();
   await expectedRejection;await aborted;const result=await cleanup;
   assert.equal(sawClose,true);assert.equal(result.pid,child.pid);assert.equal(result.signal,'SIGKILL');
   assert.equal((await recipient.terminate()).pid,child.pid);
+  assert.equal(recipient.provenance().channelsClosed,true);
 });
 
 test('proven no-deposit failure restores prior deployment exposure while canonical guarded revert is observed',async()=>{

@@ -378,7 +378,7 @@ test('HOST fixed Cloud private-worker open checks original SQL key before issuer
  const originals={runtime:runtime(),nativeRuntime:runtime(),account,session:{async close(){return{phase:'CLOSED'};}},nativeExecution:{async close(){return{closed:true};}},
   providerCustody:{async close(){},report(){return{closed:true};}},owner:{async close(){return{closed:true,childExited:true};}},bootstrap:{close(){}},actor:{close(){}}};
  const modules={
-  './native-device-local-operator-v1.mjs':{async assertOriginalNativeDeviceLocalSourceReviewV1(){calls.push('source');}},
+  './native-device-source-review-v1.mjs':{async assertOriginalNativeDeviceLocalSourceReviewV1(){calls.push('source');}},
   './native-value-economic-successor-v1.mjs':{async reopenOriginalNativeValueEconomicNoteSuccessorV1(i,c){calls.push('issuer');assert.equal(i,identity);assert.equal(c,locator.checkpoint);opened++;return{originals,receipt:{processId:process.pid,originalProcessLifetimeDifferent:true,issuerClosed:true,sourceSHA256:identity.sourceSHA256}};}},
   './native-device-economic-service-v1.mjs':{async reinstallOriginalNativeDeviceDurableEconomicServiceV1(value){calls.push('tls');assert.equal(value.account,account);assert.equal(value.pool,pool);assert.equal(value.privacyKey,key);tls++;return{descriptor,parentJobId:locator.parentJobId,transport:{url:descriptor.origin,async close(){return{closed:true,originalWorkSettled:true,ownedSocketsRemaining:0};}},dispatch:{close(){}}};}},
  };

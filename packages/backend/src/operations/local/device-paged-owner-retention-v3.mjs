@@ -1,39 +1,60 @@
-/** Encrypted checkpoints of one private OWNER, beneath the original authority.
- * This store establishes storage lineage, never proof or dispatch authority. */
+/** Encrypted original OWNER retention and readonly validation orchestration.
+ * The lower store authenticates AEAD and issues one-use readonly openings;
+ * the graph reconstructs original signatures without importing this wrapper. */
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
-import {lstat,realpath} from 'node:fs/promises';
-import {dirname,resolve,basename} from 'node:path';
-import {Vault} from '@lianum/engine/crypto/vault';
-import {canonical} from '@lianum/engine/crypto/privacy';
 import {wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
-const PROFILE='DEVICE_PAGED_OWNER_DURABLE_CHECKPOINT_V3';
-const hash=value=>createHash('sha256').update(canonical(value)).digest('hex');
-export async function createDevicePagedOwnerRetentionV3(config,descriptor){
- P.pagedOwnerExactV3(config,['path','password','expected']);const path=resolve(config.path);
- assert.equal(path,config.path);assert.equal(basename(path),'private-owner.vault');
- assert.ok(typeof config.password==='string'&&config.password.length>=32&&config.password.length<=4096);
- const dir=await lstat(dirname(path));assert.ok(dir.isDirectory()&&!dir.isSymbolicLink()&&(dir.mode&0o777)===0o700&&dir.uid===process.getuid());assert.equal(await realpath(dirname(path)),dirname(path));
- const normalized=P.normalizeDevicePagedDescriptorV3(descriptor),vault=new Vault(path);let password=config.password,record=null,closed=false;
- async function physical(required){
-  try{await lstat(path+'.lock');assert.fail('PAGED_OWNER_CHECKPOINT_LOCKED');}catch(error){if(error.code!=='ENOENT')throw error;}
-  try{const file=await lstat(path);assert.ok(file.isFile()&&!file.isSymbolicLink()&&file.nlink===1&&file.uid===process.getuid()&&(file.mode&0o777)===0o600,'PAGED_OWNER_CHECKPOINT_PRIVATE_FILE');}
-  catch(error){if(required||error.code!=='ENOENT')throw error;}
- }
- await physical(config.expected!==null);
- const binding=hash(normalized),metadata=r=>Object.freeze({profile:PROFILE,descriptorSHA256:binding,revision:r.revision,dataSHA256:hash(r.data),public:structuredClone(r.data.controller.public)});
- function validate(r){assert.ok(!closed);P.pagedOwnerExactV3(r.data,['profile','descriptor','controller']);assert.equal(r.data.profile,PROFILE);assert.deepEqual(r.data.descriptor,normalized);return metadata(r);}
- if(config.expected!==null){P.pagedOwnerExactV3(config.expected,['profile','descriptorSHA256','revision','dataSHA256','public']);record=await vault.read(password);assert.deepEqual(validate(record),config.expected,'PAGED_OWNER_CHECKPOINT_CHANGED');}
- return Object.freeze({
-  restored(){assert.ok(!closed&&record);return structuredClone(record.data.controller);},
-  checkpoint(){assert.ok(!closed);return record===null?null:validate(record);},
-  async commit(controller){assert.ok(!closed);await physical(record!==null);const data={profile:PROFILE,descriptor:normalized,controller:structuredClone(controller)};
-   if(record!==null){const current=await vault.read(password);assert.deepEqual(validate(current),validate(record),'PAGED_OWNER_CHECKPOINT_CHANGED');}
-   let next;try{next=record===null?await vault.create(data,password):await vault.update(password,record.revision,()=>data);}
-   catch(error){const actual=await vault.read(password);if(actual.revision!==(record===null?0:record.revision+1)||hash(actual.data)!==hash(data))throw error;next=actual;}
-   const actual=await vault.read(password);assert.deepEqual(actual,next,'PAGED_OWNER_CHECKPOINT_READBACK');record=actual;return validate(record);
-  },
-  close(){if(closed)return;closed=true;password=null;wipePrivateProofInputsV1(record?.data?.controller);record=null;}
- });
+import {createDevicePagedOwnerRetentionV3,openOriginalDevicePagedOwnerReadRecoveryStoreV4} from './device-paged-owner-read-store-v4.mjs';
+export {createDevicePagedOwnerRetentionV3,consumeOriginalDevicePagedOwnerReadRecoveryOpeningV4} from './device-paged-owner-read-store-v4.mjs';
+const readRecoveryValidations=new WeakMap();
+/** Authenticated DATA only. No capsule, ROOT, password or execution grant is
+ * returned. The original child must reopen this exact record, reconstruct its
+ * signatures/graph and reissue the retained proof before authority recovery. */
+export async function readOriginalDevicePagedOwnerProofCheckpointV4(config,descriptor,before){
+ assert.equal(arguments.length,3);P.pagedOwnerExactV3(config,['path','password']);
+ const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);
+ try{return await reader.readProofCheckpointAfter(before);}finally{reader.close();}
 }
+
+/** Readback of the exact immutable-at-transition OWNER capsule. This reader
+ * proves storage lineage only; the authority separately checks canonical
+ * terminal graph outcome/source nullifier and its original client checkpoint. */
+export async function readOriginalDevicePagedOwnerTerminalCheckpointV4(config,descriptor,expected){
+ assert.equal(arguments.length,3);P.pagedOwnerExactV3(config,['path','password']);
+ const reader=await createDevicePagedOwnerRetentionV3({...config,expected},descriptor);let capsule;
+ try{capsule=reader.restored();assert.ok(['FULFILLED','RECOVERED'].includes(capsule.phase)&&capsule.phase===capsule.public.phase,'PAGED_REFILL_OWNER_TERMINAL');assert.equal(capsule.pending,null,'PAGED_REFILL_OWNER_PENDING');assert.deepEqual(capsule.public,expected.public,'PAGED_REFILL_OWNER_PUBLIC');return reader.checkpoint();}
+ finally{wipePrivateProofInputsV1(capsule);reader.close();}
+}
+
+/** Only used below an original durable CREATING marker. Reads the authentic
+ * existing empty OWNER file; missing/active capsules are never recreated. */
+export async function readOriginalDevicePagedOwnerEmptyBirthCheckpointV4(config,descriptor){
+ assert.equal(arguments.length,2);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);
+ try{return await reader.readEmptyBirthCheckpoint();}finally{reader.close();}
+}
+
+/** Validate the existing encrypted OWNER even after its service descriptor
+ * expires. The reopened controller is strictly read-only and rechecks original
+ * graph signatures/commitments. No V3 command, prover result or dispatch grant
+ * is made current. Authority renewal still needs its original supervisor token
+ * and a separate current original deployment/ledger read. */
+export async function validateOriginalDevicePagedOwnerReadRecoveryV4(config,descriptor,expected){
+ assert.equal(arguments.length,3);const store=await openOriginalDevicePagedOwnerReadRecoveryStoreV4(config,descriptor,expected);let controller,closed=false;
+ try{
+  const {reopenOriginalDevicePagedPrivateGraphReadRecoveryV4}=await import('./device-paged-private-graph-v3.mjs');
+  controller=await reopenOriginalDevicePagedPrivateGraphReadRecoveryV4(store.opening);await store.assertCurrent();
+  const validation=Object.freeze(Object.create(null)),checkpoint=store.checkpoint(),pub=controller.summary(),automation=controller.automation();
+  const data={profile:'ORIGINAL_PAGED_OWNER_READ_RECOVERY_VALIDATION_V4',checkpoint,public:pub,automation:automation===null?null:{terms:structuredClone(automation.terms),commandsUsed:automation.commandsUsed,revoked:automation.revoked},current:false};
+  await controller.close();controller=null;
+  let expiry;const close=()=>{if(closed)return;closed=true;clearTimeout(expiry);store.close();wipePrivateProofInputsV1(data);readRecoveryValidations.delete(validation);};
+  readRecoveryValidations.set(validation,{store,data,close});expiry=setTimeout(close,15000);expiry.unref?.();
+  return validation;
+ }catch(error){closed=true;await controller?.close();store.close();throw error;}
+}
+
+/** Same original validation object and unchanged AEAD high-water only. This
+ * inferior metadata is not canonical chain state or financial authority. */
+export async function readOriginalDevicePagedOwnerReadRecoveryValidationV4(token){
+ assert.equal(arguments.length,1);const original=readRecoveryValidations.get(token);assert.ok(original,'PAGED_OWNER_ORIGINAL_READ_RECOVERY_VALIDATION');await original.store.assertCurrent();assert.equal(readRecoveryValidations.get(token),original,'PAGED_OWNER_ORIGINAL_READ_RECOVERY_VALIDATION');return structuredClone(original.data);
+}
+export function closeOriginalDevicePagedOwnerReadRecoveryValidationV4(token){assert.equal(arguments.length,1);readRecoveryValidations.get(token)?.close();}

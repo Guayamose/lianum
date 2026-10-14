@@ -57,7 +57,7 @@ const cases = [
 test('composers match actual A67/A98/T131 source signatures and pinned public ABI order', () => {
   for (const [mode, make, compose, count] of cases) {
     const input = make(), before = copy(input), result = compose(input);
-    const source = readFileSync(new URL(`../../experiments/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
+    const source = readFileSync(new URL(`../../../../../../experiments/engine/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
     const signature = source.split('fn main(')[1].split(') {')[0];
     const parameters = [...signature.matchAll(/^\s+(\w+): (.+),$/gm)].map(match => match[1]);
     const publicParameters = [...signature.matchAll(/^\s+(\w+): pub (.+),$/gm)].map(match => match[1]);

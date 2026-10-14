@@ -1,0 +1,3 @@
+/** Original source collection facade. Isolated mechanical instances cannot
+ * register any collection or source into the canonical graph operator. */
+export {prepareOriginalPagedNextSourceAccountV4,readOriginalPagedSourceAccountsV4,readOriginalPagedSourceAccountCollectionV4,dispatchOriginalPagedSourceAccountV4,quiesceOriginalPagedSourceAccountCollectionV4,captureOriginalPagedSourceAccountCollectionV4,closeOriginalPagedSourceAccountCollectionV4,createOriginalPagedSourceAccountCollectionV4,reopenOriginalPagedSourceAccountCollectionV4} from './funded-graph-paged-device-graph-operator-v3.mjs';

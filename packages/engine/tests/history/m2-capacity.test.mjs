@@ -17,7 +17,36 @@ const PLAINTEXT_LIMIT = 1024 * 1024;
 const PASSWORD = 'synthetic-capacity-reproduction-only';
 const START = 1_790_900_000_000;
 const productionCore = { createState, transition, makeGraph, graphHash };
-const BASELINE_COMMIT = '32ea81fed05f118bdb842fd91e9a3d5f4e858ad5';
+// Retained source bytes are authenticated below; the old Git object/manifest
+// is unavailable. This reproduction attests bytes and behaviour, not a commit.
+const BASELINE_CLASSIFICATION = 'RETAINED_BASELINE_SOURCE_BYTES_NO_GIT_COMMIT_ATTESTATION';
+const BASELINE_FILES = [
+  {
+    "name": "core.mjs",
+    "bytes": 17861,
+    "sha256": "cc2a44c491f0942cdee30bdfefbb899de5115d8788413acbc2064cb9633179ce"
+  },
+  {
+    "name": "privacy.mjs",
+    "bytes": 10256,
+    "sha256": "9c971fbd40b69b4e6a56ec56c309c57b4d9ef4117fc22a8b25696befab1b8edd"
+  },
+  {
+    "name": "sdk.mjs",
+    "bytes": 3171,
+    "sha256": "bba54b9b550376ee8d8038d03603f1358f6e389ccdcba33e98f8e52211a1a519"
+  },
+  {
+    "name": "simulation.mjs",
+    "bytes": 872,
+    "sha256": "dec2df1d0066cd6d97050e22bca35843712be4c7c8cdd83e4dae099c66580e7f"
+  },
+  {
+    "name": "vault.mjs",
+    "bytes": 7006,
+    "sha256": "d288d08ec58ade40aa352bd4579df1a6d3c2ac6395c29d08c0b46b5d6db5da8e"
+  }
+];
 // Ordering object keys changes no byte count for these restricted ASCII JSON
 // fixtures. JSON.stringify is used to measure oversize candidates without lifting
 // canonical()'s independent hard limit or editing production code.
@@ -71,15 +100,15 @@ function nearCapacityFixture({ createState, transition, makeGraph, graphHash } =
   return { data, target, after, historyCount: data.state.events.length };
 }
 
-test('historical M1 reproduction: accepted reservation exhausted receipt AND recovery capacity', async (t) => {
+test('retained baseline bytes reproduce exhausted receipt AND recovery capacity without Git commit attestation', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'paeg-m2-capacity-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const path = join(directory, 'synthetic-capacity.vault.json');
   const baseline = join(directory, 'historical-source');
   await mkdir(baseline);
-  const fixtureDirectory = fileURLToPath(new URL('./fixtures/m1-capacity-baseline/', import.meta.url));
-  const manifest = JSON.parse(await readFile(join(fixtureDirectory, 'manifest.json'), 'utf8'));
-  assert.equal(manifest.sourceCommit, BASELINE_COMMIT);
+  const fixtureDirectory = fileURLToPath(new URL('../fixtures/m1-capacity-baseline/', import.meta.url));
+  const manifest = {classification:BASELINE_CLASSIFICATION,files:BASELINE_FILES};
+  assert.equal(manifest.classification, 'RETAINED_BASELINE_SOURCE_BYTES_NO_GIT_COMMIT_ATTESTATION');
   assert.deepEqual(manifest.files.map((file) => file.name).sort(), ['core.mjs', 'privacy.mjs', 'sdk.mjs', 'simulation.mjs', 'vault.mjs']);
   for (const file of manifest.files) {
     const source = await readFile(join(fixtureDirectory, file.name));
@@ -107,7 +136,7 @@ test('historical M1 reproduction: accepted reservation exhausted receipt AND rec
   assert.equal(retained.revision, 1);
   assert.equal(retained.data.state.operations.find((operation) => operation.hash === hash).status, 'RESERVED');
   assert.equal(retained.data.state.assets.find((asset) => asset.asset === PAYMENT).reserved, '2000');
-  t.diagnostic(JSON.stringify({ fixtureKind: 'constructed-reachable-shape-history', historyCount, beforeAdmissionPlaintextBytes: bytes(data), acceptedPlaintextBytes: bytes(after, 1), remainingBytes: PLAINTEXT_LIMIT - bytes(after, 1), receipt: 'REJECTED_SIZE', timeoutRecovery: 'REJECTED_SIZE', retainedRevision: retained.revision }));
+  t.diagnostic(JSON.stringify({ fixtureKind: 'constructed-reachable-shape-history', sourceClassification:BASELINE_CLASSIFICATION, historyCount, beforeAdmissionPlaintextBytes: bytes(data), acceptedPlaintextBytes: bytes(after, 1), remainingBytes: PLAINTEXT_LIMIT - bytes(after, 1), receipt: 'REJECTED_SIZE', timeoutRecovery: 'REJECTED_SIZE', retainedRevision: retained.revision }));
 });
 
 test('M2 redundant failure is idempotent and cannot grow history', () => {

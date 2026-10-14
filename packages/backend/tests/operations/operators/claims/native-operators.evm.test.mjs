@@ -4,16 +4,17 @@
  * ECDSA recovery remain real. No node, compiler, prover, network or funds. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
+import * as originalRecordStore from '@lianum/engine/storage/records';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { checkpointAuthorizationDigest, revocationMessage }
   from '@lianum/engine/evidence/native-hub-messages';
-import { FACTS_QUORUM_PROFILE, nativeFactsRegistryCommitment } from '../../../../src/chains/shared/dispatch/native-facts-peer.mjs';
-import * as originalFactsPeer from '../../../../src/chains/shared/dispatch/native-facts-peer.mjs';
-import { encodeBitcoinBinding, validateBitcoinBinding, encodeSolanaBindingMessage }
+let FACTS_QUORUM_PROFILE, nativeFactsRegistryCommitment, originalFactsPeer;
+import { encodeNativeFacts, FACTS_SCHEMA, encodeBitcoinBinding, validateBitcoinBinding, encodeSolanaBindingMessage }
   from '@lianum/engine/native/native-receipt-binding';
 import { decodeCanonicalEvmTransaction, recoverSecp256k1Sender } from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
+import { createOriginalFactsRetentionV2 } from '../../../../src/operations/operators/claims/original-facts-retention-v2.mjs';
 import { flatNativeHealthDigest } from '../../../../src/chains/shared/health/native-health.mjs';
 import { evmDeliveryFixture } from '../../../fixtures/chains/evm/transfers/test-fixtures/evm-delivery-wire.mjs';
 
@@ -29,45 +30,76 @@ const vaultHooks = new Map();
 let fixtureId = 0;
 let factsKeyUses = 0, collectorBuilds = 0, collectorCalls = 0;
 const collectorHooks = {};
-mock.module(new URL('../chain-adapters/native-facts-peer.mjs', import.meta.url).href, { exports: {
-  ...originalFactsPeer,
-  createNativeFactsSigner(input) {
-    const signer = originalFactsPeer.createNativeFactsSigner(input);
-    return Object.freeze({ publicKey: signer.publicKey, signFacts(facts) {
-      factsKeyUses++; return signer.signFacts(facts);
-    } });
-  },
-  createNativeFactsCollector(input) {
-    collectorBuilds++; const collector = originalFactsPeer.createNativeFactsCollector(input);
-    return Object.freeze({ async collect(request) {
-      collectorCalls++; await collectorHooks.before?.(request);
-      const result = await collector.collect(collectorHooks.replaceRequest?.(request) ?? request);
-      await collectorHooks.after?.(result); return result;
-    } });
-  },
-} });
 
-mock.module(new URL('../chain-adapters/local-evm-ownership.mjs', import.meta.url).href, { exports: {
+// These fixtures exercise the original flat graph/claim branch. DeFi observer
+// factories are an unavailable HOST port; they must never mint a capability here.
+mock.module(new URL('../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs', import.meta.url).href, { exports: {
+  isOwnedMetaMorphoGraphDeliveryObserverV1() { return false; },
+  isOwnedUniswapGraphDeliveryObserverV1() { return false; },
+  isOwnedAaveStaticGraphDeliveryObserverV1() { return false; },
+  isOwnedMorphoBluePositionGraphDeliveryObserverV1() { return false; },
+  isOwnedOfficialGraphDeliveryObserverV1() { return false; },
+  assertOwnedMetaMorphoGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMetaMorphoGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  readOriginalEvmGraphDeliveryEconomicFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMetaMorphoGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedMetaMorphoGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedAaveStaticGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedMorphoBluePositionGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedUniswapGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMetaMorphoGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedUniswapGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedAaveStaticGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMorphoBluePositionGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  isOwnedMetaMorphoGraphDeliveryBatchV4() { return false; },
+  readOriginalMetaMorphoGraphBatchRoutersV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  readOriginalMetaMorphoGraphBatchFactsBindingsV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMetaMorphoGraphDeliveryBatchV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  reopenOwnedMetaMorphoGraphDeliveryBatchV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+} });
+mock.module(new URL('../../../../src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url).href, { exports: {
+  assertLocalEvmDeploymentProfile() { assert.fail('TEST_NO_DEPLOYMENT_PROFILE'); },
   async assertLocalEvm(runtime) { assert.ok(brands.runtimes.has(runtime), 'TEST_OWNED_EVM'); },
 } });
-mock.module(new URL('./deploy-system.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/operations/deployments/system/deploy-system.mjs', import.meta.url).href, { exports: {
+  deployFlatSystem() { assert.fail('TEST_NO_DEPLOYMENT'); },
   assertOwnedFlatSystem(runtime, system) {
     assert.ok(brands.runtimes.has(runtime) && brands.systems.get(system) === runtime, 'TEST_OWNED_SYSTEM');
   },
 } });
 // The shared-custody bridge also loads the claim constructor. This standalone
 // graph fixture must never acquire a claim observer or claim authority.
-mock.module(new URL('../native-claims/owned-state.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/claims/operations/owned-state.mjs', import.meta.url).href, { exports: {
   assertOwnedClaimObserver() { assert.fail('TEST_NO_CLAIM_OBSERVER'); },
   ownedClaimObserverBindings() { assert.fail('TEST_NO_CLAIM_OBSERVER'); },
 } });
-mock.module(new URL('../chain-adapters/owned-bitcoin-runtime.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs', import.meta.url).href, { exports: {
+  assertOwnedBitcoinRuntimeLive() { assert.fail('TEST_NO_BITCOIN_EXTRA_CAPABILITY'); },
+  readOwnedBitcoinRuntimeAuditState() { assert.fail('TEST_NO_BITCOIN_EXTRA_CAPABILITY'); },
+  BITCOIN_CUSTODY_PROFILE: 'OWNED_FLAT_BITCOIN_CUSTODY_V1',
   assertOwnedBitcoinRuntime(runtime) { assert.ok(brands.bitcoin.has(runtime), 'TEST_OWNED_BITCOIN'); },
 } });
-mock.module(new URL('../chain-adapters/owned-solana-runtime.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/solana/runtime/owned-solana-runtime.mjs', import.meta.url).href, { exports: {
+  assertOwnedSolanaRuntimeLive() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  readOwnedSolanaRuntimeAuditState() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  readOwnedSolanaSplOriginalGraphV3() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  assertOwnedSolanaSplOriginalGraphV3() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  consumeOwnedSolanaSplContextV1() { assert.fail('TEST_NO_SPL_CONTEXT'); },
+  isOwnedSolanaSplCustodyV1() { return false; },
+  assertOwnedSolanaSplGraphPairV1() { assert.fail('TEST_NO_SPL_GRAPH'); },
+  assertOwnedSolanaSplCustodyV1() { assert.fail('TEST_NO_SPL_CUSTODY'); },
   assertOwnedSolanaRuntime(runtime) { assert.ok(brands.solana.has(runtime), 'TEST_OWNED_SOLANA'); },
 } });
-mock.module(new URL('../chain-adapters/evm-vault-delivery-observer.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/evm/vault/evm-vault-delivery-observer.mjs', import.meta.url).href, { exports: {
   assertOwnedEvmVaultDeliveryObserver(observer, { runtime, system, poolIndex }) {
     const owned = brands.observers.get(observer);
     assert.ok(owned && owned.runtime === runtime && owned.system === system
@@ -77,7 +109,7 @@ mock.module(new URL('../chain-adapters/evm-vault-delivery-observer.mjs', import.
     assert.ok(brands.observers.has(observer) && issuedFacts.get(facts) === observer, 'TEST_OWNED_EVM_FACTS');
   },
 } });
-mock.module(new URL('../paeg/flat-system-state.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/execution/account/reconciliation/flat-system-state.mjs', import.meta.url).href, { exports: {
   async createFlatSystemStateReader({ runtime, system, poolIndex }) {
     assert.equal(brands.systems.get(system), runtime, 'TEST_OWNED_SYSTEM');
     const fixture = brands.fixtures.get(runtime);
@@ -90,7 +122,7 @@ mock.module(new URL('../paeg/flat-system-state.mjs', import.meta.url).href, { ex
     });
   },
 } });
-mock.module(new URL('../native-claims/segmented-record-store.mjs', import.meta.url).href, { exports: {
+mock.module('@lianum/engine/storage/records', { exports: { ...originalRecordStore,
   async createClaimRecordStore({ path }, data) {
     assert.ok(!persisted.has(path), 'TEST_STORE_ALREADY_EXISTS');
     const record = { revision: 0, data: copy(data), commitment: sha('0') };
@@ -106,6 +138,26 @@ mock.module(new URL('../native-claims/segmented-record-store.mjs', import.meta.u
       },
       close() { stored.closed = true; },
     });
+  },
+} });
+
+originalFactsPeer = await import('../../../../src/chains/shared/dispatch/native-facts-peer.mjs');
+({ FACTS_QUORUM_PROFILE, nativeFactsRegistryCommitment } = originalFactsPeer);
+mock.module(new URL('../../../../src/chains/shared/dispatch/native-facts-peer.mjs', import.meta.url).href, { exports: {
+  ...originalFactsPeer,
+  createNativeFactsSigner(input) {
+    const signer = originalFactsPeer.createNativeFactsSigner(input);
+    return Object.freeze({ publicKey: signer.publicKey, signFacts(facts) {
+      factsKeyUses++; return signer.signFacts(facts);
+    } });
+  },
+  createNativeFactsCollector(input) {
+    collectorBuilds++; const collector = originalFactsPeer.createNativeFactsCollector(input);
+    return Object.freeze({ async collect(request) {
+      collectorCalls++; await collectorHooks.before?.(request);
+      const result = await collector.collect(collectorHooks.replaceRequest?.(request) ?? request);
+      await collectorHooks.after?.(result); return result;
+    } });
   },
 } });
 
@@ -307,6 +359,29 @@ async function reached(promise, label) {
   })]); } finally { clearTimeout(timer); }
 }
 const nextTurn = () => new Promise(resolve => setImmediate(resolve));
+
+test('facts retention created before binding reads only the original bound policy and rejects unbound or changed policy', async t => {
+  const f = fixture(t), original = f.operators.slice(0, 3);
+  let selectedPolicies;
+  const unavailable = () => assert.fail('TEST_RETENTION_READER_MUST_NOT_SIGN_OR_AUDIT');
+  const reader = createOriginalFactsRetentionV2({ schema: FACTS_SCHEMA, signerIndex: 0,
+    record: () => ({ data: f.durable(0) }), encodeNativeFacts, policies: () => selectedPolicies,
+    equal: assert.deepEqual, sha, retained: () => f.binding, original: unavailable,
+    serial: unavailable, healthAllowed: unavailable, clearAudit: unavailable,
+    auditAll: unavailable, coverageFreshness: unavailable });
+  assert.throws(() => createFlatOperatorQuorum({ operators: original }), /FLAT_OPERATOR_NOT_BOUND/);
+  const quorum = await f.bind(3), native = f.addNative(), result = await quorum.facts(native.request);
+  const certificate = result.certificates[0], head = f.view(0).head;
+  assert.throws(() => reader.originalFactsEntry(certificate, native.request, head), /FLAT_OPERATOR_NOT_BOUND/);
+  selectedPolicies = f.durable(0).binding.policies;
+  const entry = reader.originalFactsEntry(certificate, native.request, head);
+  assert.equal(entry.signature, certificate.signature);
+  const canonicalPolicies = copy(selectedPolicies);
+  selectedPolicies = { ...selectedPolicies, '3': { ...selectedPolicies['3'], rule: { ...selectedPolicies['3'].rule, asset: sha('other-original-policy') } } };
+  assert.throws(() => reader.originalFactsEntry(certificate, native.request, head));
+  selectedPolicies = canonicalPolicies;
+  assert.deepEqual(reader.originalFactsEntry(certificate, native.request, head), entry);
+});
 
 test('concurrent facts preserve first signed anchor, independently observe both peers and retain signer order', async t => {
   const f = fixture(t), quorum = await f.bind(3), native = f.addNative();

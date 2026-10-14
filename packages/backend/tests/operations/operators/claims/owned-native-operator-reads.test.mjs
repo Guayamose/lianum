@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 const owned = new WeakSet();
 for (const [file, name] of [['bitcoin', 'assertOwnedBitcoinRuntime'], ['solana', 'assertOwnedSolanaRuntime']])
-  mock.module(new URL('../chain-adapters/owned-' + file + '-runtime.mjs', import.meta.url).href,
+  mock.module(new URL('../../../../src/chains/' + file + '/runtime/owned-' + file + '-runtime.mjs', import.meta.url).href,
     { exports: { ...(file === 'solana' ? { SOLANA_NONCE_INGRESS_PROFILE: 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3' } : {}), [name](native) { assert.ok(owned.has(native), 'TEST_ORIGINAL_NATIVE_REQUIRED'); } } });
 const { createOwnedOperatorNativeReads, quiesceOwnedOperatorNativeReads, assertOwnedOperatorNativeReadsQuiescent, releaseOwnedOperatorNativeReadQuiescence } = await import('../../../../src/operations/operators/claims/owned-native-operator-reads.mjs');
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };

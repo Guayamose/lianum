@@ -2,6 +2,8 @@
  * No request URL, caller-owned system facade, hashing backend, proof, signing
  * key or mutating transaction is accepted. Public state is not native finality. */
 import assert from 'node:assert/strict';
+import {decodeFlatWords} from '../../encoding/flat-words.mjs';
+export {decodeFlatWords} from '../../encoding/flat-words.mjs';
 import { assertOwnedFlatSystem, describeOwnedFlatPoolRegistry } from '../../../operations/deployments/system/deploy-system.mjs';
 import { FLAT_VERIFIER_ORDER } from '../../../operations/deployments/system/deployment-plan.mjs';
 import { assertLocalEvm } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
@@ -51,12 +53,7 @@ function index(value, count) {
   return value;
 }
 function bool(value) { return integer(value, 1n) === '1'; }
-export function decodeFlatWords(raw, expected) {
-  assert.equal(typeof raw, 'string', 'FLAT_STATE_ABI_ENCODING');
-  assert.equal(raw.length, 2 + expected * 64, 'FLAT_STATE_ABI_LENGTH');
-  assert.match(raw, /^0x(?:[0-9a-f]{64})*$/, 'FLAT_STATE_ABI_ENCODING');
-  return Array.from({ length: expected }, (_, i) => '0x' + raw.slice(2 + 64 * i, 66 + 64 * i));
-}
+
 const one = raw => decodeFlatWords(raw, 1)[0];
 function vector(values, count) {
   fixedArray(values, 64); const n = Number(decimal(count, 64n)), live = new Set();

@@ -10,7 +10,9 @@ import { prepareBackedAssetArtifacts } from '../../../../../../scripts/wallet/pr
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { validateVaultIdentity } from '../../../../src/defi/vaults/backed-vault.mjs';
 
-const root = new URL('../../../', import.meta.url);
+import {resourceRoot} from '@lianum/environment';
+import {join} from 'node:path';
+const root=resourceRoot('wallet');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const digest = n => '0x' + BigInt(n).toString(16).padStart(64, '0');
 const address = n => '0x' + BigInt(n).toString(16).padStart(40, '0');
@@ -34,8 +36,8 @@ test('retained two-source build pins the official compiler, ABI, AST and normal 
     assert.equal(Object.isFrozen(bundle.artifacts[role].abi), true);
     assert.equal(Object.isFrozen(bundle.immutableNames[role]), true);
   }
-  assert.equal(sha(readFileSync(new URL('.local/backed-assets/v1/compiled.json', root))), BACKED_ASSET_BUILD_PIN.compiledSHA256);
-  assert.equal(sha(readFileSync(new URL('.local/backed-assets/v1/manifest.json', root))), BACKED_ASSET_BUILD_PIN.manifestSHA256);
+  assert.equal(sha(readFileSync(join(root,'.local/backed-assets/v1/compiled.json'))), BACKED_ASSET_BUILD_PIN.compiledSHA256);
+  assert.equal(sha(readFileSync(join(root,'.local/backed-assets/v1/manifest.json'))), BACKED_ASSET_BUILD_PIN.manifestSHA256);
   assert.throws(() => loadBackedAssetDeploymentArtifacts({ path: '/tmp/not-a-build' }), /BACKED_ARTIFACT_NO_OPTIONS/);
 });
 

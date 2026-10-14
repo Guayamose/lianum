@@ -47,11 +47,11 @@ function checkedProvider(map, provider, expected) {
   checkedQuorum(binding.operatorQuorum, binding);
 }
 const mod = path => new URL(path, import.meta.url).href;
-mock.module(mod('../chain-adapters/local-evm-ownership.mjs'), { exports: { ...actualEvmOwnership,
+mock.module(mod('../../../../src/chains/evm/runtime/local-evm-ownership.mjs'), { exports: { ...actualEvmOwnership,
   async assertLocalEvm(runtime) { assert.ok(brands.runtimes.has(runtime), 'TEST_OWNED_RUNTIME'); },
 } });
 // Synthetic original receiver: no RPC, caller timestamp or new capability.
-mock.module(mod('../chain-adapters/owned-evm-v2-runtime.mjs'), { exports: { ...actualEvmRuntime,
+mock.module(mod('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'), { exports: { ...actualEvmRuntime,
   isOwnedLocalEvmV2(runtime) {
     // Same explicit synthetic origin as assertLocalEvm above; only the new
     // observed fixture carries V2. Golden is authentic at its separate port.
@@ -66,8 +66,8 @@ mock.module(mod('../chain-adapters/owned-evm-v2-runtime.mjs'), { exports: { ...a
     f.view.head.timestamp = String(f.wallSecond);
   },
 } });
-mock.module(mod('../ops/deploy-system.mjs'), { exports: { ...actualDeploySystem, assertOwnedFlatSystem: checkedSystem } });
-mock.module(mod('../ops/native-operators.mjs'), { exports: { ...actualOperators,
+mock.module(mod('../../../../src/operations/deployments/system/deploy-system.mjs'), { exports: { ...actualDeploySystem, assertOwnedFlatSystem: checkedSystem } });
+mock.module(mod('../../../../src/operations/operators/claims/native-operators.mjs'), { exports: { ...actualOperators,
   ownedFlatOperatorQuorumBindings(quorum, expected) {
     const b = checkedQuorum(quorum, expected);
     return Object.freeze({ families: Object.freeze([...b.families]), bitcoin: b.bitcoin, solana: b.solana, evmDelivery: b.evmDelivery });
@@ -78,13 +78,13 @@ mock.module(mod('../ops/native-operators.mjs'), { exports: { ...actualOperators,
     assert.ok(input.nativeRuntime, 'TEST_REGISTERED_CAPABILITY'); b.checks.push(input.family); return quorum;
   },
 } });
-mock.module(mod('../solvers/native-provider.mjs'), { exports: { ...actualNativeProvider,
+mock.module(mod('../../../../src/providers/native-provider.mjs'), { exports: { ...actualNativeProvider,
   assertOwnedFlatNativeProvider: (provider, expected) => checkedProvider(brands.nativeProviders, provider, expected),
 } });
-mock.module(mod('../solvers/evm-vault-provider.mjs'), { exports: { ...actualEvmProvider,
+mock.module(mod('../../../../src/providers/evm-vault-provider.mjs'), { exports: { ...actualEvmProvider,
   assertOwnedFlatEvmVaultProvider: (provider, expected) => checkedProvider(brands.evmProviders, provider, expected),
 } });
-mock.module(mod('../../../../../omnichain-product/src/vault.mjs'), { exports: { Vault: class {
+mock.module(mod('../../../../../engine/src/crypto/vault.mjs'), { exports: { Vault: class {
   constructor(path) { this.path = path; }
   async create(data, password) { const entry = { password, record: { revision: 0, data: copy(data) } };
     assert.ok(!stores.has(this.path)); stores.set(this.path, entry); return copy(entry.record); }
@@ -95,7 +95,7 @@ mock.module(mod('../../../../../omnichain-product/src/vault.mjs'), { exports: { 
     fFor(entry.record.data.domainCommitment.slice(2)).writes.push(copy(entry.record)); return copy(entry.record);
   }
 } } });
-mock.module(mod('./flat-system-state.mjs'), { exports: { ...actualSystemState,
+mock.module(mod('../../../../src/execution/account/reconciliation/flat-system-state.mjs'), { exports: { ...actualSystemState,
   async createFlatSystemStateReader({ runtime, system, poolIndex }) {
     checkedSystem(runtime, system); const f = fFor(system.pools[poolIndex].domainCommitment.slice(2));
     return Object.freeze({ async read() { return f.view; }, async authorizationPath(view, envelope) {
@@ -105,7 +105,7 @@ mock.module(mod('./flat-system-state.mjs'), { exports: { ...actualSystemState,
     } });
   },
 } });
-mock.module(mod('./flat-terminal-observer.mjs'), { exports: { ...actualTerminalObserver,
+mock.module(mod('../../../../src/execution/account/reconciliation/flat-terminal-observer.mjs'), { exports: { ...actualTerminalObserver,
   async createFlatTerminalObserver({ runtime, system, poolIndex }) {
     checkedSystem(runtime, system); const f = fFor(system.pools[poolIndex].domainCommitment.slice(2));
     return Object.freeze({ async observe(query) {
@@ -126,7 +126,7 @@ function readyStatement(input, name) {
   return statement(name, { domainCommitment: input.packet.domainCommitment, authorizationRoot: input.authorization.root,
     checkpoint: h('checkpoint'), readyFrom: input.readyFrom, readyUntil: input.readyUntil });
 }
-mock.module(mod('./readiness-inputs.mjs'), { exports: { ...actualReadiness,
+mock.module(mod('../../../../src/execution/account/preparation/readiness-inputs.mjs'), { exports: { ...actualReadiness,
   async buildDependencyInputs(input) {
     fFor(input.packet.domainCommitment).jobs.push({ name: 'dependency', input: copy(input) });
     return { statement: readyStatement(input, 'dependency') };
@@ -139,14 +139,14 @@ mock.module(mod('./readiness-inputs.mjs'), { exports: { ...actualReadiness,
     return { statement: readyStatement(input, 'ready'), admissionOpening: { descriptor } };
   },
 } });
-mock.module(mod('./admission-inputs.mjs'), { exports: {
+mock.module(mod('../../../../src/execution/account/preparation/admission-inputs.mjs'), { exports: {
   async buildAdmissionInputs(input) {
     fFor(input.readyStatement.domainCommitment).jobs.push({ name: 'admission', input: copy(input) });
     return { statement: statement('admission', { ...input.readyStatement, receiptLeaf: field('admitted-receipt'),
       admissionFrom: input.admissionFrom, admissionUntil: input.admissionUntil }), receiptCommitment: h('receipt') };
   },
 } });
-mock.module(mod('./completion-inputs.mjs'), { exports: {
+mock.module(mod('../../../../src/execution/account/reconciliation/completion-inputs.mjs'), { exports: {
   async buildNodeInputs(input) {
     fFor(input.packet.domainCommitment).jobs.push({ name: 'node', input: copy(input) });
     return { statement: statement('node', { domainCommitment: input.packet.domainCommitment, authorizationRoot: input.authorization.root,
@@ -170,7 +170,7 @@ const hostScopedProofTools = {
     return { proof: '11'.repeat(32), publicInputs: [...encodeStatement(name, job.statement)] };
   }, async abort() {}, async close() {} }); },
 };
-mock.module(mod('../../../proof-workers/scoped-proof-tools.mjs'), { exports: hostScopedProofTools });
+mock.module(mod('../../../../../proofs/src/tooling/scoped-proof-tools.mjs'), { exports: hostScopedProofTools });
 mock.module(import.meta.resolve('@lianum/backend/proving/roles/scoped-proof-runner'), {exports: {
   createFlatProofRunner: hostScopedProofTools.createFlatProofRunner,
 }});

@@ -488,6 +488,8 @@ export function isOriginalNativeManualSessionV1(session) {
 }
 
 export const {
+  createOwnedPagedObservedHubEvmV4,
+  assertOwnedPagedObservedHubEvmV4,
   createOwnedLocalEvmObservedClockV1,
   refreshNativeValueReceiverClock,
   nativeValueReceiverInclusionSecondV1,

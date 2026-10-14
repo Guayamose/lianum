@@ -103,7 +103,7 @@ test('R98 and N51 compose actual role packets in the current source and pin ABI 
     ['node', padding(), prepareNativeNode, nodePublic, NATIVE_NODE_PUBLIC_INPUT_COUNT],
   ]) {
     const before = copy(input), result = compose(input);
-    const main = readFileSync(new URL(`../../experiments/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
+    const main = readFileSync(new URL(`../../../../../../experiments/engine/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
     const signature = main.split('fn main(')[1].split(') {')[0];
     const parameters = [...signature.matchAll(/^\s+(\w+): (.+),$/gm)].map(match => match[1]);
     assert.deepEqual(Object.keys(result.inputs), parameters);

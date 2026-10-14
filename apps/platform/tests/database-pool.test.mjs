@@ -58,18 +58,18 @@ async function silentPeer(t, { resetTransaction = false } = {}) {
   return { pool, sockets, queries, connectionString };
 }
 test('established silent SQL transport times out and removes the exact pooled connection', { timeout: 12_000 }, async t => {
-  const f = await silentPeer(t), began = Date.now();
+  const f = await silentPeer(t), began = performance.now();
   await assert.rejects(f.pool.query('SELECT 1'), /Query read timeout/);
-  assert.ok(Date.now() - began >= 4500 && Date.now() - began < 10_000);
+  assert.ok(performance.now() - began >= 4500 && performance.now() - began < 10_000);
   assert.equal(f.pool.idleCount, 0);
   assert.equal(f.pool.totalCount, 0);
   assert.deepEqual(f.queries, ['SELECT 1']);
 });
 test('silent transaction is discarded instead of queueing ROLLBACK or recycling uncertain state', { timeout: 12_000 }, async t => {
   const f = await silentPeer(t);
-  const store = await createPostgresAuthorizationStore(f.pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY }), began = Date.now();
+  const store = await createPostgresAuthorizationStore(f.pool, { privacyKey: TEST_PLATFORM_PRIVACY_KEY }), began = performance.now();
   await assert.rejects(store.consume({ ownerPublicKey: 'public', intent: { requestId: 'original', action: 'execute' } }, Date.now()), /Query read timeout/);
-  assert.ok(Date.now() - began >= 4500 && Date.now() - began < 10_000);
+  assert.ok(performance.now() - began >= 4500 && performance.now() - began < 10_000);
   assert.equal(f.pool.idleCount, 0);
   assert.equal(f.pool.totalCount, 0);
   assert.equal(f.queries.at(-1), 'BEGIN');
@@ -107,9 +107,9 @@ test('an active transaction transport reset rejects without killing the owning p
 });
 
 test('silent migration transport discards its owned transaction and sends no queued rollback', { timeout: 12_000 }, async t => {
-  const f = await silentPeer(t), began = Date.now();
+  const f = await silentPeer(t), began = performance.now();
   await assert.rejects(migratePlatformDatabase(f.pool), /Query read timeout/);
-  assert.ok(Date.now() - began >= 4500 && Date.now() - began < 10_000);
+  assert.ok(performance.now() - began >= 4500 && performance.now() - began < 10_000);
   assert.equal(f.pool.idleCount, 0);
   assert.equal(f.pool.totalCount, 0);
   assert.deepEqual(f.queries, ['BEGIN']);

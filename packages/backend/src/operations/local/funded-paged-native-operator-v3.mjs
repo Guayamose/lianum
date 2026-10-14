@@ -7,7 +7,7 @@ import {createHash,X509Certificate} from 'node:crypto';
 import {dirname,relative} from 'node:path';
 import {lstatSync,realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
-import {prepareOriginalDevicePagedDurableNativeGraphLocalOperatorV3,reopenOriginalDevicePagedNativeGraphLocalOperatorV3,listenOriginalDevicePagedGraphLocalOperatorV3,captureOriginalDevicePagedGraphLocalOperatorV3,fenceOriginalDevicePagedGraphLocalOperatorV3,readOriginalDevicePagedGraphExecutionContextV3} from './funded-graph-paged-device-graph-operator-v3.mjs';
+import {prepareOriginalDevicePagedDurableNativeGraphLocalOperatorV3,reopenOriginalDevicePagedNativeGraphLocalOperatorV3,listenOriginalDevicePagedGraphLocalOperatorV3,captureOriginalDevicePagedGraphLocalOperatorV3,fenceOriginalDevicePagedGraphLocalOperatorV3,quiesceOriginalDevicePagedGraphLocalOperatorV4,readOriginalDevicePagedGraphExecutionContextV3} from './funded-graph-paged-device-graph-operator-v3.mjs';
 import {createOriginalPagedDurableNativeProviderV3,createOriginalPagedNativeProviderWithUniswapV3,reopenOriginalPagedNativeProviderV3,reopenOriginalPagedNativeProviderWithUniswapV3,captureOriginalPagedNativeProviderV3,captureOriginalPagedNativeProviderRuntimesV3,readOriginalPagedNativeProviderRuntimeV3,sealOriginalPagedNativeProviderRetentionV3,assertOriginalPagedNativeProviderV3} from '../../providers/funded-paged-native-provider-v3.mjs';
 import {emitOriginalDevicePagedProviderRetentionV3} from '../../accounts/authority/device-paged-note-authority-v3.mjs';
 import {createOriginalPagedSupervisorRetentionV3,openOriginalPagedSupervisorRetentionV3,createOriginalPagedMixedSupervisorRetentionV3,openOriginalPagedMixedSupervisorRetentionV3} from '../recovery/paged-runtime-recovery-authority-v3.mjs';
@@ -67,7 +67,7 @@ export async function reopenOriginalPagedNativeOperatorV3(raw){assert.equal(argu
 export async function startOriginalPagedMixedNativeOperatorV3(raw){assert.equal(arguments.length,1);return openProduct(raw,false,true);}
 export async function reopenOriginalPagedMixedNativeOperatorV3(raw){assert.equal(arguments.length,1);return openProduct(raw,true,true);}
 async function openProduct(raw,opening,mixed=false){
- exact(raw,['deployment','journal','nativeDirectory','origin','devicePublicKey','tls','host']);exact(raw.deployment,['manifestSHA256','consumerSHA256','deploymentDomain','policy']);exact(raw.tls,['key','cert']);const config=structuredClone(raw);assertOriginalPagedNativeFinancialSourceV3();
+ exact(raw,['deployment','journal','nativeDirectory','origin','devicePublicKey','tls','host']);exact(raw.deployment,['manifestSHA256','consumerSHA256','deploymentDomain','policy',...(Object.hasOwn(raw.deployment,'minimumDepositAtomic')?['minimumDepositAtomic']:[])]);exact(raw.tls,['key','cert']);const config=structuredClone(raw);assertOriginalPagedNativeFinancialSourceV3();
  let provider,service,supervisor,uniswapContext,uniswapListener,uniswapPublic,closing,capturing,captured=null,closed=false;const sockets=new Set(),work=new Set(),cert=new X509Certificate(config.tls.cert),certSHA=sha(cert.raw),privateRoot=dirname(config.nativeDirectory);
  function uniswapOriginals(){
   const originals=readOriginalPagedUniswapContextV3(uniswapContext),targetOrigin=new URL(config.origin);assert.ok(Number(targetOrigin.port)>0&&Number(targetOrigin.port)<65535,'PAGED_MIXED_FIXED_TARGET_PORT');targetOrigin.port=String(Number(targetOrigin.port)+1);assert.equal(originals.targetDescriptor.origin,targetOrigin.origin);assert.equal(originals.targetDescriptor.devicePublicKey,config.devicePublicKey);
@@ -84,6 +84,7 @@ async function openProduct(raw,opening,mixed=false){
    stage='DRAIN';await Promise.allSettled([...work]);
    // Provider checks need all connector/target brands live. Native capture
    // similarly checks Uniswap, so its target runtime is always stopped last.
+   await quiesceOriginalDevicePagedGraphLocalOperatorV4(service);
    stage='PROVIDER';const providerState=await captureOriginalPagedNativeProviderV3(provider);
    stage='GRAPH';const graph=await captureOriginalDevicePagedGraphLocalOperatorV3(service);
    stage='NATIVE';const native=await captureOriginalPagedNativeProviderRuntimesV3(provider);

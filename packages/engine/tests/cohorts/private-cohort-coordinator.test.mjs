@@ -220,7 +220,7 @@ test('actual wallet authorities create separate encrypted balance and intent vau
  const directory=await mkdtemp(join(tmpdir(),'pc24-owner-custody-'));t.after(()=>rm(directory,{recursive:true,force:true}));
  let baseClosed=0;const scope=hex(1),policy=hex(2),pool=hex(3,40);
  const identity={walletId:ID(1),pool,scope,policy,chainId:'31337',evmGenesis:hex(4),bitcoinGenesis:hex(5),solanaGenesis:hex(6),issuerLifetime:hex(7),deploymentHash:hex(8),verifierSetHash:hex(9)};
- const base={identity,local:directory,pool:{},mutate:async(label,work)=>work(),close:async()=>{baseClosed++;}};
+ const base={identity,local:directory,pool:{},runtime:{balance(){throw Error('HOST_BALANCE_NOT_REQUESTED');}},mutate:async(label,work)=>work(),close:async()=>{baseClosed++;}};
  const locals=[];
  const controller=createPrivateCohortCoordinator({cohortId:ID(1),onOwnerCheckpoint:async()=>{}},{createRuntime:async()=>base,createParticipantView:async(shared,{walletId})=>{
   const local=join(directory,'owners',walletId);await mkdir(local,{recursive:true,mode:0o700});locals.push(local);return{...shared,identity:{...identity,walletId},local};

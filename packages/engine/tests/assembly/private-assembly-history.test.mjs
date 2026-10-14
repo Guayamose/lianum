@@ -199,8 +199,8 @@ test('new runtime preserves terminal ABIs and lets supplied readiness verifiers 
 });
 
 test('new contract preserves PC16 exactly outside explicit history, revocation and atomic reserve guards', async () => {
-  const original = await readFile(new URL('../contracts/PrivateCurrentNativeNotePool.sol', import.meta.url), 'utf8');
-  const assembly = await readFile(new URL('../contracts/PrivateAssemblyNativeNotePool.sol', import.meta.url), 'utf8');
+  const original = await readFile(new URL('../../../../contracts/engine/PrivateCurrentNativeNotePool.sol', import.meta.url), 'utf8');
+  const assembly = await readFile(new URL('../../../../contracts/engine/PrivateAssemblyNativeNotePool.sol', import.meta.url), 'utf8');
   assert.equal(sha(original), '8082418e1b01cfa8161e47dfa0558c77150f74e3d1ed2b9f61961ebc78aea47b');
   // Normalize only this exact reviewed entry-point delta. Keep the entire
   // shared reserve body in the PC16 comparison, including every amount,
@@ -248,9 +248,9 @@ test('new contract preserves PC16 exactly outside explicit history, revocation a
 });
 
 test('runtime source retains trusted local limits and pins all four snapshot reads to one block', async () => {
-  const original = await readFile(new URL('../src/private-finality-runtime.mjs', import.meta.url), 'utf8');
+  const original = await readFile(new URL('../../../../archive/delivery/source-snapshot/omnichain-product/src/private-finality-runtime.mjs', import.meta.url), 'utf8');
   assert.equal(sha(original), '0a471812dbbd7a1b438398f7b67e77930b628ef4a52dda5555cd56a64d8d4c8e');
-  const source = await readFile(new URL('../src/private-assembly-runtime.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../src/assembly/private-assembly-runtime.mjs', import.meta.url), 'utf8');
   for (const method of ['canonicalState', 'canonicalEffects', 'canonicalRootHistory', 'canonicalRevocations']) assert.ok(source.includes(`call('${method}()', [], header.number)`));
   assert.ok(source.includes('await assertPrivateSnapshotCanonical(runtime, result);'));
   assert.ok(source.includes("await runtime.evm('eth_chainId'), '0x7a69'"));

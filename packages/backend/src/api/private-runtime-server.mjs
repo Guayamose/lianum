@@ -13,6 +13,8 @@ import { PrivateAccountSession } from './accounts/private-account-session.mjs';
 import { PrivateAccountCohortSession } from './accounts/private-account-cohort-session.mjs';
 
 const project = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// Static legacy simulation client only; no archived server module is loaded.
+const staticClient = fileURLToPath(new URL('../../../../archive/legacy-client/', import.meta.url));
 const staticFiles = { '/': ['index.html', 'text/html; charset=utf-8'], '/app.mjs': ['app.mjs', 'text/javascript; charset=utf-8'], '/native.mjs': ['native.mjs', 'text/javascript; charset=utf-8'], '/native-outcome.mjs': ['native-outcome.mjs', 'text/javascript; charset=utf-8'], '/triple.mjs': ['triple.mjs', 'text/javascript; charset=utf-8'], '/private.mjs': ['private.mjs', 'text/javascript; charset=utf-8'], '/private-account.mjs': ['private-account.mjs', 'text/javascript; charset=utf-8'], '/private-cohort.mjs': ['private-cohort.mjs', 'text/javascript; charset=utf-8'], '/private-wallet.mjs': ['private-wallet.mjs', 'text/javascript; charset=utf-8'], '/private-wallet-outcome.mjs': ['private-wallet-outcome.mjs', 'text/javascript; charset=utf-8'], '/private-outcome.mjs': ['private-outcome.mjs', 'text/javascript; charset=utf-8'], '/style.css': ['style.css', 'text/css; charset=utf-8'] };
 
 export async function startLocalServer({ port = 8787, directory, initialTime = Date.now(), privateDirectory, privateSessionOptions, sharedWalletDirectory, sharedWalletSessionOptions, cohortDirectory, cohortSessionOptions, accountDirectory, accountSessionOptions, sharedAccountDirectory, sharedAccountSessionOptions }  = {}) {
@@ -55,7 +57,7 @@ export async function startLocalServer({ port = 8787, directory, initialTime = D
       const url = new URL(req.url, origin);
       if (req.method === 'GET' && Object.hasOwn(staticFiles, url.pathname)) {
         const [name, type] = staticFiles[url.pathname];
-        let content = await readFile(join(project, 'client', name), 'utf8');
+        let content = await readFile(join(staticClient, name), 'utf8');
         if (name === 'index.html') content = content.replace('__LOCAL_TOKEN__', token);
         return send(200, content, type);
       }

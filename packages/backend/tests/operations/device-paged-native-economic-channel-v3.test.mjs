@@ -23,8 +23,8 @@ function fixture(){
    ledger:{blockHash,blockNumber,heldAmount:'100',backedAmount:'100',beneficiaryBalance:'0',spentNullifiers:[{nullifier:outputs[0].nullifier,spent:false}]}},
   status:{profile:C.DEVICE_PAGED_GRAPH_OWNER_V3,descriptor,graphId,rootId,revision,authorizationRoot,reserveNullifier:hash('reserve'),progressCommitment:hash('progress'),readyCommitment:hash('ready'),sourceCommitment:hash('source'),sourceNullifier:hash('source-nullifier'),pages:'1',nodes:'1',budget:'100',settleBefore:'1900000000',phase:'FULFILLED',job:null,pending:false,issuedAt,expiresAt:issuedAt+15000,blockHash,blockNumber}
  };}
- function packet(channel,command={outputs:structuredClone(outputs)},changes={},expiresAt=Date.now()+15000){
-  const jobId='economic-query-'+String(++sequence).padStart(8,'0'),recipient=channel.prepare(jobId),client=createPrivateProofRecipientV1({relation:recipient.relation,role:recipient.role,jobId}),reply=readPrivateProofRecipientV1(client),consent=C.normalizeDevicePagedGraphConsentV3({version:3,profile:C.DEVICE_PAGED_GRAPH_OWNER_V3,descriptor,action:'READ_ECONOMIC_SETTLEMENT',graphId,jobId,rootId,revision,commandSHA256:hash(JSON.stringify(command)),replyPublicKey:reply.recipientPublicKey,challengeId:'economic-challenge-'+String(sequence).padStart(8,'0'),nonce:hash('nonce-'+sequence),authorizationRoot,reserveNullifier:hash('reserve'),progressCommitment:hash('progress'),recipient,expiresAt});
+ function packet(channel,command={outputs:structuredClone(outputs)},changes={},expiresAt=Date.now()+15000,action='READ_ECONOMIC_SETTLEMENT'){
+  const jobId='economic-query-'+String(++sequence).padStart(8,'0'),recipient=channel.prepare(jobId),client=createPrivateProofRecipientV1({relation:recipient.relation,role:recipient.role,jobId}),reply=readPrivateProofRecipientV1(client),consent=C.normalizeDevicePagedGraphConsentV3({version:3,profile:C.DEVICE_PAGED_GRAPH_OWNER_V3,descriptor,action,graphId,jobId,rootId,revision,commandSHA256:hash(JSON.stringify(command)),replyPublicKey:reply.recipientPublicKey,challengeId:'economic-challenge-'+String(sequence).padStart(8,'0'),nonce:hash('nonce-'+sequence),authorizationRoot,reserveNullifier:hash('reserve'),progressCommitment:hash('progress'),recipient,expiresAt});
   if(expiresAt>Date.now())C.validateDevicePagedGraphConsentFreshV3(consent);
   const signature=sign('sha256',C.devicePagedGraphPermissionMessageV3(consent),{key:owner.privateKey,dsaEncoding:'ieee-p1363'}).toString('hex'),authorization={kind:'ORIGINAL_CONSENT_V1',jobId,consentSHA256:hash(C.devicePagedGraphPermissionMessageV3(consent)),witnessSHA256:consent.commandSHA256,...changes},ciphertext=sealPrivateProofJobV1(recipient,{inputs:{profile:C.DEVICE_PAGED_GRAPH_OWNER_V3,consent,signature,command},expectedPublicInputs:null,authorization});
   return{consent,signature,ciphertext,client};
@@ -78,4 +78,20 @@ test('expiry before intake burns the old recipient and permits only a new fresh 
   await assert.rejects(channel.submit(expired.consent,expired.signature,expired.ciphertext),/PAGED_NATIVE_ECONOMIC_ORIGINAL_RECIPIENT/);
   fresh=f.packet(channel);const reply=await channel.submit(fresh.consent,fresh.signature,fresh.ciphertext);opened=openPrivateProofJobV1(fresh.client,reply.ciphertext);assert.equal(opened.inputs.jobId,fresh.consent.jobId);assert.equal(reads,1);
  }finally{channel.close();closePrivateProofRecipientV1(expired.client);if(fresh)closePrivateProofRecipientV1(fresh.client);wipePrivateProofInputsV1(opened);}
+});
+
+
+test('whole operation query exposes unsent and uncertain original rows over the actual encrypted OWNER channel',async()=>{
+ const f=fixture();let reads=0,legacyReads=0;const base=f.readView();
+ const view={type:'economic-operation',profile:'DEVICE_PAGED_ECONOMIC_OPERATION_V4',descriptor:f.descriptor,graphId:base.status.graphId,rootId:base.status.rootId,revision:1,
+  authorizationRoot:base.status.authorizationRoot,phase:'UNKNOWN',pending:true,nodes:'1',budget:'100',settleBefore:'1900000000',providerIdentity:base.view.rows[0].providerIdentity,checkpoint:base.view.rows[0].checkpoint,
+  rows:[{id:'ethereum',quote:null,attempt:{stage:'KEY_PENDING',nativeId:null,transactionSHA256:null,authorizationRoot:base.status.authorizationRoot}}],
+  ledger:{blockHash:base.status.blockHash,blockNumber:base.status.blockNumber,timestamp:'1800000000',outcome:'1',heldAmount:'100',backedAmount:'100'},
+  settlement:{outcome:'PENDING',budgetDisposition:'RESERVED',retainedConfirmedDeliveryCount:'0',requiresNativeRefresh:true,ownerRecoveryAvailable:null,crossAssetValueConservation:false}};
+ const channel=createDevicePagedNativeEconomicChannelV3(f.descriptor,()=>{legacyReads++;throw Error('UNEXPECTED_SETTLEMENT');},async(ids,c)=>{reads++;assert.deepEqual(ids,['ethereum']);assert.equal(c.action,'READ_ECONOMIC_OPERATION');return {view,status:{...base.status,phase:'UNKNOWN',pending:true}};});
+ const packet=f.packet(channel,{ids:['ethereum']},{},Date.now()+15000,'READ_ECONOMIC_OPERATION');let opened;
+ try{const reply=await channel.submit(packet.consent,packet.signature,packet.ciphertext);opened=openPrivateProofJobV1(packet.client,reply.ciphertext);
+  assert.equal(opened.inputs.reply.type,'economic-operation');assert.equal(opened.inputs.reply.rows[0].attempt.nativeId,null);assert.equal(opened.inputs.reply.settlement.ownerRecoveryAvailable,null);
+  assert.equal(reads,1);assert.equal(legacyReads,0);await assert.rejects(channel.submit(packet.consent,packet.signature,packet.ciphertext));assert.equal(reads,1);
+ }finally{channel.close();closePrivateProofRecipientV1(packet.client);wipePrivateProofInputsV1(opened);}
 });

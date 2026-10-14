@@ -17,10 +17,10 @@ const boundaries=[
  ['claims/controller/controller.mjs',['consumeOriginalDeviceRootClaimSendV3']],
  ['claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs',['retainWrappedPrivateLifetimePartV1','readWrappedPrivateLifetimePartV1','updateWrappedPrivateLifetimePartV1','assertWrappedPrivateLifetimePartSealedV1','assertWrappedPrivateLifetimeAttemptV1','assertDeviceExternalFlatRecoveryAuthorityV1','deviceExternalFlatAccountCaptureIdentityV1','retainOriginalWrappedRecoverySectionV1']],
 ];
-export async function loadDeviceNoteAuthorityHost(t,ports){
+export async function loadDeviceNoteAuthorityHost(t,ports,lowerBirthExports={}){
  const mocks=[];t.after(()=>{for(const m of mocks.reverse())m.restore();});
  const originals=await Promise.all(boundaries.map(([path])=>import(new URL(path,backend))));
- for(const [index,[path,names]]of boundaries.entries()){const exports={...originals[index],...Object.fromEntries(names.map(name=>[name,ports[name]??(()=>{throw Error('HOST_UNEXPECTED_NOTE_PORT_'+name);})]))};mocks.push(mock.module(new URL(path,backend),{exports}));}
+ for(const [index,[path,names]]of boundaries.entries()){const exports={...originals[index],...(lowerBirthExports[path]??{}),...Object.fromEntries(names.map(name=>[name,ports[name]??(()=>{throw Error('HOST_UNEXPECTED_NOTE_PORT_'+name);})]))};mocks.push(mock.module(new URL(path,backend),{exports}));}
  mocks.push(mock.module('@lianum/proofs/execution/proof-process',{exports:{createProofProcess:ports.createProofProcess}}));
  return import(new URL('accounts/authority/device-external-flat-note-authority-v1.mjs?host='+randomUUID(),backend));
 }

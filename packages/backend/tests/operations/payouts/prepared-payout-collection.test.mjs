@@ -5,13 +5,14 @@
  * quorum verification are real. No node, contracts, proof, network or funds. */
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
+import * as originalRecordStore from '@lianum/engine/storage/records';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { checkpointAuthorizationDigest, checkpointAuthorizationFrame, revocationMessage }
   from '@lianum/engine/evidence/native-hub-messages';
 import { createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
-import { FACTS_QUORUM_PROFILE, nativeFactsRegistryCommitment } from '../../../src/chains/shared/dispatch/native-facts-peer.mjs';
+let FACTS_QUORUM_PROFILE, nativeFactsRegistryCommitment;
 import { nativeRuleCommitment, encodeSolanaBindingMessage, receiptKeyCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { recoverSecp256k1Sender } from '../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { encodeFlatNativeHealth, flatNativeHealthDigest } from '../../../src/chains/shared/health/native-health.mjs';
@@ -20,7 +21,7 @@ import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimIntentId, claimTicketI
   claimDestinationCommitment } from '@lianum/engine/claims/framing';
 import { CLAIM_ACTIONS, claimHash, claimBackingFrame, claimFrame, claimRouteCommitment } from '@lianum/engine/claims/permits';
 import { createClaimReservationBinding } from '../../../src/claims/authorization/reservation-facts-gate.mjs';
-import * as originalFactsPeer from '../../../src/chains/shared/dispatch/native-facts-peer.mjs';
+let originalFactsPeer;
 import * as originalNoteEncoding from '@lianum/engine/notes/private-note-encoding';
 
 import { encodeSolanaNonceBindingMessage } from '../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
@@ -30,7 +31,7 @@ const frozen = value => { if (value && typeof value === 'object') { Object.value
 const prefix = value => '0x' + value, word = value => BigInt(value).toString(16).padStart(64, '0'), ZERO = word(0);
 const url = path => new URL(path, import.meta.url).href;
 const owned = { runtimes: new WeakMap(), systems: new WeakMap(), natives: new WeakSet(), observers: new WeakMap() };
-const records = new Map(); let serial = 0;
+const records = new Map(), auditStates = new WeakMap(); let serial = 0;
 let attesterKeyUses = 0, factsKeyUses = 0, onKeyUse = null;
 const observedFactsSigner = create => input => {
   const signer = create(input);
@@ -38,35 +39,80 @@ const observedFactsSigner = create => input => {
     factsKeyUses++; onKeyUse?.('facts', facts); return signer.signFacts(facts);
   } });
 };
-mock.module(url('../chain-adapters/native-facts-peer.mjs'), { exports: { ...originalFactsPeer,
-  createNativeFactsSigner: observedFactsSigner(originalFactsPeer.createNativeFactsSigner),
-  createNativeClaimFactsSigner: observedFactsSigner(originalFactsPeer.createNativeClaimFactsSigner),
+
+// These fixtures exercise the original flat graph/claim branch. DeFi observer
+// factories are an unavailable HOST port; they must never mint a capability here.
+mock.module(new URL('../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs', import.meta.url).href, { exports: {
+  isOwnedMetaMorphoGraphDeliveryObserverV1() { return false; },
+  isOwnedUniswapGraphDeliveryObserverV1() { return false; },
+  isOwnedAaveStaticGraphDeliveryObserverV1() { return false; },
+  isOwnedMorphoBluePositionGraphDeliveryObserverV1() { return false; },
+  isOwnedOfficialGraphDeliveryObserverV1() { return false; },
+  assertOwnedMetaMorphoGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMetaMorphoGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  readOriginalEvmGraphDeliveryEconomicFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMetaMorphoGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedMetaMorphoGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedAaveStaticGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedMorphoBluePositionGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedUniswapGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMetaMorphoGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedUniswapGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedAaveStaticGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMorphoBluePositionGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  isOwnedMetaMorphoGraphDeliveryBatchV4() { return false; },
+  readOriginalMetaMorphoGraphBatchRoutersV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  readOriginalMetaMorphoGraphBatchFactsBindingsV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMetaMorphoGraphDeliveryBatchV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  reopenOwnedMetaMorphoGraphDeliveryBatchV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
 } });
-mock.module(url('../../../../../omnichain-product/src/private-note-encoding.mjs'), { exports: { ...originalNoteEncoding,
+mock.module('@lianum/engine/notes/private-note-encoding', { exports: { ...originalNoteEncoding,
   signature(...args) { attesterKeyUses++; onKeyUse?.('authorization', args[1]); return originalNoteEncoding.signature(...args); },
 } });
-mock.module(url('../chain-adapters/local-evm-ownership.mjs'), { exports: {
+mock.module(url('../../../src/chains/evm/runtime/local-evm-ownership.mjs'), { exports: {
+  assertLocalEvmDeploymentProfile() { assert.fail('TEST_NO_DEPLOYMENT_PROFILE'); },
   async assertLocalEvm(runtime) { assert.ok(owned.runtimes.has(runtime), 'TEST_OWNED_RUNTIME'); },
 } });
-mock.module(url('./deploy-system.mjs'), { exports: {
+mock.module(url('../../../src/operations/deployments/system/deploy-system.mjs'), { exports: {
+  deployFlatSystem() { assert.fail('TEST_NO_DEPLOYMENT'); },
   assertOwnedFlatSystem(runtime, system) { assert.equal(owned.systems.get(system), runtime, 'TEST_OWNED_SYSTEM'); },
 } });
-mock.module(url('../chain-adapters/owned-solana-runtime.mjs'), { exports: {
+mock.module(url('../../../src/chains/solana/runtime/owned-solana-runtime.mjs'), { exports: {
+  assertOwnedSolanaRuntimeLive(native) { assert.ok(owned.natives.has(native), 'TEST_OWNED_NATIVE_LIVE'); },
+  readOwnedSolanaRuntimeAuditState(native) { assert.ok(auditStates.has(native), 'TEST_NATIVE_STATE_REQUIRED'); return frozen(copy(auditStates.get(native)())); },
+  readOwnedSolanaSplOriginalGraphV3() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  assertOwnedSolanaSplOriginalGraphV3() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  consumeOwnedSolanaSplContextV1() { assert.fail('TEST_NO_SPL_CONTEXT'); },
+  isOwnedSolanaSplCustodyV1() { return false; },
+  assertOwnedSolanaSplGraphPairV1() { assert.fail('TEST_NO_SPL_GRAPH'); },
+  assertOwnedSolanaSplCustodyV1() { assert.fail('TEST_NO_SPL_CUSTODY'); },
   SOLANA_NONCE_INGRESS_PROFILE: 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',
   assertOwnedSolanaRuntime(native) { assert.ok(owned.natives.has(native), 'TEST_OWNED_NATIVE'); },
 } });
-mock.module(url('../chain-adapters/owned-bitcoin-runtime.mjs'), { exports: {
+mock.module(url('../../../src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs'), { exports: {
+  assertOwnedBitcoinRuntimeLive(native) { assert.ok(owned.natives.has(native), 'TEST_OWNED_NATIVE_LIVE'); },
+  readOwnedBitcoinRuntimeAuditState(native) { assert.ok(auditStates.has(native), 'TEST_NATIVE_STATE_REQUIRED'); return frozen(copy(auditStates.get(native)())); },
+  BITCOIN_CUSTODY_PROFILE: 'OWNED_FLAT_BITCOIN_CUSTODY_V1',
   assertOwnedBitcoinRuntime(native) { assert.ok(owned.natives.has(native), 'TEST_OWNED_NATIVE'); },
 } });
-mock.module(url('../native-claims/owned-state.mjs'), { exports: {
+mock.module(url('../../../src/claims/operations/owned-state.mjs'), { exports: {
   assertOwnedClaimObserver(observer) { assert.ok(owned.observers.has(observer), 'TEST_OWNED_CLAIM_OBSERVER'); },
   ownedClaimObserverBindings(observer) { assert.ok(owned.observers.has(observer)); return owned.observers.get(observer); },
 } });
-mock.module(url('../chain-adapters/evm-vault-delivery-observer.mjs'), { exports: {
+mock.module(url('../../../src/chains/evm/vault/evm-vault-delivery-observer.mjs'), { exports: {
   assertOwnedEvmVaultDeliveryObserver() { assert.fail('TEST_NO_EVM_DELIVERY'); },
   assertOwnedEvmVaultDeliveryFacts() { assert.fail('TEST_NO_EVM_DELIVERY'); },
 } });
-mock.module(url('../paeg/flat-system-state.mjs'), { exports: {
+mock.module(url('../../../src/execution/account/reconciliation/flat-system-state.mjs'), { exports: {
   async createFlatSystemStateReader({ runtime, system, poolIndex }) {
     assert.equal(owned.systems.get(system), runtime); const f = owned.runtimes.get(runtime);
     const issued = new WeakSet(), stats = { poolIndex, reads: 0, currentChecks: 0 };
@@ -81,7 +127,7 @@ mock.module(url('../paeg/flat-system-state.mjs'), { exports: {
     } });
   },
 } });
-mock.module(url('../native-claims/segmented-record-store.mjs'), { exports: {
+mock.module('@lianum/engine/storage/records', { exports: { ...originalRecordStore,
   async createClaimRecordStore({ path }, data) {
     assert.ok(!records.has(path)); const row = { data: copy(data), revision: 0, closed: false, corrupt: false, updates: [], writes: 0 };
     records.set(path, row);
@@ -93,6 +139,12 @@ mock.module(url('../native-claims/segmented-record-store.mjs'), { exports: {
       row.revision = revision + 1; row.writes++; await row.beforeUpdate?.(copy(row.data)); return read();
     }, close() { row.closed = true; } };
   },
+} });
+originalFactsPeer=await import('../../../src/chains/shared/dispatch/native-facts-peer.mjs');
+({FACTS_QUORUM_PROFILE,nativeFactsRegistryCommitment}=originalFactsPeer);
+mock.module(url('../../../src/chains/shared/dispatch/native-facts-peer.mjs'), { exports: { ...originalFactsPeer,
+  createNativeFactsSigner: observedFactsSigner(originalFactsPeer.createNativeFactsSigner),
+  createNativeClaimFactsSigner: observedFactsSigner(originalFactsPeer.createNativeClaimFactsSigner),
 } });
 const bridge = await import('../../../src/operations/operators/claims/combined-native-operators.mjs');
 const { createCombinedLocalNativeOperator } = bridge;
@@ -123,6 +175,7 @@ function fixture(t, { family = '2', sameNode = true, standalone = false } = {}) 
   Object.defineProperty(controls, 'liability', { enumerable: true, get: () => liability,
     set(value) { if (value !== liability) advanceState(); liability = value; } });
   async function nativeRead(kind, work) {
+    controls.nativeReadGeneration = (controls.nativeReadGeneration ?? 0) + 1;
     if (!controls.exclusiveNativeReads) return work();
     if (controls.nativeReadBusy) { controls.nativeReadCollisions++; throw new Error('TEST_SHARED_NATIVE_READ_BUSY'); }
     controls.nativeReadBusy = true; controls.nativeReadEvents.push({ kind, phase: 'start' });
@@ -143,7 +196,7 @@ function fixture(t, { family = '2', sameNode = true, standalone = false } = {}) 
         revokedDigest: word(4), revokedCount: '0', revocationSequence: '0', stateSequence: '0', revocationOverflowDigest: ZERO,
         revocationOverflowCount: '0', halted: '0', timestamp: head.timestamp } };
   }
-  const runtime = Object.freeze({ metadata: { scratchDirectory: '/combined-test-' + id, evmGenesis: prefix(sha('evm')) },
+  const runtime = Object.freeze({ get ingressSendState() { return {epoch:String(controls.evmEpoch ?? 0),busy:false,uncertain:false}; }, metadata: { scratchDirectory: '/combined-test-' + id, evmGenesis: prefix(sha('evm')) },
     async block() { controls.headerReads++; assert.ok(!controls.blockFailure, 'TEST_CURRENT_HEADER_UNAVAILABLE'); return copy(view(0).header); },
     async call({ to, data }, at) {
       assert.equal(to, '0x0000000000000000000000000000000000000001');
@@ -252,7 +305,22 @@ function fixture(t, { family = '2', sameNode = true, standalone = false } = {}) 
     async readReservation(request, view) { assert.deepEqual(view, claimView()); assert.equal(request.claimDomain, domain);
       return copy(controls.reservations.get(request.admissionN) ?? null); },
     async assertUnrevoked(request, value) { assert.deepEqual(value, claimView()); assert.equal(controls.revoked, false, 'TEST_PAYOUT_REVOKED'); } });
-  owned.observers.set(observer, { runtime, system: { flatSystem: system }, registry, configs: [config],
+  const snapshot = facade => {
+    const graphTransfers = controls.graphSnapshotOverride ?? [...observations].map(([nativeId, observation]) => ({ nativeId,
+      phase: family === '1' ? 'OBSERVED_CONFIRMED' : 'OBSERVED_FINALIZED', observation: copy(observation) }));
+    const custodyTransfers = controls.custodySnapshotOverride ?? copy(claimTransfers);
+    return { profile: 'OWNED_NATIVE_RUNTIME_AUDIT_STATE_V1', family, lifetimeId: sha('physical-' + id),
+      facade, genesis: rule.genesis, readGeneration: String(controls.nativeReadGeneration ?? 0),
+      mutationGeneration: String(controls.nativeMutationGeneration ?? 0),
+      activeReads: controls.nativeReadBusy ? 1 : 0, activeMutations: controls.activeMutation ? 1 : 0,
+      readsIdle: !controls.nativeReadBusy, operationBusy: false, observationBusy: controls.nativeReadBusy,
+      inventoryBusy: false, signingUnresolved: controls.unresolved, persistenceFailed: Boolean(controls.nativePersistenceFailed),
+      isolationFailed: false, adverseHistory: Boolean(controls.nativeAdverse), activeRoute: controls.preparedRoute ?? null,
+      activePrepared: controls.originalPrepared ?? null, transfers: facade === 'custody' ? custodyTransfers : graphTransfers,
+      custodyTransfers, graphTransfers };
+  };
+  auditStates.set(custody, () => snapshot('custody')); auditStates.set(graph, () => snapshot('graph'));
+  owned.observers.set(observer, { runtime, system: { flatSystem: system }, registry, configs: [config], registeredRules: [rule],
     policies: [{ ledgerNamespace: registry.hubDomain, hubDomain: registry.hubDomain, registryCommitment, rule }],
     nativeRuntimes: [custody], journalRoot: runtime.metadata.scratchDirectory });
   const binding = { runtime, system, bitcoin: family === '1' ? graph : null, solana: family === '2' ? graph : null,
@@ -404,12 +472,12 @@ async function loadedPayout(t, kind = '1') {
 }
 function readMark(f) { return { preparations: f.controls.preparedCalls.length, reads: f.controls.nativeReadEvents.length,
   graph: f.controls.graphReads.length, inventory: f.controls.inventoryReads }; }
-function assertOwnReads(f, before, { prepared = 0, claimHistory = 3, graph = 12 } = {}) {
+function assertOwnReads(f, before, { prepared = 0, claimHistory = 3, graph = 24, rounds = 4 } = {}) {
   const starts = f.controls.nativeReadEvents.slice(before.reads).filter(row => row.phase === 'start');
   assert.equal(f.controls.nativeReadCollisions, 0); assert.equal(f.controls.nativeReadBusy, false);
   assert.equal(f.controls.preparedCalls.length - before.preparations, prepared);
-  assert.equal(f.controls.inventoryReads - before.inventory, 3);
-  assert.equal(starts.filter(row => row.kind === 'claim-observation').length, claimHistory * 3);
+  assert.equal(f.controls.inventoryReads - before.inventory, 3 * rounds);
+  assert.equal(starts.filter(row => row.kind === 'claim-observation').length, claimHistory * 3 * rounds);
   assert.equal(f.controls.graphReads.length - before.graph, graph);
   assert.equal(starts.length * 2, f.controls.nativeReadEvents.length - before.reads);
 }
@@ -421,39 +489,39 @@ test('loaded redeem and refund traverse prepared backing, original-only validati
     assert.equal(q.claim.collectionProfile, 'SAME_HOST_CLAIM_COMMON_HEAD_COLLECTION_V3');
     const preparedBytes = JSON.stringify(p.prepared);
     let mark = readMark(f), permit = await q.claim.backing(p.begin);
-    assertOwnReads(f, mark, { prepared: 9 });
+    assertOwnReads(f, mark, { prepared: 36 });
     let keys = attesterKeyUses; mark = readMark(f);
     assert.equal(await q.claim.assertOriginalAuthorizationCurrent(permit), undefined);
-    assert.equal(attesterKeyUses, keys); assertOwnReads(f, mark, { prepared: 9, graph: 6 });
+    assert.equal(attesterKeyUses, keys); assertOwnReads(f, mark, { prepared: 9, graph: 6, rounds: 1 });
     p.beginIncluded(); mark = readMark(f);
-    const presign = await q.claim.authorizePayout(p.request); assertOwnReads(f, mark, { prepared: 9 });
+    const presign = await q.claim.authorizePayout(p.request); assertOwnReads(f, mark, { prepared: 36 });
     assert.equal(presign.message.validUntil, '1030');
     const reservationRequest = await p.retain(); mark = readMark(f);
     permit = await q.claim.reservation(reservationRequest); assertOwnReads(f, mark);
     keys = attesterKeyUses; mark = readMark(f);
     await q.claim.assertOriginalAuthorizationCurrent(permit); assert.equal(attesterKeyUses, keys);
-    assertOwnReads(f, mark, { graph: 6 });
+    assertOwnReads(f, mark, { graph: 6, rounds: 1 });
     const broadcast = p.reserved(); mark = readMark(f);
-    const authorized = await q.claim.authorizeBroadcast(broadcast); assertOwnReads(f, mark, { prepared: 6 });
+    const authorized = await q.claim.authorizeBroadcast(broadcast); assertOwnReads(f, mark, { prepared: 24 });
     keys = attesterKeyUses; mark = readMark(f);
     const reused = await q.claim.authorizeBroadcast(broadcast);
     assert.deepEqual(reused, authorized); assert.equal(attesterKeyUses, keys);
-    assertOwnReads(f, mark, { prepared: 6, graph: 6 });
+    assertOwnReads(f, mark, { prepared: 18, graph: 18, rounds: 3 });
     assert.equal(JSON.stringify(p.prepared), preparedBytes);
     assert.ok(f.controls.preparedCalls.every(value => value !== p.prepared && Object.isFrozen(value)));
     for (const pair of f.pairs) assert.equal(f.claimStore(pair.claim.signerIndex).data.bindings.filter(row => !row.ingress).length, 1);
     assert.equal(f.custody.transfers.at(-1).broadcastAttempts, 0);
     const factsRequest = p.observed(); mark = readMark(f); const facts = await q.claim.facts(factsRequest);
     assert.equal(facts.certificates.length, 3);
-    assert.equal(f.controls.inventoryReads - mark.inventory, 3);
-    assert.equal(f.controls.graphReads.length - mark.graph, 12);
+    assert.equal(f.controls.inventoryReads - mark.inventory, 18, 'V4 facts independently complete issuance and original-validation custody scopes for all three actors');
+    assert.equal(f.controls.graphReads.length - mark.graph, 36, 'every V4 custody scope has complete reciprocal graph observations');
     assert.ok(f.controls.nativeReadEvents.slice(mark.reads).filter(row => row.kind === 'claim-observation' && row.phase === 'start').length >= 12,
       'each of three facts signers scans every one of four retained custody identities plus its own facts observations');
     mark = readMark(f);
     const health = await q.claim.health({ claimDomain: f.domain, mode: 'debt' });
-    assertOwnReads(f, mark, { claimHistory: 4, graph: 6 });
+    assertOwnReads(f, mark, { claimHistory: 4, graph: 18, rounds: 3 });
     mark = readMark(f); await q.claim.assertOriginalAuthorizationCurrent(health);
-    assertOwnReads(f, mark, { claimHistory: 4, graph: 6 });
+    assertOwnReads(f, mark, { claimHistory: 4, graph: 6, rounds: 1 });
     p.discharge(); await q.claim.health({ claimDomain: f.domain, mode: 'debt' });
     assert.equal(f.custody.transfers.length, 4); assert.equal(f.custody.transfers.at(-1).broadcastAttempts, 1);
     await assert.rejects(q.claim.authorizeBroadcast(broadcast), /ORIGINAL_PHASE/);
@@ -539,12 +607,14 @@ test('loaded prepared final read failure or exact operator deadline after persis
           const broadcast=p.reserved();invoke=()=>q.claim.authorizeBroadcast(broadcast);kind='broadcast-payout-v2';}
       }
       const keys=attesterKeyUses;
-      f.controls.beforePrepared=()=>{
+      const late=()=>{
         if([0,1,2].some(index=>f.claimStore(index).data.authorizations.some(row=>row.kind===kind&&row.signature))) {
           if(fault==='deadline')now=30000;else throw Error('TEST_LATE_PREPARED_FAILED');
         }
       };
-      await assert.rejects(invoke(),causedBy(fault==='deadline'?/AUDIT_TOO_OLD/:/TEST_LATE_PREPARED_FAILED/));
+      // Deadline is crossed in the awaited original head check, not replaced by a native UNKNOWN reason.
+      if(fault==='deadline')f.controls.beforeClaimCurrent=late;else f.controls.beforePrepared=late;
+      await assert.rejects(invoke(),causedBy(fault==='deadline'?/AUDIT_TOO_OLD/:/TEST_LATE_PREPARED_FAILED|CLAIM_COMPLETE_AUDIT_UNAVAILABLE/));
       assert.ok(attesterKeyUses>keys);
       const affected=[0,1,2].filter(index=>f.claimStore(index).data.authorizations.some(row=>row.kind===kind&&row.signature));
       assert.ok(affected.length>0);for(const index of affected)assert.equal(f.pairs[index].claim.status().poisoned,true);

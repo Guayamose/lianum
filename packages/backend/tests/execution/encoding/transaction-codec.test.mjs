@@ -2,7 +2,7 @@
  * backend starts; passing these tests establishes serialization, not funds. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import {readReviewedLedgerABI} from '../../fixtures/execution/reviewed-public-artifacts.mjs';
 import { createHash } from 'node:crypto';
 import { encodeFlatTransaction as encode, FLAT_TRANSACTION_METHODS as methods } from '../../../src/execution/encoding/transaction-codec.mjs';
 import { encodeStatement, FIELD_MODULUS } from '@lianum/components/encoding/statements';
@@ -41,13 +41,10 @@ const recovery = () => packet('recovery', { domainCommitment: hex(1), authorizat
 const legacy = deposit => ({ proof: 'cd'.repeat(32), publicInputs:
   Array.from({ length: deposit ? 26 : 39 }, (_, index) => index === 16 || index === (deposit ? 17 : 33) ? max64 : String(index + 1)) });
 
-// Retained source-pinned build, read only. No artifact loader or compiler.
-const compiledBytes = readFileSync(new URL('../../../.local/contracts/2e02620a-404c-4c27-9ac2-4132713e083b/compiled.json', import.meta.url));
-assert.equal(createHash('sha256').update(compiledBytes).digest('hex'),
-  '002f75913819548845ebce0928a40b09fdf07b370d104f0a4dd17b2bd051cb58');
-const compiled = JSON.parse(compiledBytes);
-const poolArtifact = compiled.contracts['PrivateFlatAssetNotePool.sol'].PrivateFlatAssetNotePool;
-const hubArtifact = compiled.contracts['PrivateFlatReceiptHub.sol'].PrivateFlatReceiptHub;
+// Read-only reviewed build; current manifest authenticates the whole ABI file.
+const compiledContracts=readReviewedLedgerABI();
+const poolArtifact=compiledContracts['PrivateFlatAssetNotePool.sol'].PrivateFlatAssetNotePool;
+const hubArtifact=compiledContracts['PrivateFlatReceiptHub.sol'].PrivateFlatReceiptHub;
 const shape = inputs => inputs.map(({ name, type, components }) => ({ name, type,
   ...(components ? { components: shape(components) } : {}) }));
 const selectors = { depositBalance: '4d62f43f', depositBalanceIntent: 'e4cb6f9a', withdrawBalance: '6e359c06', withdraw: '67843a5b',

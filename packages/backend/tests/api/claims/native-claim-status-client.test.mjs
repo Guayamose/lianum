@@ -209,9 +209,9 @@ test('fixed total timeout closes stalled request or response without another rea
 });
 
 test('client imports only read transport/util and exposes no generic route or action API', () => {
-  const source = readFileSync(new URL('./native-claim-status-client.mjs', import.meta.url), 'utf8');
-  assert.deepEqual([...source.matchAll(/from '([^']+)'/g)].map(match => match[1]), ['./fixed-owner-read-transport.mjs', 'node:util']);
-  const transport = readFileSync(new URL('./fixed-owner-read-transport.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../src/api/claims/native-claim-status-client.mjs', import.meta.url), 'utf8');
+  assert.deepEqual([...source.matchAll(/from '([^']+)'/g)].map(match => match[1]), ['../transport/fixed-owner-read-transport.mjs', 'node:util']);
+  const transport = readFileSync(new URL('../../../src/api/transport/fixed-owner-read-transport.mjs', import.meta.url), 'utf8');
   assert.deepEqual([...transport.matchAll(/from '([^']+)'/g)].map(match => match[1]), ['node:http', 'node:util']);
   assert.deepEqual([...transport.matchAll(/export async function (\w+)/g)].map(match => match[1]),
     ['readNativeClaimSnapshotWire', 'readNativeClaimOwnerWire', 'readFlatAccountOwnerWire']);
@@ -229,15 +229,15 @@ test('current session-generated authenticated journal and owner contracts are ac
   const keeper = { status: () => ({ keeperRestart: true, uncertain: false, requiresExternalEffectReconciliation: false }) };
   const runtime = { accounts: ['0x' + '77'.repeat(20)] }, claims = { configs: [claimConfig] },
     controller = { async status() { return { deposits: [projected], tickets: [] }; } };
-  mock.module(new URL('../native-claims/controller.mjs', import.meta.url).href, { exports: {
+  mock.module(new URL('../../../src/claims/controller/controller.mjs', import.meta.url).href, { exports: {
     ownedNativeClaimControllerBindings(value) { assert.equal(value, controller); return { runtime, keeper, claims }; },
     restartNativeClaimController() { assert.fail('NO_RESTART_IN_READ_ONLY_CONTRACT_TEST'); },
   } });
-  mock.module(new URL('../native-claims/controller-journal.mjs', import.meta.url).href, { exports: {
+  mock.module(new URL('../../../src/claims/controller/controller-journal.mjs', import.meta.url).href, { exports: {
     ownedClaimControllerJournal(value) { assert.equal(value, keeper); return journal; },
   } });
   // Fixed cSOL/9 data for this inert controller, not a native-system brand.
-  mock.module(new URL('../native-claims/native-claim-asset-units-v1.mjs', import.meta.url).href, { exports: {
+  mock.module(new URL('../../../src/claims/operations/native-claim-asset-units-v1.mjs', import.meta.url).href, { exports: {
     originalNativeClaimAssetUnitsV1(actualRuntime, actualClaims, config) {
       assert.equal(arguments.length, 3); assert.equal(actualRuntime, runtime); assert.equal(actualClaims, claims);
       assert.equal(config, claimConfig); assert.equal(config.nativeFamily, '2');

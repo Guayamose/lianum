@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../scripts/integration-private-payout-recovery.mjs',import.meta.url),'utf8');
+const source=readFileSync(new URL('../../../../scripts/engine/integration/recovery/integration-private-payout-recovery.mjs',import.meta.url),'utf8');
 const begin=source.indexOf('  // Evaluate a repeated recovery result'),end=source.indexOf("  if(['COMPLETED','FAILED','INTERRUPTED']",begin);
 assert.ok(begin>=0&&end>begin);
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;

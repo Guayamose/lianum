@@ -55,14 +55,28 @@ function v4Quorum(target, control) {
   return quorum;
 }
 
-mock.module(url('../ops/deploy-native-claims.mjs'), { exports: { assertOwnedNativeClaimSystem(runtime, claims) { assert.equal(systems.get(claims), runtime, 'TEST_OWNED_CLAIMS'); } } });
-mock.module(url('../chain-adapters/owned-evm-v2-runtime.mjs'), { exports: { LOCAL_EVM_PROFILE: { maxGas: 30000000 },
+mock.module(url('../../../../src/operations/deployments/claims/deploy-native-claims.mjs'), { exports: { assertOwnedNativeClaimSystem(runtime, claims) { assert.equal(systems.get(claims), runtime, 'TEST_OWNED_CLAIMS'); } } });
+// This fixture supplies its original lower ownership port before controller
+// import. Loading the complete runtime just to enumerate exports would cache
+// the controller before that port is installed.
+mock.module(url('../../../../src/chains/evm/runtime/local-evm-ownership.mjs'), {exports: {
+  async assertLocalEvm(runtime) {assert.equal(runtime.testOwned,true);},
+  async assertLocalEvmDeploymentProfile(runtime) {assert.equal(runtime.testOwned,true);return {maxGas:30000000};},
+}});
+mock.module(url('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'), { exports: { LOCAL_EVM_PROFILE: { maxGas: 30000000 },
   async assertOwnedLocalEvmV2(runtime) { assert.equal(runtime.testOwned, true); },
   async refreshNativeValueReceiverClock(runtime) { assert.equal(runtime.testOwned, true); await runtime.testRefreshReceiverClock?.(); },
   nativeValueReceiverInclusionSecondV1(runtime) { assert.equal(runtime.testOwned, true); return runtime.testObservedInclusionSecond?.() ?? null; },
   assertSignedEvmTransaction(wire, expected) { assert.ok(wire.startsWith('0x')); assert.ok(expected.data); } } });
-mock.module(url('./owned-state.mjs'), { exports: { assertOwnedClaimObserver(o) { assert.ok(observers.has(o)); }, ownedClaimObserverBindings(o) { return observers.get(o); } } });
-mock.module(url('./operators.mjs'), { exports: {
+const originalWireCodec=await import('../../../../src/chains/evm/contracts/transaction-wire-codec.mjs');
+mock.module(url('../../../../src/chains/evm/contracts/transaction-wire-codec.mjs'), {exports: {...originalWireCodec,
+  assertSignedEvmTransaction(wire,expected){assert.ok(wire.startsWith('0x'));assert.ok(expected.data);},
+}});
+mock.module(url('../../../../src/claims/operations/owned-state.mjs'), { exports: { assertOwnedClaimObserver(o) { assert.ok(observers.has(o)); }, ownedClaimObserverBindings(o) { return observers.get(o); } } });
+mock.module(url('../../../../src/claims/operations/operators.mjs'), { exports: {
+  createScopedClaimOperator(){assert.fail('UNUSED_CLAIM_OPERATOR_FACTORY');},
+  consumeClaimOperatorKeyLeaseV4(){assert.fail('UNUSED_CLAIM_OPERATOR_LEASE');},
+  consumeClaimPayoutFactsKeyLeaseV4(){assert.fail('UNUSED_CLAIM_FACTS_LEASE');},
   openClaimOriginalAuthorizationLeaseV4(token, quorum, result) {
     const state = testV4Tokens.get(token); testV4Tokens.delete(token);
     assert.ok(state && state.quorum===quorum && state.result===result,'TEST_ORIGINAL_V4_TRIPLE');
@@ -85,22 +99,22 @@ mock.module(url('./operators.mjs'), { exports: {
   assertOwnedClaimOperator(op, observer) { assert.equal(op.observer, observer); assert.ok(!poisonedOperators.has(op), 'COMBINED_OPERATOR_CLOSED_OR_POISONED'); },
   assertOwnedClaimOperatorQuorum(q, observer) { assert.equal(q.observer, observer); assert.ok(!poisonedQuorums.has(q), 'COMBINED_OPERATOR_CLOSED_OR_POISONED'); },
 } });
-mock.module(url('../../../proof-workers/role-client.mjs'), { exports: { assertRoleProofClient(client, role) { assert.equal(roles.get(client), role); } } });
-mock.module(url('../../../mobile-core/flat-owner-process.mjs'), { exports: { assertOwnedNativeClaimIngressHandoff(h, expected) {
+mock.module(url('../../../../src/proving/roles/role-client.mjs'), { exports: { createRoleProofClient(){assert.fail('UNUSED_REAL_PROVER_FACTORY');}, readOriginalDeviceRootClaimDerivationV2(){assert.fail('UNUSED_DEVICE_ROOT_DERIVATION');}, assertRoleProofClient(client, role) { assert.equal(roles.get(client), role); } } });
+mock.module(url('../../../../src/custody/processes/flat-owner-process.mjs'), { exports: { assertOwnedPrivateNativeClaimIngressHandoffV2(){assert.fail('UNUSED_PRIVATE_INGRESS_PORT');}, assertOwnedFlatOwnerProcess(){assert.fail('UNUSED_FLAT_OWNER_PORT');}, assertOwnedNativeClaimIngressHandoff(h, expected) {
   assert.ok(hands.has(h), 'TEST_REAL_HANDOFF_ONLY'); for (const [k, v] of Object.entries(expected)) assert.equal(hands.get(h)[k], v); } } });
-mock.module(url('../paeg/flat-system-state.mjs'), { exports: { async createFlatSystemStateReader({ runtime }) { return {
+mock.module(url('../../../../src/execution/account/reconciliation/flat-system-state.mjs'), { exports: { decodeFlatWords(){assert.fail('UNUSED_FLAT_DECODER_PORT');}, async createFlatSystemStateReader({ runtime }) { return {
   async read() { return { head: structuredClone(runtime.testState.head),
     state: { revokedDigest: zero, revokedCount: '0', revocationSequence: '0' }, revokedEntries: [] }; },
 }; } } });
 // Explicit host-only proof scaffolding for lifecycle ordering tests. Neither a
 // compiler, hash backend nor prover can run through these replacements.
-mock.module(url('../../../proof-workers/tooling.mjs'), { exports: { ...originalTooling,
+mock.module(url('../../../../../proofs/src/tooling/tooling.mjs'), { exports: { ...originalTooling,
   resourceModuleURL: 'data:text/javascript,export function verifyToolchain() {}',
   async loadPinned(name) { assert.equal(name, '@aztec/bb.js'); return { BackendType: { Wasm: 'TEST_ONLY' }, Barretenberg: {
     async new() { return { async poseidon2Hash() { assert.fail('TEST_NO_REAL_HASH_BACKEND'); }, async destroy() {} }; },
   } }; },
 } });
-mock.module(url('./inputs.mjs'), { exports: {
+mock.module('@lianum/engine/claims/inputs', { exports: {
   buildClaimIngressInputs: raw => { const statement = { claimDomain: claimDomainCommitment(raw.config), outputQ: hash('synthetic Q'),
     admissionN: hash('synthetic N'), refundDestination: hash('synthetic refund'), admissionRevocationState: '01'.repeat(32),
     ingressReceiptLeaf: '02'.repeat(32), amountQ: raw.noteOpening.value, evidenceFrom: '1', evidenceUntil: '1000000' };
@@ -110,7 +124,7 @@ mock.module(url('./inputs.mjs'), { exports: {
     evidenceFrom: '1', evidenceUntil: '1000000' };
     return { inputs: { syntheticLifecycleOnly: true }, expectedPublicInputs: [...encodeClaimDischargeInputs(statement)], statement }; },
 } });
-mock.module(url('../../../../../omnichain-product/src/paeg/native-admission.mjs'), { exports: { ...originalAdmission,
+mock.module('@lianum/engine/execution/native/dispatch/native-admission', { exports: { ...originalAdmission,
   nativeAdmissionRulesTree: () => ({ paths: [{ index: '0', siblings: Array(3).fill('0'.repeat(64)) }] }), nativeAdmissionChainDomain: rule => claimHash(claimFrame('LIANUM/evidence-chain/1', [Buffer.from('SOL'),Buffer.from(rule.genesis,'hex'),Buffer.from(rule.asset,'hex')])) } });
 const { createNativeClaimController, createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   restartNativeClaimController, openNativeClaimControllerDispatch, openNativeClaimSolanaPayoutAuthority, consumeNativeClaimOriginalKeyAuthorityV4 } = await import('../../../../src/claims/controller/controller.mjs');

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import {readReviewedRelationABI} from '../../../fixtures/execution/reviewed-public-artifacts.mjs';
 import { buildNodeInputs, buildSettlementInputs } from '../../../../src/execution/account/reconciliation/completion-inputs.mjs';
 import { createCommitmentCodec, ZERO } from '@lianum/components/encoding/commitments';
 import { buildSyntheticEnvelopeFixture } from '../../../../../../tests/integration/fixtures/proofs/envelopes/synthetic-envelope-fixture.mjs';
@@ -15,11 +15,8 @@ const hashFields = async fields => '00' + h(fields.map(String).join(':')).slice(
 const codec = createCommitmentCodec({ hashFields });
 // These existing artifacts are read as data. Production loading/pinning is
 // owned by the worker; the constructors receive that independently loaded ABI.
-const nodeABI = JSON.parse(readFileSync(new URL('../../../../candidate-poseidon/.local/component/compiled/'
-  + '29084da7f9d90365578b32a87e54b9e4ce165ae7e3701b803df250db738c4004/program.json', import.meta.url))).abi;
-const settlementABI = JSON.parse(readFileSync(new URL('../../../.local/proof-workers/relations/settlement/'
-  + 'f94b24a32eecca0a2866706198898fd8f520908efc045157613a5afefec63b2c/compiled/'
-  + '637abfeb-d926-4718-9a5f-f357f145d631/program.json', import.meta.url))).abi;
+const nodeABI=readReviewedRelationABI('node');
+const settlementABI=readReviewedRelationABI('settlement');
 const fixture = await buildSyntheticEnvelopeFixture({ hashFields });
 const d = fixture.public.statements.authorization.domainCommitment;
 const auth = fixture.public.authorization;

@@ -15,7 +15,7 @@ import { LOCAL_EVM_PROFILE } from '../../../src/chains/evm/runtime/local-evm-pro
 const worlds = new WeakMap(), receipts = new WeakMap(), bySystem = new WeakMap(), byAccount = new WeakMap(), byVault = new WeakMap();
 let failReadback = false;
 const pendingReadFailures = new WeakSet();
-mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault: class extends RealVault {
+mock.module('@lianum/engine/crypto/vault', { exports: { Vault: class extends RealVault {
   async read(password) {
     if (pendingReadFailures.delete(this)) throw Error('SYNTHETIC_LOST_DURABLE_READBACK');
     return super.read(password);
@@ -26,7 +26,7 @@ mock.module('../../../../../omnichain-product/src/vault.mjs', { exports: { Vault
     return result;
   }
 } } });
-mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: {
+mock.module('../../../src/chains/evm/runtime/local-evm-ownership.mjs', { exports: {
   assertLocalEvm: async runtime => assert.ok(worlds.has(runtime), 'MOCK_OWNED_RUNTIME'),
   async assertLocalEvmDeploymentProfile(runtime) {
     assert.equal(arguments.length, 1);
@@ -35,7 +35,7 @@ mock.module('../chain-adapters/local-evm-ownership.mjs', { exports: {
     return LOCAL_EVM_PROFILE;
   },
 } });
-mock.module('../ops/deploy-system.mjs', { exports: {
+mock.module('../../../src/operations/deployments/system/deploy-system.mjs', { exports: {
   assertOwnedFlatSystem: (runtime, system) => assert.equal(bySystem.get(system)?.runtime, runtime, 'MOCK_OWNED_SYSTEM'),
   describeOwnedFlatPoolRegistry() { throw Error('HOST_UNEXPECTED_REAL_REGISTRY_READ'); },
   deployFlatSystem() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_DEPLOYMENT'); },
@@ -45,11 +45,11 @@ mock.module('../ops/deploy-system.mjs', { exports: {
   captureOwnedFlatSystemRecoveryV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
   reopenOwnedFlatSystemRecoveryV1() { throw Error('HOST_UNEXPECTED_REAL_SYSTEM_RECOVERY'); },
 } });
-mock.module('../global-state/flat-account-authority.mjs', { exports: { assertOwnedFlatAccountAuthority(account, expected) {
+mock.module('../../../src/accounts/authority/flat-account-authority.mjs', { exports: { assertOwnedFlatAccountAuthority(account, expected) {
   const world = byAccount.get(account); assert.ok(world && world.runtime === expected.runtime && world.system === expected.system
     && expected.poolIndex === 1, 'MOCK_OWNED_ACCOUNT');
-}, flatAccountManualGraphDetails() { throw Error('UNUSED_SYNTHETIC_GRAPH'); }, assertFlatAccountManualGraphExecution() { throw Error('UNUSED_SYNTHETIC_GRAPH'); } } });
-mock.module('./owned-backed-vault.mjs', { exports: {
+}, retainedFlatAccountInventoryV1(){throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT');},assertRetainedExternalVaultNoteAccountV1(){throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT');},captureRetainedFlatAccountV1(){throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT');},reopenRetainedCatalogueFlatAccountV1(){throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT');},createRetainedFlatAccountAuthorityV1(){throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT');},createRetainedExternalVaultNoteAccountV1(){throw Error('HOST_UNEXPECTED_RETAINED_ACCOUNT');},flatAccountManualGraphDetails() { throw Error('UNUSED_SYNTHETIC_GRAPH'); }, assertFlatAccountManualGraphExecution() { throw Error('UNUSED_SYNTHETIC_GRAPH'); } } });
+mock.module('../../../src/defi/vaults/owned-backed-vault.mjs', { exports: {
   assertOwnedBackedVault(runtime, vault) { assert.equal(byVault.get(vault)?.runtime, runtime, 'MOCK_OWNED_VAULT'); },
   ownedBackedVaultBinding(runtime, vault) { assert.equal(byVault.get(vault)?.runtime, runtime); return structuredClone(byVault.get(vault).binding); },
   assertOwnedBackedVaultReceipt(vault, receipt) { assert.equal(receipts.get(receipt), vault, 'MOCK_ORIGINAL_RECEIPT_REQUIRED'); },
@@ -58,7 +58,7 @@ mock.module('./owned-backed-vault.mjs', { exports: {
 // lower native/account/portfolio/vault observations and child keeper are synthetic.
 const portfolios = new WeakMap(), policies = new WeakMap(), keeperBrands = new WeakMap();
 let keeperCreations = 0;
-mock.module('../global-state/flat-portfolio-authority.mjs', { exports: {
+mock.module('../../../src/accounts/authority/flat-portfolio-authority.mjs', { exports: {
   bindFlatPortfolioChildRequest() { throw Error('HOST_UNEXPECTED_WRAPPED_PORTFOLIO_ROUTE'); },
   projectFlatPortfolioOutcome() { throw Error('HOST_UNEXPECTED_WRAPPED_PORTFOLIO_ROUTE'); },
   createFlatPortfolioAuthority() { throw Error('HOST_UNEXPECTED_REAL_PORTFOLIO_CREATION'); },
@@ -67,11 +67,11 @@ mock.module('../global-state/flat-portfolio-authority.mjs', { exports: {
   describeFlatPortfolioJournalAuthority(runtime, portfolio) { assert.equal(portfolios.get(portfolio)?.runtime, runtime); return portfolios.get(portfolio); },
   assertOwnedFlatPortfolioAccount(portfolio, account) { assert.ok(portfolios.get(portfolio)?.accounts.some(row => row.account === account)); },
 } });
-mock.module('../global-state/flat-pool-admission-policy.mjs', { exports: {
-  assertOwnedFlatPoolAdmissionPolicy(policy, info) { assert.equal(policies.get(policy), info); },
+mock.module('../../../src/accounts/authority/flat-pool-admission-policy.mjs', { exports: {
+  createFlatPoolAdmissionPolicy(){throw Error('HOST_UNEXPECTED_RETAINED_ADMISSION');},assertOwnedFlatPoolAdmissionPolicy(policy, info) { assert.equal(policies.get(policy), info); },
 } });
-mock.module('../global-state/flat-manual-portfolio-keeper.mjs', { exports: {
-  assertOwnedFlatManualPortfolioKeeper(keeper, expected) { assert.deepEqual(keeperBrands.get(keeper), expected); },
+mock.module('../../../src/accounts/portfolio/flat-manual-portfolio-keeper.mjs', { exports: {
+  createRetainedFlatManualPortfolioKeeperV1(){throw Error('HOST_UNEXPECTED_RETAINED_KEEPER');},captureRetainedFlatManualPortfolioKeeperV1(){throw Error('HOST_UNEXPECTED_RETAINED_KEEPER');},reopenRetainedFlatManualPortfolioKeeperV1(){throw Error('HOST_UNEXPECTED_RETAINED_KEEPER');},assertOwnedFlatManualPortfolioKeeper(keeper, expected) { assert.deepEqual(keeperBrands.get(keeper), expected); },
   async createFlatManualPortfolioKeeper({ runtime, portfolio }) {
     keeperCreations++;
     const info = portfolios.get(portfolio), rows = new Map();
@@ -175,7 +175,7 @@ const { createFlatJournalGeneration, createFlatJournalCatalogue } = await import
 const { createFlatManualGraphCatalogueSession } = await import('../../../src/api/accounts/flat-manual-graph-session.mjs');
 const { createGenerationPrivateVaultExit, generationPrivateVaultExitActionTarget } = await import('../../../src/defi/withdrawals/generation-private-vault-exit.mjs');
 const { ownedPrivateVaultExitBinding } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');
-mock.module('../api/native-claim-session.mjs', { exports: { assertWalletClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, walletClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); }, assertNativeClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, nativeClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); } } });
+mock.module('../../../src/api/claims/native-claim-session.mjs', { exports: { assertWalletClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, walletClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); }, assertNativeClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, nativeClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); } } });
 const { startWalletApplication } = await import('../../../../../apps/wallet/src/server/server.mjs');
 const { createWalletApplicationClient } = await import('../../../src/api/wallet/wallet-application-client.mjs');
 async function generation(w, n, includeUnderlying = true) {

@@ -17,7 +17,7 @@ async function mutate(paths,action,check) {
     paths.forEach((path,index)=>assert.equal(hash(readFileSync(path)),hash(originals[index])));}
 }
 test('reviewed native claims public build and tamper protection',{
-  skip:process.env.LIANUM_TEST_NATIVE_CLAIMS_REBUILD!=='1',timeout:30000,
+  timeout:30000,
 },async t=>{
  await t.test('fixed preflight reads genuine CI51V3/CO42 without starting a node',async()=>{
   await preflightNativeClaimIngressV3Artifacts();const value=await loadNativeClaimIngressV3Artifacts();

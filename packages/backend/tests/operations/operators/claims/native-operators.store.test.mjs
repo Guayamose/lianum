@@ -7,7 +7,7 @@ import * as crypto from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import * as facts from '../../../../src/chains/shared/dispatch/native-facts-peer.mjs';
+let facts;
 import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { checkpointAuthorizationDigest } from '@lianum/engine/evidence/native-hub-messages';
@@ -20,11 +20,46 @@ const prefix = value => '0x' + value, word = value => BigInt(value).toString(16)
 const url = path => new URL(path, import.meta.url).href;
 const runtimes = new WeakMap(), systems = new WeakMap(), natives = new WeakSet(), controls = new Map(), peers = [];
 let derivations = 0;
+// These fixtures exercise the original flat graph/claim branch. DeFi observer
+// factories are an unavailable HOST port; they must never mint a capability here.
+mock.module(new URL('../../../../src/chains/evm/vault/metamorpho-graph-delivery-observer-v1.mjs', import.meta.url).href, { exports: {
+  isOwnedMetaMorphoGraphDeliveryObserverV1() { return false; },
+  isOwnedUniswapGraphDeliveryObserverV1() { return false; },
+  isOwnedAaveStaticGraphDeliveryObserverV1() { return false; },
+  isOwnedMorphoBluePositionGraphDeliveryObserverV1() { return false; },
+  isOwnedOfficialGraphDeliveryObserverV1() { return false; },
+  assertOwnedMetaMorphoGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMetaMorphoGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDeliveryFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  readOriginalEvmGraphDeliveryEconomicFactsV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMetaMorphoGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedAaveStaticGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedMorphoBluePositionGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  assertOwnedUniswapGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedMetaMorphoGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedAaveStaticGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedMorphoBluePositionGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  prepareOwnedUniswapGraphDescriptorV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMetaMorphoGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedUniswapGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedAaveStaticGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMorphoBluePositionGraphDeliveryObserverV1() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  isOwnedMetaMorphoGraphDeliveryBatchV4() { return false; },
+  readOriginalMetaMorphoGraphBatchRoutersV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  readOriginalMetaMorphoGraphBatchFactsBindingsV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  createOwnedMetaMorphoGraphDeliveryBatchV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+  reopenOwnedMetaMorphoGraphDeliveryBatchV4() { assert.fail('TEST_NO_DEFI_OBSERVER'); },
+} });
 mock.module('node:crypto', { exports: { ...Object.fromEntries(Object.entries(crypto).filter(([name]) => name !== 'default')),
   scryptSync(...args) { derivations++; return crypto.scryptSync(...args); },
 } });
 const actualStore = await import('../../../../src/claims/storage/segmented-record-store.mjs');
-mock.module(url('../native-claims/segmented-record-store.mjs'), { exports: { ...actualStore,
+mock.module('@lianum/engine/storage/records', { exports: { ...actualStore,
   async createClaimRecordStore(input, initial) {
     const control = controls.get(input.path); assert.ok(control, 'TEST_EXPECTED_GRAPH_V3_PATH');
     control.identity = copy(input.identity); control.initial = copy(initial);
@@ -43,25 +78,35 @@ mock.module(url('../native-claims/segmented-record-store.mjs'), { exports: { ...
     });
   },
 } });
-mock.module(url('../chain-adapters/local-evm-ownership.mjs'), { exports: {
+mock.module(url('../../../../src/chains/evm/runtime/local-evm-ownership.mjs'), { exports: {
+  assertLocalEvmDeploymentProfile() { assert.fail('TEST_NO_DEPLOYMENT_PROFILE'); },
   async assertLocalEvm(runtime) { assert.ok(runtimes.has(runtime), 'TEST_OWNED_RUNTIME'); },
 } });
-mock.module(url('./deploy-system.mjs'), { exports: {
+mock.module(url('../../../../src/operations/deployments/system/deploy-system.mjs'), { exports: {
+  deployFlatSystem() { assert.fail('TEST_NO_DEPLOYMENT'); },
   assertOwnedFlatSystem(runtime, system) { assert.equal(systems.get(system), runtime); },
 } });
-mock.module(url('../native-claims/owned-state.mjs'), { exports: {
+mock.module(url('../../../../src/claims/operations/owned-state.mjs'), { exports: {
   assertOwnedClaimObserver() { assert.fail('TEST_NO_CLAIM_BRANCH'); },
   ownedClaimObserverBindings() { assert.fail('TEST_NO_CLAIM_BRANCH'); },
 } });
-mock.module(url('../chain-adapters/owned-solana-runtime.mjs'), { exports: {
+mock.module(url('../../../../src/chains/solana/runtime/owned-solana-runtime.mjs'), { exports: {
+  assertOwnedSolanaRuntimeLive() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  readOwnedSolanaRuntimeAuditState() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  readOwnedSolanaSplOriginalGraphV3() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  assertOwnedSolanaSplOriginalGraphV3() { assert.fail('TEST_NO_SOLANA_EXTRA_CAPABILITY'); },
+  consumeOwnedSolanaSplContextV1() { assert.fail('TEST_NO_SPL_CONTEXT'); },
+  isOwnedSolanaSplCustodyV1() { return false; },
+  assertOwnedSolanaSplGraphPairV1() { assert.fail('TEST_NO_SPL_GRAPH'); },
+  assertOwnedSolanaSplCustodyV1() { assert.fail('TEST_NO_SPL_CUSTODY'); },
   SOLANA_NONCE_INGRESS_PROFILE,
   assertOwnedSolanaRuntime(native) { assert.ok(natives.has(native), 'TEST_OWNED_NATIVE'); },
 } });
-mock.module(url('../chain-adapters/evm-vault-delivery-observer.mjs'), { exports: {
+mock.module(url('../../../../src/chains/evm/vault/evm-vault-delivery-observer.mjs'), { exports: {
   assertOwnedEvmVaultDeliveryObserver() { assert.fail('TEST_NO_EVM_DELIVERY'); },
   assertOwnedEvmVaultDeliveryFacts() { assert.fail('TEST_NO_EVM_DELIVERY'); },
 } });
-mock.module(url('../paeg/flat-system-state.mjs'), { exports: {
+mock.module(url('../../../../src/execution/account/reconciliation/flat-system-state.mjs'), { exports: {
   async createFlatSystemStateReader({ runtime, system, poolIndex }) {
     assert.equal(systems.get(system), runtime); const f = runtimes.get(runtime), issued = new WeakSet();
     return Object.freeze({ async read() { const view = copy(f.view(poolIndex)); issued.add(view); return view; },
@@ -69,7 +114,8 @@ mock.module(url('../paeg/flat-system-state.mjs'), { exports: {
         if (f.failCurrent) throw new Error('FLAT_STATE_TEST_CURRENT_FAILED'); } });
   },
 } });
-mock.module(url('../chain-adapters/native-facts-peer.mjs'), { exports: { ...facts,
+facts = await import('../../../../src/chains/shared/dispatch/native-facts-peer.mjs');
+mock.module(url('../../../../src/chains/shared/dispatch/native-facts-peer.mjs'), { exports: { ...facts,
   async createNativeFactsPeer(input) { peers.push({ signerIndex: input.signerIndex, store: input.store }); return facts.createNativeFactsPeer(input); },
 } });
 const { createLocalFlatOperator, createFlatOperatorQuorum, LOCAL_FLAT_OPERATOR_PROFILE } = await import('../../../../src/operations/operators/claims/native-operators.mjs');

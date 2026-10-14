@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { loadFlatDeploymentArtifacts } from '../../../../src/operations/deployments/system/deployment-artifacts.mjs';
-import { loadNativeClaimArtifacts } from '../../../../src/operations/deployments/claims/native-claim-artifacts.mjs';
+import {readCurrentFlatPublicPlanArtifacts} from '../../../fixtures/operations/deployments/flat-plan-public-artifacts.mjs';
+import {loadNativeClaimIngressV3Artifacts} from '../../../../src/operations/deployments/claims/native-claim-ingress-v3-artifacts.mjs';
 import { deriveFlatLibraryPlans, FLAT_VERIFIER_ORDER } from '../../../../src/operations/deployments/system/deployment-plan.mjs';
 import { buildNativeClaimDeploymentPlan, buildOwnedNativeClaimRules,
   deriveOwnedNativeCurrencyAsset, claimArtifactMethod } from '../../../../src/operations/deployments/claims/native-claim-deployment-plan.mjs';
@@ -17,12 +17,10 @@ import { claimDomainCommitment, claimVerifierSetCommitment } from '@lianum/engin
 
 const digest = n => BigInt(n).toString(16).padStart(64, '0'), address = n => '0x' + BigInt(n).toString(16).padStart(40, '0');
 const hash = value => createHash('sha256').update(value).digest('hex');
-let bundle, base;
-try { [bundle, base] = await Promise.all([loadNativeClaimArtifacts(), loadFlatDeploymentArtifacts()]); }
-catch (error) {
-  if (error.code !== 'ENOENT' && error.message !== 'CLAIM_VERIFIER_ARTIFACTS_NOT_PREPARED') throw error;
-}
-const retained = { skip: bundle && base ? false : 'Requires preserved checked builds; never compiles a replacement' };
+// Read current, reviewed V3 artifacts through their fixed original loader.
+// Missing or corrupt resources fail the test; no historical build is fabricated.
+const bundle=await loadNativeClaimIngressV3Artifacts(),base={ledger:readCurrentFlatPublicPlanArtifacts()};
+const retained={};
 const keys = [
   ['79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798', '483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8'],
   ['c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5', '1ae168fea63dc339a3c58419466ceaeef7f632653266d0e1236431a950cfe52a'],

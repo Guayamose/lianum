@@ -9,6 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import {validateRetainedClaimAuthorizationV1} from '../../../src/claims/authorization/retained-authorization-record-v1.mjs';
 import { generateKeyPairSync } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -25,7 +26,7 @@ import { createNativeQuorumHostVerifier, nativeQuorumRegistryCommitment, NATIVE_
 import { CLAIM_ACTIONS as A } from '@lianum/engine/claims/permits';
 import { cloneInput, frozenInput } from '@lianum/components/plain-input';
 
-const source = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../../src/claims/operations/operators.mjs', import.meta.url), 'utf8');
 const start = source.indexOf('export function createClaimOperatorQuorum(input) {');
 const end = source.indexOf('\n/** Original-brand private diagnostics,', start);
 assert.ok(start >= 0 && end > start);
@@ -383,7 +384,7 @@ async function splTailHost(t, { branded = true, copiedNative = false, claimDomai
       assert.equal(request.to, '0x0000000000000000000000000000000000000001'); assert.equal(block, '0x3c');
       return request.data.slice(66, 130) === 27n.toString(16).padStart(64, '0') ? '0x' + '00'.repeat(12) + address : '0x' + '00'.repeat(32);
     } } };
-    const environment = { assert, Buffer, signerIndex: index, initialRecord, bound, vault, observer, address, key: keys[index],
+    const environment = {validateRetainedClaimAuthorizationV1, assert, Buffer, signerIndex: index, initialRecord, bound, vault, observer, address, key: keys[index],
       performance: { now: () => c.time }, copy: cloneInput, freeze: frozenInput, equal: assert.deepEqual,
       claimHash, claimUint, claimBackingFrame, encodeFlatNativeHealth, nativeHubSignatureToAbi, claimIngressAuthorizationFrame,
       lowSignature(key, frame) { c.keys[index]++; return lowSignature(key, frame); }, c,
@@ -436,7 +437,9 @@ test('original SPL first-head quorum: real actor AEAD/signatures, independent ta
     operation.then(() => { settled = true; }, () => { settled = true; });
     await c.reached[0].promise; assert.deepEqual(c.calls.map(x => x.index), [0]); assert.deepEqual(c.keys, [0, 0, 0]);
     c.workGates[0].resolve(); await Promise.all([c.reached[1].promise, c.reached[2].promise]);
-    assert.deepEqual(c.calls.map(x => x.index), [0, 1, 2]);
+    // The first original head must finish before either tail starts. The two
+    // independent authenticated tails may reach their ports in either order.
+    assert.deepEqual([c.calls[0].index, ...c.calls.slice(1).map(x => x.index).sort((a, b) => a - b)], [0, 1, 2]);
     assert.equal(c.keys[0], method === 'ingress' ? 1 : 2); assert.deepEqual(c.keys.slice(1), [0, 0]);
     for (const entry of c.expectedHeads.slice(1)) assert.equal(entry.head, c.returned[0].head);
     c.workGates[2].resolve(); await turn(); assert.equal(settled, false); assert.equal(c.aggregated, 0);

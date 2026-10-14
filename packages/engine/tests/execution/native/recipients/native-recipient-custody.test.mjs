@@ -248,7 +248,7 @@ test('separate process retains private signer across restart and returns only co
 
 test('raw owner IPC rejects arbitrary signing, key export, destination replacement and full-graph input', async t => {
   const { cfg } = await setup(t), child = spawn(process.execPath,
-    [fileURLToPath(new URL('../../src/paeg/native-recipient-process.mjs', import.meta.url)), '--worker'],
+    [fileURLToPath(new URL('../../../../../backend/src/execution/native/recipients/native-recipient-process.mjs', import.meta.url)), '--worker'],
     { stdio: ['pipe', 'pipe', 'pipe', 'pipe'] });
   const closed = new Promise(resolve => child.once('close', (code, signal) => resolve({ code, signal })));
   let buffer = '', stderr = '', seq = 0;

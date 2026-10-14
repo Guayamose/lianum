@@ -10,16 +10,19 @@ import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '@lianum/engine/claim
 import { createClaimRecordStore, openClaimRecordStore } from '../../../src/claims/storage/segmented-record-store.mjs';
 const bindings = new WeakMap(), journals = new WeakMap(), syntheticUnitBindings = new WeakMap(), syntheticSplRuntimes = new WeakSet();
 const url = path => new URL(path, import.meta.url).href;
-mock.module(url('../native-claims/controller.mjs'), { exports: {
+mock.module(url('../../../src/claims/controller/controller.mjs'), { exports: {
+  // This legacy session fixture never opens the newer device-root intake.
+  assertOriginalDeviceRootClaimIntakeV2(){throw Error('TEST_DEVICE_ROOT_INTAKE_NOT_USED');},
+  readOriginalDeviceRootClaimIntakeContextV2(){throw Error('TEST_DEVICE_ROOT_INTAKE_NOT_USED');},
   ownedNativeClaimControllerBindings(controller) { const value = bindings.get(controller); assert.ok(value, 'TEST_ORIGINAL_CONTROLLER'); return value; },
   async restartNativeClaimController(controller) { return bindings.get(controller).restart(); },
 } });
-mock.module(url('../native-claims/controller-journal.mjs'), { exports: {
+mock.module(url('../../../src/claims/controller/controller-journal.mjs'), { exports: {
   ownedClaimControllerJournal(keeper) { assert.ok(journals.has(keeper)); return journals.get(keeper); },
 } });
 // The controller is explicitly synthetic. This dependency substitutes only
 // its fixed legacy presentation; production still requires the sealed system.
-mock.module(url('../native-claims/native-claim-asset-units-v1.mjs'), { exports: {
+mock.module(url('../../../src/claims/operations/native-claim-asset-units-v1.mjs'), { exports: {
   originalNativeClaimAssetUnitsV1(runtime, claims, config) {
     assert.equal(arguments.length, 3); assert.equal(syntheticUnitBindings.get(claims), runtime);
     assert.ok(claims.configs.includes(config));
@@ -505,9 +508,8 @@ test('original mobile claim pairing persists before effects and reconciles only 
 test('mobile redemption retains before-fund destination and fresh PoP in the same original journal, lost reply reconciles without another effect',async()=>{
  const f=await fixture(),keys=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),jwk=keys.publicKey.export({format:'jwk'}),devicePublicKey='04'+Buffer.from(jwk.x,'base64url').toString('hex')+Buffer.from(jwk.y,'base64url').toString('hex');
  const origin='https://127.0.0.1:9443',readers=[];
- const mapped=import.meta.url.includes('/wallet-platform/modules/api/');
- const {nativeClaimDevicePermissionMessageV1,normalizeNativeClaimDevicePermissionV1}=await import(new URL(mapped?'../../../../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs':'../../../../mobile-protocol/src/native-claim-device-v1.mjs',import.meta.url));
- const {createNativeClaimDeviceApiV1}=await import(new URL(mapped?'../../../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs':'../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs',import.meta.url));
+ const {nativeClaimDevicePermissionMessageV1,normalizeNativeClaimDevicePermissionV1}=await import(new URL('../../../../mobile-protocol/src/native-claim-device-v1.mjs',import.meta.url));
+ const {createNativeClaimDeviceApiV1}=await import(new URL('../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs',import.meta.url));
  function signature(permission){const bytes=sign('sha256',nativeClaimDevicePermissionMessageV1(permission),{key:keys.privateKey,dsaEncoding:'ieee-p1363'}),order=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n,s=BigInt('0x'+bytes.subarray(32).toString('hex'));if(s>order/2n)Buffer.from((order-s).toString(16).padStart(64,'0'),'hex').copy(bytes,32);return bytes.toString('hex');}
  async function reader(session){const value=await createPairedOriginalNativeClaimSpendingReaderV1({session,origin,devicePublicKey});readers.push(value);return value;}
  try{const session=await f.session(),mobile=await reader(session),descriptor=assertPairedOriginalNativeClaimReaderV1(mobile);
@@ -539,13 +541,8 @@ test('original SPL mobile pairing follows confirmed BTC SOURCE without adopting 
   const jwk = keys.publicKey.export({ format: 'jwk' }), devicePublicKey = '04'
     + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');
   const origin = 'https://127.0.0.1:9443', heldSessions = [], readers = [];
-  const mapped = import.meta.url.includes('/wallet-platform/modules/api/');
-  const { nativeClaimDevicePermissionMessageV1 } = await import(new URL(mapped
-    ? '../../../../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'
-    : '../../../../mobile-protocol/src/native-claim-device-v1.mjs', import.meta.url));
-  const { createNativeClaimDeviceApiV1 } = await import(new URL(mapped
-    ? '../../../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs'
-    : '../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs', import.meta.url));
+  const { nativeClaimDevicePermissionMessageV1 } = await import(new URL('../../../../mobile-protocol/src/native-claim-device-v1.mjs', import.meta.url));
+  const { createNativeClaimDeviceApiV1 } = await import(new URL('../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs', import.meta.url));
   function signature(permission) {
     const frame = Buffer.from(nativeClaimDevicePermissionMessageV1(permission));
     try { const bytes = sign('sha256', frame, { key: keys.privateKey, dsaEncoding: 'ieee-p1363' });
@@ -624,13 +621,8 @@ test('SPL authenticated READ observes its original direct ingress after send aut
   const jwk = keys.publicKey.export({ format: 'jwk' }), devicePublicKey = '04'
     + Buffer.from(jwk.x, 'base64url').toString('hex') + Buffer.from(jwk.y, 'base64url').toString('hex');
   const origin = 'https://127.0.0.1:9443', readers = [], sessions = [], calls = [];
-  const mapped = import.meta.url.includes('/wallet-platform/modules/api/');
-  const { nativeClaimDevicePermissionMessageV1 } = await import(new URL(mapped
-    ? '../../../../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'
-    : '../../../../mobile-protocol/src/native-claim-device-v1.mjs', import.meta.url));
-  const { createNativeClaimDeviceApiV1 } = await import(new URL(mapped
-    ? '../../../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs'
-    : '../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs', import.meta.url));
+  const { nativeClaimDevicePermissionMessageV1 } = await import(new URL('../../../../mobile-protocol/src/native-claim-device-v1.mjs', import.meta.url));
+  const { createNativeClaimDeviceApiV1 } = await import(new URL('../../../../../apps/mobile/src/api/native-claim-device-api-v1.mjs', import.meta.url));
   function signature(permission) {
     const frame = Buffer.from(nativeClaimDevicePermissionMessageV1(permission));
     try { const bytes = sign('sha256', frame, { key: keys.privateKey, dsaEncoding: 'ieee-p1363' });

@@ -407,7 +407,7 @@ function createFlatOperator(input, custody, recovered = null) {
     } catch (cause) { poison(); throw signingFailure(cause); }
   }
   const {originalFactsEntry,validateOriginalFacts}=createOriginalFactsRetentionV2(Object.freeze({
-    schema:FACTS_SCHEMA,signerIndex,record:()=>record,encodeNativeFacts,policies,equal,sha,
+    schema:FACTS_SCHEMA,signerIndex,record:()=>record,encodeNativeFacts,policies:()=>{retained();assert.ok(policies,'FLAT_OPERATOR_NOT_BOUND');return policies;},equal,sha,
     retained,original:certificate=>originalFactsCertificates.get(certificate),serial,
     healthAllowed,clearAudit,auditAll,coverageFreshness,
   }));

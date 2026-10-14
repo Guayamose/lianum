@@ -17,7 +17,7 @@ const { readFile } = await import('node:fs/promises');
 const { createECDH } = await import('node:crypto');
 const assetOwners = new WeakMap(), testRuntimes = new WeakSet();
 let loadAttempts = 0, nativeFactories = 0;
-mock.module(new URL('../chain-adapters/local-evm-ownership.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url).href, { exports: {
   async assertLocalEvm(runtime) { assert.ok(testRuntimes.has(runtime), 'TEST_OWNED_RUNTIME'); },
 } });
 function assetFor(runtime, native = false) {
@@ -26,14 +26,14 @@ function assetFor(runtime, native = false) {
   async read(query) { runtime.reads.push(query); return { blockNumber: query.blockNumber, blockHash: runtime.header.hash, balance: '0' }; } });
   assetOwners.set(asset, runtime); return asset;
 }
-mock.module(new URL('../chain-adapters/owned-pool-asset.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/shared/contracts/owned-pool-asset.mjs', import.meta.url).href, { exports: {
   assertOwnedPoolAsset(runtime, asset) { assert.ok(assetOwners.has(asset) && assetOwners.get(asset) === runtime, 'TEST_ASSET_CAPABILITY'); },
   async createNativePoolAsset({ runtime }) { nativeFactories++; return assetFor(runtime, true); },
 } });
-mock.module(new URL('./deployment-artifacts.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/operations/deployments/system/deployment-artifacts.mjs', import.meta.url).href, { exports: {
   async loadFlatDeploymentArtifacts() { loadAttempts++; throw new Error('TEST_STOP_BEFORE_ARTIFACTS_OR_SEND'); },
 } });
-const { deployFlatSystem } = await import('../../../../src/operations/deployments/system/deploy-system.mjs?synthetic-asset-preflight');
+const { deployFlatSystem,deployMinimumDepositFlatSystem } = await import('../../../../src/operations/deployments/system/deploy-system.mjs?synthetic-asset-preflight');
 const digest = value => '0x' + BigInt(value).toString(16).padStart(64, '0');
 function fixture() {
   const runtime = { accounts: ['0x' + '11'.repeat(20)], metadata: { chainId: '31337' }, reads: [],
@@ -72,10 +72,21 @@ test('pool asset overrides and copied/cross-runtime capabilities fail before art
 });
 
 test('source wires only pins to planner and makes mixed aggregate aliases explicitly unavailable', async () => {
-  const source = await readFile(new URL('./deploy-system.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../../../src/operations/deployments/system/deploy-system.mjs', import.meta.url), 'utf8');
   assert.match(source, /pools: configuration\.pools\.map\(\(\{ assetCapability, \.\.\.pool \}\) => pool\)/);
   assert.match(source, /assetCapability, assetMetadata: assetCapability\.metadata/);
   assert.match(source, /asset: commonAsset\?\.asset \?\? null/);
   assert.match(source, /assetCodeHash: commonAsset\?\.assetCodeHash \?\? null/);
   assert.match(source, /FLAT_DEPLOY_AMBIGUOUS_AGGREGATE_ASSET/);
+});
+
+
+test('V3 fresh deployment requires explicit per-pool minimum and the independent genuine release gate',async()=>{
+  for(const value of [undefined,'0','01',String(1n<<64n)]){const {runtime,options}=fixture();
+    if(value!==undefined)options.pools[0].minimumDepositAtomic=value;options.pools[1].minimumDepositAtomic='250';
+    await assert.rejects(deployMinimumDepositFlatSystem(runtime,options));assert.equal(runtime.reads.length,0);assert.equal(runtime.transactions.length,0);
+  }
+  const {runtime,options}=fixture();options.pools[0].minimumDepositAtomic='100';options.pools[1].minimumDepositAtomic='250';
+  await assert.rejects(deployMinimumDepositFlatSystem(runtime,options),/FLAT_MINIMUM_LOCAL_ACCEPTANCE_NOT_RELEASED/);
+  assert.equal(runtime.reads.length,0);assert.equal(runtime.transactions.length,0);
 });

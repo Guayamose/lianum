@@ -9,21 +9,14 @@ import { buildFlatDeploymentPlan, deriveFlatLibraryPlans, FLAT_BUILD_PIN, FLAT_V
 import { FIELD_MODULUS, PROFILE_FIELD } from '@lianum/components/encoding/commitments';
 import { predictNativeCreateAddress, nativeStaticArguments } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
+import {readCurrentFlatPublicPlanArtifacts} from '../../../fixtures/operations/deployments/flat-plan-public-artifacts.mjs';
 
-const root = new URL('../../../', import.meta.url);
-const compiledPath = process.env.FLAT_PLAN_COMPILED_BUNDLE
-  ?? new URL(`.local/contracts/${FLAT_BUILD_PIN.attempt}/compiled.json`, root);
-let compilation;
-try { compilation = JSON.parse(await readFile(compiledPath, 'utf8')); }
-catch (error) { if (error.code !== 'ENOENT') throw error; }
-const requiresBundle = { skip: compilation ? false : 'Requires the preserved reviewed compile artifact; never compiles a replacement' };
+// Load exact reviewed resources; absence is a failure, never a skipped case.
+const {compilation,sourceMap}=readCurrentFlatPublicPlanArtifacts();
+const requiresBundle={};
 const digest = n => '0x' + BigInt(n).toString(16).padStart(64, '0');
 const address = n => '0x' + BigInt(n).toString(16).padStart(40, '0');
 const keccak = bytes => '0x' + publicKeccak256(Buffer.from(bytes.slice(2), 'hex')).toString('hex');
-const sourceMap = compilation ? Object.fromEntries(await Promise.all(Object.keys(FLAT_BUILD_PIN.sources).map(async name => {
-  const content = await readFile(new URL('contracts/' + name, root), 'utf8');
-  return [name, { content, sha256: createHash('sha256').update(content).digest('hex') }];
-}))) : undefined;
 // SEC2 public generator multiples. No private keys or signing operation.
 const attesterKeys = [
   ['79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798', '483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8'],

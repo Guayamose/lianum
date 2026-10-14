@@ -54,7 +54,7 @@ export function originalPagedMixedConfigurationPathV3(){assert.equal(arguments.l
 export function normalizePrivatePagedNativeStartupV3(raw,privateRoot){
  assert.equal(arguments.length,2);assert.equal(resolve(privateRoot),privateRoot,'PAGED_NATIVE_STARTUP_DIRECTORY');
  exact(raw,['deployment','journal','nativeDirectory','origin','devicePublicKey','tls','host']);
- exact(raw.deployment,['manifestSHA256','consumerSHA256','deploymentDomain','policy']);exact(raw.journal,['path','password']);exact(raw.tls,['key','cert']);
+ exact(raw.deployment,['manifestSHA256','consumerSHA256','deploymentDomain','policy',...(Object.hasOwn(raw.deployment,'minimumDepositAtomic')?['minimumDepositAtomic']:[])]);exact(raw.journal,['path','password']);exact(raw.tls,['key','cert']);
  for(const key of ['manifestSHA256','consumerSHA256'])digest(raw.deployment[key]);
  for(const key of ['deploymentDomain','policy'])digest(raw.deployment[key],true);
  assert.equal(raw.journal.path,join(privateRoot,'authority','journal.vault'),'PAGED_NATIVE_STARTUP_JOURNAL_PATH');

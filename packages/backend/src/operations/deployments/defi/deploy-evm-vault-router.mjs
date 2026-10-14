@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { DEVELOPMENT_EVM_DIRECTORY, DEVELOPMENT_EVM_BUILD_PIN, developmentEvmBuildAvailable, readDevelopmentEvmBuild } from '../system/development-evm-build.mjs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
+import {resourceRoot} from '@lianum/environment';
 import { readFileSync, lstatSync } from 'node:fs';
 import { assertLocalEvm, assertLocalEvmDeploymentProfile } from '../../../chains/evm/runtime/local-evm-ownership.mjs';
 import { GENERIC_COMPILER_PIN } from '@lianum/engine/execution/local/local-deployment';
@@ -17,7 +18,7 @@ import { assertOwnedPoolAsset } from '../../../chains/shared/contracts/owned-poo
 import { validateEvmVaultDeliveryIdentity, EVM_VAULT_DELIVERY_SELECTOR, EVM_VAULT_DEPOSIT_SELECTOR }
   from '@lianum/engine/encoding/evm-vault-delivery';
 
-const root = new URL('../../../', import.meta.url), owned = new WeakMap(), attempts = new WeakSet();
+const root = resourceRoot('wallet'), owned = new WeakMap(), attempts = new WeakSet();
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const codeSHA = code => sha(Buffer.from(code.slice(2), 'hex'));
 const codeHash = evmRuntimeCodeHash;
@@ -62,11 +63,11 @@ export function loadEvmVaultRouterDeploymentArtifacts() {
   const pin = development ? { ...EVM_VAULT_ROUTER_BUILD_PIN, compiledSHA256: DEVELOPMENT_EVM_BUILD_PIN.routerSHA256 }
     : EVM_VAULT_ROUTER_BUILD_PIN;
   const compilation = pinnedJSON(development ? join(DEVELOPMENT_EVM_DIRECTORY, 'router/compiled.json')
-    : new URL('.local/evm-vault-router/v1/compiled.json', root), pin.compiledSHA256);
+    : join(root,'.local/evm-vault-router/v1/compiled.json'), pin.compiledSHA256);
   // Public metadata for this current rebuild; no historical receipt is recreated.
   const manifest = development ? { ...pin, compiler: compilation.compiler, settings: compilation.settings,
     immutableReferences: compilation.contracts[pin.source][pin.contract].evm.deployedBytecode.immutableReferences }
-    : pinnedJSON(new URL('.local/evm-vault-router/v1/manifest.json', root), pin.manifestSHA256);
+    : pinnedJSON(join(root,'.local/evm-vault-router/v1/manifest.json'), pin.manifestSHA256);
   for (const [key, value] of Object.entries(pin).filter(([key]) => key !== 'manifestSHA256'))
     assert.deepEqual(manifest[key], value, 'EVM_ROUTER_MANIFEST_PIN');
   assert.equal(compilation.classification, 'COMPILED_SOURCES_NOT_DEPLOYMENT_OR_PROOF_ACCEPTANCE');
@@ -76,7 +77,7 @@ export function loadEvmVaultRouterDeploymentArtifacts() {
   assert.deepEqual(Object.keys(compilation.contracts), [pin.source]); assert.deepEqual(Object.keys(compilation.sourceASTs), [pin.source]);
   assert.deepEqual(Object.keys(compilation.contracts[pin.source]).sort(),
     ['IPrivateDeliveryPool', 'IPrivateDeliveryToken', 'IPrivateDeliveryVault', pin.contract]);
-  const source = readFileSync(new URL('contracts/fixtures/' + pin.source, root));
+  const source = readFileSync(join(root,'contracts/fixtures',pin.source));
   assert.equal(sha(source), pin.sourceSHA256, 'EVM_ROUTER_SOURCE_PIN');
   assert.deepEqual(compilation.sources, [{ name: pin.source, sha256: pin.sourceSHA256, bytes: source.length }]);
   const artifact = compilation.contracts[pin.source][pin.contract], ast = compilation.sourceASTs[pin.source];

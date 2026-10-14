@@ -15,7 +15,7 @@ import { inputUint } from "@lianum/components/plain-input";
 /** @typedef {{data:{inventories:Record<string,{state:{entries:Entry[]}}>,adverse:Record<string,unknown>}}} RecordState */
 
 /** @param {{schema:string,signerIndex:number,record():RecordState,
- * encodeNativeFacts(facts:Facts,policy:unknown):Buffer,policies:Record<string,unknown>,
+ * encodeNativeFacts(facts:Facts,policy:unknown):Buffer,policies():Record<string,unknown>,
  * equal(left:unknown,right:unknown,message?:string):void,sha(bytes:Buffer):string,
  * retained():unknown,original(certificate:Certificate):Original|undefined,
  * serial(pool:number,work:(view:View,freshness:Freshness)=>Promise<void>):Promise<void>,
@@ -59,6 +59,7 @@ export function createOriginalFactsRetentionV2(ports) {
   for (const port of [
     record,
     encodeNativeFacts,
+    policies,
     equal,
     sha,
     retained,
@@ -96,7 +97,12 @@ export function createOriginalFactsRetentionV2(ports) {
       request.family,
       "FLAT_OPERATOR_ORIGINAL_FACTS_FAMILY",
     );
-    const state = record().data;
+    const selectedPolicies = policies();
+    assert.ok(selectedPolicies && Object.hasOwn(selectedPolicies, request.family),
+      "FLAT_OPERATOR_NOT_BOUND");
+    const currentRecord = record();
+    assert.ok(currentRecord && currentRecord.data, "FLAT_OPERATOR_NOT_BOUND");
+    const state = currentRecord.data;
     const entry = state.inventories[request.family].state.entries.find(
       (value) => value.facts.nativeGid === certificate.facts.nativeGid,
     );
@@ -114,7 +120,7 @@ export function createOriginalFactsRetentionV2(ports) {
         !state.adverse[entry.facts.nativeGid],
       "FLAT_OPERATOR_ORIGINAL_FACTS_NOT_LIVE",
     );
-    const bytes = encodeNativeFacts(entry.facts, policies[request.family]);
+    const bytes = encodeNativeFacts(entry.facts, selectedPolicies[request.family]);
     assert.equal(
       certificate.frameHex,
       bytes.toString("hex"),

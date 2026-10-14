@@ -60,7 +60,7 @@ test('concurrent cooperative writers admit exactly one update at a revision', as
 test('exclusive lock serializes writers across independent Node processes', async (t) => {
   const { vault, path } = await setup(t);
   await vault.create({ count: 0 }, password);
-  const moduleUrl = new URL('../src/vault.mjs', import.meta.url).href;
+  const moduleUrl = new URL('../../src/crypto/vault.mjs', import.meta.url).href;
   const script = `import { Vault } from ${JSON.stringify(moduleUrl)};
     try {
       await new Vault(process.argv[1]).update(process.argv[2], 0, d => ({count:d.count+1}));
@@ -143,7 +143,7 @@ test('stale crash lock fails closed and orphan encrypted temporary file is never
 test('actual process termination during update preserves committed data and leaves a fail-closed lock', async (t) => {
   const { vault, path, directory } = await setup(t);
   await vault.create({ committed: 'before-process-termination' }, password);
-  const moduleUrl = new URL('../src/vault.mjs', import.meta.url).href;
+  const moduleUrl = new URL('../../src/crypto/vault.mjs', import.meta.url).href;
   const script = `import { Vault } from ${JSON.stringify(moduleUrl)};
     await new Vault(process.argv[1]).update(process.argv[2], 0, () => {
       process.kill(process.pid, 'SIGTERM');

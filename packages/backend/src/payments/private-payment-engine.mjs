@@ -1,3 +1,4 @@
+import {validatePrivateGuardedFundingSourceDeltasV1} from './private-guarded-source-compatibility-v1.mjs';
 import {PRIVATE_RESOURCE_FLOORS,PRIVATE_RESOURCE_POLICY,PRIVATE_PROOF_WORKER_RSS_LIMIT} from '@lianum/components/resources/private-resource-policy';
 /** Fixed-profile PC18 private payment, owned synthetic local assets only.
  * Importing is inert. The public entrypoint accepts no endpoint, executable,
@@ -526,7 +527,7 @@ export function sideEndpoint(stream, { channel, pid, inventory, label }) {
  * its invoice/opening for withdrawal, never an owner key or sibling package.
  */
 export async function startRecipient(config, inventory, ownedChildren) {
-  const child = spawn(process.execPath, [join(projectRoot, 'src/private-recipient-process.mjs')], { cwd: projectRoot, stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: 'C.UTF-8' } });
+  const child = spawn(process.execPath, [fileURLToPath(new URL('../../../engine/src/recipients/private-recipient-process.mjs', import.meta.url))], { cwd: projectRoot, stdio: ['pipe', 'pipe', 'pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: 'C.UTF-8' } });
   trackOwnedChild(child);ownedChildren.push(child); let serial = 0, readyResolve, readyReject, exitResolve, closed = false; const pending = new Map();
   const ready = new Promise((resolve, reject) => { readyResolve = resolve; readyReject = reject; }); const exited = new Promise(resolve => { exitResolve = resolve; });
   const rejectAll = error => { readyReject(error); for (const p of pending.values()) { clearTimeout(p.timer); p.reject(error); } pending.clear(); };
@@ -536,7 +537,7 @@ export async function startRecipient(config, inventory, ownedChildren) {
     inventory.push({ actor: 'recipient', role: config.expectedTerms.role, channel: p.channel, operation: p.operation, inputFields: p.inputFields, outputFields: assemblyFieldInventory(reply.value), ok: reply.ok, atNs: stamp(), ...(reply.ok ? { responseSHA256: assemblyPackageDigest(reply.value) } : { code: safeCode({ code: reply.code }) }) });
     if (reply.ok && reply.channel === p.channel) p.resolve(reply.value); else p.reject(Object.assign(new Error(reply.code ?? 'PC18_RECIPIENT_CHANNEL'), { code: reply.code }));
   }, rejectAll, 32 * 1024);
-  child.stdout.on('data', chunk => decoder.push(chunk)); child.stdout.on('end', () => decoder.end()); child.stderr.resume(); child.stdin.on('error', () => {}); child.stdio[4].on('error', () => {});
+  child.stdout.on('data', chunk => decoder.push(chunk)); child.stdout.on('end', () => decoder.end()); child.stdout.on('error', rejectAll); child.stdio[3].on('error', rejectAll); child.stderr.on('error', rejectAll); child.stderr.resume(); child.stdin.on('error', () => {}); child.stdio[4].on('error', () => {});
   child.once('error', rejectAll); child.once('close', (code, signal) => { closed = true; rejectAll(new Error('PC18_RECIPIENT_EXIT')); exitResolve({ pid: child.pid, code, signal, exitedAtNs: stamp() }); });
   child.stdio[3].end(JSON.stringify({ mode: 'create', ...config }));
   let startupTimer;
@@ -672,17 +673,7 @@ export async function loadPrivateGuardedFundingSourcePins(frozen) {
   assert.equal(profile.genuineGuardedFundingRunCompleted,false,'PC22_SOURCE_PROFILE_NATIVE_CLAIM');
   assert.deepEqual(profile.baselineNativeReport,{file:FROZEN_NATIVE_FILE,sha256:FROZEN_NATIVE_SHA256},'PC22_SOURCE_PROFILE_BASELINE');
   assert.deepEqual(Object.keys(profile.allowedSourceDeltas).sort(),['contracts/PrivateAssemblyNativeNotePool.sol','src/private-assembly-runtime.mjs'],'PC22_SOURCE_PROFILE_PATHS');
-  const overrides={};
-  for(const [file,delta]of Object.entries(profile.allowedSourceDeltas)) {
-    assert.deepEqual(Object.keys(delta).sort(),['current','previous'],'PC22_SOURCE_PROFILE_DELTA');
-    assert.deepEqual(delta.previous,frozen.sources[file],'PC22_SOURCE_PROFILE_PREVIOUS_PIN');
-    for(const pin of [delta.previous,delta.current]) {
-      assert.deepEqual(Object.keys(pin).sort(),['bytes','sha256'],'PC22_SOURCE_PROFILE_PIN_FIELDS');
-      assert.match(pin.sha256,/^[0-9a-f]{64}$/,'PC22_SOURCE_PROFILE_HASH');assert.ok(Number.isSafeInteger(pin.bytes)&&pin.bytes>0,'PC22_SOURCE_PROFILE_BYTES');
-    }
-    overrides[file]=Object.freeze({...delta.current});
-  }
-  return Object.freeze(overrides);
+  return validatePrivateGuardedFundingSourceDeltasV1(profile.allowedSourceDeltas,frozen.sources);
 }
 
 

@@ -7,9 +7,12 @@ import vm from 'node:vm';
 import { encodeClaimABI, claimABIType } from '@lianum/engine/claims/abi';
 import { evmFunctionSelector } from '../../../../src/chains/evm/contracts/evm-code-hash.mjs';
 import { exactRecord, fixedArray } from '@lianum/components/encoding/commitments';
+
 import { nativeStaticArguments } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
+const freezeSource=readFileSync(new URL('../../../../src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs',import.meta.url),'utf8');
+const freeze=vm.runInThisContext('('+freezeSource.slice(freezeSource.indexOf('function freeze('),freezeSource.indexOf('// BEGIN BOUNDED ORIGINAL DEPLOYMENT FAILURE DATA.'))+')');
 const read=name=>readFileSync(new URL(name,import.meta.url),'utf8');
-const system=read('./wrapped-claim-system-v1.mjs'),plan=read('./wrapped-claim-deployment-plan-v1.mjs');
+const system=read('../../../../src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs'),plan=read('../../../../src/operations/deployments/wrapped/wrapped-claim-deployment-plan-v1.mjs');
 const cut=(text,start,end)=>{const a=text.indexOf(start),b=text.indexOf(end,a);assert.ok(a>=0&&b>a);return text.slice(a,b);};
 const compile=(text,env)=>vm.runInThisContext('(function({'+Object.keys(env).join(',')+'}){'+text+'\n})')(env);
 const resolve=(selector=evmFunctionSelector)=>compile(cut(plan,'export function claimArtifactMethod(', '\n/** Native currency identity').replace('export ', '')+';return claimArtifactMethod;', {assert,claimABIType,evmFunctionSelector:selector});
@@ -17,7 +20,7 @@ const claimFactory=(method=resolve())=>compile(cut(system,'function abiValues(',
   {assert,fixedArray,exactRecord,encodeClaimABI,prefix:x=>'0x'+x,claimArtifactMethod:method});
 const graphFactory=(selector=evmFunctionSelector)=>compile(cut(system,'const canonicalType =','\n/** The exact object')
   +cut(system,'function viewFacade(', '\nasync function unchangedHead')+';return viewFacade;',
-  {assert,fixedArray,exactRecord,nativeStaticArguments,evmFunctionSelector:selector});
+  {assert,freeze,fixedArray,exactRecord,nativeStaticArguments,evmFunctionSelector:selector});
 function artifact(){
   const methods=[['totalSupply',[],'view'],['balanceOf',[{name:'owner',type:'address'}],'view'],['setValue',[{name:'value',type:'uint256'}],'nonpayable']];
   return {abi:methods.map(([name,inputs,stateMutability])=>({type:'function',name,inputs,stateMutability})),evm:{methodIdentifiers:Object.fromEntries(methods.map(([name,inputs])=>{const s=name+'('+inputs.map(x=>x.type).join(',')+')';return[s,evmFunctionSelector(s)];}))}};
@@ -35,8 +38,10 @@ test('wrapped GRAPH facade resolves once per RPC and preserves read-only/compile
   let resolves=0;const f=fixture(graphFactory(s=>{resolves++;return evmFunctionSelector(s);}));
   for(const block of ['0x1','0x2'])await f.target.call('totalSupply()',[],block);
   assert.equal(resolves,2);assert.deepEqual(f.calls,['0x1','0x2'].map(block=>[{to:f.record.address,data:'0x18160ddd'},block]));
-  f.data.evm.methodIdentifiers['totalSupply()']='00000000';await assert.rejects(f.target.call('totalSupply()'),/METHOD_SELECTOR/);
-  f.data.evm.methodIdentifiers['totalSupply()']='18160ddd';f.data.abi[0].stateMutability='nonpayable';await assert.rejects(f.target.call('totalSupply()'),/READ_ONLY_METHOD/);
+  assert.ok(Object.isFrozen(f.data.evm.methodIdentifiers)&&Object.isFrozen(f.data.abi[0]));
+  assert.throws(()=>{f.data.evm.methodIdentifiers['totalSupply()']='00000000';},TypeError);
+  assert.throws(()=>{f.data.abi[0].stateMutability='nonpayable';},TypeError);
+  for(const patch of [data=>{data.evm.methodIdentifiers['totalSupply()']='00000000';},data=>{data.abi[0].stateMutability='nonpayable';}]){const bad=artifact();patch(bad);const target=graphFactory()({call:async()=>{throw Error('UNEXPECTED_RPC');}},f.record,bad);await assert.rejects(target.call('totalSupply()'),/METHOD_SELECTOR|READ_ONLY_METHOD/);}
   assert.equal(f.calls.length,2);
 });
 
@@ -45,8 +50,8 @@ test('both wrapped facades reject invalid mutable ABI/compiler maps, duplicate m
     const f=fixture(factory);await f.target.call('balanceOf(address)',['0x'+'34'.repeat(20)]);
     await assert.rejects(f.target.call('setValue(uint256)',['1']),/VIEW_ONLY|READ_ONLY_METHOD/);
     for(const args of [[],['bad'],new Proxy(['0x'+'34'.repeat(20)],{}),Object.defineProperty([],'0',{get(){throw Error('must not invoke');},enumerable:true})])await assert.rejects(f.target.call('balanceOf(address)',args));
-    f.data.evm.methodIdentifiers['balanceOf(address)']='00000000';await assert.rejects(f.target.call('balanceOf(address)',['0x'+'34'.repeat(20)]),/COMPILER_SELECTOR|METHOD_SELECTOR/);
-    f.data.evm.methodIdentifiers['balanceOf(address)']='70a08231';f.data.abi.push(structuredClone(f.data.abi[1]));await assert.rejects(f.target.call('balanceOf(address)',['0x'+'34'.repeat(20)]),/ABI_METHOD/);
+    if(Object.isFrozen(f.data))assert.throws(()=>{f.data.evm.methodIdentifiers['balanceOf(address)']='00000000';},TypeError);
+    for(const patch of [data=>{data.evm.methodIdentifiers['balanceOf(address)']='00000000';},data=>{data.abi.push(structuredClone(data.abi[1]));}]){const bad=artifact();patch(bad);const target=factory({call:async()=>{throw Error('UNEXPECTED_RPC');}},f.record,bad);await assert.rejects(target.call('balanceOf(address)',['0x'+'34'.repeat(20)]),/COMPILER_SELECTOR|METHOD_SELECTOR|ABI_METHOD/);}
     assert.equal(f.calls.length,1);
   }
 });
@@ -56,7 +61,7 @@ test('wrapped nominal library selector remains compiler-authoritative while tupl
   const canonical='inspect((uint256,address[2]))',nominal='inspect(Lib.Item)',data={abi:[{type:'function',name:'inspect',inputs:[input],stateMutability:'view'}],evm:{methodIdentifiers:{[nominal]:evmFunctionSelector(nominal)}}};
   const args=[{amount:'7',owners:['0x'+'12'.repeat(20),'0x'+'34'.repeat(20)]}],wanted='0x'+evmFunctionSelector(nominal)+'7'.padStart(64,'0')+'12'.repeat(20).padStart(64,'0')+'34'.repeat(20).padStart(64,'0');
   for(const factory of [claimFactory(),graphFactory()]){const calls=[],target=factory({call:async x=>calls.push(x)},{address:'0x'+'56'.repeat(20)},data);await target.call(canonical,args);assert.equal(calls[0].data,wanted);assert.equal(target.data(nominal,args),wanted);}
-  data.evm.methodIdentifiers[nominal]=evmFunctionSelector(canonical);assert.throws(()=>resolve()(data,canonical),/COMPILER_SELECTOR/);
+  const changed=structuredClone(data);changed.evm.methodIdentifiers[nominal]=evmFunctionSelector(canonical);assert.throws(()=>resolve()(changed,canonical),/COMPILER_SELECTOR/);
 });
 
 test('wrapped claim dynamic ABI bytes and integer conversion are unchanged',async()=>{
@@ -68,7 +73,7 @@ test('wrapped claim dynamic ABI bytes and integer conversion are unchanged',asyn
 });
 
 test('shared exact-byte cache obeys its original accounting bound and FIFO eviction, without digest-key collisions',()=>{
-  const text=read('../chain-adapters/evm-code-hash.mjs');const body=text.slice(text.indexOf('const MAX_RUNTIME_BYTES')).replaceAll('export ','');
+  const text=read('../../../../src/chains/evm/contracts/evm-code-hash.mjs');const body=text.slice(text.indexOf('const MAX_RUNTIME_BYTES')).replaceAll('export ','');
   let hashes=0;const api=compile(body+';return {evmRuntimeCodeHash,evmFunctionSelector,state:()=>({retainedBytes,keys:[...digests.keys()],limit:MAX_RETAINED_BYTES})};',
     {assert,Buffer,publicKeccak256:bytes=>{hashes++;return Buffer.alloc(32,17);}});
   api.evmFunctionSelector('a()');api.evmFunctionSelector('b()');assert.equal(hashes,2,'equal output digests do not alias different cache byte keys');

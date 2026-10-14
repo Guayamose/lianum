@@ -4,28 +4,32 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {resourceRoot} from '@lianum/environment';
+import {join} from 'node:path';
+import {DEVELOPMENT_EVM_DIRECTORY,DEVELOPMENT_EVM_BUILD_PIN,developmentEvmBuildAvailable,readDevelopmentEvmBuild} from '../../../../src/operations/deployments/system/development-evm-build.mjs';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { deriveNativeRuntimeCode, predictNativeCreateAddress } from '../../../../src/execution/native/dispatch/native-deployment.mjs';
 import { buildBackedAssetDeploymentPlan, loadBackedAssetDeploymentArtifacts } from '../../../../src/operations/deployments/defi/deploy-backed-assets.mjs';
 import { LOCAL_EVM_PROFILE } from '@lianum/engine/execution/local/local-evm';
 const brands = { runtimes: new WeakSet(), systems: new WeakMap(), assets: new WeakMap(), pools: new WeakSet() };
-mock.module(new URL('../chain-adapters/owned-evm-v2-runtime.mjs', import.meta.url).href, { exports: { LOCAL_EVM_PROFILE } });
-mock.module(new URL('../chain-adapters/local-evm-ownership.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs', import.meta.url).href, { exports: { LOCAL_EVM_PROFILE } });
+mock.module(new URL('../../../../src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url).href, { exports: {
+  async assertLocalEvmDeploymentProfile(runtime){assert.ok(brands.runtimes.has(runtime),'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED');return LOCAL_EVM_PROFILE;},
   async assertLocalEvm(runtime) { assert.ok(brands.runtimes.has(runtime), 'LOCAL_EVM_OWNED_CAPABILITY_REQUIRED'); },
 } });
-mock.module(new URL('./deploy-system.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/operations/deployments/system/deploy-system.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatSystem(runtime, system) { assert.equal(brands.systems.get(system), runtime, 'FLAT_OWNED_SYSTEM_CAPABILITY_REQUIRED'); },
 } });
-mock.module(new URL('./deploy-backed-assets.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/operations/deployments/defi/deploy-backed-assets.mjs', import.meta.url).href, { exports: {
   loadBackedAssetDeploymentArtifacts,
   assertOwnedBackedAssets(runtime, assets) { assert.equal(brands.assets.get(assets), runtime, 'BACKED_DEPLOY_OWNED_CAPABILITY_REQUIRED'); },
 } });
-mock.module(new URL('../chain-adapters/owned-pool-asset.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../../src/chains/shared/contracts/owned-pool-asset.mjs', import.meta.url).href, { exports: {
   assertOwnedPoolAsset(runtime, asset) { assert.ok(brands.runtimes.has(runtime) && brands.pools.has(asset), 'OWNED_POOL_ASSET_CAPABILITY_REQUIRED'); },
 } });
 const { EVM_VAULT_ROUTER_BUILD_PIN, loadEvmVaultRouterDeploymentArtifacts, deployEvmVaultRouter, assertOwnedEvmVaultRouter }
-  = await import('../../../../src/operations/deployments/defi/deploy-evm-vault-router.mjs');
+  = await import('../../../../src/operations/deployments/defi/deploy-evm-vault-router.mjs?synthetic-router-bootstrap');
 const sha = value => createHash('sha256').update(value).digest('hex'), word = value => BigInt(value).toString(16).padStart(64, '0');
 const digest = value => '0x' + word(value), address = value => '0x' + word(value).slice(-40), hex = value => '0x' + BigInt(value).toString(16);
 const hashCode = code => '0x' + publicKeccak256(Buffer.from(code.slice(2), 'hex')).toString('hex');
@@ -128,11 +132,12 @@ function fixture() {
 
 test('fixed capture preserves original compiler, source, AST, ABI, all immutable offsets and contract sizes', () => {
   assert.equal(bundle.manifest.compiler.version, '0.8.37+commit.f401782d.Emscripten.clang');
-  assert.equal(bundle.manifest.compilerRerun, false); assert.equal(bundle.manifest.nativeNodesStarted, false);
-  assert.equal(bundle.manifest.proofGenerated, false); assert.equal(bundle.manifest.privateDeFiAcceptance, false);
+  if(developmentEvmBuildAvailable()){const reviewed=readDevelopmentEvmBuild();assert.equal(reviewed.nativeNodesStarted,false);assert.equal(reviewed.proofGenerated,false);assert.equal(reviewed.historicalReportsRecreated,false);}
+  else{assert.equal(bundle.manifest.compilerRerun,false);assert.equal(bundle.manifest.nativeNodesStarted,false);assert.equal(bundle.manifest.proofGenerated,false);assert.equal(bundle.manifest.privateDeFiAcceptance,false);}
   assert.equal(bundle.manifest.runtimeBytes, 22929); assert.equal(bundle.manifest.creationBytes, 27712);
   assert.equal(Object.keys(bundle.immutableNames).length, 16); assert.ok(Object.isFrozen(bundle.artifact.abi));
-  assert.equal(sha(readFileSync(new URL('../../../.local/evm-vault-router/v1/compiled.json', import.meta.url))), EVM_VAULT_ROUTER_BUILD_PIN.compiledSHA256);
+  const path=developmentEvmBuildAvailable()?join(DEVELOPMENT_EVM_DIRECTORY,'router/compiled.json'):join(resourceRoot('wallet'),'.local/evm-vault-router/v1/compiled.json');
+  assert.equal(sha(readFileSync(path)),developmentEvmBuildAvailable()?DEVELOPMENT_EVM_BUILD_PIN.routerSHA256:EVM_VAULT_ROUTER_BUILD_PIN.compiledSHA256);
   assert.throws(() => loadEvmVaultRouterDeploymentArtifacts({ source: '/tmp/other' }), /NO_OPTIONS/);
 });
 test('mocked original CREATE derives all constructor/runtime identities independently and brands exact object only', async () => {
@@ -189,4 +194,11 @@ test('caller overrides and lookalike brands fail without touching attacker state
     await assert.rejects(deployEvmVaultRouter(runtime, {}, { ...options, [key]: 'substitution' }), /EXACT_FIELDS/);
   const f = fixture(); await assert.rejects(deployEvmVaultRouter(f.runtime, f.system, { ...f.options, backedAssets: { ...f.options.backedAssets } }), /BACKED_DEPLOY_OWNED/);
   assert.equal(f.c.sends, 0);
+});
+
+test('canonical router source remains bound to its original bytes and rejects tamper before deployment',()=>{
+ const path=join(resourceRoot('wallet'),'contracts/fixtures',EVM_VAULT_ROUTER_BUILD_PIN.source),original=readFileSync(path);
+ assert.equal(sha(original),EVM_VAULT_ROUTER_BUILD_PIN.sourceSHA256);
+ try{const changed=Buffer.from(original);changed[0]^=1;writeFileSync(path,changed);assert.throws(()=>loadEvmVaultRouterDeploymentArtifacts(),/EVM_ROUTER_SOURCE_PIN/);}
+ finally{writeFileSync(path,original);assert.equal(sha(readFileSync(path)),EVM_VAULT_ROUTER_BUILD_PIN.sourceSHA256);}
 });

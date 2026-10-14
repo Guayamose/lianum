@@ -8,17 +8,20 @@ import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '@lianum/engine/claim
 
 const systems = new WeakMap(), portfolios = new WeakMap(), observers = new WeakMap(), quorums = new WeakMap();
 const url = path => new URL(path, import.meta.url).href;
-mock.module(url('../ops/deploy-native-claims.mjs'), { exports: {
+mock.module(url('../../../src/operations/deployments/claims/deploy-native-claims.mjs'), { exports: {
   assertOwnedNativeClaimSystem(runtime, claims) { assert.equal(systems.get(claims), runtime, 'TEST_ORIGINAL_SYSTEM'); },
 } });
-mock.module(url('../global-state/flat-portfolio-authority.mjs'), { exports: {
+mock.module(url('../../../src/accounts/authority/flat-portfolio-authority.mjs'), { exports: {
   assertOwnedFlatPortfolio(runtime, portfolio) { assert.equal(portfolios.get(portfolio), runtime, 'TEST_ORIGINAL_PORTFOLIO'); },
 } });
-mock.module(url('./owned-state.mjs'), { exports: {
+mock.module(url('../../../src/claims/operations/owned-state.mjs'), { exports: {
   assertOwnedClaimObserver(observer) { assert.ok(observers.has(observer), 'TEST_ORIGINAL_OBSERVER'); },
   ownedClaimObserverBindings(observer) { assert.ok(observers.has(observer), 'TEST_ORIGINAL_OBSERVER'); return observers.get(observer); },
 } });
-mock.module(url('./operators.mjs'), { exports: {
+mock.module(url('../../../src/claims/operations/operators.mjs'), { exports: {
+  createScopedClaimOperator(){assert.fail('UNUSED_SCOPED_CLAIM_OPERATOR');},
+  consumeClaimOperatorKeyLeaseV4(){assert.fail('UNUSED_CLAIM_OPERATOR_LEASE');},
+  consumeClaimPayoutFactsKeyLeaseV4(){assert.fail('UNUSED_CLAIM_PAYOUT_LEASE');},
   assertOwnedClaimOperatorQuorum(quorum, observer) { assert.equal(quorums.get(quorum), observer, 'TEST_ORIGINAL_QUORUM'); },
 } });
 const { createNativeClaimPortfolioView } = await import('../../../src/claims/operations/portfolio-view.mjs');
@@ -174,7 +177,7 @@ test('private-view status, coherence and unavailable assets skip custody reads a
 });
 
 test('funded private evidence precedes readiness assertions while native run/profile guards stay closed', () => {
-  const source = readFileSync(new URL('../../../integration/native-claim-flow.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../../tests/integration/claims/lifecycle/native-claim-flow.mjs', import.meta.url), 'utf8');
   const start = source.indexOf('const funded = await ownerView();');
   const end = source.indexOf('result.acceptance.coherentPrivateAccount = true;', start);
   assert.ok(start >= 0 && end > start);
@@ -182,5 +185,5 @@ test('funded private evidence precedes readiness assertions while native run/pro
   assert.ok(write > 0 && write < region.indexOf('assert.'));
   assert.match(region, /assert\.ok\(funded\.nativeClaims\.every\(asset => asset\.custodyObservation === 'CURRENT_QUORUM'\),\s*'NATIVE_CLAIM_FUNDED_PORTFOLIO_CUSTODY_UNAVAILABLE'\)/);
   assert.match(source, /const REAL_NATIVE_RUN_DISABLED = true;/);
-  assert.match(source, /const ACCEPTANCE_PROFILE = 'SOLANA_LOADED_POST_DELIVERY_FACTS_PROBE';/);
+  assert.match(source, /const ACCEPTANCE_PROFILE = beginPayoutAuditProfile \? CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1 : loadedV3Profile \? CLAIM_LOADED_V3_PROFILE\s*: ingressV3Profile \? CLAIM_GRAPH_V3_PROFILE : 'SOLANA_LOADED_POST_DELIVERY_FACTS_PROBE';/);
 });

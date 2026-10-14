@@ -9,9 +9,9 @@ import vm from 'node:vm';
 import { isDeepStrictEqual } from 'node:util';
 import { cloneInput as copy, frozenInput as freeze } from "@lianum/components/plain-input";
 import { exactRecord } from '@lianum/components/encoding/commitments';
-const graphSource = readFileSync(new URL('./native-operators.mjs', import.meta.url), 'utf8');
-const bridgeSource = readFileSync(new URL('./combined-native-operators.mjs', import.meta.url), 'utf8');
-const claimSource = readFileSync(new URL('../native-claims/operators.mjs', import.meta.url), 'utf8');
+const graphSource = readFileSync(new URL('../../../src/operations/operators/claims/native-operators.mjs', import.meta.url), 'utf8');
+const bridgeSource = readFileSync(new URL('../../../src/operations/operators/claims/combined-native-operators.mjs', import.meta.url), 'utf8');
+const claimSource = readFileSync(new URL('../../../src/claims/operations/operators.mjs', import.meta.url), 'utf8');
 const cut = (source, from, until) => {
   const a = source.indexOf(from), b = source.indexOf(until, a);
   assert.ok(a >= 0 && b > a, 'TEST_EXACT_SOURCE_BOUNDARY'); return source.slice(a, b);
@@ -71,7 +71,7 @@ test('V4 fixed source token rejects an EVM-only later GRAPH adverse audit and re
 test('V4 source token retains the generation of its exact completed reciprocal audit before a later claim current await', async () => {
   const f = fixture(); let lease;
   const activeV4 = { setGraphSource(value) { lease = value; }, assertGraphSource() { f.bridge.assertCombinedGraphSourceCurrentV4(f.token, lease); } };
-  const joint = compile(jointSource + ';return jointCurrent;', { custody: f.token, activeView: { head: f.head }, activeV4,
+  const joint = compile(jointSource + ';return jointCurrent;', { enterMetrics:()=>Object.freeze({}),leaveMetrics:()=>{}, custody: f.token, activeView: { head: f.head }, activeV4,
     assertCombinedGraphCoverage: () => assert.fail('TEST_NO_BASELINE_DOWNGRADE'),
     assertCombinedGraphCoverageV4: f.bridge.assertCombinedGraphCoverageV4,
     current: async () => { if (++f.c.claimChecks === 2) { f.c.adverse = true; await f.graph.audit(); } } });

@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createECDH, createPrivateKey, sign } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import {readReviewedRelationABI} from '../../../fixtures/execution/reviewed-public-artifacts.mjs';
 import { buildAdmissionInputs } from '../../../../src/execution/account/preparation/admission-inputs.mjs';
 import { createCommitmentCodec, ZERO } from '@lianum/components/encoding/commitments';
 import { readyDescriptorWords } from '../../../../src/execution/account/preparation/readiness-inputs.mjs';
@@ -25,9 +25,7 @@ const field = label => '00' + h(label).slice(2);
 const hashFields = async fields => field(fields.map(String).join(':'));
 const codec = createCommitmentCodec({ hashFields });
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
-const abi = JSON.parse(readFileSync(new URL('../../../.local/proof-workers/relations/admission/'
-  + '8ca62b3db31b9ce3b4453493c92984e450586ccfaf0363545cc22443d56a5ad2/compiled/'
-  + 'eebde15a-9694-4a60-a857-31ae4ca63345/program.json', import.meta.url))).abi;
+const abi=readReviewedRelationABI('admission');
 function syntheticSigner(index) {
   const d = Buffer.from(index.toString(16).padStart(64, '0'), 'hex');
   const curve = createECDH('secp256k1'); curve.setPrivateKey(d);

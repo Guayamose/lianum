@@ -184,7 +184,7 @@ test('HOST ONLY: owner fd3 accepts custody bootstrap without leaking it to publi
 
 test('HOST ONLY: recovery child itself rejects creation/key/arbitrary signing and bootstrap fields on command IPC', async t => {
   const { cfg, wallet, opening } = await persisted(t); wallet.close();
-  const child = spawn(process.execPath, [fileURLToPath(new URL('../src/private-owner-refund-process.mjs', import.meta.url))], { stdio: ['pipe', 'pipe', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [fileURLToPath(new URL('../../src/recovery/private-owner-refund-process.mjs', import.meta.url))], { stdio: ['pipe', 'pipe', 'pipe', 'pipe'] });
   t.after(() => child.kill('SIGKILL')); child.stderr.resume();
   let pending = '', values = [], waiters = [];
   child.stdout.setEncoding('utf8'); child.stdout.on('data', text => { pending += text; let i; while ((i = pending.indexOf('\n')) >= 0) { const value = JSON.parse(pending.slice(0, i)); pending = pending.slice(i + 1); const next = waiters.shift(); if (next) next(value); else values.push(value); } });

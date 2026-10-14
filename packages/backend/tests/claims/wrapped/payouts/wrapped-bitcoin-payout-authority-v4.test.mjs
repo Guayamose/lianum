@@ -16,6 +16,7 @@ import { encodeDepositIntentInputs } from '@lianum/engine/execution/inputs/depos
 import { balanceCommitment } from '@lianum/engine/wallet/notes/private-wallet-note-encoding';
 import * as originalAdmission from '@lianum/engine/execution/native/dispatch/native-admission';
 import * as originalTooling from '@lianum/proofs/tooling/tooling';
+import * as originalWireCodec from '../../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import * as originalEvm from '../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs';
 import { publicKeccak256 } from '@lianum/engine/cohorts/private-cohort-public-native';
 import { claimABIType } from '@lianum/engine/claims/abi';
@@ -59,16 +60,17 @@ function v4Quorum(target, control) {
 
 // Existing wrapped factory dependency ports are explicit synthetic host fixtures.
 // These do not satisfy the unmocked deployment/release/registration factories.
-mock.module(url('./wrapped-ingress-deployment-v1.mjs'), { exports: { assertNonceIngressDeployment() { return true; } } });
-mock.module(url('./operational-registration-v2.mjs'), { exports: {
+mock.module(url('../../../../src/claims/wrapped/ingress/wrapped-ingress-deployment-v1.mjs'), { exports: { assertNonceIngressDeployment() { return true; } } });
+mock.module(url('../../../../src/claims/ingress/operational-registration-v2.mjs'), { exports: {
   validateWrappedClaimOperationalRegistration() { return {claims:[{registration:{profile:{synthetic:true},profilePath:{synthetic:true},sources:[]}}]}; }
 } });
-mock.module(url('../ops/wrapped-claim-system-v1.mjs'), { exports: { assertOwnedWrappedClaimSystem(runtime, claims) { assert.equal(systems.get(claims), runtime, 'TEST_OWNED_CLAIMS'); } } });
-mock.module(url('../chain-adapters/owned-evm-v2-runtime.mjs'), { exports: { ...originalEvm, LOCAL_EVM_PROFILE: { maxGas: 30000000 },
+mock.module(url('../../../../src/operations/deployments/wrapped/wrapped-claim-system-v1.mjs'), { exports: { assertOwnedWrappedClaimSystem(runtime, claims) { assert.equal(systems.get(claims), runtime, 'TEST_OWNED_CLAIMS'); } } });
+mock.module(url('../../../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'), { exports: { ...originalEvm, LOCAL_EVM_PROFILE: { maxGas: 30000000 },
   async assertOwnedLocalEvmV2(runtime) { assert.equal(runtime.testOwned, true); },
   assertSignedEvmTransaction(wire, expected) { assert.ok(wire.startsWith('0x')); assert.ok(expected.data); } } });
-mock.module(url('./wrapped-owned-state-v1.mjs'), { exports: { assertOwnedWrappedClaimObserverV1(o) { assert.ok(observers.has(o)); }, ownedWrappedClaimObserverBindingsV1(o) { return observers.get(o); } } });
-mock.module(url('./wrapped-operators-v1.mjs'), { exports: {
+mock.module(url('../../../../src/chains/evm/contracts/transaction-wire-codec.mjs'),{exports:{...originalWireCodec,assertSignedEvmTransaction(wire,expected){assert.ok(wire.startsWith('0x'));assert.ok(expected.data);}}});
+mock.module(url('../../../../src/claims/wrapped/operations/wrapped-owned-state-v1.mjs'), { exports: { assertOwnedWrappedClaimObserverV1(o) { assert.ok(observers.has(o)); }, ownedWrappedClaimObserverBindingsV1(o) { return observers.get(o); } } });
+mock.module(url('../../../../src/claims/wrapped/operations/wrapped-operators-v1.mjs'), { exports: {
   openWrappedClaimOriginalAuthorizationLeaseV4(token, quorum, result) {
     const state = testV4Tokens.get(token); testV4Tokens.delete(token);
     assert.ok(state && state.quorum===quorum && state.result===result,'TEST_ORIGINAL_V4_TRIPLE');
@@ -97,34 +99,34 @@ mock.module(url('./wrapped-operators-v1.mjs'), { exports: {
   assertOwnedClaimOperator(op, observer) { assert.equal(op.observer, observer); assert.ok(!poisonedOperators.has(op), 'COMBINED_OPERATOR_CLOSED_OR_POISONED'); },
   assertOwnedClaimOperatorQuorum(q, observer) { assert.equal(q.observer, observer); assert.ok(!poisonedQuorums.has(q), 'COMBINED_OPERATOR_CLOSED_OR_POISONED'); },
 } });
-mock.module(url('../../../proof-workers/wrapped-claim-client-v1.mjs'), { exports: { assertWrappedClaimRoleProofClientV1(client, role) { assert.equal(roles.get(client), role); } } });
-mock.module(url('../../../mobile-core/wrapped-claim-owner-process-v1.mjs'), { exports: { assertOwnedWrappedClaimIngressHandoffV1(h, expected) {
+mock.module(url('../../../../src/proving/wrapped-claims/runtime/wrapped-claim-client-v1.mjs'), { exports: { assertWrappedClaimRoleProofClientV1(client, role) { assert.equal(roles.get(client), role); } } });
+mock.module(url('../../../../src/custody/processes/wrapped-claim-owner-process-v1.mjs'), { exports: { assertOwnedWrappedClaimIngressHandoffV1(h, expected) {
   assert.ok(hands.has(h), 'TEST_REAL_HANDOFF_ONLY'); for (const [k, v] of Object.entries(expected)) assert.equal(hands.get(h)[k], v); } } });
-mock.module(url('../paeg/wrapped-claim-system-state-v1.mjs'), { exports: { async createWrappedClaimGraphStateReaderV1({ runtime }) { return {
+mock.module(url('../../../../src/execution/wrapped/reconciliation/wrapped-claim-system-state-v1.mjs'), { exports: { async createWrappedClaimGraphStateReaderV1({ runtime }) { return {
   async read() { return { head: structuredClone(runtime.testState.head),
     state: { revokedDigest: zero, revokedCount: '0', revocationSequence: '0' }, revokedEntries: [] }; },
 }; } } });
 // Explicit host-only proof scaffolding for lifecycle ordering tests. Neither a
 // compiler, hash backend nor prover can run through these replacements.
-mock.module(url('../../../proof-workers/tooling.mjs'), { exports: { ...originalTooling,
+mock.module(url('../../../../../proofs/src/tooling/tooling.mjs'), { exports: { ...originalTooling,
   resourceModuleURL: 'data:text/javascript,export function verifyToolchain() {}',
   async loadPinned(name) { assert.equal(name, '@aztec/bb.js'); return { BackendType: { Wasm: 'TEST_ONLY' }, Barretenberg: {
     async new() { return { async poseidon2Hash() { assert.fail('TEST_NO_REAL_HASH_BACKEND'); }, async destroy() {} }; },
   } }; },
 } });
-mock.module(url('./inputs-nonce-registry-v3.mjs'), { exports: {
+mock.module(url('../../../../src/claims/authorization/inputs-nonce-registry-v3.mjs'), { exports: {
   buildClaimIngressNonceRegistryV3Inputs: raw => { const statement = { claimDomain: claimDomainCommitment(raw.config), outputQ: hash('synthetic Q'),
     admissionN: hash('synthetic N'), refundDestination: hash('synthetic refund'), admissionRevocationState: '01'.repeat(32),
     ingressReceiptLeaf: '02'.repeat(32), amountQ: raw.noteOpening.value, evidenceFrom: '1', evidenceUntil: '1000000' };
     return { inputs: { syntheticLifecycleOnly: true }, expectedPublicInputs: [...encodeClaimIngressInputs(statement)], statement }; },
 } });
-mock.module(url('./inputs-registry-v2.mjs'), { exports: {
+mock.module(url('../../../../src/claims/authorization/inputs-registry-v2.mjs'), { exports: {
   buildClaimDischargeRegistryV2Inputs: raw => { const statement = { claimDomain: claimDomainCommitment(raw.config), ticketId: raw.ticket.id,
     ticketCommitment: hash('synthetic ticket'), dischargeN: hash('synthetic discharge'), admissionRevocationState: '01'.repeat(32),
     evidenceFrom: '1', evidenceUntil: '1000000' };
     return { inputs: { syntheticLifecycleOnly: true }, expectedPublicInputs: [...encodeClaimDischargeInputs(statement)], statement }; },
 } });
-mock.module(url('../../../../../omnichain-product/src/paeg/native-admission.mjs'), { exports: { ...originalAdmission,
+mock.module(url('../../../../../engine/src/execution/native/dispatch/native-admission.mjs'), { exports: { ...originalAdmission,
   nativeAdmissionRulesTree: () => ({ paths: [{ index: '0', siblings: Array(3).fill('0'.repeat(64)) }] }), nativeAdmissionChainDomain: rule => claimHash(claimFrame('LIANUM/evidence-chain/1', [Buffer.from(rule.family === '1' ? 'BTC' : 'SOL'),Buffer.from(rule.genesis,'hex'),Buffer.from(rule.asset,'hex')])) } });
 const { createWrappedNativeClaimControllerV1, createNativeClaimControllerKeeper, createDurableNativeClaimControllerKeeper,
   restartWrappedNativeClaimControllerV1, consumeWrappedClaimOriginalKeyAuthorityV4 } = await import('../../../../src/claims/wrapped/controller/wrapped-controller-v1.mjs');

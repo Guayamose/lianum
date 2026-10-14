@@ -13,7 +13,7 @@ import {BALANCE_OWNER_PROTOCOL,MAX_MESSAGE_BYTES,encode,createFrameReader,writeF
 import {signature} from '../../../src/notes/private-note-encoding.mjs';
 import {artifact,identity,ledger,terms,submission,success,recoverySuccess,recoveryRequest} from './generic-balance-fixtures.mjs';
 
-const childFile=fileURLToPath(new URL('../../src/paeg/generic-balance-owner-child.mjs',import.meta.url));
+const childFile=fileURLToPath(new URL('../../../src/execution/balances/generic-balance-owner-child.mjs',import.meta.url));
 const session='ab'.repeat(32);
 const message=(fields)=>({protocol:BALANCE_OWNER_PROTOCOL,session,...fields});
 

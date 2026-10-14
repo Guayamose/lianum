@@ -38,7 +38,8 @@
     "./proving/roles/scoped-proof-runner": "./src/proving/roles/scoped-proof-runner.mjs",
     "./defi/resources/official-protocol-v1": "./src/operations/deployments/defi/official-protocol-resources-v1.mjs",
     "./claims/http": "./src/api/claims/native-claim-http.mjs",
-    "./claims/deployment": "./src/operations/deployments/claims/deploy-native-claims.mjs"
+    "./claims/deployment": "./src/operations/deployments/claims/deploy-native-claims.mjs",
+    "./encoding/flat-words": "./src/execution/encoding/flat-words.mjs"
   },
   "lianum": {
     "status": "active"

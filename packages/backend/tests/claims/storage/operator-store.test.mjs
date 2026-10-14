@@ -8,7 +8,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import * as storeModule from '../../../src/claims/storage/segmented-record-store.mjs';
-import * as facts from '../../../src/chains/shared/dispatch/native-facts-peer.mjs';
+let facts;
 import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { nativeRuleCommitment } from '@lianum/engine/native/native-receipt-binding';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '@lianum/engine/claims/framing';
@@ -16,18 +16,23 @@ import { ownedCustodyRoute } from '../../../src/chains/shared/runtime/owned-nati
 const hash = value => createHash('sha256').update(value).digest('hex'), copy = value => structuredClone(value);
 const observers = new WeakMap(), natives = new WeakSet(), controls = new Map(), capturedPeers = [];
 const url = path => new URL(path, import.meta.url).href;
-mock.module(url('./owned-state.mjs'), { exports: {
+mock.module(url('../../../src/claims/operations/owned-state.mjs'), { exports: {
   assertOwnedClaimObserver(observer) { assert.ok(observers.has(observer), 'TEST_OWNED_CLAIM_OBSERVER'); },
   ownedClaimObserverBindings(observer) { assert.ok(observers.has(observer)); return observers.get(observer); },
 } });
-mock.module(url('../chain-adapters/owned-solana-runtime.mjs'), { exports: {
+const originalSolanaRuntime=await import('../../../src/chains/solana/runtime/owned-solana-runtime.mjs?unused-host-exports');
+mock.module(url('../../../src/chains/solana/runtime/owned-solana-runtime.mjs'), { exports: {
+  ...originalSolanaRuntime,
   SOLANA_NONCE_INGRESS_PROFILE: 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',
   assertOwnedSolanaRuntime(native) { assert.ok(natives.has(native), 'TEST_OWNED_SOLANA'); },
 } });
-mock.module(url('../chain-adapters/native-facts-peer.mjs'), { exports: { ...facts,
+const originalNativeReads=await import('../../../src/operations/operators/claims/owned-native-operator-reads.mjs?after-host-native-ports');
+mock.module(url('../../../src/operations/operators/claims/owned-native-operator-reads.mjs'),{exports:{...originalNativeReads}});
+facts=await import('../../../src/chains/shared/dispatch/native-facts-peer.mjs');
+mock.module(url('../../../src/chains/shared/dispatch/native-facts-peer.mjs'), { exports: { ...facts,
   async createNativeClaimFactsPeer(input) { capturedPeers.push(input.store); return facts.createNativeClaimFactsPeer(input); },
 } });
-mock.module(url('./segmented-record-store.mjs'), { exports: { ...storeModule,
+mock.module('@lianum/engine/storage/records', { exports: { ...storeModule,
   async createClaimRecordStore(input, initial) {
     const control = controls.get(input.path); assert.ok(control, 'TEST_EXPECTED_FRESH_V3_PATH');
     control.identity = copy(input.identity); control.initial = copy(initial);
@@ -43,7 +48,7 @@ mock.module(url('./segmented-record-store.mjs'), { exports: { ...storeModule,
     });
   },
 } });
-const { createLocalClaimOperator, CLAIM_OPERATOR_PROFILE } = await import('../../../src/claims/operations/operators.mjs');
+const { createLocalClaimOperator, CLAIM_OPERATOR_PROFILE } = await import('../../../src/claims/operations/operators.mjs?original-host-after-ports');
 async function fixture({ failCurrent = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'claim-operator-v3-'));
   const operators = [0, 1, 2, 3].map(signerIndex => createLocalClaimOperator({ signerIndex }));
@@ -73,7 +78,7 @@ async function fixture({ failCurrent = false } = {}) {
   const view = { head: { hash: hash('head'), timestamp: '1000', number: '1' }, gateways: configs.map(config => ({ claimDomain: claimDomainCommitment(config) })) };
   const observer = { async read() { return copy(view); }, async assertCurrent(value) {
     assert.deepEqual(value, view); if (failCurrent) throw Error('TEST_BIND_CURRENT_FAILED'); } };
-  observers.set(observer, { configs, policies, registry, nativeRuntimes, journalRoot: directory });
+  observers.set(observer, { configs, policies, registeredRules: policies.map(policy=>policy.rule), registry, nativeRuntimes, journalRoot: directory });
   const firstPeer = capturedPeers.length;
   return { directory, path, operator, observer, configs, policies, registry, control,
     peers: () => capturedPeers.slice(firstPeer),

@@ -14,7 +14,7 @@ import * as stores from '../../../src/claims/storage/segmented-record-store.mjs'
 import { recoverSecp256k1Sender } from '../../../src/chains/evm/contracts/transaction-wire-codec.mjs';
 import { encodeSolanaNonceBindingMessage } from '../../../src/chains/solana/runtime/owned-solana-nonce-binding.mjs';
 import { receiptKeyCommitment, nativeRuleCommitment } from '@lianum/engine/native/native-receipt-binding';
-import { nativeFactsRegistryCommitment, FACTS_QUORUM_PROFILE } from '../../../src/chains/shared/dispatch/native-facts-peer.mjs';
+let nativeFactsRegistryCommitment, FACTS_QUORUM_PROFILE;
 import { ownedCustodyRoute, ownedCustodyFeeAudit } from '../../../src/chains/shared/runtime/owned-native-custody.mjs';
 import { nativeAdmissionRulesTree } from '@lianum/engine/execution/native/dispatch/native-admission';
 import { createNativeQuorumHostVerifier } from '@lianum/engine/evidence/native-quorum';
@@ -29,21 +29,26 @@ const copy = value => structuredClone(value);
 const ZERO = '0'.repeat(64);
 const observers = new WeakMap(), natives = new WeakSet(), actualStores = new Map();
 const url = path => new URL(path, import.meta.url).href;
-mock.module(url('./owned-state.mjs'), { exports: {
+mock.module(url('../../../src/claims/operations/owned-state.mjs'), { exports: {
   assertOwnedClaimObserver(observer) { assert.ok(observers.has(observer), 'TEST_OWNED_OBSERVER'); },
   ownedClaimObserverBindings(observer) { assert.ok(observers.has(observer)); return observers.get(observer); },
 } });
-mock.module(url('../chain-adapters/owned-solana-runtime.mjs'), { exports: {
+const originalSolanaRuntime=await import('../../../src/chains/solana/runtime/owned-solana-runtime.mjs?unused-host-exports');
+mock.module(url('../../../src/chains/solana/runtime/owned-solana-runtime.mjs'), { exports: {
+  ...originalSolanaRuntime,
   SOLANA_NONCE_INGRESS_PROFILE: 'LIANUM_GENERIC_NATIVE_CLAIM_INGRESS_V3',
   assertOwnedSolanaRuntime(native) { assert.ok(natives.has(native), 'TEST_OWNED_SOLANA'); },
 } });
-mock.module(url('./segmented-record-store.mjs'), { exports: { ...stores,
+mock.module('@lianum/engine/storage/records', { exports: { ...stores,
   async createClaimRecordStore(input, initial) {
     const actual = await stores.createClaimRecordStore(input, initial);
     actualStores.set(input.path, actual); return actual;
   },
 } });
-const { createLocalClaimOperator, createClaimOperatorQuorum } = await import('../../../src/claims/operations/operators.mjs');
+const originalNativeReads=await import('../../../src/operations/operators/claims/owned-native-operator-reads.mjs?after-host-native-ports');
+mock.module(url('../../../src/operations/operators/claims/owned-native-operator-reads.mjs'),{exports:{...originalNativeReads}});
+({nativeFactsRegistryCommitment,FACTS_QUORUM_PROFILE}=await import('../../../src/chains/shared/dispatch/native-facts-peer.mjs'));
+const { createLocalClaimOperator, createClaimOperatorQuorum } = await import('../../../src/claims/operations/operators.mjs?original-host-after-ports');
 
 async function fixture({ prepare = true } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'claim-broadcast-host-'));
@@ -148,7 +153,7 @@ async function fixture({ prepare = true } = {}) {
     const address = recoverSecp256k1Sender({ digest: raw.slice(0, 64), r: raw.slice(128, 192), s: raw.slice(192), parity });
     return '0x' + '00'.repeat(12) + address.slice(2);
   } };
-  observers.set(observer, { configs: [config], policies: [policy], registry, nativeRuntimes: [native], runtime, journalRoot: directory });
+  observers.set(observer, { configs: [config], policies: [policy], registeredRules: [policy.rule], registry, nativeRuntimes: [native], runtime, journalRoot: directory });
   try {
     for (const operator of selected) await operator.bind(observer);
     const quorum = createClaimOperatorQuorum({ operators: selected });

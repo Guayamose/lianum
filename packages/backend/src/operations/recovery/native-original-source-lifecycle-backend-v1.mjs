@@ -1366,6 +1366,8 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
   // These functions retain the same closed backend as SOURCE. No instance or
   // configurable issuer is exported by either public facade.
   const {
+    createOwnedPagedObservedHubEvmV4,
+    assertOwnedPagedObservedHubEvmV4,
     createOwnedLocalEvmObservedClockV1,
     refreshNativeValueReceiverClock,
     nativeValueReceiverInclusionSecondV1,
@@ -1956,6 +1958,8 @@ export function buildOriginalNativeSourceLifecycleV1(contracts) {
     finishOriginalNativeSourceBirthV1,
     finishOriginalNativeSourceReopenV1,
     closeOriginalNativeSourceCapsuleV1,
+    createOwnedPagedObservedHubEvmV4,
+    assertOwnedPagedObservedHubEvmV4,
     createOwnedLocalEvmObservedClockV1,
     refreshNativeValueReceiverClock,
     nativeValueReceiverInclusionSecondV1,

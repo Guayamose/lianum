@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 // These are deliberately source-boundary regressions. They are not EVM/native
 // execution evidence; the separate integration must exercise actual receipts.
-const source = readFileSync(new URL('../contracts/LocalTripleDeliveryEscrow.sol', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../../../contracts/engine/LocalTripleDeliveryEscrow.sol', import.meta.url), 'utf8');
 const body = name => {
   const start = source.indexOf(`function ${name}(`);
   assert.notEqual(start, -1, name);

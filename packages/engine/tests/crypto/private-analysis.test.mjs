@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { amountCandidates, analyzePrivateCounterexamples, jsonEvidence } from '../../../../scripts/engine/diagnostics/private-analysis.mjs';
 
 test('public amount inversion matches exhaustive small-domain forward evaluation', () => {
@@ -31,17 +30,23 @@ test('historical public formula leaves exactly forty S quantities including exac
   assert.throws(() => amountCandidates({ ...parameters, K: -1n }));
 });
 
-test('counterexamples and historical exposure derive from retained M3 native facts', async () => {
-  const evidence = JSON.parse(await readFile(new URL('../evidence/m3-evm-semantic-local.json', import.meta.url)));
+test('declared synthetic accounting inputs exercise counterexamples without historical or native acceptance', () => {
+  // Required input-schema label belongs to the existing diagnostic parser.
+  // All quantities/hash here are independent synthetic DATA, not retained M3.
+  const evidence = {classification:'SYNTHETIC_ACCOUNTING_INPUT_ONLY',workflow:{
+    classification:'REAL_EVM_LOCK_AND_TWO_EVM_ROLE_OUTPUTS_AND_EVM_CLAIM',
+    inputAmount:'1000',selectedA:{amount:'500',fee:'100'},selectedB:{amount:'600',fee:'200'},
+    claimReceipt:{transactionHash:'0x'+'11'.repeat(32)}}};
   const report = analyzePrivateCounterexamples(evidence);
   assert.equal(report.publicHashDictionary.recoveredCount, 1);
   assert.equal(report.graphScopedIdentity.distinctTags, true);
   assert.equal(report.callerChosenIdentityKey.distinctTags, true);
   assert.equal(report.keyholderDictionary.recoveredCount, 1);
-  assert.equal(report.historicalM3SelectedPair.netBeforeGas, -2656250n);
-  assert.equal(report.historicalM3SelectedPair.selectedOutputGasTotal, 50329316456680n);
-  assert.equal(report.historicalM3SelectedPair.netAfterSelectedOutputGas, -50329319112930n);
+  assert.equal(report.historicalM3SelectedPair.netBeforeGas, -100n);
+  assert.equal(report.historicalM3SelectedPair.selectedOutputGasTotal, 300n);
+  assert.equal(report.historicalM3SelectedPair.netAfterSelectedOutputGas, -400n);
   assert.equal(report.noZkVrfLedgerOrNativeExecution, true);
+  assert.throws(()=>analyzePrivateCounterexamples({workflow:{...evidence.workflow,classification:'UNEXPECTED_SCHEMA'}}),/EXPECTED_HISTORICAL_M3_NATIVE_FIXTURE/);
   assert.deepEqual(JSON.parse(jsonEvidence(report)).publicAmountRelation.interval,
     { min: '2999961', max: '3000000', count: '40' });
 });

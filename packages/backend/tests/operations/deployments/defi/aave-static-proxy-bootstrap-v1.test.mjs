@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const fixtureSource=readFileSync(new URL('./official-aave-fixture-v1.mjs',import.meta.url),'utf8');
+const fixtureSource=readFileSync(new URL('../../../../src/operations/deployments/defi/official-aave-fixture-v1.mjs',import.meta.url),'utf8');
 function cut(source,begin,end){const start=source.indexOf(begin),stop=source.indexOf(end,start);assert.ok(start>=0&&stop>start);return source.slice(start,stop);}
 const bootstrap=cut(fixtureSource,'  const vaultImplementation =','  assert.equal((await read(vault,\'asset\'))');
 const address=n=>'0x'+n.repeat(40),implAddress=address('1'),proxyAddress=address('2'),admin=address('3'),sender=address('4');
@@ -32,7 +32,7 @@ test('official proxy initializes atomically at direct CREATE and retains its ori
   await assert.rejects(run(bootstrap,{...env,provider:{address:sender}}),/AAVE_STATIC_PROXY_ADMIN_NOT_CALLER/);
 });
 test('fixed admin slot read retains canonical head and rejects zero or malformed words',async()=>{
-  const source=readFileSync(new URL('../chain-adapters/owned-evm-runtime-backend-v1.mjs',import.meta.url),'utf8');
+  const source=readFileSync(new URL('../../../../src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs',import.meta.url),'utf8');
   const body=cut(source,"async proxyAdmin1967(holder, tag = 'latest') {",'\n      } }),').split('{').slice(1).join('{');
   const calls=[],head={number:'0x20',hash:'0x'+'9'.repeat(64)};let word='0x'+'0'.repeat(24)+admin.slice(2);
   const method=vm.runInThisContext('(function({assert,health,address,block,blockTag,rpc,assertCanonical}){return async function(holder,tag=\'latest\'){'+body+'\n};})')({

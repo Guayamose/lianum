@@ -1,14 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { schemas, decode, encode, u64, publicInputs } from '../../../../experiments/engine/pc5-proof-probe/qb/wire.mjs';
+import { schemas, decode, encode, u64, publicInputs, H } from '../../../../experiments/engine/pc5-proof-probe/qb/wire.mjs';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
-const text = readFileSync(resolve(root, 'evidence/m8-qb-wire-fixtures.json'), 'utf8');
+import { fixtures as originalSyntheticFixtures } from '../../../../experiments/engine/pc5-proof-probe/qb/fixtures.mjs';
+const root = fileURLToPath(new URL('../../../../', import.meta.url));
+// New public synthetic vectors from the original emitter. No historical m8
+// result, proof, verifier acceptance or authorization is claimed.
+const generated = originalSyntheticFixtures();
+const text = JSON.stringify({
+  classification: 'PUBLIC_SYNTHETIC_CANONICAL_WIRE_FIXTURES_NOT_AUTHORIZATION',
+  menuHex: generated.menu.toString('hex'), resultSaltHex: generated.resultSalt.toString('hex'),
+  menuBinding: H(generated.menu).toString('hex'),
+  schemas: Object.fromEntries(Object.entries(schemas).map(([name, value]) => [name,
+    { tag: value.tag, fields: value.fields, offsets: value.offsets, bytes: value.length }])),
+  branches: generated.branches.map(value => ({ branch: value.branch, amounts: value.amounts,
+    legSHex: value.legS.toString('hex'), legBHex: value.legB.toString('hex'),
+    statementHex: value.statement.toString('hex'),
+    commitments: { C_S: H(value.legS).toString('hex'), C_B: H(value.legB).toString('hex') } })),
+}, (_, value) => typeof value === 'bigint' ? value.toString() : value);
 const fixture = JSON.parse(text), raw = Buffer.from(fixture.branches[0].legBHex, 'hex');
 test('canonical byte records round trip and expose exactly 161 byte-valued public inputs', () => {
   for (const branch of fixture.branches) {
@@ -39,7 +53,7 @@ function pythonCheck(contents, expectedError) {
   const dir = mkdtempSync(resolve(tmpdir(), 'paeg-qb-wire-'));
   try {
     const path = resolve(dir, 'fixture.json'); writeFileSync(path, contents);
-    const result = spawnSync('python', ['-B', '-O', resolve(root, 'scripts/verify-qb-fixtures.py'), path], { cwd: root, encoding: 'utf8', timeout: 10000 });
+    const result = spawnSync('python3', ['-B', '-O', fileURLToPath(new URL('../helpers/qb-wire-check-v1.py', import.meta.url)), path], { cwd: root, encoding: 'utf8', timeout: 10000 });
     assert.equal(result.error, undefined); assert.equal(result.signal, null);
     if (expectedError) { assert.equal(result.status, 1); assert.match(result.stderr, expectedError); assert.equal(result.stdout, ''); }
     else { assert.equal(result.status, 0, result.stderr); assert.deepEqual(JSON.parse(result.stdout).branchesChecked, [0, 1]); }

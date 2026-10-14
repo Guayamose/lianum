@@ -161,7 +161,7 @@ export async function fixture({family='EVM'}={}){
  const runId=randomUUID();lifetimeDirectory=join(legacyDataRoot('wallet'),'.local/wrapped-deployment-only-v1','attempt-'+runId,'private-audit');
  await mkdir(lifetimeDirectory,{recursive:true,mode:0o700});c.lifetime=await Lifetime.createWrappedPrivateLifetimeRegistryV1({runtime:c.receiver,directory:lifetimeDirectory,runId,sourceSHA256:Public.H('host-source'),deadlineMs:Date.now()+600000});
  let keyAllocations=0;
- Host.observeWrappedHostKeys({freshKey(){assert.equal(keyAllocations++,0);return providerKey;},signature(key){if(key.x.equals(providerKey.x)&&key.y.equals(providerKey.y))c.providerSigns++;}});
+ Host.observeWrappedHostKeys({freshKey(){assert.equal(keyAllocations++,0);return providerKey;},signature(key){const actual=key.publicKey.export({type:'spki',format:'der'}),expected=providerKey.publicKey.export({type:'spki',format:'der'});if(actual.equals(expected))c.providerSigns++;}});
  const host=await Host.fixture({after:fn=>cleanup.push(fn)},{receiver:c.receiver,hubDomain:preliminary.binding.domain.hubDomain,timestamp,
   nativeGraph:{runtime:c.native,family,genesis:preliminary.profile.genesis,chainId:preliminary.profile.chainId,read:()=>family==='TRON'?Tron.readOwnedLocalTronNativeValueAuditStateV4(c.native):Evm.readOwnedLocalEvmNativeValueAuditStateV4(c.native)},
   deployment:{async prepare({registration}){

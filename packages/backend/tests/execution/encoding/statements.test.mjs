@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { RELATIONS, FIELD_MODULUS, decodeStatement, encodeStatement,
   joinAdmission, joinReadiness, joinReservation, joinSettlement } from '@lianum/components/encoding/statements';
 
@@ -10,12 +9,30 @@ const readiness = { domainCommitment: hex(1), authorizationRoot: hex(2),
   checkpoint: raw, readinessEvidenceState: hex(3), joinCommitment: hex(4),
   readyFrom: '100', readyUntil: '200' };
 
-test('decodes and re-encodes the independently verified frozen N public inputs', () => {
-  const url = new URL('../../../../candidate-poseidon/.local/component/attempts/prove-2/public-inputs.json', import.meta.url);
-  const words = JSON.parse(readFileSync(url));
+// Independent ABI vector: four big-endian 8x32-bit fields. It records no
+// historical proof acceptance; the old prove-2 public vector is unavailable.
+test('node codec decodes independently specified ABI word vector', () => {
+  const words = [
+    '1','2','3','4','5','6','7','8',
+    '9','10','11','12','13','14','15','16',
+    '17','18','19','20','21','22','23','24',
+    '25','26','27','28','29','30','31','4294967295',
+  ];
   const statement = decodeStatement('node', words);
+  assert.deepEqual(statement, {
+    domainCommitment: '0000000100000002000000030000000400000005000000060000000700000008',
+    authorizationRoot: '000000090000000a0000000b0000000c0000000d0000000e0000000f00000010',
+    evidenceState: '0000001100000012000000130000001400000015000000160000001700000018',
+    completionCommitment: '000000190000001a0000001b0000001c0000001d0000001e0000001fffffffff',
+  });
   assert.deepEqual(encodeStatement('node', statement), words);
   assert.equal(RELATIONS.node.wordCount, 32);
+  for(const offset of [0,8,16,24]){
+    const mutated=[...words];mutated[offset]='4294967296';
+    assert.throws(()=>decodeStatement('node',mutated),/INTEGER_RANGE/);
+    mutated[offset]='4294967295';assert.throws(()=>decodeStatement('node',mutated),/FIELD_RANGE/);
+  }
+  assert.throws(()=>decodeStatement('node',words.slice(0,31)),/ARRAY_LENGTH/);
 });
 
 test('reservation includes the original admission tag and exact U/S join', () => {

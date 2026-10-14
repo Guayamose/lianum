@@ -59,10 +59,10 @@ test('cohort constructors reject option overrides before touching any native bin
   assert.deepEqual(solanaLedgerRetentionArguments(), []);
 });
 test('static startup profile preserves historical five accounts and fixed nine cohort accounts', async () => {
-  const native = await readFile(new URL('../src/chains/native-runtime.mjs', import.meta.url), 'utf8');
+  const native = await readFile(new URL('../../../src/chains/shared/native-runtime.mjs', import.meta.url), 'utf8');
   assert.match(native, /'--accounts', cohort \? '9' : '5'/);
   assert.match(native, /createOwnedNativeRuntimeProfile\(progress, false\)/);
-  const solana = await readFile(new URL('../src/chains/solana-runtime.mjs', import.meta.url), 'utf8');
+  const solana = await readFile(new URL('../../../src/chains/solana/solana-runtime.mjs', import.meta.url), 'utf8');
   assert.match(solana, /createOwnedSolanaRuntimeProfile\(progress, options, false\)/);
   assert.match(solana, /createOwnedSolanaRuntimeProfile\(progress, SOLANA_PRIVATE_COHORT_OPTIONS, true\)/);
   assert.match(solana, /READ_METHODS\.has\(method\)/);

@@ -198,7 +198,7 @@ test('independent recipient invoices assemble existing PC15 reserve witness with
 });
 
 async function launch(t, cfg, mode = 'create', { splitBootstrapReads = false } = {}) {
-  const processUrl = new URL('../src/private-recipient-process.mjs', import.meta.url);
+  const processUrl = new URL('../../src/recipients/private-recipient-process.mjs', import.meta.url);
   // Exercise the actual child/OS pipe and unchanged protocol with deterministic
   // one-byte fs reads on fd3. Test-only highWaterMark prevents the kernel merging
   // parent writes from hiding a split UTF-8 sequence; other streams stay normal.

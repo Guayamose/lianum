@@ -1,6 +1,8 @@
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import {resourcePath} from '@lianum/environment';
+import {readPrivateGuardedSourceCompatibilityReviewV1,validatePrivateGuardedFundingSourceDeltasV1} from '../../../backend/src/payments/private-guarded-source-compatibility-v1.mjs';
 import assert from 'node:assert/strict';
 import { preparePrivateReserveProjection, assertPrivateReservePrestate, createPrivateFundingPreparation, PRIVATE_PAYMENT_AMOUNTS, loadPrivateGuardedFundingSourcePins } from '../../../backend/src/payments/private-payment-engine.mjs';
 import { PrivateNoteTree, noteHashToWords, ZERO_NOTE_HASH, verifyPrivateNotePath } from '../../src/notes/private-note-tree.mjs';
@@ -81,10 +83,50 @@ test('failed owner completion, unclosed channels, post-exit writes and substitut
   const f=await prepared();f.reserve.proofBase64=Buffer.from('substituted reserve').toString('base64');assert.throws(()=>f.l.beforeSend(f.reserve),/RESERVE_PACKAGE_CHANGED/);
 });
 
-test('reviewed source delta authenticates exactly two old-to-new pins without changing prior cryptographic pins',async()=>{
-  const profile=JSON.parse(await readFile(new URL('../evidence/m22-guarded-reserve-source-profile.json',import.meta.url),'utf8'));
-  const frozen=JSON.parse(await readFile(new URL('../'+profile.baselineNativeReport.file,import.meta.url),'utf8')),before=structuredClone(frozen.sources);
-  const pins=await loadPrivateGuardedFundingSourcePins(frozen);assert.deepEqual(Object.keys(pins).sort(),['contracts/PrivateAssemblyNativeNotePool.sol','src/private-assembly-runtime.mjs']);assert.deepEqual(frozen.sources,before);
-  for(const [file,pin]of Object.entries(pins)){const bytes=await readFile(new URL('../'+file,import.meta.url));assert.equal(bytes.length,pin.bytes);assert.equal(createHash('sha256').update(bytes).digest('hex'),pin.sha256);}
+test('historical loader keeps its fixed pin and missing historical evidence cannot admit funding',async()=>{
+  const path=resourcePath('engine','evidence/m22-guarded-reserve-source-profile.json');
+  let bytes;
+  try{bytes=await readFile(path);}catch(error){
+    assert.equal(error.code,'ENOENT');
+    await assert.rejects(loadPrivateGuardedFundingSourcePins({sources:{}}),e=>e.code==='ENOENT');
+    // No native/proof/deployment method is invoked by this read-only loader.
+    return;
+  }
+  assert.equal(bytes.length,2452);
+  assert.equal(createHash('sha256').update(bytes).digest('hex'),'f3572a86386c9fcd71dc04df311dd65b71ec1443fe1b6a96a857adb0b745856e');
+  const profile=JSON.parse(bytes),frozen=JSON.parse(await readFile(resourcePath('engine',profile.baselineNativeReport.file),'utf8'));
+  const before=structuredClone(frozen.sources),pins=await loadPrivateGuardedFundingSourcePins(frozen);
+  assert.deepEqual(Object.keys(pins).sort(),['contracts/PrivateAssemblyNativeNotePool.sol','src/private-assembly-runtime.mjs']);
+  assert.deepEqual(frozen.sources,before);
   for(const file of Object.keys(pins)){const changed=structuredClone(frozen);changed.sources[file].sha256='0'.repeat(64);await assert.rejects(loadPrivateGuardedFundingSourcePins(changed),/PREVIOUS_PIN/);}
+});
+
+test('fresh source review authenticates archival bytes and current producers without historical financial acceptance',async()=>{
+ const review=await readPrivateGuardedSourceCompatibilityReviewV1();
+ assert.equal(review.profile,'PRIVATE_GUARDED_SOURCE_COMPATIBILITY_REVIEW_V1');
+ assert.equal(review.classification,'CURRENT_SOURCE_REVIEW_ONLY_NOT_M18_M22_ACCEPTANCE');
+ assert.equal(review.financialAcceptance,false);assert.equal(review.historicalEvidenceRecovered,false);
+ assert.equal(review.genuineGuardedFundingRunCompleted,false);
+ const prior=Object.fromEntries(Object.entries(review.allowedSourceDeltas).map(([file,delta])=>[file,delta.previous]));
+ prior['unmodified-cryptographic-pins']={bytes:1,sha256:'12'.repeat(32)};
+ const before=structuredClone(prior),pins=validatePrivateGuardedFundingSourceDeltasV1(review.allowedSourceDeltas,prior);
+ assert.deepEqual(prior,before);assert.ok(Object.isFrozen(pins));
+ for(const [file,pin]of Object.entries(pins)){
+  assert.ok(Object.isFrozen(pin));
+  const source=await readFile(new URL('../../../../'+review.sourceLocations[file].current,import.meta.url));
+  assert.equal(source.length,pin.bytes);assert.equal(createHash('sha256').update(source).digest('hex'),pin.sha256);
+  const changed=structuredClone(prior);changed[file].sha256='0'.repeat(64);
+  assert.throws(()=>validatePrivateGuardedFundingSourceDeltasV1(review.allowedSourceDeltas,changed),/PREVIOUS_PIN/);
+ }
+ for(const mutate of [
+  d=>{d.extra=d['src/private-assembly-runtime.mjs'];},
+  d=>{delete d['src/private-assembly-runtime.mjs'];},
+  d=>{d['src/private-assembly-runtime.mjs'].extra=true;},
+  d=>{d['src/private-assembly-runtime.mjs'].current.extra=true;},
+  d=>{d['src/private-assembly-runtime.mjs'].current.bytes=0;},
+  d=>{d['src/private-assembly-runtime.mjs'].current.sha256='not-a-pin';},
+ ]){const d=structuredClone(review.allowedSourceDeltas);mutate(d);assert.throws(()=>validatePrivateGuardedFundingSourceDeltasV1(d,prior));}
+ // A source-only successor cannot substitute for the historical resource.
+ try{await readFile(resourcePath('engine','evidence/m22-guarded-reserve-source-profile.json'));}
+ catch(error){assert.equal(error.code,'ENOENT');await assert.rejects(loadPrivateGuardedFundingSourcePins({sources:prior}),e=>e.code==='ENOENT');}
 });

@@ -10,14 +10,14 @@ import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment } from '@lianum/engine/claim
 import { createClaimRecordStore, openClaimRecordStore } from '../../../../src/claims/storage/segmented-record-store.mjs';
 const bindings = new WeakMap(), journals = new WeakMap();
 const url = path => new URL(path, import.meta.url).href;
-mock.module(url('../native-claims/wrapped-controller-v1.mjs'), { exports: {
+mock.module(url('../../../../src/claims/wrapped/controller/wrapped-controller-v1.mjs'), { exports: {
   ownedWrappedNativeClaimControllerBindingsV1(controller) { const value = bindings.get(controller); assert.ok(value, 'TEST_ORIGINAL_CONTROLLER'); return value; },
   async restartWrappedNativeClaimControllerV1(controller) { return bindings.get(controller).restart(); },
 } });
-mock.module(url('../native-claims/wrapped-controller-journal-v1.mjs'), { exports: {
+mock.module(url('../../../../src/claims/wrapped/controller/wrapped-controller-journal-v1.mjs'), { exports: {
   ownedClaimControllerJournal(keeper) { assert.ok(journals.has(keeper)); return journals.get(keeper); },
 } });
-mock.module(url('../ops/wrapped-wallet-release-v1.mjs'), { exports: { assertWrappedWalletAccountReleasedV1() {} } });
+mock.module(url('../../../../src/operations/releases/wrapped/wrapped-wallet-release-v1.mjs'), { exports: { assertWrappedWalletAccountReleasedV1() {} } });
 const { createWrappedClaimSessionV1: createNativeClaimSession, assertWrappedClaimSessionV1, walletClaimSessionIdentity,
   assertNativeClaimSession, nativeClaimSessionIdentity } = await import('../../../../src/api/claims/native-claim-session.mjs');
 const { startWalletApplication } = await import('../../../../../../apps/wallet/src/server/server.mjs');

@@ -12,7 +12,7 @@ import { digest } from '../../../../src/crypto/privacy.mjs';
 import { PROTOCOL, MAX_BYTES, encode, decode, copy, config, projectNativeObservation, requestFor, checkQuery, checkInitialized, checkAuthorization, view }
   from '../../../../../backend/src/execution/native/recovery/native-owner-recovery-protocol.mjs';
 
-const worker = fileURLToPath(new URL('../../src/paeg/native-owner-recovery-child.mjs', import.meta.url));
+const worker = fileURLToPath(new URL('../../../../../backend/src/execution/native/recovery/native-owner-recovery-child.mjs', import.meta.url));
 async function fixtureChild(t, fixture, { replyView = value => value, holdBridge = false,
   canonical = () => true, replyBridgeId = id => id } = {}) {
   // This is explicitly a raw protocol fixture, NOT a factory or an owned native

@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { assertBeginPayoutAuditReleaseV1, assertBeginPayoutAuditReceiptV1,
   CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, CLAIM_BEGIN_PAYOUT_AUDIT_STOP_CODE_V1,
   CLAIM_BEGIN_PAYOUT_AUDIT_RELEASE_V1 } from '@lianum/proofs/jobs/begin-payout-audit-policy-v1';
-const source = readFileSync(new URL('./controller.mjs', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../../../src/claims/controller/controller.mjs', import.meta.url), 'utf8');
 const cut = (text, a, b) => { const start = text.indexOf(a), end = text.indexOf(b, start); assert.ok(start >= 0 && end > start); return text.slice(start, end); };
 const compile = (body, env) => vm.runInThisContext('(function({' + Object.keys(env).join(',') + '}) {' + body + '\n})')(env);
 const copy = value => structuredClone(value), freeze = value => Object.freeze(value);
@@ -62,12 +62,13 @@ function callbackFixture({ diagnostic = true, failBacking = false, badOrigin = f
   const prepared = { intent: { immutable: true } }, authorizationOrigins = new WeakMap();
   const original = { indexes: [0, 1, 2], authorizationLifecycleProfile: 'CLAIM_AUTHORIZATION_LIFECYCLE_V4',
     authorization: {}, head: { number: '1', hash: 'hash', timestamp: '1' } };
-  const env = { row, config: { nativeFamily: '2' }, assert, A: { BEGIN_PAYOUT: 'BEGIN' }, beginAuditOwner: state,
+  const env = { row, native: {}, isOwnedSolanaSplCustodyV1:()=>false, config: { nativeFamily: '2' }, assert, A: { BEGIN_PAYOUT: 'BEGIN' }, beginAuditOwner: state,
     copy, authorizationOrigins, CLAIM_BEGIN_PAYOUT_AUDIT_PROFILE_V1, Buffer,
     claimHash: bytes => createHash('sha256').update(bytes).digest('hex'), claimRouteCommitment: () => 'route-hash',
     prefix: value => '0x' + value, destination: () => 'destination', terms: (fresh, value) => value,
     route: async () => { trace.push('route'); return { endpoint: 'destination' }; },
     view: async () => { trace.push('view'); return { snapshot: {} }; },
+    authorizationView: async () => { trace.push('view'); return { snapshot: {} }; },
     authorize: async (method, request) => {
       trace.push('backing'); if (failBacking) throw new Error('CLAIM_OPERATOR_AUDIT_TOO_OLD');
       authorizationOrigins.set(original.authorization, { result: original, dispatch: null, method,
@@ -111,7 +112,7 @@ test('terminal owner still unwinds serial and reaches original close without ope
   const state = owner(); let busy = false, closed = false, released = false;
   const serialSource = cut(source, '  async function serial(work,', '\n  function selected(');
   const run = compile(serialSource + '; return serial;', { assert, live() {}, beginAuditOwner: state, busy,
-    journal: { read: async () => {}, requiresReconciliation: () => false } });
+    clearUnknown:async()=>{},refreshNativeValueReceiverClock:async()=>{},runtime:{},journal: { read: async () => {}, requiresReconciliation: () => false } });
   let error; try { await run(async () => { state.begin(); try { state.stop(receipt()); } catch (cause) { state.acknowledgeRetention(cause); throw cause; } }); } catch (cause) { error = cause; }
   assertBeginPayoutAuditReceiptV1(state.consume(error)); await assert.rejects(run(async () => {}), /OWNER_TERMINAL/);
   const closeBody = cut(source, '    close() {\n      // Releasing the original idle lease', '\n  });').trim().replace(/,$/, '');
@@ -122,20 +123,20 @@ test('terminal owner still unwinds serial and reaches original close without ope
 });
 
 test('original native transfer awaits beforeSign before native key construction and rethrows through its original unwind', () => {
-  const native = readFileSync(new URL('../chain-adapters/owned-solana-runtime.mjs', import.meta.url), 'utf8');
-  const transfer = cut(native, '    async function transfer(selectedRoute,', '\n    async function broadcastRetained(');
-  assert.ok(transfer.indexOf('await beforeSign(activePrepared)') < transfer.indexOf('const privateKey = createPrivateKey'));
+  const native = readFileSync(new URL('../../../src/chains/solana/transfers/solana-transfers.mjs', import.meta.url), 'utf8');
+  const transfer = cut(native, '  async function transfer(selectedRoute,', '\n  async function broadcastRetained(');
+  assert.ok(transfer.indexOf('await beforeSign(state.activePrepared)') < transfer.indexOf('const privateKey = createPrivateKey'));
   assert.ok(transfer.indexOf('const privateKey = createPrivateKey') < transfer.indexOf('const signature = sign('));
   assert.match(transfer, /if \(record\) error\.nativeId = record\.nativeId;\s*throw error;/);
-  assert.match(transfer, /finally \{ activePrepared = null; activeRoute = null; preSignReadWindow = false; preBroadcastReadWindow = false; busy = false; \}/);
+  assert.match(transfer, /finally \{\s*state.activePrepared = null;\s*state.activeRoute = null;\s*state.preSignReadWindow = false;\s*state.preBroadcastReadWindow = false;\s*state.busy = false;\s*\}/);
 });
 
 
 test('unchanged production currentness rejects exact 30000 and a deadline crossed by the final awaited read', async () => {
-  const operators = readFileSync(new URL('./operators.mjs', import.meta.url), 'utf8');
+  const operators = readFileSync(new URL('../../../src/claims/operations/operators.mjs', import.meta.url), 'utf8');
   const body = cut(operators, '  function withinAuditBudget(phase)', '\n  async function readCurrentView()');
   const c = { now: 0, after: null, reads: 0 };
-  const check = compile(body + '; return current;', { assert, performance: { now: () => c.now }, started: 0,
+  const check = compile(body + '; return current;', { assert, enterMetrics:()=>Object.freeze({}),leaveMetrics:()=>{},checkpointMetrics:()=>{},performance: { now: () => c.now }, started: 0,
     activeView: {}, auditMethod: 'begin-payout', auditRound: 'initial-preparation', cachedView: undefined,
     live() {}, observer: { async assertCurrent() { c.reads++; if (c.after !== null) c.now = c.after; } } });
   for (const elapsed of [29999, 29999.999]) { c.now = elapsed; await check('after-graph-coverage'); }
@@ -147,6 +148,6 @@ test('unchanged production currentness rejects exact 30000 and a deadline crosse
     assert.equal(error.auditBudget.limitMilliseconds, 30000); assert.equal(error.auditBudget.method, 'begin-payout');
     assert.equal(error.auditBudget.round, 'initial-preparation'); return /AUDIT_TOO_OLD/.test(error.message);
   });
-  assert.match(operators, /auditMethod = 'operation'; auditRound = 'whole-operation'; started = performance\.now\(\);\s*try \{\s*await readVault\(\); activeView = await readCurrentView\(\)/);
+  assert.match(operators, /auditMethod = 'operation'; auditRound = 'whole-operation'; started = performance\.now\(\);\s*activeAuditMetrics = beginMetrics\(\);\s*const measuredOperation = enterMetrics\('serial'\);\s*try \{\s*await readVault\(\); activeView = await readCurrentView\(\)/);
   assert.match(operators, /started = performance\.now\(\); await readVault\(\); activeView = await readCurrentView\(\)/);
 });

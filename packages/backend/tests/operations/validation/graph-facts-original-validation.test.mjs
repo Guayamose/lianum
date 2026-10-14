@@ -15,7 +15,7 @@ const makeRetention = ({ originalFactsCertificates, head, ...deps }) =>
       throw Error("FIXTURE_RECORD_REQUIRED");
     },
     encodeNativeFacts: deps.encodeNativeFacts,
-    policies: { 2: {} },
+    policies: () => ({ 2: {} }),
     equal: assert.deepEqual,
     sha,
     retained() {},

@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { createHash } from 'node:crypto';
+import {FLAT_MINIMUM_PROFILE} from '../../../../src/operations/deployments/system/append-only-build-v3.mjs';
+import {normalizeMinimumDepositAtomic} from '../../../../src/chains/shared/contracts/minimum-deposit-v3.mjs';
 import { FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER } from '../../../../src/operations/deployments/system/deployment-plan.mjs';
 import { canonicalClaimRecordDataV1 } from '../../../../src/claims/storage/segmented-record-store.mjs';
 import { genericAccountIdentity, immutable } from '@lianum/engine/accounts/journal';
@@ -20,7 +22,7 @@ function cut(source, begin, end) {
   assert.ok(start >= 0 && stop > start); return source.slice(start, stop);
 }
 const compile = (body, env) => vm.runInThisContext('(function({' + Object.keys(env).join(',') + '}) {' + body + '\n})')(env);
-const claimSource = source('./deploy-native-claims.mjs'), flatSource = source('./deploy-system.mjs');
+const claimSource = source('../../../../src/operations/deployments/claims/deploy-native-claims.mjs'), flatSource = source('../../../../src/operations/deployments/system/deploy-system.mjs');
 const claimFactory = (resolve) => compile(cut(claimSource, 'function abiValues(', '\nasync function nativePreflight') + '; return facade;',
   { assert, fixedArray, exactRecord, encodeClaimABI, prefix: value => '0x' + value, claimArtifactMethod: resolve });
 const flatFactory = (selector = evmFunctionSelector) => compile(cut(flatSource, 'const canonicalType =', '\n/** The exact object')
@@ -85,7 +87,7 @@ test('canonical tuple calls retain genuine nominal Solidity library selectors an
 
 // Actual reconstruction and route-policy producers. Loader artifacts, system,
 // accounts and readers are explicit HOST ports; no chain, deploy, claim or key.
-const admissionSource = source('../global-state/flat-pool-admission-policy.mjs');
+const admissionSource = source('../../../../src/accounts/authority/flat-pool-admission-policy.mjs');
 const recoveryFactory = () => compile(cut(flatSource, 'function flatRecoveryArtifactV1(', '\nexport function flatRecoveryViewDataV1')
   + '; return flatRecoveryRouteIdentityV1;', {
     assert, exactRecord, FLAT_BUILD_PIN, FLAT_VERIFIER_ORDER,
@@ -95,7 +97,7 @@ function originalPolicyFactory() {
   const systems = new WeakMap(), accounts = new WeakMap();
   const create = compile(admissionSource.slice(admissionSource.indexOf('export async function createFlatPoolAdmissionPolicy(')).replace('export async function', 'async function')
     + '; return createFlatPoolAdmissionPolicy;', {
-      assert, exactRecord, immutable, genericAccountIdentity, poolRouteDigest, poolEconomicIdentity,
+      assert, exactRecord, immutable, genericAccountIdentity, poolRouteDigest, poolEconomicIdentity,FLAT_MINIMUM_PROFILE,normalizeMinimumDepositAtomic,
       owned: new WeakMap(), bare: value => value.slice(2),
       assertOwnedFlatSystem(runtime, system) { assert.equal(systems.get(system), runtime, 'HOST_ORIGINAL_SYSTEM'); },
       assertOwnedFlatAccountAuthority(account, expected) { assert.deepEqual(accounts.get(account), expected, 'HOST_ORIGINAL_ACCOUNT'); },

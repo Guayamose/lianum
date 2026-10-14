@@ -1,0 +1,17 @@
+/** Only the original dedicated issuer may serve these two readonly routes.
+ * The dispatcher accepts no authority factory, RPC/signing callback or DTO grant. */
+import assert from 'node:assert/strict';
+import {readOriginalPagedSourceReadRecoveryIssuerDescriptorV4,dispatchOriginalPagedSourceReadRecoveryIssuerV4} from '../../operations/recovery/paged-source-read-recovery-issuer-v4.mjs';
+const routes=Object.freeze({'/v1/mobile/paged-owner/source-renewal/challenges':'challenge','/v1/mobile/paged-owner/source-renewal/renewals':'submit'}),MAX_BODY=8192,MAX_REPLY=65536;
+export function createOriginalDevicePagedSourceReadRecoveryHttpV4(issuer){
+ assert.equal(arguments.length,1);const descriptor=readOriginalPagedSourceReadRecoveryIssuerDescriptorV4(issuer),host=new URL(descriptor.origin).host;let closed=false;const active=new Set();
+ function send(response,status,data){if(response.destroyed||response.writableEnded)return;const bytes=Buffer.from(JSON.stringify(data));assert.ok(bytes.length<=MAX_REPLY,'PAGED_SOURCE_READ_HTTP_REPLY_BOUND');response.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':bytes.length,'cache-control':'no-store','x-content-type-options':'nosniff'});response.end(bytes);}
+ async function handle(request,response){const chunks=[];let bytes,timer;
+  try{assert.ok(!closed,'PAGED_SOURCE_READ_HTTP_CLOSED');readOriginalPagedSourceReadRecoveryIssuerDescriptorV4(issuer);assert.ok(request.headers.host===host,'PAGED_SOURCE_READ_HTTP_HOST');assert.ok(request.headers.origin===undefined||request.headers.origin===descriptor.origin,'PAGED_SOURCE_READ_HTTP_ORIGIN');if(request.method!=='POST'||!Object.hasOwn(routes,request.url))return send(response,404,{error:'PAGED_SOURCE_READ_ROUTE_NOT_FOUND'});
+   assert.equal(request.headers['x-lianum-paged-pairing-id'],descriptor.pairingId,'PAGED_SOURCE_READ_HTTP_PAIRING');assert.ok(/^application\/json(?:;\s*charset=utf-8)?$/i.test(request.headers['content-type']??''),'PAGED_SOURCE_READ_HTTP_CONTENT_TYPE');assert.equal(request.headers['content-encoding'],undefined);assert.equal(request.headers['transfer-encoding'],undefined);const length=request.headers['content-length'];assert.ok(typeof length==='string'&&/^[1-9][0-9]{0,4}$/.test(length)&&Number(length)<=MAX_BODY,'PAGED_SOURCE_READ_HTTP_BODY_BOUND');
+   timer=setTimeout(()=>request.destroy(),15000);timer.unref?.();let size=0;for await(const chunk of request){size+=chunk.length;assert.ok(size<=MAX_BODY&&size<=Number(length),'PAGED_SOURCE_READ_HTTP_BODY_BOUND');chunks.push(chunk);}clearTimeout(timer);timer=null;assert.equal(size,Number(length));assert.ok(!closed&&!request.aborted);bytes=Buffer.concat(chunks);const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));bytes.fill(0);bytes=null;
+   const result=await dispatchOriginalPagedSourceReadRecoveryIssuerV4(issuer,routes[request.url],body);assert.ok(!closed&&!response.destroyed);return send(response,200,result);
+  }catch{if(!response.headersSent&&!response.destroyed)send(response,403,{error:'PAGED_SOURCE_READ_RECOVERY_REJECTED'});}finally{clearTimeout(timer);bytes?.fill(0);for(const chunk of chunks)chunk.fill(0);}}
+ const handler=(request,response)=>{const task=handle(request,response);active.add(task);task.finally(()=>active.delete(task)).catch(()=>{});return task;};
+ return Object.freeze({profile:'ORIGINAL_DEVICE_PAGED_SOURCE_READ_RECOVERY_HTTP_V4',handler,async close(){closed=true;await Promise.allSettled([...active]);}});
+}

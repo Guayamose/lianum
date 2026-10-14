@@ -6,23 +6,24 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { CLAIM_CONFIG_SCHEMA, claimDomainCommitment, claimVerifierSetCommitment } from '@lianum/engine/claims/framing';
 import { evmRuntimeCodeHash } from '../../../src/chains/evm/contracts/evm-code-hash.mjs';
-import { decodeFlatWords } from '../../../src/execution/account/reconciliation/flat-system-state.mjs';
+import { decodeFlatWords } from '@lianum/backend/encoding/flat-words';
 
 const h = text => createHash('sha256').update('mocked claim history/' + text).digest('hex'), p = value => '0x' + value;
 const w = value => p(BigInt(value).toString(16).padStart(64, '0'));
 const abi = values => '0x' + values.map(value => w(value).slice(2)).join('');
 const code = '0x6000', codeHash = evmRuntimeCodeHash(code), ZERO = '0'.repeat(64);
 let runtime, claims, current, controls, historicalAssertions = 0;
-mock.module(new URL('../ops/deploy-native-claims.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../src/operations/deployments/claims/deploy-native-claims.mjs', import.meta.url).href, { exports: {
   assertOwnedNativeClaimSystem(r, c) { assert.equal(r, runtime); assert.equal(c, claims); },
 } });
-mock.module(new URL('../ops/deploy-system.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../src/operations/deployments/system/deploy-system.mjs', import.meta.url).href, { exports: {
   assertOwnedFlatSystem(r, s) { assert.equal(r, runtime); assert.equal(s, claims.flatSystem); },
 } });
-mock.module(new URL('../chain-adapters/local-evm-ownership.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../src/chains/evm/runtime/local-evm-ownership.mjs', import.meta.url).href, { exports: {
   async assertLocalEvm(r) { assert.equal(r, runtime); },
+  async assertLocalEvmDeploymentProfile(){assert.fail('UNUSED_DEPLOYMENT_PROFILE_PORT');},
 } });
-mock.module(new URL('../paeg/flat-system-state.mjs', import.meta.url).href, { exports: {
+mock.module(new URL('../../../src/execution/account/reconciliation/flat-system-state.mjs', import.meta.url).href, { exports: {
   decodeFlatWords,
   async createFlatSystemStateReader() {
     const originals = new WeakMap();
