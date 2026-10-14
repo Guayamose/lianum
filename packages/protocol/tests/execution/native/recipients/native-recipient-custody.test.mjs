@@ -6,16 +6,16 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { Vault } from '../../../../src/crypto/vault.mjs';
-import { PrivateNoteTree } from '../../../../src/notes/private-note-tree.mjs';
-import { balanceWithdrawFrame, walletNoteCommitment, walletInputPublicWords } from '../../../../src/wallet/notes/private-wallet-note-encoding.mjs';
-import { compileFundedGraph, payoutInvoiceMessage } from '../../../../src/execution/graph/funded-graph.mjs';
-import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../src/execution/native/dispatch/native-admission.mjs';
-import { nativeTransferActionCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
+import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
+import { PrivateNoteTree } from '../../../../../engine/src/notes/private-note-tree.mjs';
+import { balanceWithdrawFrame, walletNoteCommitment, walletInputPublicWords } from '../../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { compileFundedGraph, payoutInvoiceMessage } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
+import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
 import { createNativeRecipientCustody, recoverNativeRecipientCustody, nativeRecipientPayoutNote,
-  nativeRecipientInvoiceRequest, nativeRecipientInvoiceMessage } from '../../../../src/execution/native/recipients/native-recipient-custody.mjs';
-import { createNativeRecipientProcess, assertOwnedNativeRecipientProcess } from '../../../../src/execution/native/recipients/native-recipient-process.mjs';
-import { positiveFixtures } from '../../../../../../experiments/protocol/private-core-proof/generic-funding/fixtures.mjs';
+  nativeRecipientInvoiceRequest, nativeRecipientInvoiceMessage } from '../../../../../engine/src/execution/native/recipients/native-recipient-custody.mjs';
+import { createNativeRecipientProcess, assertOwnedNativeRecipientProcess } from '../../../../../backend/src/execution/native/recipients/native-recipient-process.mjs';
+import { positiveFixtures } from '../../../../../../experiments/engine/private-core-proof/generic-funding/fixtures.mjs';
 
 const hash = text => createHash('sha256').update('synthetic recipient test:' + text).digest('hex');
 const raw = text => Buffer.from(text, 'hex');
@@ -248,7 +248,7 @@ test('separate process retains private signer across restart and returns only co
 
 test('raw owner IPC rejects arbitrary signing, key export, destination replacement and full-graph input', async t => {
   const { cfg } = await setup(t), child = spawn(process.execPath,
-    [fileURLToPath(new URL('../../src/paeg/native-recipient-process.mjs', import.meta.url)), '--worker'],
+    [fileURLToPath(new URL('../../../../../backend/src/execution/native/recipients/native-recipient-process.mjs', import.meta.url)), '--worker'],
     { stdio: ['pipe', 'pipe', 'pipe', 'pipe'] });
   const closed = new Promise(resolve => child.once('close', (code, signal) => resolve({ code, signal })));
   let buffer = '', stderr = '', seq = 0;
@@ -283,7 +283,7 @@ test('raw owner IPC rejects arbitrary signing, key export, destination replaceme
 });
 
 test('separate native owner preparation feeds the exact scoped invoice into recipient custody without proving', async t => {
-  const { createNativeOwnerProcess } = await import('../../../../src/execution/native/dispatch/native-owner.mjs');
+  const { createNativeOwnerProcess } = await import('../../../../../backend/src/execution/native/dispatch/native-owner.mjs');
   const { cfg, directory } = await setup(t), recipient = await createNativeRecipientProcess({ mode: 'create', ...cfg });
   t.after(() => recipient.close());
   const offer = await recipient.offer(), owner = createNativeOwnerProcess();

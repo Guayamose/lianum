@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { canonicalGlobalEffectId } from '../../../../src/evidence/native-evidence.mjs';
+import { canonicalGlobalEffectId } from '../../../../../engine/src/evidence/native-evidence.mjs';
 import { canonicalNativeEffectId, nativeReceiptKeyCommitment, nativeReceiptReadOpening,
   nativeReceiptCommitment, nativeReceiptNullifier, nativeReceiptToNoir,
-  nativeEffectToNoir } from '../../../../src/execution/native/state/native-receipt.mjs';
+  nativeEffectToNoir } from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const nk = hash('synthetic receipt spend secret');

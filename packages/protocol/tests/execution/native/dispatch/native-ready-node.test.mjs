@@ -2,18 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { prepareNativeReady, NATIVE_READY_PUBLIC_INPUT_COUNT } from '../../../../src/execution/native/dispatch/native-ready.mjs';
-import { prepareNativeNode, NATIVE_NODE_PUBLIC_INPUT_COUNT } from '../../../../src/execution/native/dispatch/native-node.mjs';
+import { prepareNativeReady, NATIVE_READY_PUBLIC_INPUT_COUNT } from '../../../../../engine/src/execution/native/dispatch/native-ready.mjs';
+import { prepareNativeNode, NATIVE_NODE_PUBLIC_INPUT_COUNT } from '../../../../../engine/src/execution/native/dispatch/native-node.mjs';
 import { prepareNativeCapsules, nativeTransferActionCommitment, capsuleAuthorizationWords,
-  localCapsuleCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
+  localCapsuleCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
 import { nativeReceiptKeyCommitment, nativeReceiptCommitment, nativeReceiptNullifier,
-  RECEIPT_HASH_FIELDS } from '../../../../src/execution/native/state/native-receipt.mjs';
-import { prepareNativeDependency } from '../../../../src/execution/native/dispatch/native-dependency.mjs';
-import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures } from '../../../../src/execution/graph/funded-graph.mjs';
-import { freshKey, signature } from '../../../../src/notes/private-note-encoding.mjs';
-import { PrivateNoteTree } from '../../../../src/notes/private-note-tree.mjs';
-import { boundedListDigest, snapshotDigest, evidenceStateDigest, nativeDigestWords } from '../../../../src/execution/native/state/native-state.mjs';
-import { NATIVE_PROFILES } from '../../../../../../experiments/protocol/private-core-proof/generic-native/pin-key.mjs';
+  RECEIPT_HASH_FIELDS } from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
+import { prepareNativeDependency } from '../../../../../engine/src/execution/native/dispatch/native-dependency.mjs';
+import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
+import { freshKey, signature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
+import { PrivateNoteTree } from '../../../../../engine/src/notes/private-note-tree.mjs';
+import { boundedListDigest, snapshotDigest, evidenceStateDigest, nativeDigestWords } from '../../../../../engine/src/execution/native/state/native-state.mjs';
+import { NATIVE_PROFILES } from '../../../../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
 
 // Host schema and byte-binding tests only. Recursive fields below are deliberately
 // synthetic and unverified. No compiler, prover, chain runtime or native admission
@@ -103,7 +103,7 @@ test('R98 and N51 compose actual role packets in the current source and pin ABI 
     ['node', padding(), prepareNativeNode, nodePublic, NATIVE_NODE_PUBLIC_INPUT_COUNT],
   ]) {
     const before = copy(input), result = compose(input);
-    const main = readFileSync(new URL(`../../experiments/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
+    const main = readFileSync(new URL(`../../../../../../experiments/protocol/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
     const signature = main.split('fn main(')[1].split(') {')[0];
     const parameters = [...signature.matchAll(/^\s+(\w+): (.+),$/gm)].map(match => match[1]);
     assert.deepEqual(Object.keys(result.inputs), parameters);

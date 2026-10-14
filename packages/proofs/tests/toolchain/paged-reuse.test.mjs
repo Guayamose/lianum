@@ -14,18 +14,18 @@ mock.module('node:fs',{namedExports:{...exportsOf(fs),readFileSync(path,...args)
  if(resolved!==alteredPath)return value;
  assert.ok(Buffer.isBuffer(value));const changed=Buffer.from(value);changed[changed.length-1]^=1;return changed;
 }}});
-const {inspectFundedPagedGraphArtifactsForPreparationV4,PAEG_PAGED_ARTIFACT_DIRECTORY_V3}=
+const {inspectRetainedFundedPagedGraphArtifactsForPreparationV4,PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3}=
  await import('../../src/toolchain/paged-artifacts-v3.mjs');
 
 test('paged reuse authenticates the original programs and compiler inputs without relabelling changed host sources',()=>{
- assert.throws(()=>inspectFundedPagedGraphArtifactsForPreparationV4({}),/PAEG_PAGED_PREPARATION_NO_OPTIONS/);
+ assert.throws(()=>inspectRetainedFundedPagedGraphArtifactsForPreparationV4({}),/PAEG_PAGED_PREPARATION_NO_OPTIONS/);
  forbiddenHost=join(projectRoot,'.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs');
- const receipt=inspectFundedPagedGraphArtifactsForPreparationV4();
+ const receipt=inspectRetainedFundedPagedGraphArtifactsForPreparationV4();
  assert.deepEqual(Object.keys(receipt.roles),['reserve','fold','terminal','admission','withdraw']);
  assert.ok(receipt.compilerInputs.some(row=>row.path.endsWith('.nr')));
  assert.ok(receipt.compilerInputs.every(row=>!row.path.endsWith('.mjs')));
  assert.equal(receipt.compilerInputs.length+receipt.hostSources.length,receipt.recordedSourceFiles.length);
- assert.equal(receipt.hostSources.filter(row=>row.source!==row.path).length,10);
+ assert.equal(receipt.hostSources.filter(row=>row.source!==row.path).length,14);
  assert.equal(receipt.currentLaunchersClaimedAsOriginal,false);
  assert.equal(receipt.sourceCapsuleRewritten,false);
  assert.equal(receipt.compiledNow,false);
@@ -34,13 +34,13 @@ test('paged reuse authenticates the original programs and compiler inputs withou
  forbiddenHost=null;
  const circuit=receipt.compilerInputs.find(row=>row.path.endsWith('.nr')).path;
  for(const [path,code]of [
-  [join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'manifest.json'),'PAEG_PAGED_MANIFEST_PIN'],
-  [join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'prepared/reserve.json'),'PAEG_PAGED_ARTIFACT_PIN'],
-  [join(projectRoot,circuit),'PAEG_PAGED_RETAINED_COMPILER_PIN'],
+  [join(PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3,'manifest.json'),'PAEG_PAGED_MANIFEST_PIN'],
+  [join(PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3,'prepared/reserve.json'),'PAEG_PAGED_ARTIFACT_PIN'],
+  [join(projectRoot,receipt.compilerInputs.find(row=>row.path===circuit).source??circuit),'PAEG_PAGED_RETAINED_COMPILER_PIN'],
   [join(projectRoot,receipt.hostSources.find(row=>row.source.startsWith('archive/source-evidence/')).source),'PAEG_PAGED_RETAINED_HOST_PIN'],
  ]){
   alteredPath=path;
-  assert.throws(()=>inspectFundedPagedGraphArtifactsForPreparationV4(),new RegExp(code));
+  assert.throws(()=>inspectRetainedFundedPagedGraphArtifactsForPreparationV4(),new RegExp(code));
  }
  alteredPath=null;
 });

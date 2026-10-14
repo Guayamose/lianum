@@ -3,13 +3,13 @@ import {createHash} from 'node:crypto';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {Vault} from '../../../src/crypto/vault.mjs';
-import {derivePrivateWalletAssetIdentity} from '../../../src/wallet/notes/private-wallet-asset-binding.mjs';
-import {derivePrivateAssetPoolScope} from '../../../src/notes/private-asset-runtime.mjs';
-import {PrivateNoteTree,privateSpentDigest,ZERO_NOTE_HASH} from '../../../src/notes/private-note-tree.mjs';
-import {freshKey,signature,wordsBE} from '../../../src/notes/private-note-encoding.mjs';
-import {genericProofCalldata} from '../../../src/execution/local/local-deployment.mjs';
-import {objectDigest,openTrustedOwnerDraft,recoverUncommittedOwnerDraft,OBSERVATION_TRUST} from '../../../src/execution/balances/generic-balance-custody.mjs';
+import {Vault} from '../../../../engine/src/crypto/vault.mjs';
+import {derivePrivateWalletAssetIdentity} from '../../../../engine/src/wallet/notes/private-wallet-asset-binding.mjs';
+import {derivePrivateAssetPoolScope} from '../../../../engine/src/notes/private-asset-runtime.mjs';
+import {PrivateNoteTree,privateSpentDigest,ZERO_NOTE_HASH} from '../../../../engine/src/notes/private-note-tree.mjs';
+import {freshKey,signature,wordsBE} from '../../../../engine/src/notes/private-note-encoding.mjs';
+import {genericProofCalldata} from '../../../../engine/src/execution/local/local-deployment.mjs';
+import {objectDigest,openTrustedOwnerDraft,recoverUncommittedOwnerDraft,OBSERVATION_TRUST} from '../../../../engine/src/execution/balances/generic-balance-custody.mjs';
 
 export const h=x=>createHash('sha256').update(String(x)).digest('hex');
 export const artifact={abi:[

@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Implementación candidata Poseidon",
+  "description": "Implementaci\u00f3n candidata Poseidon",
   "exports": {
     "./framing": "./src/framing.mjs",
     "./portable-poseidon2": "./src/portable/poseidon2-bn254-v1.mjs",
     "./native-wallet-v1": "./src/native-wallet-v1.mjs",
-    "./native-wallet-auth-v1": "./src/native-wallet-auth-v1.mjs"
+    "./native-wallet-auth-v1": "./src/native-wallet-auth-v1.mjs",
+    "./native-provider-crypto-v1": "./src/native-provider-crypto-v1.mjs",
+    "./sepolia-receiver-wire-v4": "./src/sepolia-receiver-wire-v4.mjs",
+    "./sepolia-source-wire-v4": "./src/sepolia-source-wire-v4.mjs"
   },
   "lianum": {
     "status": "candidate"

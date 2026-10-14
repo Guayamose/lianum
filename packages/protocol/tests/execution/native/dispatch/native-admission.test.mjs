@@ -10,10 +10,10 @@ import {
   nativeDeliveryRiskFrame, nativeDeliveryRiskCommitment, nativeDispatchStatementFrame, nativeDispatchStatementDigest,
   nativeAttestationStatementFrame, nativeAttestationStatementDigest, nativeAdmissionObservationToNoir,
   nativeAdmissionRegistryToNoir, prepareNativeAdmission,
-} from '../../../../src/execution/native/dispatch/native-admission.mjs';
-import { nativeTransferActionCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
-import { nativeReceiptCommitment, canonicalNativeEffectId } from '../../../../src/execution/native/state/native-receipt.mjs';
-import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment } from '../../../../src/evidence/native-quorum.mjs';
+} from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { nativeReceiptCommitment, canonicalNativeEffectId } from '../../../../../engine/src/execution/native/state/native-receipt.mjs';
+import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment } from '../../../../../engine/src/evidence/native-quorum.mjs';
 
 const PROFILE = Buffer.from('LIANUM_PAEG_NATIVE_4_V2', 'ascii');
 const ZERO = '0'.repeat(64), U64 = (1n << 64n) - 1n;
@@ -175,7 +175,7 @@ test('provider, compact Ready, explicit loss, dispatch, and attestation bytes ma
     uint(o.custodyKind, 1), bytes(o.custodyCommitment), uint(o.evidenceFrom, 8), uint(o.evidenceUntil, 8)]);
   assert.equal(attestation.length, 581); assert.deepEqual(nativeAttestationStatementFrame(a), attestation);
   assert.equal(nativeAttestationStatementDigest(a), hash(attestation));
-  const source = readFileSync(new URL('../../experiments/private-core-proof/generic-native/circuits/admission/src/statement.nr', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../../../experiments/protocol/private-core-proof/generic-native/circuits/admission/src/statement.nr', import.meta.url), 'utf8');
   for (const tag of Object.values(NATIVE_ADMISSION_TAGS)) {
     assert.ok(source.includes([...Buffer.from(tag)].join(', ')), `Noir must contain the exact ASCII tag: ${tag}`);
   }
@@ -195,7 +195,7 @@ test('compact Ready and observation codecs retain full widths without field-word
 });
 
 test('composer emits exact I42 ABI and real host signatures while synthetic recursion remains unverified', () => {
-  const source = readFileSync(new URL('../../experiments/private-core-proof/generic-native/circuits/admission/src/main.nr', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../../../experiments/protocol/private-core-proof/generic-native/circuits/admission/src/main.nr', import.meta.url), 'utf8');
   const parameters = [...source.slice(source.indexOf('fn main('), source.indexOf(') {', source.indexOf('fn main(')))
     .matchAll(/^\s*(\w+): (?:pub )?/gm)].map(match => match[1]);
   for (const family of ['1', '2', '3', '4']) {

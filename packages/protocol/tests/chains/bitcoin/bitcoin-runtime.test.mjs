@@ -4,8 +4,8 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { bitcoinAmountFromSatoshi, bitcoinSatoshiFromAmount, decodeBitcoinTransaction,
   validateBitcoinTransferWire, validateBitcoinTransferObservation, createOwnedBitcoinRuntime,
-  BITCOIN_REGTEST_GENESIS, bitcoinRuntimePins } from '../../../src/chains/bitcoin/bitcoin-runtime.mjs';
-import { linuxRuntimePins } from '../../../src/chains/shared/linux-runtime-pins.mjs';
+  BITCOIN_REGTEST_GENESIS, bitcoinRuntimePins } from '../../../../engine/src/chains/bitcoin/bitcoin-runtime.mjs';
+import { linuxRuntimePins } from '../../../../engine/src/chains/shared/linux-runtime-pins.mjs';
 
 const digest = bytes => createHash('sha256').update(bytes).digest();
 const id = wire => Buffer.from(digest(digest(Buffer.from(wire, 'hex')))).reverse().toString('hex');
@@ -121,7 +121,7 @@ test('constructor rejects all caller settings before touching any binary or node
 });
 
 test('standalone adapter statically retains the signing/journal/send boundaries and isolation flags', async () => {
-  const source = await readFile(new URL('../src/chains/bitcoin-runtime.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../../../engine/src/chains/bitcoin/bitcoin-runtime.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /from ['"].*(?:native-runtime|solana-runtime)|binaries\.(?:solc|anvil)|ownedRuntimeRpc/);
   for (const flag of ['listen=0', 'listenonion=0', 'discover=0', 'dns=0', 'dnsseed=0', 'fixedseeds=0', 'networkactive=0', 'connect=0', 'rpcbind=127.0.0.1', 'rpcallowip=127.0.0.1']) assert.ok(source.includes(flag), flag);
   const before = source.indexOf('await beforeSign('), sign = source.indexOf("await rpc('signrawtransactionwithwallet'"), retain = source.indexOf('await onSigned('), broadcast = source.indexOf("await rpc('sendrawtransaction'");

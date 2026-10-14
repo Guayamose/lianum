@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { Barretenberg, BackendType, UltraHonkVerifierBackend } from '@aztec/bb.js';
+import {currentProofLibrariesV1,currentProbePathsV1} from '../proving/current-run-paths-v1.mjs';
+const {Barretenberg, BackendType, UltraHonkVerifierBackend}=await currentProofLibrariesV1();
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -9,16 +10,17 @@ import { parseStrictJSON } from '../proving/strict-json.mjs';
 
 // Preflight every required case/file before initializing the real backend.
 // Current verification writes a new record, never historical M7 evidence.
-const root = fileURLToPath(new URL('.', import.meta.url));
-const evidence = resolve(process.argv[2] ?? resolve(root, '../../evidence'));
-const output = resolve(process.argv[3] ?? resolve(root, '.local/retained-verification-current.json'));
+const paths=currentProbePathsV1(process.argv[2]);
+const root=paths.source;
+const evidence = paths.evidence;
+const output = resolve(paths.run,'retained-verification-current.json');
 const { blobs, childInputs, outerInputs, wrongInputs } = loadRetainedInventory(evidence);
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
-const crsDir = resolve(root, '.local/crs/131072');
+const crsDir = resolve(paths.crs,'131072');
 const crs = parseStrictJSON(readFileSync(resolve(crsDir, 'provenance.json'), 'utf8'));
 for (const entry of crs.records) assert.equal(sha(readFileSync(resolve(crsDir, entry.file))), entry.sha256);
 globalThis.fetch = async () => { throw new Error('Retained proof verification is offline'); };
-const result = { classification: 'STRICT_FRESH_PROCESS_REAL_M7_REVERIFICATION_NOT_PC5', privateWitnessLoaded: false, proofsGenerated: 0, checks: [], crsPoints: 131072, expectedCheckCount: 8 };
+const result = { classification: 'FRESH_CURRENT_RECURSIVE_PROOF_ACCEPTANCE_NOT_HISTORICAL_M7_NOT_PC5', privateWitnessLoaded: false, proofsGenerated: 0, checks: [], crsPoints: 131072, expectedCheckCount: 8 };
 const api = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true, memory: { initial: 37, maximum: 32768 } });
 try {
   await api.srsInitSrs({ pointsBuf: readFileSync(resolve(crsDir, 'bn254_g1_compressed.dat')), numPoints: 131072, g2Point: readFileSync(resolve(crsDir, 'bn254_g2.dat')) });

@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { canonicalNativeOwnerNodes, createNativeOwnerProcess, nativeOwnerPayoutNote,
-  normalizeNativeOwnerPrepare, normalizeNativeOwnerAuthorize } from '../../../../src/execution/native/dispatch/native-owner.mjs';
-import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures } from '../../../../src/execution/graph/funded-graph.mjs';
-import { nativeReceiptKeyCommitment, nativeTransferActionCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
-import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../src/execution/native/dispatch/native-admission.mjs';
-import { nativeRecipientInvoiceRequest, nativeRecipientInvoiceMessage, nativeRecipientPayoutNote } from '../../../../src/execution/native/recipients/native-recipient-custody.mjs';
-import { walletNoteCommitment } from '../../../../src/wallet/notes/private-wallet-note-encoding.mjs';
-import { freshKey, signature } from '../../../../src/notes/private-note-encoding.mjs';
-import { runGenericNativeOwnerWorker } from '../../../../../../scripts/protocol/proofs/generic-native-owner-worker.mjs';
+  normalizeNativeOwnerPrepare, normalizeNativeOwnerAuthorize } from '../../../../../backend/src/execution/native/dispatch/native-owner.mjs';
+import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
+import { nativeReceiptKeyCommitment, nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeRecipientInvoiceRequest, nativeRecipientInvoiceMessage, nativeRecipientPayoutNote } from '../../../../../engine/src/execution/native/recipients/native-recipient-custody.mjs';
+import { walletNoteCommitment } from '../../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { freshKey, signature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
+import { runGenericNativeOwnerWorker } from '../../../../../../scripts/engine/proofs/generic-native-owner-worker.mjs';
 
 const h = text => createHash('sha256').update('native owner pure fixture: ' + text).digest('hex');
 const hx = bytes => Buffer.from(bytes).toString('hex');

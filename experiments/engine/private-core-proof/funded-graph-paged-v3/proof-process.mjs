@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {join,resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {PAEG_PAGED_ROOT_V3,PAEG_PAGED_ARTIFACT_DIRECTORY_V3,PAEG_PAGED_WORDS_V3,loadFundedPagedGraphArtifactsV3} from './artifacts.mjs';
-import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1,privateProofBindingSHA256V1} from '../../../../packages/proofs/src/jobs/private-proof-transit-v1.mjs';
+import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,openPrivateProofJobV1,closePrivateProofRecipientV1,wipePrivateProofInputsV1,privateProofBindingSHA256V1} from '../../../../packages/engine/src/crypto/private-proof-transit-v1.mjs';
 const role=Object.freeze({reserve:'owner',fold:'owner',terminal:'owner',admission:'local',withdraw:'recipient'});
 assert.equal(process.argv.length,5,'PAEG_PAGED_FIXED_WORKER_ARGUMENTS');const [mode,jobId,manifestSHA256]=process.argv.slice(2);assert.ok(Object.hasOwn(PAEG_PAGED_WORDS_V3,mode),'PAEG_PAGED_FIXED_MODE');assert.match(jobId,/^[a-f0-9-]{36}$/,'PAEG_PAGED_JOB_ID');assert.ok(process.send&&process.connected,'PAEG_PAGED_IPC_PARENT');
 assert.equal(realpathSync('/proc/'+process.ppid+'/exe'),realpathSync(process.execPath),'PAEG_PAGED_OWNED_NODE_PARENT');

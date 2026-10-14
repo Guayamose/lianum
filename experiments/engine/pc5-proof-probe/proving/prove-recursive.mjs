@@ -1,19 +1,20 @@
 import assert from 'node:assert/strict';
-import { Noir } from '@noir-lang/noir_js';
-import { Barretenberg, BackendType, UltraHonkBackend, UltraHonkVerifierBackend, deflattenFields } from '@aztec/bb.js';
+import {currentProofLibrariesV1,currentProbePathsV1} from './current-run-paths-v1.mjs';
+const {Noir, Barretenberg, BackendType, UltraHonkBackend, UltraHonkVerifierBackend, deflattenFields}=await currentProofLibrariesV1();
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireConstraintFailure } from '../validation/expected-constraint-failure.mjs';
 
-const root = fileURLToPath(new URL('.', import.meta.url));
-const out = resolve(root, '../../evidence/m7-recursive-probe');
+const paths=currentProbePathsV1(process.argv[3]);
+const root=paths.source;
+const out = paths.outer;
 mkdirSync(out, { recursive: true });
 const hash = b => createHash('sha256').update(b).digest('hex');
-const program = JSON.parse(readFileSync(resolve(root, '.local/compiled/recursive_join.json')));
-const input = JSON.parse(readFileSync(resolve(root, '.local/recursive-input.json')));
-const crsDir = resolve(root, '.local/crs/2097152');
+const program = JSON.parse(readFileSync(resolve(paths.compiled, 'recursive_join.json')));
+const input = JSON.parse(readFileSync(paths.recursiveInput));
+const crsDir = resolve(paths.crs,'2097152');
 const crs = JSON.parse(readFileSync(resolve(crsDir, 'provenance.json')));
 for (const item of crs.records) assert.equal(hash(readFileSync(resolve(crsDir, item.file))), item.sha256);
 const settings = { verifierTarget: 'evm' }; // Keccak + ZK, not legacy keccak:true.
@@ -80,7 +81,7 @@ try {
       if (!candidateVerified) save(name + '-invalid-proof.bin', candidate.proof);
     } catch (error) {
       rejectedAt = witnessProduced ? 'actual-prover' : 'witness-execution';
-      report.lastNegativeError = error.message;
+      report.lastNegativeError = {name:error?.name==='AssertionError'?'AssertionError':'Error',code:'ORIGINAL_NEGATIVE_PROOF_EXCEPTION'};
     }
     assert.equal(candidateVerified, false, 'Recursive proof accepted invalid child');
     assert.equal(witnessProduced, true, 'This test must reach actual backend, not merely witness validation');
@@ -91,12 +92,12 @@ try {
   }
   phase('wrong-approved-vk');
   const wrongKeyInput = structuredClone(input);
-  wrongKeyInput.vk = deflattenFields(readFileSync(resolve(root, '../../evidence/m7-proof-probe/wrong-verification-key.bin')));
+  wrongKeyInput.vk = deflattenFields(readFileSync(resolve(paths.child,'wrong-verification-key.bin')));
   const cause = await requireConstraintFailure(() => noir.execute(wrongKeyInput));
   report.negativeCases.push({ name: 'wrongApprovedVk', rejected: true, cause, stage: 'witness-execution of complete key equality, not a backend-verification result' });
   phase('completed');
 } catch (error) {
-  report.failure = { phase: report.phase, name: error.name, message: error.message };
+  report.failure = {phase:report.phase,name:error?.name==='AssertionError'?'AssertionError':'Error',code:'M7_ORIGINAL_PROOF_FAILED'};
   report.phase = 'failed';
   console.error(JSON.stringify(report.failure));
   process.exitCode = 1;

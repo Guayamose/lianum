@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import test from 'node:test';
 import { compileFundedGraph, attachFundedSignatures, fundedSigningRequests, fundedAuthorizationWords,
-  fundedHash, fundedFrame, fundedAdmission, FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '../../../src/execution/graph/funded-graph.mjs';
-import { walletNoteCommitment } from '../../../src/wallet/notes/private-wallet-note-encoding.mjs';
-import { nullifier, frame as legacyFrame, uintBE } from '../../../src/notes/private-note-encoding.mjs';
-import { positiveFixtures, negativeFixtures } from '../../../../../experiments/protocol/private-core-proof/generic-funding/fixtures.mjs';
-import { authorizationInputs, authorizationPublicWords } from '../../../../../experiments/protocol/private-core-proof/generic-funding/witness.mjs';
+  fundedHash, fundedFrame, fundedAdmission, FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '../../../../engine/src/execution/graph/funded-graph.mjs';
+import { walletNoteCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
+import { nullifier, frame as legacyFrame, uintBE } from '../../../../engine/src/notes/private-note-encoding.mjs';
+import { positiveFixtures, negativeFixtures } from '../../../../../experiments/engine/private-core-proof/generic-funding/fixtures.mjs';
+import { authorizationInputs, authorizationPublicWords } from '../../../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
 
 const fixtures = positiveFixtures();
 const base = fixtures.find(f => f.name === 'two-independent-type4');

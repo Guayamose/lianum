@@ -8,7 +8,7 @@ import {types} from 'node:util';
 import {readFileSync,statfsSync} from 'node:fs';
 import {join} from 'node:path';
 import {PAEG_PAGED_ROOT_V3,PAEG_PAGED_WORDS_V3,loadFundedPagedGraphArtifactsV3} from './artifacts.mjs';
-import {sealPrivateProofJobV1,wipePrivateProofInputsV1,privateProofAuthorizationBindingV1} from '../../../../packages/proofs/src/jobs/private-proof-transit-v1.mjs';
+import {sealPrivateProofJobV1,wipePrivateProofInputsV1,privateProofAuthorizationBindingV1} from '../../../../packages/engine/src/crypto/private-proof-transit-v1.mjs';
 import {readOriginalFundedPagedGraphProofJobV3,closeFundedPagedGraphProofJobV3} from '../../../../packages/engine/src/execution/graph/funded-graph-paged-v3.mjs';
 import {PRIVATE_RESOURCE_POLICY as limits} from '../../../../packages/engine/src/crypto/private-resource-policy.mjs';
 const clients=new WeakMap(),results=new WeakMap();

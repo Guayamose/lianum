@@ -5,10 +5,10 @@ import test from 'node:test';
 import { prepareNativeCapsules, nativeReceiptKeyCommitment, nativeTransferActionCommitment,
   a0Context, capsuleAuthorizationWords, localCapsuleCommitment, dependencyCapsuleCommitment,
   localCapsuleToNoir, dependencyCapsuleToNoir, nativeActionToNoir,
-  NATIVE_CAPSULE_PROFILE } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
+  NATIVE_CAPSULE_PROFILE } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures,
-  fundedAuthorizationWords } from '../../../../src/execution/graph/funded-graph.mjs';
-import { freshKey, signature, uintBE } from '../../../../src/notes/private-note-encoding.mjs';
+  fundedAuthorizationWords } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
+import { freshKey, signature, uintBE } from '../../../../../engine/src/notes/private-note-encoding.mjs';
 
 const ZERO = '0'.repeat(64);
 const h = label => createHash('sha256').update('capsule fixture: ' + label).digest('hex');
@@ -84,7 +84,7 @@ test('C129 exact public order and A0 139-word private conversion retain all four
 });
 
 test('C source ABI matches the host order and calls the existing pinned A0 verifier once', () => {
-  const main = readFileSync(new URL('../../experiments/private-core-proof/generic-native/circuits/capsule/src/main.nr', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('../../../../../../experiments/protocol/private-core-proof/generic-native/circuits/capsule/src/main.nr', import.meta.url), 'utf8');
   const declarations = [...main.matchAll(/^\s+(\w+): pub (.+),$/gm)].map(match => [match[1], match[2]]);
   assert.deepEqual(declarations, [
     ...['scope', 'policy', 'asset', 'hub_domain', 'registry_commitment', 'context', 'reserve_commitment', 'reserve_nullifier']
@@ -93,7 +93,7 @@ test('C source ABI matches the host order and calls the existing pinned A0 verif
     ['settle_before', 'u64'],
   ]);
   assert.equal([...main.matchAll(/owner::verify\(owner_vk, owner_proof, owner_inputs\)/g)].length, 1);
-  const verifier = readFileSync(new URL('../../experiments/private-core-proof/generic-wrappers/lib/src/owner.nr', import.meta.url), 'utf8');
+  const verifier = readFileSync(new URL('../../../../../../experiments/protocol/private-core-proof/generic-wrappers/lib/src/owner.nr', import.meta.url), 'utf8');
   assert.match(verifier, /assert\(vk == approved_owner_key::OWNER_VK\)/);
   assert.match(verifier, /bb_proof_verification::verify_honk_proof\([\s\S]*approved_owner_key::OWNER_VK_HASH/);
   assert.match(main, /owner_vk: \[Field; 115\]/);
@@ -320,7 +320,7 @@ test('role-local validated Noir converters need no owner or graph capability', (
 // the independent host encodings. This catches byte/length/order drift without
 // running the compiler while the native build owns the machine.
 function noirFramingTranscript(name, values) {
-  const source = readFileSync(new URL('../../experiments/private-core-proof/generic-native/lib/src/capsule_framing.nr', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../../../experiments/protocol/private-core-proof/generic-native/lib/src/capsule_framing.nr', import.meta.url), 'utf8');
   const body = source.slice(source.indexOf(`pub fn ${name}(`)).split('\n}\n')[0];
   const length = Number(/let mut message: \[u8; (\d+)\]/.exec(body)?.[1]);
   assert.ok(length > 0);

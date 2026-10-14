@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compileGraph, GRAPH_PROFILE } from '../../../src/execution/graph/graph.mjs';
+import { compileGraph, GRAPH_PROFILE } from '../../../../engine/src/execution/graph/graph.mjs';
 
 const hash = value => value.toString(16).padStart(64, '0');
 const node = (id, chain, dependencies = []) => ({

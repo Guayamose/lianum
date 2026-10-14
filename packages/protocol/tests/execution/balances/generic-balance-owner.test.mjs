@@ -6,14 +6,14 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomBytes} from 'node:crypto';
-import {objectDigest} from '../../../src/execution/balances/generic-balance-custody.mjs';
-import {createGenericBalanceOwnerProcess} from '../../../src/execution/balances/generic-balance-owner-process.mjs';
+import {objectDigest} from '../../../../engine/src/execution/balances/generic-balance-custody.mjs';
+import {createGenericBalanceOwnerProcess} from '../../../../backend/src/accounts/balances/generic-balance-owner-process.mjs';
 import {BALANCE_OWNER_PROTOCOL,MAX_MESSAGE_BYTES,encode,createFrameReader,writeFrame,methodPlane}
-  from '../../../src/execution/balances/generic-balance-owner-protocol.mjs';
-import {signature} from '../../../src/notes/private-note-encoding.mjs';
+  from '../../../../engine/src/execution/balances/generic-balance-owner-protocol.mjs';
+import {signature} from '../../../../engine/src/notes/private-note-encoding.mjs';
 import {artifact,identity,ledger,terms,submission,success,recoverySuccess,recoveryRequest} from './generic-balance-fixtures.mjs';
 
-const childFile=fileURLToPath(new URL('../../src/paeg/generic-balance-owner-child.mjs',import.meta.url));
+const childFile=fileURLToPath(new URL('../../../../engine/src/execution/balances/generic-balance-owner-child.mjs',import.meta.url));
 const session='ab'.repeat(32);
 const message=(fields)=>({protocol:BALANCE_OWNER_PROTOCOL,session,...fields});
 

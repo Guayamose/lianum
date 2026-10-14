@@ -2,9 +2,9 @@
  * invalid proof fixtures. No chains, native transfers, compilers or provers. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {objectDigest, openTrustedOwnerDraft} from '../../../src/execution/balances/generic-balance-custody.mjs';
+import {objectDigest, openTrustedOwnerDraft} from '../../../../engine/src/execution/balances/generic-balance-custody.mjs';
 import {validateRecoveryObservationQuery, methodPlane, encode, BALANCE_OWNER_PROTOCOL}
-  from '../../../src/execution/balances/generic-balance-owner-protocol.mjs';
+  from '../../../../engine/src/execution/balances/generic-balance-owner-protocol.mjs';
 import {setup, fund, prepare, submission, success, recoverySuccess, recoveryRequest, h}
   from './generic-balance-fixtures.mjs';
 

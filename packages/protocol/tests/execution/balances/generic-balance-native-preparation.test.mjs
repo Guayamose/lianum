@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { freshKey, signature } from '../../../src/notes/private-note-encoding.mjs';
+import { freshKey, signature } from '../../../../engine/src/notes/private-note-encoding.mjs';
 import {
   attachFundedSignatures, compileFundedGraph, fundedAuthorizationWords,
   fundedSigningRequests, ownerAuthorizationMessage, payoutInvoiceMessage,
-} from '../../../src/execution/graph/funded-graph.mjs';
+} from '../../../../engine/src/execution/graph/funded-graph.mjs';
 import {
   capsuleAuthorizationWords, dependencyCapsuleCommitment, localCapsuleCommitment,
-} from '../../../src/execution/native/dispatch/native-capsules.mjs';
-import { nativeRecipientInvoiceMessage } from '../../../src/execution/native/recipients/native-recipient-custody.mjs';
+} from '../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { nativeRecipientInvoiceMessage } from '../../../../engine/src/execution/native/recipients/native-recipient-custody.mjs';
 import {
   createGenericBalanceNativePreparation, genericBalanceNativeInvoiceRequests,
   genericBalanceNativeTerms, normalizeGenericBalanceNativeConfig,
   prepareGenericBalanceNativeCapsules, validateGenericBalanceNativePreparation,
-} from '../../../src/execution/balances/generic-balance-native-preparation.mjs';
+} from '../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
 
 const h = value => createHash('sha256').update('balance native preparation fixture: ' + value).digest('hex');
 const hex = value => Buffer.from(value).toString('hex');

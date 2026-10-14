@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,writeFile} from 'node:fs/promises';
-import {openTrustedOwnerDraft,recoverUncommittedOwnerDraft,objectDigest} from '../../../src/execution/balances/generic-balance-custody.mjs';
+import {openTrustedOwnerDraft,recoverUncommittedOwnerDraft,objectDigest} from '../../../../engine/src/execution/balances/generic-balance-custody.mjs';
 import {setup,fund,prepare,terms,submission,success,h,ledger} from './generic-balance-fixtures.mjs';
-import {signature,freshKey} from '../../../src/notes/private-note-encoding.mjs';
-import {PrivateNoteTree} from '../../../src/notes/private-note-tree.mjs';
+import {signature,freshKey} from '../../../../engine/src/notes/private-note-encoding.mjs';
+import {PrivateNoteTree} from '../../../../engine/src/notes/private-note-tree.mjs';
 
 test('D26 credits exact deposit despite an unrelated canonical pool transition after preparation',async t=>{
   const f=await setup(t),reference='funding-concurrent';

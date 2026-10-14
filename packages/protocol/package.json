@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Generación anterior conservada por compatibilidad",
+  "description": "Generaci\u00f3n anterior conservada por compatibilidad",
   "exports": {
     "./crypto/privacy": "./src/crypto/privacy.mjs",
     "./crypto/vault": "./src/crypto/vault.mjs",
-    "./accounts/keeper": "./src/execution/accounts/generic-account-keeper.mjs"
+    "./accounts/keeper": "./src/compatibility/account-keeper.mjs"
   },
   "lianum": {
     "status": "compatibility"
+  },
+  "dependencies": {
+    "@lianum/engine": "file:../engine"
   }
 }

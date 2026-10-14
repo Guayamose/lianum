@@ -5,12 +5,12 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createGenericNativeExecutionKeeper, assertOwnedGenericNativeExecutionKeeper,
-  validateGenericNativeExecutionPreparation } from '../../../../src/execution/native/dispatch/generic-native-execution.mjs';
+  validateGenericNativeExecutionPreparation } from '../../../../../backend/src/execution/native/dispatch/generic-native-execution.mjs';
 import { createGenericBalanceNativePreparation, genericBalanceNativeTerms,
-  prepareGenericBalanceNativeCapsules } from '../../../../src/execution/balances/generic-balance-native-preparation.mjs';
-import { capsuleAuthorizationWords, dependencyCapsuleCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
-import { compileFundedGraph, fundedSigningRequests, fundedAuthorizationWords, attachFundedSignatures } from '../../../../src/execution/graph/funded-graph.mjs';
-import { freshKey, signature } from '../../../../src/notes/private-note-encoding.mjs';
+  prepareGenericBalanceNativeCapsules } from '../../../../../engine/src/execution/balances/generic-balance-native-preparation.mjs';
+import { capsuleAuthorizationWords, dependencyCapsuleCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { compileFundedGraph, fundedSigningRequests, fundedAuthorizationWords, attachFundedSignatures } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
+import { freshKey, signature } from '../../../../../engine/src/notes/private-note-encoding.mjs';
 
 const h = value => createHash('sha256').update('generic-native-execution-host:' + value).digest('hex');
 const hex = bytes => Buffer.from(bytes).toString('hex');
@@ -123,7 +123,7 @@ test('factory refuses lookalike owned capabilities before runtime, callbacks or 
 });
 
 test('fixed host wiring retains serial pinned roles, owned gates and original terminal reconciliation', () => {
-  const source = readFileSync(new URL('../../src/paeg/generic-native-execution.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../../backend/src/execution/native/dispatch/generic-native-execution.mjs', import.meta.url), 'utf8');
   for (const role of ["role('dependency', ['dependency'])", "role('ready', ['ready'])", "role('receipt', ['admission'])",
     "role('node', ['node'])", "role('assembler', ['aggregate_pair', 'aggregate_all', 'fulfill'])"]) assert.ok(source.includes(role));
   assert.match(source, /for \(const \{ slot, family, recipientIndex, provider, native \} of providers\)/);
@@ -143,7 +143,7 @@ test('fixed host wiring retains serial pinned roles, owned gates and original te
 });
 
 test('abort latches before awaited proof cleanup and leaves completed records and caller runtimes intact', () => {
-  const source = readFileSync(new URL('../../src/paeg/generic-native-execution.mjs', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../../../../../backend/src/execution/native/dispatch/generic-native-execution.mjs', import.meta.url), 'utf8');
   const abort = source.slice(source.indexOf('    abort() {'), source.indexOf('    inspect(ownerOperationRef)'));
   assert.ok(abort.indexOf('aborted = true') >= 0);
   assert.ok(abort.indexOf('aborted = true') < abort.indexOf('await facade.close()'));

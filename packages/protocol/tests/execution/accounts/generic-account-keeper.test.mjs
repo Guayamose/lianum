@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
-import {createGenericAccountKeeper} from '../../../src/execution/accounts/generic-account-keeper.mjs';
-import {ACCOUNT_MAX_BYTES, decodeAccountMessage, encodeAccountMessage} from '../../../src/execution/accounts/generic-account-process.mjs';
-import {genericAccountIdentity, validateBoundRequest} from '../../../src/execution/accounts/generic-account-journal.mjs';
-import {Vault} from '../../../src/crypto/vault.mjs';
+import {createGenericAccountKeeper} from '@lianum/protocol/accounts/keeper';
+import {ACCOUNT_MAX_BYTES, decodeAccountMessage, encodeAccountMessage} from '../../../../engine/src/execution/accounts/generic-account-process.mjs';
+import {genericAccountIdentity, validateBoundRequest} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
+import {Vault} from '../../../../engine/src/crypto/vault.mjs';
 
 const h = n => n.toString(16).padStart(64, '0');
 const registry = [{assetId: h(1), kind: 'NATIVE', symbol: 'ETH', decimals: 18, chainId: '31337', genesis: h(2), pool: '3'.repeat(40), scope: h(4), policy: h(5), token: '0'.repeat(40), codeHash: h(6), assetIdentity: h(7), custody: 'ONCHAIN_NOTE_POOL', trust: 'PINNED_LOCAL_CONTRACT_AND_TRUSTED_NATIVE_ISSUER'}];

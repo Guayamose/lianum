@@ -21,12 +21,26 @@ export const PAEG_PAGED_SPARSE_ENCODING_V3='BN254_POSEIDON2_SPARSE_V3';
 // An explicit candidate never falls back to that installation.
 const artifactRoot=resourceMode==='candidate'
  ?resourcePath('engine','experiments/private-core-proof/funded-graph-paged-v3'):PAEG_PAGED_ROOT_V3;
-export const PAEG_PAGED_ARTIFACT_DIRECTORY_V3=join(artifactRoot,'.local/poseidon-sparse-v3-consumer-fix-v1');
+const activeSelectionPath=sourcePath('scripts/development/active-paged-generation.json');
+const activeSelection=JSON.parse(regular(activeSelectionPath));
+assert.deepEqual(Object.keys(activeSelection).sort(),['consumerSHA256','directory','manifestSHA256','securityGeneration'].sort(),'PAEG_PAGED_ACTIVE_SELECTION_FIELDS');
+assert.equal(activeSelection.securityGeneration,'EXACT_PAYOUT_SET_V4','PAEG_PAGED_ACTIVE_SECURITY_GENERATION');
+assert.equal(activeSelection.directory,'.local/exact-payouts-v4','PAEG_PAGED_ACTIVE_ARTIFACT_DIRECTORY');
+for(const field of ['manifestSHA256','consumerSHA256'])assert.match(activeSelection[field],/^[0-9a-f]{64}$/,'PAEG_PAGED_ACTIVE_DIGEST');
+export const PAEG_PAGED_ARTIFACT_DIRECTORY_V3=join(artifactRoot,activeSelection.directory);
+export const PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3=join(artifactRoot,'.local/poseidon-sparse-v3-consumer-fix-v1');
 const originalArtifactDirectory=join(artifactRoot,'.local/poseidon-sparse-v3');
 const originalArtifactManifestSHA256='0bafbc32a6ff4e645bb9aba4b6a20e50f552cbc251203764558d8527924fef8e';
 // Fixed byte evidence for the relocated/changed host records. These files
 // are read and hashed only; they are never imported or installed as launchers.
 const retainedHostSources=Object.freeze({
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/fold/src/main.nr":"archive/source-evidence/paged-original-compiler-v4/fafc76aef9bf4f2f70933127a69a1ac80b2450dc205620312c858458ed02a567.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/terminal/src/main.nr":"archive/source-evidence/paged-original-compiler-v4/c434e9a5416b008e1813cf0e57b13239b34e4a7be719f58347fe195c7848bd65.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/framing.nr":"archive/source-evidence/paged-original-compiler-v4/5834818ecac7688cffb0f3fbf342fb14350f4005d98db8b0f77ec9bfcad52110.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/progress.nr":"archive/source-evidence/paged-original-compiler-v4/17f10d09212b8d0eb87eef97c53ea4fc3c226c3f23a885ba2599be19ce8bcf86.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-client.mjs":"archive/source-evidence/paged-original-compiler-v4/6662da11e6550557fc230fef8af235c7ea270eb3b578a13c43411b51492baee1.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-process.mjs":"archive/source-evidence/paged-original-compiler-v4/ac4bd78d91c55bce4696c083ee6eb23da2b6ee7f9ecaa2aa175fd55ceb78ad37.source",
+
  '.internal/runtime/omnichain-product/src/paeg/local-deployment.mjs':'archive/delivery/source-snapshot/omnichain-product/src/paeg/local-deployment.mjs',
  'packages/engine/src/execution/local/local-deployment.mjs':'archive/source-evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source',
  '.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs':'archive/delivery/source-snapshot/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs',
@@ -43,7 +57,7 @@ const retainedHostSources=Object.freeze({
 const project=projectRoot;
 const original=join(project,'.internal/runtime/omnichain-product');
 const sha=v=>createHash('sha256').update(v).digest('hex');
-const regular=p=>{assert.equal(realpathSync(p),resolve(p),'PAEG_PAGED_FILE_SYMLINK');assert.ok(lstatSync(p).isFile(),'PAEG_PAGED_REGULAR_FILE');return readFileSync(p);};
+function regular(p){assert.equal(realpathSync(p),resolve(p),'PAEG_PAGED_FILE_SYMLINK');assert.ok(lstatSync(p).isFile(),'PAEG_PAGED_REGULAR_FILE');return readFileSync(p);}
 function retainedSource(row){
  assert.match(row.sha256,/^[0-9a-f]{64}$/,'PAEG_PAGED_RETAINED_SOURCE_DIGEST');
  const source=Object.hasOwn(retainedHostSources,row.path)?retainedHostSources[row.path]:row.path;
@@ -92,7 +106,7 @@ export function loadFundedPagedGraphArtifactsV3(expectedManifestSHA256){
   assert.equal(retained.manifestSHA256,expectedManifestSHA256,'PAEG_PAGED_ADOPTED_REUSE_PIN');
   return Object.freeze(pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,expectedManifestSHA256));
  }
- const manifest=pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,expectedManifestSHA256),sourcePins=fundedPagedGraphSourcePinsV3();assert.deepEqual(manifest.sources,sourcePins,'PAEG_PAGED_SOURCE_CHANGED');
+ assert.equal(expectedManifestSHA256,activeSelection.manifestSHA256,'PAEG_PAGED_ACTIVE_MANIFEST_PIN');inspectFundedPagedGraphArtifactsForPreparationV4();const manifest=pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,expectedManifestSHA256),sourcePins=manifest.sources;
  if(manifest.artifactSourceRebind){const original=pinnedManifest(originalArtifactDirectory,originalArtifactManifestSHA256);assert.deepEqual(manifest.artifactSourceRebind,sourceRebind(original,sourcePins),'PAEG_PAGED_REBIND_PROVENANCE');assert.deepEqual(manifest.roles,original.roles,'PAEG_PAGED_REBIND_EXACT_KEYS');}
  return Object.freeze(manifest);
 }
@@ -101,10 +115,10 @@ export function loadFundedPagedGraphArtifactsV3(expectedManifestSHA256){
  * The original financial reader above keeps its exact current-source join.
  * Historical launcher records remain historical; no wrapper is substituted for
  * an original producer and no proof, compilation or artifact brand is issued. */
-export function inspectFundedPagedGraphArtifactsForPreparationV4(){
+export function inspectRetainedFundedPagedGraphArtifactsForPreparationV4(){
  assert.equal(arguments.length,0,'PAEG_PAGED_PREPARATION_NO_OPTIONS');
  const manifestSHA256='a3cfb7d05246a5876590f1c5c0a50ab8313c7d1e863dfe7636f18aa8199fe8aa';
- const manifest=pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,manifestSHA256);
+ const manifest=pinnedManifest(PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3,manifestSHA256);
  const original=pinnedManifest(originalArtifactDirectory,originalArtifactManifestSHA256);
  assert.deepEqual(manifest.artifactSourceRebind,sourceRebind(original,manifest.sources),'PAEG_PAGED_REBIND_PROVENANCE');
  assert.deepEqual(manifest.roles,original.roles,'PAEG_PAGED_REBIND_EXACT_KEYS');
@@ -125,13 +139,36 @@ export function inspectFundedPagedGraphArtifactsForPreparationV4(){
   const value=retainedSource(row).bytes;
   assert.equal(value.length,row.bytes,'PAEG_PAGED_RETAINED_COMPILER_BYTES');
   assert.equal(sha(value),row.sha256,'PAEG_PAGED_RETAINED_COMPILER_PIN');
-  compilerInputs.push({...row});
+  compilerInputs.push({...row,source:retainedSource(row).source});
  }
  const toolchain=verifyToolchain(),crs=verifyCRS();
- assert.deepEqual(pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,manifestSHA256),manifest,'PAEG_PAGED_PREPARATION_CHANGED');
+ assert.deepEqual(pinnedManifest(PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3,manifestSHA256),manifest,'PAEG_PAGED_PREPARATION_CHANGED');
  return Object.freeze({schema:'LIANUM_PAGED_EXACT_RETAINED_REUSE_V4',manifestSHA256,
   originalManifestSHA256:originalArtifactManifestSHA256,artifactSourceRebind:manifest.artifactSourceRebind,
   roles:manifest.roles,recordedSourceFiles:manifest.sources,compilerInputs,hostSources,toolchain,crs,
   currentLaunchersClaimedAsOriginal:false,compiledNow:false,proofGenerated:false,
   sourceCapsuleRewritten:false,sourceAcceptanceEstablished:false,artifactBundleIssued:false,financialAcceptance:false});
+}
+
+/** Newly compiled exact-payout generation. Every current input, complete program,
+ * VK and Solidity verifier is authenticated; historical keys are never rebound. */
+export function inspectFundedPagedGraphArtifactsForPreparationV4(){
+ assert.equal(arguments.length,0,'PAEG_PAGED_PREPARATION_NO_OPTIONS');
+ const manifestSHA256=activeSelection.manifestSHA256,manifest=pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,manifestSHA256);
+ assert.equal(manifest.securityGeneration,'EXACT_PAYOUT_SET_V4','PAEG_PAGED_EXACT_PAYOUT_GENERATION');
+ assert.equal(manifest.artifactSourceRebind,undefined,'PAEG_PAGED_CHANGED_CIRCUIT_REUSE_FORBIDDEN');
+ const compilerInputs=[],hostSources=[];
+ for(const row of manifest.sources){
+  assert.ok(typeof row.path==='string'&&!row.path.startsWith('/')&&!row.path.split('/').some(p=>!p||p==='.'||p==='..'),'PAEG_PAGED_RETAINED_SOURCE_PATH');
+  const source=row.path,path=resourceMode==='candidate'?resourcePath('engine','evidence/paged-v3/sources/'+row.sha256+'.source'):join(project,source),value=regular(path);
+  const host=row.path.endsWith('.mjs');assert.equal(value.length,row.bytes,host?'PAEG_PAGED_RETAINED_HOST_BYTES':'PAEG_PAGED_RETAINED_COMPILER_BYTES');
+  assert.equal(sha(value),row.sha256,host?'PAEG_PAGED_RETAINED_HOST_PIN':'PAEG_PAGED_RETAINED_COMPILER_PIN');
+  if(host)hostSources.push({...row,source});else{assert.ok(/\.(nr|toml|sol|json)$/.test(row.path),'PAEG_PAGED_RETAINED_SOURCE_KIND');compilerInputs.push({...row});}
+ }
+ const consumer=regular(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'consumer.json'));assert.equal(sha(consumer),activeSelection.consumerSHA256,'PAEG_PAGED_ACTIVE_CONSUMER_PIN');
+ const recorded=JSON.parse(consumer);assert.equal(recorded.securityGeneration,manifest.securityGeneration,'PAEG_PAGED_ACTIVE_CONSUMER_GENERATION');assert.equal(recorded.manifestSHA256,manifestSHA256);assert.deepEqual(recorded.sources,manifest.sources,'PAEG_PAGED_ACTIVE_CONSUMER_SOURCES');
+ const toolchain=verifyToolchain(),crs=verifyCRS();assert.deepEqual(pinnedManifest(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,manifestSHA256),manifest,'PAEG_PAGED_PREPARATION_CHANGED');
+ return Object.freeze({schema:'LIANUM_PAGED_EXACT_RETAINED_REUSE_V4',securityGeneration:manifest.securityGeneration,artifactGenerationKind:'FRESH_EXACT_PAYOUTS_V4',manifestSHA256,consumerSHA256:activeSelection.consumerSHA256,
+  originalManifestSHA256:null,artifactSourceRebind:null,roles:manifest.roles,recordedSourceFiles:manifest.sources,compilerInputs,hostSources,toolchain,crs,
+  currentLaunchersClaimedAsOriginal:false,compiledNow:false,proofGenerated:false,sourceCapsuleRewritten:false,sourceAcceptanceEstablished:false,artifactBundleIssued:false,financialAcceptance:false});
 }

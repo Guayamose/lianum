@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NATIVE_DEPENDENCY_PUBLIC_INPUT_COUNT, prepareNativeDependency } from '../../../../src/execution/native/dispatch/native-dependency.mjs';
-import { dependencyCapsuleCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
-import { boundedListDigest, snapshotDigest } from '../../../../src/execution/native/state/native-state.mjs';
+import { NATIVE_DEPENDENCY_PUBLIC_INPUT_COUNT, prepareNativeDependency } from '../../../../../engine/src/execution/native/dispatch/native-dependency.mjs';
+import { dependencyCapsuleCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
+import { boundedListDigest, snapshotDigest } from '../../../../../engine/src/execution/native/state/native-state.mjs';
 import { positiveFixtures, negativeFixtures, syntheticDependencyRequest } from
-  '../../../../../../experiments/protocol/private-core-proof/generic-native/dependency-fixtures.mjs';
+  '../../../../../../experiments/engine/private-core-proof/generic-native/dependency-fixtures.mjs';
 
 // These are light host schema/privacy checks. They do not execute Noir and are
 // never evidence of native admission, current chain truth, or proof acceptance.

@@ -30,7 +30,7 @@ test('retained compiler bytes and physical paths are checked independently of th
   // Redirect only this filesystem input in the test module graph. The reader
   // body, pinned manifests and frozen validation helpers remain the real ones.
   const environment = join(directory, 'environment.mjs');
-  await writeFile(environment, `import {sourcePath as actual} from ${JSON.stringify(import.meta.resolve('@lianum/environment'))};\nexport const sourcePath = name => name === ${JSON.stringify(target)} ? ${JSON.stringify(copy)} : actual(name);\n`);
+  await writeFile(environment, `import {sourcePath as actual} from ${JSON.stringify(import.meta.resolve('@lianum/environment'))};\nexport {resourceMode,resourcePath} from ${JSON.stringify(import.meta.resolve('@lianum/environment'))};\nexport const sourcePath = name => name === ${JSON.stringify(target)} ? ${JSON.stringify(copy)} : actual(name);\n`);
   const reader = new URL('../../src/tooling/retained-node-artifacts-v1.mjs', import.meta.url);
   const source = (await readFile(reader, 'utf8')).replace(/\bfrom\s+(['"])([^'"]+)\1/g, (_all, quote, specifier) => {
     const resolved = specifier === '@lianum/environment' ? pathToFileURL(environment).href

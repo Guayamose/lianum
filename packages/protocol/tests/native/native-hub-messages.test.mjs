@@ -8,9 +8,9 @@ import {
   assertCheckpointAuthorizationValid, checkpointAuthorizationReplay,
   assertRevocationAuthorizationValid, assertFinalityHealthValid,
   nativeHubSignatureToAbi, nativeHubSignatureToHost, createNativeHubMessageHostVerifier,
-} from '../../src/evidence/native-hub-messages.mjs';
-import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment } from '../../src/evidence/native-quorum.mjs';
-import { evidenceStateFrame } from '../../src/execution/native/state/native-state.mjs';
+} from '../../../engine/src/evidence/native-hub-messages.mjs';
+import { NATIVE_QUORUM_PROFILE, nativeQuorumRegistryCommitment } from '../../../engine/src/evidence/native-quorum.mjs';
+import { evidenceStateFrame } from '../../../engine/src/execution/native/state/native-state.mjs';
 
 // Pure synthetic host checks: no nodes, RPC, EVM, native sends, keys on disk or proofs.
 const ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;

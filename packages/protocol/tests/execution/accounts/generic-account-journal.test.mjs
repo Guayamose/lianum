@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {mkdtemp, readFile, writeFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {Vault} from '../../../src/crypto/vault.mjs';
-import {createGenericAccountCoordinator} from '../../../src/execution/accounts/generic-account-coordinator.mjs';
-import {copy, sha} from '../../../src/execution/accounts/generic-account-journal.mjs';
+import {Vault} from '../../../../engine/src/crypto/vault.mjs';
+import {createGenericAccountCoordinator} from '../../../../engine/src/execution/accounts/generic-account-coordinator.mjs';
+import {copy, sha} from '../../../../engine/src/execution/accounts/generic-account-journal.mjs';
 
 const hex = n => n.toString(16).padStart(64, '0');
 const asset = (n, kind = 'NATIVE') => ({assetId: hex(n), kind, symbol: kind === 'NATIVE' ? 'ETH' : 'TEST', decimals: 18, chainId: '31337', genesis: hex(9), pool: String(n).padStart(40, '0'), scope: hex(n + 20), policy: hex(30), token: kind === 'NATIVE' ? '0'.repeat(40) : 'a'.repeat(40), codeHash: hex(n + 40), assetIdentity: hex(n + 60), custody: 'ONCHAIN_NOTE_POOL', trust: 'PINNED_LOCAL_CONTRACT_AND_TRUSTED_NATIVE_ISSUER'});

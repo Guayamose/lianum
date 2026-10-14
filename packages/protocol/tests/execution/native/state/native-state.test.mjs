@@ -7,8 +7,8 @@ import {
   evidenceStateWords, evidenceStateToNoir, snapshotFrame, snapshotDigest, snapshotWords,
   snapshotToNoir, boundedListFrame, boundedListDigest, boundedListToNoir, assertAbsent,
   membership, nodeHash, nativeDigestWords, nativeStateVectors,
-} from '../../../../src/execution/native/state/native-state.mjs';
-import { PrivateNoteTree, privateSpentDigest, noteNodeHash, noteWordsToHash } from '../../../../src/notes/private-note-tree.mjs';
+} from '../../../../../engine/src/execution/native/state/native-state.mjs';
+import { PrivateNoteTree, privateSpentDigest, noteNodeHash, noteWordsToHash } from '../../../../../engine/src/notes/private-note-tree.mjs';
 
 // Host codec/invariant checks, not Noir execution or verifier acceptance tests.
 const h = n => `0x${BigInt(n).toString(16).padStart(64, '0')}`;

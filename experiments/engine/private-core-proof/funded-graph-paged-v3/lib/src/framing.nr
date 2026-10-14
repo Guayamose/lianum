@@ -361,8 +361,8 @@ pub fn empty_effects(authorization_root:[u8;32])->[u8;32]{
  sha256::<104,128>(message)
 }
 
-pub fn accumulator(domain:[u8;32], authorization_root:[u8;32], reserve_nullifier:[u8;32], next_page:u64, next_node:u64, payout_sum:u64, next_edge:u64, last_dependency:u64, active_dependency_count:u64, revocation_sequence:u64, min_receipt_until:u64, max_receipt_from:u64, page_chain:[u8;32], node_chain:[u8;32], output_chain:[u8;32], spent_root:[u8;32], effect_root:[u8;32], receipt_frontier:[u8;32], edge_chain:[u8;32], active_node_digest:[u8;32], active_dependency_root:[u8;32])->[u8;32]{
- let mut message:[u8;606]=[0;606];
+pub fn accumulator(domain:[u8;32], authorization_root:[u8;32], reserve_nullifier:[u8;32], next_page:u64, next_node:u64, payout_sum:u64, next_edge:u64, last_dependency:u64, active_dependency_count:u64, revocation_sequence:u64, min_receipt_until:u64, max_receipt_from:u64, page_chain:[u8;32], node_chain:[u8;32], output_chain:[u8;32], spent_root:[u8;32], effect_root:[u8;32], receipt_frontier:[u8;32], edge_chain:[u8;32], active_node_digest:[u8;32], active_dependency_root:[u8;32], output_sparse_root:[u8;32])->[u8;32]{
+ let mut message:[u8;642]=[0;642];
  message=part(message,0,[76,73,65,78,85,77,47,80,65,69,71,47,112,97,103,101,100,47,97,99,99,117,109,117,108,97,116,111,114,47,51]);
  message=part(message,35,[76,73,65,78,85,77,95,80,65,69,71,95,70,85,78,68,69,68,95,80,65,71,69,68,95,86,51]);
  message=part(message,66,domain);
@@ -386,7 +386,8 @@ pub fn accumulator(domain:[u8;32], authorization_root:[u8;32], reserve_nullifier
  message=part(message,498,edge_chain);
  message=part(message,534,active_node_digest);
  message=part(message,570,active_dependency_root);
- sha256::<606,640>(message)
+ message=part(message,606,output_sparse_root);
+ sha256::<642,704>(message)
 }
 
 pub fn ready(authorization_root:[u8;32], node_digest:[u8;32], dispatch_id:[u8;32], accumulator:[u8;32], valid_from:u64, valid_until:u64)->[u8;32]{

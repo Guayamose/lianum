@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { base58Encode, createBoundSolanaRecipientViews, createOwnedSolanaCohortRuntime, createOwnedSolanaRuntime, SOLANA_PRIVATE_COHORT_OPTIONS, solanaLedgerRetentionArguments, signSolanaTransfer } from '../../../src/chains/solana/solana-runtime.mjs';
-import { createOwnedNativeCohortRuntime } from '../../../src/chains/bitcoin/native-runtime.mjs';
+import { base58Encode, createBoundSolanaRecipientViews, createOwnedSolanaCohortRuntime, createOwnedSolanaRuntime, SOLANA_PRIVATE_COHORT_OPTIONS, solanaLedgerRetentionArguments, signSolanaTransfer } from '../../../../engine/src/chains/solana/solana-runtime.mjs';
+import { createOwnedNativeCohortRuntime } from '../../../../engine/src/chains/shared/native-runtime.mjs';
 const address = n => base58Encode(Buffer.alloc(32, n));
 function fixture() {
   const genesis = address(8), seed = Buffer.alloc(32, 3), solver = signSolanaTransfer({ seed, recipient: address(4), recentBlockhash: address(6), lamports: '1' }).solver;
@@ -59,10 +59,10 @@ test('cohort constructors reject option overrides before touching any native bin
   assert.deepEqual(solanaLedgerRetentionArguments(), []);
 });
 test('static startup profile preserves historical five accounts and fixed nine cohort accounts', async () => {
-  const native = await readFile(new URL('../src/chains/native-runtime.mjs', import.meta.url), 'utf8');
+  const native = await readFile(new URL('../../../../engine/src/chains/shared/native-runtime.mjs', import.meta.url), 'utf8');
   assert.match(native, /'--accounts', cohort \? '9' : '5'/);
   assert.match(native, /createOwnedNativeRuntimeProfile\(progress, false\)/);
-  const solana = await readFile(new URL('../src/chains/solana-runtime.mjs', import.meta.url), 'utf8');
+  const solana = await readFile(new URL('../../../../engine/src/chains/solana/solana-runtime.mjs', import.meta.url), 'utf8');
   assert.match(solana, /createOwnedSolanaRuntimeProfile\(progress, options, false\)/);
   assert.match(solana, /createOwnedSolanaRuntimeProfile\(progress, SOLANA_PRIVATE_COHORT_OPTIONS, true\)/);
   assert.match(solana, /READ_METHODS\.has\(method\)/);

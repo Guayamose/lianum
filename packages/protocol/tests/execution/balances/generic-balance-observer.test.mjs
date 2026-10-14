@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { publicKeccak256 } from '../../../src/crypto/private-cohort-public-native.mjs';
-import { genericProofCalldata } from '../../../src/execution/local/local-deployment.mjs';
+import { publicKeccak256 } from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { genericProofCalldata } from '../../../../engine/src/execution/local/local-deployment.mjs';
 import { decodeGenericBalanceCalldata, decodeGenericBalanceStateAdvanced, decodeGenericBalanceWithdrawal,
   assertOwnedGenericBalanceObserver, createOwnedGenericBalanceObserver }
-  from '../../../src/execution/balances/generic-balance-observer.mjs';
+  from '../../../../backend/src/accounts/balances/generic-balance-observer.mjs';
 
 // ABI fixtures deliberately contain invalid proof bytes. These tests establish
 // strict parsing/identity boundaries; they do not claim proof or chain acceptance.

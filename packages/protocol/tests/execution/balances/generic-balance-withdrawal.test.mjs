@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {objectDigest} from '../../../src/execution/balances/generic-balance-custody.mjs';
+import {objectDigest} from '../../../../engine/src/execution/balances/generic-balance-custody.mjs';
 import {setup,fund,prepare,submission,success,h} from './generic-balance-fixtures.mjs';
 
 const destination='45'.repeat(20);

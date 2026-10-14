@@ -1,21 +1,22 @@
 import assert from 'node:assert/strict';
-import { Noir } from '@noir-lang/noir_js';
-import { Barretenberg, BackendType, UltraHonkBackend, UltraHonkVerifierBackend } from '@aztec/bb.js';
+import {currentProofLibrariesV1,currentProbePathsV1} from './current-run-paths-v1.mjs';
+const {Noir, Barretenberg, BackendType, UltraHonkBackend, UltraHonkVerifierBackend}=await currentProofLibrariesV1();
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireVerifierRejection } from '../validation/verifier-negative.mjs';
 
-const root = fileURLToPath(new URL('.', import.meta.url));
-const out = resolve(root, '../../evidence/m7-proof-probe');
+const paths=currentProbePathsV1(process.argv[2]);
+const root=paths.source;
+const out = paths.child;
 mkdirSync(out, { recursive: true });
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const settings = { verifierTarget: 'noir-recursive' };
 globalThis.fetch = async () => { throw new Error('Proving/verifying must be offline'); };
-const program = JSON.parse(readFileSync(resolve(root, '.local/compiled/arithmetic_sha256.json')));
-const wrongProgram = JSON.parse(readFileSync(resolve(root, '.local/compiled/wrong_key.json')));
-const crsDir = resolve(root, '.local/crs/131072');
+const program = JSON.parse(readFileSync(resolve(paths.compiled, 'arithmetic_sha256.json')));
+const wrongProgram = JSON.parse(readFileSync(resolve(paths.compiled, 'wrong_key.json')));
+const crsDir = resolve(paths.crs,'131072');
 const crs = JSON.parse(readFileSync(resolve(crsDir, 'provenance.json')));
 for (const record of crs.records) {
   const bytes = readFileSync(resolve(crsDir, record.file));
@@ -23,7 +24,7 @@ for (const record of crs.records) {
   assert.equal(hash(bytes), record.sha256);
 }
 const started = performance.now();
-const api = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true, memory: { initial: 37, maximum: 32768 }, logger: m => console.log(m) });
+const api = await Barretenberg.new({ backend: BackendType.Wasm, threads: 1, skipSrsInit: true, memory: { initial: 37, maximum: 32768 }, logger: () => {} });
 const result = { classification: 'REAL_LOCAL_ZK_CAPABILITY_EXPERIMENT_NOT_PC5_FULFILLMENT', mode: settings.verifierTarget, zeroKnowledgeEnabledByPinnedBackend: true, backend: 'Wasm', threads: 1, wasmMaximumMiB: 2048, node: process.version, noirVersion: program.noir_version, bbVersion: '5.2.0', packageLockSHA256: hash(readFileSync(resolve(root, 'package-lock.json'))), crsProvenance: '../m7-crs-131072.json', cases: [], negativeWitnessChecks: [], artifacts: {} };
 try {
   // Skip the automatic Chonk/Grumpkin initializer, then explicitly initialize

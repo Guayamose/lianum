@@ -1,22 +1,34 @@
 /** HOST STORAGE TESTS ONLY. The 458 coherent field encodings are deliberately
  * synthetic dummy bytes, NOT a valid proof. No cryptographic proof acceptance,
  * prover/compiler, owner child, native runtime, chain, or transaction is used. */
-import test from 'node:test';
+import test, {mock} from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Vault } from '../../../src/crypto/vault.mjs';
-import { canonical } from '../../../src/crypto/privacy.mjs';
-import { derivePrivateWalletAssetIdentity } from '../../../src/wallet/notes/private-wallet-asset-binding.mjs';
-import { derivePrivateAssetPoolScope } from '../../../src/notes/private-asset-runtime.mjs';
-import { PrivateNoteTree } from '../../../src/notes/private-note-tree.mjs';
-import { loadProofProfile, wipePrivate } from '../../../src/execution/proofs/proof-worker.mjs';
+import { Vault } from '../../../../engine/src/crypto/vault.mjs';
+import { canonical } from '../../../../engine/src/crypto/privacy.mjs';
+import { derivePrivateWalletAssetIdentity } from '../../../../engine/src/wallet/notes/private-wallet-asset-binding.mjs';
+import { derivePrivateAssetPoolScope } from '../../../../engine/src/notes/private-asset-runtime.mjs';
+import { PrivateNoteTree } from '../../../../engine/src/notes/private-note-tree.mjs';
+import * as proofCodec from '@lianum/proofs/execution/proof-worker';
+const {wipePrivate}=proofCodec;
 import { FUNDED_GRAPH_PROFILE, FUNDED_DOMAINS, fundedHash, fundedAuthorizationWords }
-  from '../../../src/execution/graph/funded-graph.mjs';
-import { openGenericRefundHandoff, deriveGenericRefundBinding, HANDOFF_SCHEMA, HANDOFF_CLASSIFICATION }
-  from '../../../src/execution/accounts/generic-account-refund-handoff.mjs';
+  from '../../../../engine/src/execution/graph/funded-graph.mjs';
+// Mock only missing artifact provenance, never codec, verifier or capabilities.
+// These declared synthetic pins cover storage shape/fingerprint tampering only.
+const syntheticVK=Object.freeze(Array.from({length:115},(_,i)=>String(i+1)));
+const syntheticKeySHA=createHash('sha256').update('SYNTHETIC_STORAGE_PIN_SHAPE').digest('hex');
+function loadProofProfile(mode){
+ assert.ok(['authorization','refund'].includes(mode),'HOST_UNEXPECTED_PROOF_PROFILE');
+ return Object.freeze({target:mode==='authorization'?'noir-recursive':'evm',vkFields:syntheticVK,
+  publicPins:Object.freeze({classification:'SYNTHETIC_STORAGE_PIN_SHAPE',statementWords:mode==='authorization'?139:51,
+   keySHA256:syntheticKeySHA,ownerVerificationKeySHA256:syntheticKeySHA})});
+}
+mock.module(new URL('../../../../proofs/src/execution/proof-worker.mjs',import.meta.url).href,{exports:{...proofCodec,loadProofProfile}});
+const {openGenericRefundHandoff,deriveGenericRefundBinding,HANDOFF_SCHEMA,HANDOFF_CLASSIFICATION}=
+ await import('../../../../backend/src/execution/accounts/generic-account-refund-handoff.mjs');
 
 const root = fileURLToPath(new URL('./', import.meta.url));
 const h = text => createHash('sha256').update('SYNTHETIC-NON-PROOF-STORAGE-FIXTURE:' + text).digest('hex');

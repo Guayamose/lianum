@@ -2,13 +2,13 @@
  * A shape-valid synthetic R here is never claimed cryptographically verified. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { freshKey } from '../../../../src/notes/private-note-encoding.mjs';
+import { freshKey } from '../../../../../engine/src/notes/private-note-encoding.mjs';
 import { nativeProviderIdentity, nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE,
-  nativeAdmissionChainDomain, nativeAdmissionRuleCommitment } from '../../../../src/execution/native/dispatch/native-admission.mjs';
-import { nativeTransferActionCommitment } from '../../../../src/execution/native/dispatch/native-capsules.mjs';
+  nativeAdmissionChainDomain, nativeAdmissionRuleCommitment } from '../../../../../engine/src/execution/native/dispatch/native-admission.mjs';
+import { nativeTransferActionCommitment } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
 import { normalizeNativeDispatchRequest, assertNativeDispatchBinding, nativeDispatchRetryDecision,
-  createNativeDispatchGate } from '../../../../src/execution/native/dispatch/native-dispatch-gate.mjs';
-import { nativeFixtureEndpointCommitment, nativeFixtureCustodyCommitment } from '../../../../src/evidence/native-quorum-observer.mjs';
+  createNativeDispatchGate } from '../../../../../backend/src/execution/native/dispatch/native-dispatch-gate.mjs';
+import { nativeFixtureEndpointCommitment, nativeFixtureCustodyCommitment } from '../../../../../backend/src/evidence/native-quorum-observer.mjs';
 
 const h = n => n.toString(16).padStart(64, '0');
 const words = value => Array.from({ length: 8 }, (_, i) => BigInt('0x' + value.slice(i * 8, i * 8 + 8)).toString());

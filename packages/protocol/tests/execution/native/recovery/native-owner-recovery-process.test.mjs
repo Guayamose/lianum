@@ -5,14 +5,14 @@ import test from 'node:test';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
-import { Vault } from '../../../../src/crypto/vault.mjs';
+import { Vault } from '../../../../../engine/src/crypto/vault.mjs';
 import { setup, observation } from './native-owner-recovery-test-fixtures.mjs';
-import { createGenericOwnerRecoveryProcess, assertOwnedGenericOwnerRecoveryProcess } from '../../../../src/execution/native/recovery/native-owner-recovery-process.mjs';
-import { digest } from '../../../../src/crypto/privacy.mjs';
+import { createGenericOwnerRecoveryProcess, assertOwnedGenericOwnerRecoveryProcess } from '../../../../../backend/src/execution/native/recovery/native-owner-recovery-process.mjs';
+import { digest } from '../../../../../engine/src/crypto/privacy.mjs';
 import { PROTOCOL, MAX_BYTES, encode, decode, copy, config, projectNativeObservation, requestFor, checkQuery, checkInitialized, checkAuthorization, view }
-  from '../../../../src/execution/native/recovery/native-owner-recovery-protocol.mjs';
+  from '../../../../../backend/src/execution/native/recovery/native-owner-recovery-protocol.mjs';
 
-const worker = fileURLToPath(new URL('../../src/paeg/native-owner-recovery-child.mjs', import.meta.url));
+const worker = fileURLToPath(new URL('../../../../../backend/src/execution/native/recovery/native-owner-recovery-child.mjs', import.meta.url));
 async function fixtureChild(t, fixture, { replyView = value => value, holdBridge = false,
   canonical = () => true, replyBridgeId = id => id } = {}) {
   // This is explicitly a raw protocol fixture, NOT a factory or an owned native

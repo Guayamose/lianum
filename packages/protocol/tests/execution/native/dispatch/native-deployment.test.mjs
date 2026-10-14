@@ -7,9 +7,9 @@ import {
   predictNativeCreateAddress, deriveNativeHubDomain, deriveNativeRuntimeCode,
   assertNativeRuntimeCode, buildNativeDeploymentPlan, validateNativeSystemSources,
   compileNativeSystem, deployNativeSystem,
-} from '../../../../src/execution/native/dispatch/native-deployment.mjs';
-import { publicKeccak256 } from '../../../../src/crypto/private-cohort-public-native.mjs';
-import { nativeQuorumRegistryCommitment } from '../../../../src/evidence/native-quorum.mjs';
+} from '../../../../../backend/src/execution/native/dispatch/native-deployment.mjs';
+import { publicKeccak256 } from '../../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+import { nativeQuorumRegistryCommitment } from '../../../../../engine/src/evidence/native-quorum.mjs';
 
 const zero32 = `0x${'00'.repeat(32)}`, address = n => `0x${n.toString(16).padStart(40, '0')}`;
 const digest = n => `0x${n.toString(16).padStart(64, '0')}`;

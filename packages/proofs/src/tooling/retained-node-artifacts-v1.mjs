@@ -3,7 +3,7 @@
  * sources are a separate candidate closure. No bundle/permission is issued. */
 import assert from 'node:assert/strict';
 import { join, relative } from 'node:path';
-import { sourcePath } from '@lianum/environment';
+import { sourcePath, resourceMode, resourcePath } from '@lianum/environment';
 import { NODE_PINS } from '../catalog.mjs';
 import { frozenNodeTooling } from './tooling.mjs';
 import { verifyToolchain, verifyCRS } from '@lianum/components/resources/wallet-resources';
@@ -31,7 +31,13 @@ export async function inspectRetainedNodeArtifactsForPreparationV1() {
         && !row.path.split('/').some(part => !part || part === '.' || part === '..'), 'RETAINED_NODE_SOURCE_PATH');
       const name = roots[row.root] + '/' + row.path;
       assert.ok(!names.has(name), 'RETAINED_NODE_SOURCE_DUPLICATE'); names.add(name);
-      const bytes = regular(sourcePath('archive/delivery/source-snapshot/' + name));
+      // Transport the exact archived inputs as non-executable evidence. Their
+      // identity remains the original compiled manifest, never current host
+      // adoption or an executable compatibility alias.
+      const path = resourceMode === 'candidate'
+        ? resourcePath('crypto', 'evidence/retained-n32/sources/' + assertHash(row.sha256) + '.source')
+        : sourcePath('archive/delivery/source-snapshot/' + name);
+      const bytes = regular(path);
       assert.equal(bytes.length, row.bytes, 'RETAINED_NODE_SOURCE_BYTES');
       assert.equal(hash(bytes), row.sha256, 'RETAINED_NODE_SOURCE_PIN');
     }
