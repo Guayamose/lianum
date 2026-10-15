@@ -116,6 +116,32 @@ botones deshabilitados, ausencia de saldo ficticio, retirada de tokens del DOM
 y actualización explícita. Informe y captura quedan en `.internal/dev/reports/`.
 Este smoke no demuestra financiación ni aceptación del recorrido conectado.
 
+## Arranques Paged
+
+Los arranques Paged disponibles desde la raíz son:
+
+```sh
+./dev platform paged-native-new     # Tres redes locales; entorno nuevo
+./dev platform paged-native-reopen  # Mismo estado privado tras captura completa
+./dev platform paged-mixed-new      # Tres redes + Uniswap; entorno nuevo separado
+./dev platform paged-mixed-reopen   # Mismo entorno Mixed tras captura completa
+```
+
+**Aceptados LOCAL con custodia software:** Cold13 completó trece pruebas, los
+tres pagos nativos, cambio de 300 unidades demo y tres reaperturas en cuatro
+procesos backend. Mixed21 completó Uniswap y los tres pagos nativos, veintiuna
+pruebas, cambio de 200 y cuatro pagos de 100 al proveedor. Sus cierres originales
+están comprobados; las evidencias y límites figuran en [STATUS.md](../STATUS.md).
+
+Mixed conserva ahora la composición original mediante captura ordenada y
+`paged-mixed-reopen`; exige el mismo entorno y una captura autenticada completa.
+No migra entornos antiguos sin retención ni resuelve cualquier caída abrupta.
+La aceptación conjunta con reinicios y cartera se registra separadamente en
+STATUS. Los resultados financieros ejercitan las funciones originales; no
+acreditan por sí solos toda la interacción de los asistentes CLI ni el teléfono
+físico. El arranque no financia notas automáticamente. Conserva los directorios retenidos y consulta
+[la guía de plataforma](../apps/platform/README.md) antes de operar.
+
 ## Laboratorios y pruebas adicionales
 
 ```sh

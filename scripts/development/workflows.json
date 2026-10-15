@@ -285,8 +285,8 @@
       "description": "Arrancar la wallet desde fuentes editables; Ctrl+C para cerrar"
     },
     {
-      "usage": "./dev platform [admission|original-native-new|original-native-reopen]",
-      "description": "Arrancar API o perfil original expl\u00edcito, con estado conservado"
+      "usage": "./dev platform [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new]",
+      "description": "Arrancar el perfil expl\u00edcito; new exige estado nuevo, reopen conserva el original"
     },
     {
       "usage": "./dev build",
