@@ -38,7 +38,7 @@ if a[:1]==['show']:
  if prop=='ActiveState':print('active' if d['mode']=='initial-live' else 'failed')
  elif prop=='MainPID':
   d['mainPIDReads']+=1;print('7' if d['mode']=='race-live' and d['mainPIDReads']>=2 else '0')
- elif prop=='ExecMainStartTimestampMonotonic':print('42')
+ elif prop=='ExecMainStartTimestampMonotonic':print('0' if d['mode']=='rebooted' else '42')
 else:
  assert a==['daemon-reload'],a
 p.write_text(json.dumps(d))
@@ -48,6 +48,7 @@ p.write_text(json.dumps(d))
 import json,os,sys
 from pathlib import Path
 p=Path(os.environ['HOST_CONTROL']);d=json.loads(p.read_text());d['inspections']+=1;p.write_text(json.dumps(d))
+if d['mode']=='inspection-rejected':sys.exit(1)
 value='d'*64 if d['mode']=='changed-checkpoint' and d['inspections']>1 else 'c'*64
 print(json.dumps({'checkpointSHA256':value,'HOST_INERT':True}))
 '''
@@ -83,6 +84,20 @@ printf new-artifacts > '{artifacts}'
                 self.assertEqual((opt/'current').readlink(),opt/'releases'/old)
                 self.assertEqual((work/'current').readlink(),work/'releases'/old)
                 self.assertEqual(unit.read_text(),'old-unit')
+
+    def test_rebooted_service_uses_persistent_original_inspection(self):
+        result,opt,work,unit,artifacts,state,old,new=self.fixture('rebooted')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual((opt/'current').readlink(),opt/'releases'/new)
+        self.assertEqual(json.loads(state.read_text())['inspections'],2)
+
+    def test_rejected_original_state_cannot_switch_code(self):
+        result,opt,work,unit,artifacts,state,old,new=self.fixture('inspection-rejected')
+        self.assertNotEqual(result.returncode,0)
+        self.assertEqual((opt/'current').readlink(),opt/'releases'/old)
+        self.assertEqual((work/'current').readlink(),work/'releases'/old)
+        self.assertEqual(unit.read_text(),'old-unit')
+        self.assertEqual(artifacts.read_text(),'old-artifacts')
 
     def test_installer_or_checkpoint_failure_rolls_back_code(self):
         for mode in ['install-fails','changed-checkpoint']:

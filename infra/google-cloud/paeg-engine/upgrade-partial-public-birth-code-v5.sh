@@ -16,7 +16,9 @@ python3 "$release/infra/verify-release.py" --directory "$release" --sha256 "$dig
 state=$(systemctl show lianum-paeg-public.service --property=ActiveState --value)
 case "$state" in inactive|failed) ;; *) exit 1 ;; esac
 [ "$(systemctl show lianum-paeg-public.service --property=MainPID --value)" = 0 ]
-[ "$(systemctl show lianum-paeg-public.service --property=ExecMainStartTimestampMonotonic --value)" != 0 ]
+# systemd forgets its monotonic start timestamp after a host reboot. The Original
+# inspector below authenticates the persistent startup marker, exact two-library
+# journal, canonical receipts/code and next nonce before any pointer is changed.
 python3 - <<'CHECK'
 import pathlib,re,stat
 names=[]
