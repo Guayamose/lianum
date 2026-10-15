@@ -18,7 +18,7 @@ gcloud compute firewall-rules create lianum-paeg-iap-ssh --project=lianum --netw
 gcloud compute firewall-rules create lianum-paeg-api-ingress --project=lianum --network=lianum-wallet --direction=INGRESS --priority=1000 --allow=tcp:9445 --source-ranges=10.71.0.2/32 --target-tags=lianum-paeg-engine
 
 # Candidate hardware, no external address, cloud service account or OAuth scope.
-gcloud compute instances create lianum-paeg-demo --project=lianum --zone=europe-west1-b --machine-type=n2-standard-16 --network=lianum-wallet --subnet=lianum-wallet-europe-west1 --no-address --no-service-account --no-scopes --tags=lianum-paeg-engine --metadata=enable-oslogin=TRUE,block-project-ssh-keys=TRUE --image-project=ubuntu-os-cloud --image-family=ubuntu-2404-lts-amd64 --boot-disk-size=100GB --boot-disk-type=pd-balanced --no-boot-disk-auto-delete --deletion-protection
+gcloud compute instances create lianum-paeg-demo --project=lianum --zone=europe-west1-b --machine-type=n2-standard-4 --network=lianum-wallet --subnet=lianum-wallet-europe-west1 --no-address --no-service-account --no-scopes --tags=lianum-paeg-engine --metadata=enable-oslogin=TRUE,block-project-ssh-keys=TRUE --image-project=ubuntu-os-cloud --image-family=ubuntu-2404-lts-amd64 --boot-disk-size=100GB --boot-disk-type=pd-balanced --no-boot-disk-auto-delete --deletion-protection
 
 # Transfer only the public courier through IAP; no user seed/provider vault copy.
 gcloud compute ssh lianum-paeg-demo --project=lianum --zone=europe-west1-b --tunnel-through-iap

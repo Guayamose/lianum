@@ -23,7 +23,10 @@ ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 ReadWritePaths=/var/lib/lianum-paeg
-MemoryMax=48G
+CPUQuota=400%
+CPUAffinity=0-3
+MemoryHigh=10G
+MemoryMax=12G
 TasksMax=256
 LimitNOFILE=65536
 Environment=LANG=C.UTF-8 PATH=/usr/bin:/bin

@@ -6,13 +6,18 @@ with fake tokens. It does not deploy PAEG to public chains or make those provide
 balances real testnet funds. The existing public wallet API and the user's mobile
 seed are separate and remain untouched.
 
-The proposed GCP machine is `n2-standard-16`, 64 GiB RAM, a persistent 100 GiB
-`pd-balanced` disk in `europe-west1-b`, project `lianum`. It is a starting candidate,
-not a measured GCP capacity or price estimate. Native Paged proving stays fixed
+The small-demo GCP machine is `n2-standard-4`, 4 vCPUs and 16 GiB RAM, with the
+existing persistent 100 GiB `pd-balanced` disk in `europe-west1-b`, project `lianum`.
+This is a serial-proving configuration for one or two users, not a full-load
+capacity or price claim. Native Paged proving stays fixed
 at twelve threads and **one heavy job**, with its original 3 GiB combined RSS
 watchdog, actual prepared VK, native verification and independent Wasm verification.
-The separate systemd 48 GiB cap includes ledgers and supervisor; it does not change
-the per-job budget. The VM has no external IP. Permit SSH only through IAP/OS Login;
+The authenticated prover profile retains twelve internal threads; systemd limits
+the service and all its children to CPUs 0–3 and a 400% CPU quota. This bounds
+execution to four vCPUs without modifying cryptographic source profiles. The
+service has a 10 GiB memory-high threshold and a 12 GiB hard cap, leaving host
+headroom. These service limits include ledgers and supervisor and preserve the
+per-job watchdog. The VM has no external IP. Permit SSH only through IAP/OS Login;
 do not expose any ledger RPC port. Provisioning is not performed by these scripts.
 `sh infra/google-cloud/paeg-engine/gcp-plan.sh` prints the exact proposed commands without executing
 them: existing VPC `lianum-wallet`, subnet `lianum-wallet-europe-west1` (10.71.0.0/24),
