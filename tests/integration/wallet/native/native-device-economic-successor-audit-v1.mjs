@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {nativeValueOriginalRecoverySourceV1} from '../../../../packages/backend/src/operations/deployments/native-value/native-value-system-v2.mjs';
 import {readDeviceOwnerExecutionStatusV1,readOriginalNativeDeviceEconomicProofsV1} from '../../../../packages/backend/src/accounts/authority/native-value-account-authority-v2.mjs';
 import {createNativeValueSystemStateReader} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-system-state-v2.mjs';
-import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-terminal-observer-v2.mjs';
+import {decodeNativeValueTerminalCalldata} from '../../../../packages/backend/src/execution/encoding/terminal-calldata-codec.mjs';
 import {assertDeviceFinalOriginalReceiptTreeV1} from './device-owner-execution-native-checks-v1.mjs';
 const bare=s=>s.startsWith('0x')?s.slice(2):s,sha=b=>createHash('sha256').update(b).digest('hex');
 export async function auditNativeDeviceEconomicSuccessorV1(originals,service){
