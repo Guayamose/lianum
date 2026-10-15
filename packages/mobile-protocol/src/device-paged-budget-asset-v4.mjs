@@ -10,7 +10,7 @@ export function normalizeDevicePagedPublicFundingMetadataDataV4(raw,descriptor){
  need(arguments.length===2);const row=P.pagedOwnerExactV3(raw,['budgetAsset','fundingOrigin']);need(row.fundingOrigin==='OPERATOR_TESTNET');row.budgetAsset=normalizeDevicePagedBudgetAssetDataV4(row.budgetAsset,descriptor);return Object.freeze(row);
 }
 export function assertDevicePagedPublicNetworkIdDataV4(networkId,family){
- need(arguments.length===2);need(networkId===({EVM:'ethereum-sepolia',BTC:'bitcoin-testnet',SOL:'solana-devnet'})[family]);return networkId;
+ need(arguments.length===2);need(networkId===({EVM:'ethereum-sepolia',BTC:'bitcoin-testnet',SOL:'solana-devnet',UNISWAP:'ethereum-sepolia'})[family]);return networkId;
 }
 /** Display exact atomic units;600wei is never600ETH. No metadata fallback
  * converts units, supplies economic terms or labels an unknown asset ETH. */

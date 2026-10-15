@@ -1,0 +1,47 @@
+/** Actual protected ephemeral keyset, type-2 signatures and durable Source
+ * journal. The command issuer, D27 bytes and chain are explicit HOST ports.
+ * This verifies transport stages, never Original PAEG permission or DeFi
+ * financial acceptance, and contacts no real RPC endpoint. */
+import test,{mock} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+import {Transaction} from 'micro-eth-signer';
+import {readFixedSepoliaUniswapVenueReferencesV4} from '../../../src/chains/public-testnet/sepolia-uniswap-venue-v4.mjs';
+import {encodeSepoliaUniswapPrivateOutputCallV4} from '../../../src/chains/public-testnet/sepolia-uniswap-private-output-codec-v4.mjs';
+const issued=new WeakMap(),sha=v=>createHash('sha256').update(v).digest('hex'),GENESIS='0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9';
+mock.module(new URL('../../../src/chains/public-testnet/sepolia-uniswap-paged-delivery-command-v4.mjs',import.meta.url).href,{exports:{
+ async readOriginalPagedPublicUniswapDeliveryCommandV4(runtime,token){const p=issued.get(token);assert.ok(p?.runtime===runtime&&p.active&&Date.now()<p.request.expiresAt,'HOST_UNISWAP_COMMAND_NOT_AUTHORITY');return structuredClone(p.request);},
+ async consumeOriginalPagedPublicUniswapDeliveryCommandV4(runtime,token){const p=issued.get(token);assert.ok(p?.runtime===runtime&&p.active&&!p.used&&Date.now()<p.request.expiresAt,'HOST_UNISWAP_COMMAND_NOT_AUTHORITY');p.used=true;return structuredClone(p.request);}
+}});
+function hostCommand(runtime,account){
+ const refs=readFixedSepoliaUniswapVenueReferencesV4(),limbs=v=>Array.from({length:8},(_,i)=>BigInt('0x'+v.slice(i*8,i*8+8)).toString()),scope='11'.repeat(32),policy='22'.repeat(32),output='33'.repeat(32),identity={chainId:'11155111',router:'44'.repeat(20),solver:account.address.slice(2),inputAsset:refs.input.address.slice(2),outputAsset:refs.venues.AAVE_USDC.output.address.slice(2),protocol:refs.router.address.slice(2),targetPool:'55'.repeat(20),inputCode:refs.input.codeSHA256,outputCode:refs.venues.AAVE_USDC.output.codeSHA256,protocolCode:refs.router.codeSHA256,poolCode:'66'.repeat(32),scope,policy},route={maximumInput:'200000000000000',outputAmount:'1000000',validFrom:'1',validUntil:'600'},plan={identity,route,ownerPublicInputs:[...limbs(scope),...limbs(policy),route.validFrom,route.validUntil,route.outputAmount,...limbs(output)]},descriptor={profile:'PUBLIC_SEPOLIA_UNISWAP_PAGED_DELIVERY_DATA_V4',context:{genesis:GENESIS.slice(2),sourceDomain:'77'.repeat(32),sourceAssetIdentity:'88'.repeat(32),targetLedgerNamespace:'99'.repeat(32),targetAssetIdentity:'aa'.repeat(32),targetPlanSHA256:'bb'.repeat(32)},plan},delivery={descriptor,receiptCommitment:'cc'.repeat(32),proof:'dd'.repeat(32)},encoded=encodeSepoliaUniswapPrivateOutputCallV4({plan,receiptCommitment:delivery.receiptCommitment,proof:delivery.proof}),request={profile:'ORIGINAL_PAGED_SEPOLIA_SOURCE_COMMAND_V4',label:'HOST PAEG UNI transport',from:account.address,to:'0x'+identity.router,value:route.maximumInput,data:encoded.calldata,jobId:sha('HOST UNI job'),action:'EXECUTE_UNISWAP',identity:sha('HOST UNI Source'),journalRevision:1,journalDataSHA256:sha('HOST UNKNOWN'),expiresAt:Date.now()+15000,feeCeilingAtomic:'500000000000000',dispatch:{id:'0',authorizationRoot:'ee'.repeat(32),actionCommitment:'ff'.repeat(32)},delivery},token=Object.freeze(Object.create(null));issued.set(token,{runtime,request,used:false,active:true});return token;
+}
+test('Uniswap CALL persists intent then signature before one POST; lost response and observer reopen never sign/send again (HOST issuer/chain)',async t=>{
+ const directory=await mkdtemp(join(tmpdir(),'uni-stages-host-')),K=await import('../../../src/chains/public-testnet/key-store-v1.mjs'),RPC=await import('../../../src/chains/public-testnet/sepolia-receiver-rpc-v4.mjs');let keys,source,created,wire=null,posts=0,nonce=0n,available=false;const block={number:'0x100',hash:'0x'+'44'.repeat(32),parentHash:'0x'+'33'.repeat(32),timestamp:'0x70000000',gasLimit:'0x1c9c380',baseFeePerGas:'0x1'},disk=()=>readFile(join(directory,'source-operations/native-wallet.json'),'utf8').then(JSON.parse);
+ const keyset=await K.initializePublicPagedServerKeysV1(join(directory,'keys')),account=keyset.accounts[0];
+ t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{const req=JSON.parse(options.body);let result;switch(req.method){
+  case'eth_chainId':result='0xaa36a7';break;
+  case'eth_getBlockByNumber':result=req.params[0]==='0x0'?{hash:GENESIS}:block;break;
+  case'eth_getTransactionCount':result='0x'+nonce.toString(16);break;
+  case'eth_getBalance':result='0x1bc16d674ec80000';break;
+  case'eth_maxPriorityFeePerGas':result='0x1';break;
+  case'eth_estimateGas':assert.equal(req.params[0].to,'0x'+'44'.repeat(20));result='0xf4240';break;
+  case'eth_sendRawTransaction':{const record=await disk();assert.equal(record.operations[0].phase,'SUBMITTING');assert.equal(record.operations[0].signed.nativeWire,req.params[0]);assert.equal(Transaction.fromHex(req.params[0]).sender.toLowerCase(),account.address);posts++;wire=req.params[0];nonce++;throw Error('HOST_LOST_UNI_POST_ACK');}
+  case'eth_getTransactionReceipt':result=available&&wire?{transactionHash:Transaction.fromHex(wire).hash,status:'0x1',blockHash:block.hash,blockNumber:block.number,gasUsed:'0xf4240',effectiveGasPrice:'0x2'}:null;break;
+  case'eth_getTransactionByHash':{const tx=Transaction.fromHex(wire),x=tx.raw;result={hash:tx.hash,from:account.address,to:x.to,input:x.data,type:'0x2',accessList:[]};for(const[k,v]of Object.entries({chainId:x.chainId,nonce:x.nonce,value:x.value,gas:x.gasLimit,maxFeePerGas:x.maxFeePerGas,maxPriorityFeePerGas:x.maxPriorityFeePerGas}))result[k]='0x'+v.toString(16);break;}
+  default:throw Error('HOST_RPC_UNEXPECTED:'+req.method);
+ }return new Response(JSON.stringify({jsonrpc:'2.0',id:req.id,result}),{status:200,headers:{'content-type':'application/json'}});});
+ try{
+  keys=await K.openPublicPagedServerKeysV1(join(directory,'keys'));created=await RPC.createOriginalPagedSepoliaRpcV4({endpoint:'https://uni-stages-host.invalid',account,keysetId:keyset.keysetId});created.lifecycle.closed.then(()=>created.lifecycle.acknowledge());
+  // Inert prerequisite DATA, explicitly not Original finalized deployment.
+  await mkdir(join(directory,'receiver-bootstrap'),{mode:0o700});await writeFile(join(directory,'receiver-bootstrap/native-wallet.json'),JSON.stringify({configurationSHA256:sha(Buffer.from('ORIGINAL_PAGED_PUBLIC_SEPOLIA_RECEIVER_V4\0'+keyset.keysetId+'\0'+GENESIS)),operations:[]}),{mode:0o600});
+  const policy={profile:'ORIGINAL_PAGED_SEPOLIA_OPERATOR_SPONSOR_V4',keysetId:keyset.keysetId,account:account.address,maximumFeePerTransactionAtomic:'500000000000000',maximumTotalFeeAtomic:'5000000000000000',maximumValuePerTransactionAtomic:'1000000000000000',maximumTotalValueAtomic:'2000000000000000',expiresAt:Date.now()+3600000};source=await K.openOriginalPublicPagedSourceSignerV4(keys,created.runtime,policy,new AbortController().signal);
+  const command=hostCommand(created.runtime,account);await assert.rejects(K.prepareOriginalPublicUniswapDeliveryV4(source,{...command}),/HOST_UNISWAP_COMMAND/);const prepared=await K.prepareOriginalPublicUniswapDeliveryV4(source,command);assert.equal(posts,0);assert.equal(issued.get(command).used,false);assert.equal((await disk()).operations[0].phase,'KEY_PENDING');assert.equal((await disk()).operations[0].signed,null);
+  await assert.rejects(K.signOriginalPublicUniswapDeliveryV4(source,{...prepared}),/ORIGINAL_PREPARATION/);const signed=await K.signOriginalPublicUniswapDeliveryV4(source,prepared);assert.equal(posts,0);assert.equal(issued.get(command).used,true);assert.equal((await disk()).operations[0].phase,'SIGNED');assert.equal((await disk()).operations[0].signed.nativeWire,signed.nativeWire);await assert.rejects(K.signOriginalPublicUniswapDeliveryV4(source,prepared),/SIGN_ALREADY_ENTERED/);
+  await K.submitOriginalPublicUniswapDeliveryV4(source,prepared);assert.equal(posts,1);assert.equal(nonce,1n);assert.equal((await disk()).operations[0].phase,'UNKNOWN');await assert.rejects(K.submitOriginalPublicUniswapDeliveryV4(source,prepared),/SUBMIT_ALREADY_ENTERED/);await assert.rejects(K.prepareOriginalPublicUniswapDeliveryV4(source,command),/ALREADY_RETAINED/);assert.equal(posts,1);
+  const locator=issued.get(command).request;issued.get(command).active=false;await K.closeOriginalPublicPagedSourceSignerV4(source);source=await K.openOriginalPublicPagedSourceObserverV4(keys,created.runtime,policy,new AbortController().signal);let observed=await K.observeOriginalPublicUniswapDeliveryV4(source,locator.identity,locator.jobId);assert.equal(observed.phase,'UNKNOWN');assert.equal(observed.signed.nativeWire,signed.nativeWire);available=true;observed=await K.observeOriginalPublicUniswapDeliveryV4(source,locator.identity,locator.jobId);assert.equal(observed.phase,'FINALIZED');assert.equal(observed.signed.nativeId,signed.nativeId);assert.equal(posts,1);assert.equal(nonce,1n);await assert.rejects(K.prepareOriginalPublicUniswapDeliveryV4(source,command),/OBSERVER_CANNOT_SIGN/);
+ }finally{if(source)await K.closeOriginalPublicPagedSourceSignerV4(source);await created?.runtime.close();K.closePublicPagedServerKeysV1(keys);await rm(directory,{recursive:true,force:true});}
+});

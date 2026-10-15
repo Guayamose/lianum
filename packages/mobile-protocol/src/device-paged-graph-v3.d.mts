@@ -15,7 +15,7 @@ export function normalizeDevicePagedGraphReplyV3(raw:unknown):any;
 export function snapshotDevicePagedGraphCommandV3(raw:unknown):any;
 export function normalizeDevicePagedGraphHealthV3(raw:unknown):any;
 export type DevicePagedNativeNetworkV3=Readonly<{family:'EVM'|'BTC'|'SOL';networkId?:'ethereum-sepolia'|'bitcoin-testnet'|'solana-devnet';label:string;chainDomain:string;evidencePolicy:string;assetSymbol:string;decimals:number;destinations:readonly Readonly<{id:string;address:string;label:string}>[]}>;
-export function normalizeDevicePagedNativePreparationV3(raw:unknown,rawPagedDescriptor?:unknown):Readonly<{family:'EVM';chainDomain:string;evidencePolicy:string;budgetAsset?:DevicePagedBudgetAssetDataV4;fundingOrigin?:'OPERATOR_TESTNET';networks?:readonly DevicePagedNativeNetworkV3[];uniswap?:import('./device-paged-uniswap-v3.mjs').DevicePagedUniswapPreparationV3}>;
+export function normalizeDevicePagedNativePreparationV3(raw:unknown,rawPagedDescriptor?:unknown):Readonly<{family:'EVM';chainDomain:string;evidencePolicy:string;budgetAsset?:DevicePagedBudgetAssetDataV4;fundingOrigin?:'OPERATOR_TESTNET';networks?:readonly DevicePagedNativeNetworkV3[];uniswap?:import('./device-paged-uniswap-v3.mjs').DevicePagedUniswapPreparationV3|import('./device-paged-uniswap-public-v4.mjs').DevicePagedPublicUniswapPreparationV4}>;
 export function normalizeDevicePagedNativePageRequestV3(raw:unknown):any;
 
 export {normalizeDevicePagedUniswapIntentV3,normalizeDevicePagedUniswapPreparationV3,DEVICE_PAGED_UNISWAP_INTENT_V3} from './device-paged-uniswap-v3.mjs';

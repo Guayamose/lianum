@@ -4,6 +4,7 @@
 import * as P from './device-paged-owner-v3.mjs';
 import {normalizeDevicePagedPublicFundingMetadataDataV4,assertDevicePagedPublicNetworkIdDataV4} from './device-paged-budget-asset-v4.mjs';
 import {normalizeDevicePagedUniswapIntentV3,normalizeDevicePagedUniswapPreparationV3} from './device-paged-uniswap-v3.mjs';
+import {DEVICE_PAGED_PUBLIC_UNISWAP_PREPARATION_V4,normalizeDevicePagedPublicUniswapPreparationV4} from './device-paged-uniswap-public-v4.mjs';
 export {normalizeDevicePagedUniswapIntentV3,normalizeDevicePagedUniswapPreparationV3,DEVICE_PAGED_UNISWAP_INTENT_V3} from './device-paged-uniswap-v3.mjs';
 export const DEVICE_PAGED_GRAPH_OWNER_V3='LIANUM_DEVICE_PAGED_GRAPH_OWNER_V3';
 const need=v=>{if(!v)throw Error('MOBILE_PAGED_GRAPH_MESSAGE');};
@@ -25,7 +26,7 @@ export function normalizeDevicePagedNativePreparationV3(raw,rawPagedDescriptor=n
   need(Array.isArray(config.networks)&&config.networks.length>0&&config.networks.length<=8);const domains=new Set();
   config.networks=config.networks.map(rawNetwork=>{const n=P.pagedOwnerExactV3(rawNetwork,['family','label','chainDomain','evidencePolicy','assetSymbol','decimals','destinations',...(Object.hasOwn(rawNetwork??{},'networkId')?['networkId']:[])]);if(n.networkId!==undefined)assertDevicePagedPublicNetworkIdDataV4(n.networkId,n.family);need(['EVM','BTC','SOL'].includes(n.family));P.pagedOwnerHexV3(n.chainDomain);P.pagedOwnerHexV3(n.evidencePolicy);need(!domains.has(n.chainDomain));domains.add(n.chainDomain);need(typeof n.label==='string'&&n.label.length>0&&n.label.length<=80&&typeof n.assetSymbol==='string'&&/^[A-Z0-9]{1,12}$/.test(n.assetSymbol));need(Number.isSafeInteger(n.decimals)&&n.decimals>=0&&n.decimals<=18);need(Array.isArray(n.destinations)&&n.destinations.length<=64);const addresses=new Set();n.destinations=n.destinations.map(rawDestination=>{const d=P.pagedOwnerExactV3(rawDestination,['id','address','label']);need(typeof d.id==='string'&&/^[A-Za-z0-9_.-]{1,80}$/.test(d.id)&&typeof d.address==='string'&&d.address.length>0&&d.address.length<=128&&typeof d.label==='string'&&d.label.length>0&&d.label.length<=80&&!addresses.has(d.address));addresses.add(d.address);return d;});return n;});
  }
- if(config.uniswap!==undefined){config.uniswap=normalizeDevicePagedUniswapPreparationV3(config.uniswap,rawPagedDescriptor);need(!config.networks?.some(n=>n.chainDomain===config.uniswap.configuration.chainDomain));}
+ if(config.uniswap!==undefined){config.uniswap=config.uniswap?.profile===DEVICE_PAGED_PUBLIC_UNISWAP_PREPARATION_V4?normalizeDevicePagedPublicUniswapPreparationV4(config.uniswap,rawPagedDescriptor):normalizeDevicePagedUniswapPreparationV3(config.uniswap,rawPagedDescriptor);need(!config.networks?.some(n=>n.chainDomain===config.uniswap.configuration.chainDomain));}
  return frozen(config);
 }
 /** Only provider terms leave the mobile preparation. Dependencies, note
