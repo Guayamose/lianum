@@ -36,6 +36,13 @@ old_release=$(readlink /opt/lianum-paeg-public/current)
 old_digest=${old_release##*/}
 [ "$old_digest" != "$digest" ]
 python3 "$old_release/infra/verify-release.py" --directory "$old_release" --sha256 "$old_digest"
+python3 - "$old_release" "$release" <<'ARTIFACTS'
+import json,pathlib,sys
+def immutable_inventory(root):
+    files=json.loads((pathlib.Path(root)/'release-manifest.json').read_bytes())['files']
+    return {name:record for name,record in files.items() if name.startswith(('candidate/resources/','candidate/contracts/'))}
+if immutable_inventory(sys.argv[1])!=immutable_inventory(sys.argv[2]):raise SystemExit('PAEG_PARTIAL_COMPILED_INPUTS_CHANGED')
+ARTIFACTS
 report=$(mktemp /run/lianum-partial-birth-audit-v5.XXXXXX)
 artifacts=$(mktemp /run/lianum-partial-birth-artifacts-v5.XXXXXX)
 cp -- /etc/systemd/system/lianum-paeg-public.service.d/artifacts.conf "$artifacts"

@@ -23,6 +23,10 @@ class PartialCodeUpgradeTests(unittest.TestCase):
         (old_release/'infra/lianum-paeg-public.service').write_text('old-unit')
         release=root/'new-release';(release/'infra').mkdir(parents=True)
         (release/'infra/verify-release.py').write_text('')
+        inventory={'files':{'candidate/resources/tool':{'sha256':'e'*64,'bytes':1,'mode':'0755'}}}
+        (old_release/'release-manifest.json').write_text(json.dumps(inventory))
+        if mode=='changed-artifacts':inventory['files']['candidate/resources/tool']['sha256']='f'*64
+        (release/'release-manifest.json').write_text(json.dumps(inventory))
         unit=root/'unit.service';unit.write_text('old-unit')
         artifacts=root/'artifacts.conf';artifacts.write_text('old-artifacts')
         state=root/'state.json';state.write_text(json.dumps({'mode':mode,'mainPIDReads':0,'inspections':0}))
@@ -98,6 +102,12 @@ printf new-artifacts > '{artifacts}'
         self.assertEqual((work/'current').readlink(),work/'releases'/old)
         self.assertEqual(unit.read_text(),'old-unit')
         self.assertEqual(artifacts.read_text(),'old-artifacts')
+
+    def test_changed_compiled_inputs_cannot_switch_code(self):
+        result,opt,work,unit,artifacts,state,old,new=self.fixture('changed-artifacts')
+        self.assertNotEqual(result.returncode,0)
+        self.assertEqual((opt/'current').readlink(),opt/'releases'/old)
+        self.assertEqual(json.loads(state.read_text())['inspections'],0)
 
     def test_installer_or_checkpoint_failure_rolls_back_code(self):
         for mode in ['install-fails','changed-checkpoint']:

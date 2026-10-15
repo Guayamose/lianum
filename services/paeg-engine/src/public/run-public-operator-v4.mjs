@@ -23,7 +23,7 @@ const ignoreFinancialSignalBeforeReady=()=>{};process.on('SIGUSR1',ignoreFinanci
 const emit=record=>process.stdout.write(JSON.stringify(record)+'\n');
 // Do not emit exception messages: configuration and filesystem errors can
 // contain journal passwords, keys, or private operation details.
-const failure=(stage,error)=>{const firstLine=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';const reason=/^[A-Z][A-Z0-9_]{1,120}$/.test(firstLine)?firstLine:'UNCLASSIFIED_ORIGINAL_FAILURE';process.stderr.write(JSON.stringify({stage,code:'PAEG_PUBLIC_ORIGINAL_OPERATION_FAILED',reason,automaticRebroadcast:false})+'\n');};
+const failure=(stage,error)=>{const firstLine=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';const reason=/^[A-Z][A-Z0-9_]{1,120}$/.test(firstLine)?firstLine:'UNCLASSIFIED_ORIGINAL_FAILURE';const httpStatus=Number.isInteger(error?.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599?error.httpStatus:undefined;process.stderr.write(JSON.stringify({stage,code:'PAEG_PUBLIC_ORIGINAL_OPERATION_FAILED',reason,httpStatus,automaticRebroadcast:false})+'\n');};
 async function close(){
  stopping=true;acquisitionControl.abort();clearTimeout(captureTimer);return closing??=(async()=>{
   let controlledCapture=false,coldReopenFenced=false;

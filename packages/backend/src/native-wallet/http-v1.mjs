@@ -1,10 +1,34 @@
 import {randomUUID} from 'node:crypto';
+import {setTimeout as pause} from 'node:timers/promises';
 import {need,fail,signalCurrent} from './common-v1.mjs';
 const LIMIT=8388608;
-async function request(endpoint,{method='GET',body,signal,text=false,missing=false}={}){
+const READ_RPC_METHODS=new Set([
+ 'eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getBlockByHash',
+ 'eth_getBalance','eth_getCode','eth_getTransactionCount','eth_getTransactionReceipt',
+ 'eth_getTransactionByHash','eth_getLogs','eth_call','eth_estimateGas','eth_gasPrice',
+ 'eth_maxPriorityFeePerGas','eth_feeHistory','getGenesisHash','getSlot','getBlock',
+ 'getBlockHeight','getLatestBlockhash','getBalance','getAccountInfo','getTransaction',
+ 'getSignatureStatuses','getFeeForMessage','getMinimumBalanceForRentExemption',
+ 'getTokenAccountBalance','getTokenAccountsByOwner','isBlockhashValid',
+]);
+const TRANSIENT_HTTP_STATUS=new Set([408,429,500,502,503,504]);
+async function request(endpoint,{method='GET',body,signal,text=false,missing=false,readOnly=false}={}){
  signalCurrent(signal);const abort=new AbortController(),onAbort=()=>abort.abort();signal?.addEventListener('abort',onAbort,{once:true});const timer=setTimeout(()=>abort.abort(),15000);let reply;
  try{
-  reply=await fetch(endpoint,{method,body,signal:abort.signal,redirect:'error',headers:{Accept:text?'text/plain':'application/json',...(body!==undefined?{'Content-Type':text?'text/plain':'application/json'}:{})}});
+  for(let attempt=0;;attempt++){
+   signalCurrent(signal);
+   reply=await fetch(endpoint,{method,body,signal:abort.signal,redirect:'error',headers:{Accept:text?'text/plain':'application/json',...(body!==undefined?{'Content-Type':text?'text/plain':'application/json'}:{})}});
+   if(reply.status===200||missing&&reply.status===404)break;
+   await reply.body?.cancel();
+   if(!readOnly||attempt>=2||!TRANSIENT_HTTP_STATUS.has(reply.status)){
+    try{fail('HTTP_STATUS');}catch(error){error.httpStatus=reply.status;throw error;}
+   }
+   // The same 15-second deadline and cancellation cover all three attempts.
+   // Only reads reach this branch; a signed send is always attempted once.
+   const retryAfter=reply.headers.get('retry-after');
+   const wait=retryAfter!==null&&/^[0-9]+$/.test(retryAfter)?Math.min(2000,Number(retryAfter)*1000):250*2**attempt;
+   await pause(wait,undefined,{signal:abort.signal});
+  }
   if(missing&&reply.status===404){await reply.body?.cancel();return null;}
   need(reply.status===200,'HTTP_STATUS');const length=reply.headers.get('content-length');if(length!==null)need(/^[0-9]+$/.test(length)&&BigInt(length)<=BigInt(LIMIT),'RESPONSE_BOUND');
   const reader=reply.body?.getReader();need(reader,'RESPONSE');const chunks=[];let bytes=0;try{for(;;){const r=await reader.read();if(r.done)break;bytes+=r.value.length;need(bytes<=LIMIT,'RESPONSE_BOUND');chunks.push(r.value);}}catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
@@ -12,5 +36,5 @@ async function request(endpoint,{method='GET',body,signal,text=false,missing=fal
  }catch(error){if(/^NATIVE_WALLET_[A-Z_]+$/.test(error?.code??''))throw error;fail(signal?.aborted?'CANCELLED':abort.signal.aborted?'HTTP_TIMEOUT':'HTTP_FAILED');}
  finally{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);}
 }
-export function nativeRpcV1(endpoint){return async(method,params=[],signal)=>{const id=randomUUID(),result=await request(endpoint,{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id,method,params}),signal});need(result?.jsonrpc==='2.0'&&result.id===id&&Object.hasOwn(result,'result')&&!Object.hasOwn(result,'error'),'RPC_FAILED');return result.result;};}
-export function nativeEsploraV1(endpoint){const base=endpoint.replace(/\/$/,'');return(path,options)=>{need(typeof path==='string'&&/^\/[a-zA-Z0-9/_:.-]+$/.test(path)&&path.length<=300,'HTTP_PATH');return request(base+path,options);};}
+export function nativeRpcV1(endpoint){return async(method,params=[],signal)=>{const id=randomUUID(),result=await request(endpoint,{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id,method,params}),signal,readOnly:READ_RPC_METHODS.has(method)});need(result?.jsonrpc==='2.0'&&result.id===id&&Object.hasOwn(result,'result')&&!Object.hasOwn(result,'error'),'RPC_FAILED');return result.result;};}
+export function nativeEsploraV1(endpoint){const base=endpoint.replace(/\/$/,'');return(path,options)=>{need(typeof path==='string'&&/^\/[a-zA-Z0-9/_:.-]+$/.test(path)&&path.length<=300,'HTTP_PATH');return request(base+path,{...options,readOnly:(options?.method??'GET')==='GET'});};}

@@ -1,0 +1,54 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {nativeRpcV1,nativeEsploraV1} from '../../src/native-wallet/http-v1.mjs';
+
+test('RPC reads recover from a temporary HTTP response and release its body',async t=>{
+ let calls=0,cancelled=false;const bodies=[];
+ t.mock.method(globalThis,'fetch',async(_url,options)=>{
+  bodies.push(options.body);
+  if(++calls===1)return new Response(new ReadableStream({cancel(){cancelled=true;}}),{status:503});
+  assert.equal(cancelled,true);
+  return Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,result:'0x1'});
+ });
+ assert.equal(await nativeRpcV1('https://rpc.invalid')('eth_getBalance',['0x1','latest']),'0x1');
+ assert.equal(calls,2);assert.equal(bodies[0],bodies[1]);
+});
+
+test('read retries are bounded and retain only the numeric HTTP status',async t=>{
+ let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response('private provider body',{status:429,headers:{'retry-after':'0'}});});
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_chainId'),error=>{
+  assert.equal(error.code,'NATIVE_WALLET_HTTP_STATUS');assert.equal(error.httpStatus,429);
+  assert.equal(error.message,'NATIVE_WALLET_HTTP_STATUS');return true;
+ });
+ assert.equal(calls,3);
+});
+
+test('nontransient HTTP failures and RPC errors do not repeat reads',async t=>{
+ let calls=0;const mocked=t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response('',{status:403});});
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_chainId'),{httpStatus:403});assert.equal(calls,1);
+ mocked.mock.mockImplementation(async(_url,options)=>{calls++;return Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,error:{code:-32000,message:'provider error'}});});
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_call'),{code:'NATIVE_WALLET_RPC_FAILED'});assert.equal(calls,2);
+});
+
+test('Ethereum, Solana and unknown RPC sends are each attempted once',async t=>{
+ let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response('',{status:503});});
+ for(const method of ['eth_sendRawTransaction','sendTransaction','requestAirdrop','customMethod']){
+  const before=calls;await assert.rejects(nativeRpcV1('https://rpc.invalid')(method,['signed-wire']),{httpStatus:503});assert.equal(calls,before+1);
+ }
+});
+
+test('Esplora retries GET, preserves missing transactions and never retries POST',async t=>{
+ let calls=0;const mocked=t.mock.method(globalThis,'fetch',async()=>new Response(++calls===1?'':'ok',{status:calls===1?503:200}));
+ const esplora=nativeEsploraV1('https://btc.invalid');assert.equal(await esplora('/blocks/tip/hash',{text:true}),'ok');assert.equal(calls,2);
+ mocked.mock.mockImplementation(async()=>{calls++;return new Response('',{status:503});});
+ await assert.rejects(esplora('/tx',{method:'POST',body:'signed-wire',text:true,readOnly:true}),{httpStatus:503});assert.equal(calls,3);
+ mocked.mock.mockImplementation(async()=>{calls++;return new Response('',{status:404});});
+ assert.equal(await esplora('/tx/abc',{missing:true}),null);assert.equal(calls,4);
+});
+
+test('cancellation during backoff prevents another request',async t=>{
+ let calls=0;const controller=new AbortController();
+ t.mock.method(globalThis,'fetch',async()=>{calls++;setImmediate(()=>controller.abort());return new Response('',{status:429});});
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_chainId',[],controller.signal),{code:'NATIVE_WALLET_CANCELLED'});
+ assert.equal(calls,1);
+});
