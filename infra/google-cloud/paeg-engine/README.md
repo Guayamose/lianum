@@ -1,10 +1,47 @@
-# PAEG remote staging
+# Execution engine deployment
 
-This prepares a **new LOCAL synthetic mixed operator** on Linux x86-64: one Paged
+The default `local` profile prepares a **new LOCAL synthetic mixed operator** on Linux x86-64: one Paged
 hub, separate Ethereum/Bitcoin/Solana fixtures and the official Uniswap fixture
 with fake tokens. It does not deploy PAEG to public chains or make those provider
 balances real testnet funds. The existing public wallet API and the user's mobile
 seed are separate and remain untouched.
+
+The `public-testnet` profile packages the execution engine for Ethereum Sepolia,
+Bitcoin testnet3 and Solana devnet, using the existing protected server accounts.
+Build it with `package-demo.py build --profile public-testnet --out DIRECTORY`.
+Its service is `lianum-paeg-public.service`; its immutable release and working
+copy live under `/opt/lianum-paeg-public` and `/var/lib/lianum-paeg-public`.
+The private engine listener and the public wallet API are separate services;
+starting the engine does not configure the API's reverse proxy.
+
+`upgrade-partial-public-birth-code-v5.sh` updates stopped, pre-Source deployments.
+The inspector authenticates either the initial two-library checkpoint or the
+retained approval and subsequent deployment journal. A reboot does not invalidate
+the persistent checkpoint. The upgrade preserves private files and requires
+identical contracts, proof artifacts and tools; it never starts the service or
+extends a financial permission. It cannot migrate an active Source.
+
+Native RPC reads retry temporary HTTP failures at most three times within their
+existing 15-second deadline. Signed sends use one attempt. An interrupted
+deployment can continue by observing its persisted signed transactions, with
+the original approval, expiry and fee ceiling.
+
+If a public Sepolia provider explicitly rejects a CREATE estimate because of
+its RPC gas cap, the engine may consult the fixed public Tenderly Sepolia
+endpoint. It verifies chain identity, genesis and the same canonical block;
+the original signer still enforces gas, balance and aggregate fee limits.
+Other RPC errors and contract reverts do not select this fallback.
+
+An expired partial deployment approval cannot restart the motor. While stopped,
+`renew-partial-public-birth-v6.mjs` with no arguments prints review data only.
+An administrator may explicitly pass its checkpoint, the **same total fee cap**
+and an absolute deadline in epoch milliseconds, at most one hour ahead. The
+Original protected KeyStore verifies the retained signature, every successful
+deployment receipt, the pending nonce and all historical fee reservations before
+updating the encrypted approval by revision. This does not send a transaction,
+reset the spent budget, start the service or renew a Source permission. Pending
+or changed state is rejected. Run with the pinned Node, signer UID and clean
+environment, as with the partial-deployment inspector.
 
 The small-demo GCP machine is `n2-standard-4`, 4 vCPUs and 16 GiB RAM, with the
 existing persistent 100 GiB `pd-balanced` disk in `europe-west1-b`, project `lianum`.
@@ -97,7 +134,7 @@ failed realm, replace its keys, or retry a native send to make recovery appear v
 Back up the whole private realm **and** its retained scratch trees only after a
 successful controlled stop, using a protected server-side disk backup policy.
 
-## Remaining blockers
+## Local profile: public access and activation limits
 
 **Public Android ingress is not implemented by this package.** Original startup
 and Android pinned TLS currently accept loopback/private-IP endpoints. The private

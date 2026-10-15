@@ -12,7 +12,7 @@ const original=name=>import(pathToFileURL(join(root,name)).href);
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 async function inspectRetained(){
  const retention=await original('packages/backend/src/chains/public-testnet/sepolia-partial-bootstrap-retention-v5.mjs');
- const token=await retention.readOriginalPagedPublicPartialRetentionV5({operatorDirectory,nativeDirectory});
+ const token=await retention.readOriginalPagedPublicPartialRetentionForReviewV6({operatorDirectory,nativeDirectory});
  const retained=await retention.readOriginalPagedPublicPartialRetentionDataV5(token);
  const keysOwner=await original('packages/backend/src/chains/public-testnet/key-store-v1.mjs');
  const rpcOwner=await original('packages/backend/src/chains/public-testnet/sepolia-receiver-rpc-v4.mjs');
@@ -28,7 +28,7 @@ async function inspectRetained(){
   const runtime=opened.runtime;
   // Verify the retained account signature through the Original verifier.
   // No signer, new approval, deployment plan or Source permission is opened.
-  rpcOwner.restoreOriginalPagedSepoliaPartialBootstrapApprovalV5(runtime,retained.record.frame,retained.record.signature);
+  rpcOwner.verifyOriginalPagedSepoliaPartialBootstrapForReviewV6(runtime,retained.record.frame,retained.record.signature);
   const bootstrap=JSON.parse(await readFile(join(nativeDirectory,'receiver-bootstrap/native-wallet.json'),'utf8'));
   const rows=[];const head=await runtime.block();
   for(const [index,row]of bootstrap.operations.entries()){
