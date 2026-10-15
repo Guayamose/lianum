@@ -11,7 +11,9 @@
     "./native-wallet-auth-v1": "./src/native-wallet-auth-v1.mjs",
     "./native-provider-crypto-v1": "./src/native-provider-crypto-v1.mjs",
     "./sepolia-receiver-wire-v4": "./src/sepolia-receiver-wire-v4.mjs",
-    "./sepolia-source-wire-v4": "./src/sepolia-source-wire-v4.mjs"
+    "./sepolia-source-wire-v4": "./src/sepolia-source-wire-v4.mjs",
+    "./sepolia-receiver-wire-v5": "./src/sepolia-receiver-wire-v5.mjs",
+    "./sepolia-uniswap-call-wire-v4": "./src/sepolia-uniswap-call-wire-v4.mjs"
   },
   "lianum": {
     "status": "candidate"
