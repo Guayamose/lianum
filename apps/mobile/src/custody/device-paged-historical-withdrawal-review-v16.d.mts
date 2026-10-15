@@ -1,0 +1,4 @@
+export type DevicePagedHistoricalWithdrawalReviewV16=Readonly<{sourceDescriptor:any;brokerDescriptor:any;rootId:string;revision:number;graphId:string;authorizationRoot:string;phase:'FULFILLED'|'RECOVERED';role:'change'|'recovery'|'payout';id:string|null;commitment:string;nullifier:string;amount:string;epoch:string;recipient:string;x:string;y:string;message:string;expiresAt:number}>;
+export function createDevicePagedHistoricalWithdrawalViewIssuerV16(root:Uint8Array,descriptor:unknown,current:()=>void,revision:number):Readonly<{review(value:DevicePagedHistoricalWithdrawalReviewV16,active:()=>void):DevicePagedHistoricalWithdrawalReviewV16}>;
+export function assertDevicePagedHistoricalWithdrawalReviewActiveV16(value:unknown):DevicePagedHistoricalWithdrawalReviewV16;
+export function readDevicePagedHistoricalWithdrawalReviewV16(value:unknown):DevicePagedHistoricalWithdrawalReviewV16;

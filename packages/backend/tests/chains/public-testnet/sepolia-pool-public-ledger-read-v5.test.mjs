@@ -1,0 +1,32 @@
+/** Actual Original RPC WeakMap, canonical receipt/cache and ledger mechanics.
+ * RPC headers/contracts/events below are HOST data; no SNARK/payment claim. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {createOriginalPagedSepoliaRpcV4,readOriginalPagedSepoliaPoolNoteReceiptsV5} from '../../../src/chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
+import {readPagedSourceLedgerV3} from '../../../src/operations/local/paged-source-ledger-v3.mjs';
+import {noteNodeHash} from '../../../../engine/src/notes/private-note-tree.mjs';
+import {publicKeccak256} from '../../../../engine/src/cohorts/private-cohort-public-native.mjs';
+const H=label=>'0x'+createHash('sha256').update('HOST pool read '+label).digest('hex'),pool='0x'+'1'.repeat(40),GENESIS='0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9',topic='0x'+publicKeccak256(Buffer.from('NoteInserted(bytes32,uint32)')).toString('hex');
+function fixture(t){
+ const blocks=new Map(Array.from({length:5},(_,i)=>['0x'+i.toString(16),{number:'0x'+i.toString(16),hash:i===0?GENESIS:H('block'+i),parentHash:H('block'+(i-1)),timestamp:'0x'+(1000+i).toString(16),gasLimit:'0x989680',baseFeePerGas:'0x1'}])),head=blocks.get('0x4'),cms=[H('own note'),H('external note')];let tree=[...cms,...Array(254).fill('0x'+'0'.repeat(64))];while(tree.length>1)tree=Array.from({length:tree.length/2},(_,i)=>noteNodeHash(tree[i*2],tree[i*2+1]));
+ const constructor={transactionHash:H('constructor'),blockNumber:'0x1',blockHash:blocks.get('0x1').hash,transactionIndex:'0x0',status:'0x1',contractAddress:pool,logs:[]},notes=cms.map((cm,i)=>{const block=blocks.get('0x'+(i+2).toString(16)),transactionHash=H('deposit'+i),log={address:pool,topics:[topic,cm],data:'0x'+BigInt(i).toString(16).padStart(64,'0'),blockNumber:block.number,blockHash:block.hash,transactionHash,transactionIndex:'0x0',logIndex:'0x0',removed:false};return{transactionHash,blockNumber:block.number,blockHash:block.hash,transactionIndex:'0x0',status:'0x1',contractAddress:null,logs:[log]};}),receipts=new Map([constructor,...notes].map(row=>[row.transactionHash,row])),requests=[];let incomplete=false,corrupt=false;
+ t.mock.method(globalThis,'fetch',async(_url,options)=>{const q=JSON.parse(options.body);requests.push(q);let result;
+  if(q.method==='eth_chainId')result='0xaa36a7';else if(q.method==='eth_getBlockByNumber')result=blocks.get(q.params[0])??head;else if(q.method==='eth_getTransactionReceipt')result=receipts.get(q.params[0])??null;
+  else if(q.method==='eth_getLogs'){assert.equal(q.params[0].address,pool);assert.deepEqual(q.params[0].topics,[topic]);result=notes.flatMap(r=>r.logs).filter(log=>BigInt(log.blockNumber)>=BigInt(q.params[0].fromBlock)&&BigInt(log.blockNumber)<=BigInt(q.params[0].toBlock));if(incomplete)result=result.slice(0,1);result=structuredClone(result).map(row=>Object.fromEntries(Object.entries(row).reverse()));if(corrupt&&result.length)result[0].topics[1]=H('changed log');}
+  else if(q.method==='eth_call'){assert.equal(q.params[0].to,pool);assert.equal(q.params[1],head.number);const selector=q.params[0].data;if(selector==='0x'+publicKeccak256(Buffer.from('leafCount()')).subarray(0,4).toString('hex'))result='0x'+BigInt(cms.length).toString(16).padStart(64,'0');else if(selector==='0x'+publicKeccak256(Buffer.from('currentRoot()')).subarray(0,4).toString('hex'))result=tree[0];else throw Error('HOST_UNEXPECTED_GETTER');}
+  else throw Error('HOST_UNEXPECTED_RPC_'+q.method);return new Response(JSON.stringify({jsonrpc:'2.0',id:q.id,result}),{status:200,headers:{'Content-Type':'application/json'}});
+ });
+ const input={endpoint:'https://sepolia.drpc.org',account:{networkId:'ethereum-sepolia',address:'0x'+'a'.repeat(40)},keysetId:H('keyset').slice(2)};
+ async function open(){const original=await createOriginalPagedSepoliaRpcV4(input);t.after(async()=>{original.lifecycle.acknowledge();await original.runtime.close();});await original.runtime.receipt(constructor.transactionHash);return original.runtime;}
+ const call=async(_kind,method,_args,block)=>{assert.equal(block,head.number);return method==='leafCount()'?'2':tree[0];};
+ return{open,head,cms,requests,blocks,call,notes,setIncomplete:value=>incomplete=value,setCorrupt:value=>corrupt=value};
+}
+test('cold Original PUBLIC ledger discovers external deposits without Source sends and reuses a same-head scan',async t=>{
+ const f=fixture(t),runtime=await f.open();assert.equal(runtime.receipts.length,1);const ledger=await readPagedSourceLedgerV3(runtime,pool,f.call,f.head);assert.deepEqual(ledger.leaves,f.cms);assert.ok(Object.isFrozen(ledger));assert.equal(runtime.receipts.length,3);const scans=f.requests.filter(q=>q.method==='eth_getLogs').length;
+ const reread=await readPagedSourceLedgerV3(runtime,pool,f.call,f.head);assert.deepEqual(reread,ledger);assert.equal(f.requests.filter(q=>q.method==='eth_getLogs').length,scans);const cold=await f.open();assert.equal(cold.receipts.length,1);assert.deepEqual(await readPagedSourceLedgerV3(cold,pool,f.call,f.head),ledger);assert.equal(f.requests.filter(q=>q.method==='eth_sendRawTransaction').length,0);await assert.rejects(readOriginalPagedSepoliaPoolNoteReceiptsV5({...cold},pool,f.head),/SEPOLIA_RECEIVER_CLOSED/);
+});
+test('incomplete or changed public logs cannot commit a scan; same-head retry restores actual receipt history',async t=>{
+ const f=fixture(t),runtime=await f.open();f.setIncomplete(true);await assert.rejects(readPagedSourceLedgerV3(runtime,pool,f.call,f.head),/HISTORY_INCOMPLETE/);const before=f.requests.filter(q=>q.method==='eth_getLogs').length;f.setIncomplete(false);assert.deepEqual((await readPagedSourceLedgerV3(runtime,pool,f.call,f.head)).leaves,f.cms);assert.ok(f.requests.filter(q=>q.method==='eth_getLogs').length>before,'failed scan is not memoized');
+ const other=await f.open();f.setCorrupt(true);await assert.rejects(readPagedSourceLedgerV3(other,pool,f.call,f.head),/HISTORY_ORIGINAL_LOG/);f.setCorrupt(false);assert.deepEqual((await readPagedSourceLedgerV3(other,pool,f.call,f.head)).leaves,f.cms);const priorHash=f.head.hash;f.blocks.set(f.head.number,{...f.head,hash:H('reorg')});await assert.rejects(readPagedSourceLedgerV3(runtime,pool,f.call,f.head),/CANONICAL/);f.blocks.set(f.head.number,{...f.head,hash:priorHash});assert.equal(f.requests.filter(q=>q.method==='eth_sendRawTransaction').length,0);
+});

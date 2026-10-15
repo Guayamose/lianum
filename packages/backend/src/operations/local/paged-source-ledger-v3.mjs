@@ -9,7 +9,10 @@ const TOPIC='0x'+publicKeccak256(Buffer.from('NoteInserted(bytes32,uint32)')).to
 export async function readPagedSourceLedgerV3(runtime,pool,call,head){
  const count=Number(BigInt(await call('pool','leafCount()',[],head.number)));
  assert.ok(Number.isSafeInteger(count)&&count>=0&&count<=256,'PAGED_LEDGER_CAPACITY');
- const leaves=Array(count).fill(null),seen=new Set(),records=runtime.receipts;
+ const leaves=Array(count).fill(null),seen=new Set();let records=runtime.receipts;
+ if(runtime.profile==='ORIGINAL_PAGED_PUBLIC_SEPOLIA_RECEIVER_V4'){
+  const {readOriginalPagedSepoliaPoolNoteReceiptsV5}=await import('../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs');records=await readOriginalPagedSepoliaPoolNoteReceiptsV5(runtime,pool,head);
+ }
  assert.ok(Array.isArray(records)&&records.length<=100000,'PAGED_LEDGER_RECEIPT_BOUND');
  for(const row of records){
   const receipt=row.receipt;

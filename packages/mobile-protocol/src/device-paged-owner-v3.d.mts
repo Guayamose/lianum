@@ -5,6 +5,7 @@ export function assertDevicePagedGraphDeadlineV3(raw:unknown,settleBefore:string
 export function normalizeDevicePagedConsentV3(raw:unknown):any;
 export function validateDevicePagedConsentFreshV3(raw:unknown,now?:number):any;
 export function normalizeDevicePagedDraftV3(raw:unknown):any;
+export function normalizeDevicePagedPublicInputsV3(mode:string,raw:unknown):readonly string[];
 export function normalizeDevicePagedRowV3(raw:unknown):any;
 export function normalizeDevicePagedStatusV3(raw:unknown):any;
 export function validateDevicePagedStatusFreshV3(raw:unknown,now?:number):any;
