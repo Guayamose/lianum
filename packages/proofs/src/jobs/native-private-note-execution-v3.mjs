@@ -88,7 +88,7 @@ export function classifyNativePrivateEconomicNoteProcessV3(argv,executable,paren
     'PW_NATIVE_FIXED_CHILD_ARGUMENTS');
   return{role:'economic-note-native-backend',proofWorker:true};
 }
-function assertChild(identityValue,expectedParent){
+function assertChildIdentity(identityValue,expectedParent){
   const now=nativeProcStatV1(identityValue.pid);assert.ok(same(now,identityValue),'PW_NATIVE_CHILD_IDENTITY_CHANGED');
   assert.equal(now.ppid,expectedParent.pid,'PW_NATIVE_ORIGINAL_PARENT');
   assert.equal(now.pgrp,expectedParent.pgrp,'PW_NATIVE_CHILD_GROUP_CHANGED');
@@ -97,9 +97,23 @@ function assertChild(identityValue,expectedParent){
   const status=readFileSync(`/proc/${now.pid}/status`,'utf8');
   assert.deepEqual(/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(status)?.slice(1),Array(4).fill(String(process.getuid())),
     'PW_NATIVE_CHILD_UID_CHANGED');
-  assert.equal(classifyNativePrivateEconomicNoteProcessV3(argvFor(now.pid),PRIVATE_NOTE_NATIVE_BINARY_V1,
-    {pid:expectedParent.pid,argv:argvFor(expectedParent.pid)}).proofWorker,true);
   assert.ok(same(now,nativeProcStatV1(now.pid)),'PW_NATIVE_CHILD_IDENTITY_CHANGED');return now;
+}
+function assertChild(identityValue,expectedParent){
+  let now=assertChildIdentity(identityValue,expectedParent),argv=argvFor(now.pid);
+  // Linux can expose an empty cmdline during exec after the same PID already
+  // owns its BB executable. Retry only that bounded empty transition; the
+  // complete fixed argument and original identity checks remain mandatory.
+  const deadline=performance.now()+25,wait=new Int32Array(new SharedArrayBuffer(4));
+  while(argv.length===0){
+    assertChildIdentity(identityValue,expectedParent);
+    assert.ok(performance.now()<deadline,'PW_NATIVE_FIXED_CHILD_ARGUMENTS');
+    Atomics.wait(wait,0,0,1);
+    now=assertChildIdentity(identityValue,expectedParent);argv=argvFor(now.pid);
+  }
+  assert.equal(classifyNativePrivateEconomicNoteProcessV3(argv,PRIVATE_NOTE_NATIVE_BINARY_V1,
+    {pid:expectedParent.pid,argv:argvFor(expectedParent.pid)}).proofWorker,true);
+  assertChildIdentity(identityValue,expectedParent);return now;
 }
 function socketStat(path){const stat=lstatSync(path,{bigint:true});assert.ok(stat.isSocket(),'PW_NATIVE_SOCKET_TYPE');
   assert.equal(stat.uid,BigInt(process.getuid()),'PW_NATIVE_SOCKET_OWNER');

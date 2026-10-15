@@ -48,13 +48,27 @@ export function classifyPagedNativeProverProcessV3(argv,executable,parent=null){
  return{role:'paged-native-backend',proofWorker:true};
 }
 function checkPins(){for(const [path,digest]of pins){const file=join(modules,path);assert.equal(realpathSync(file),file,'PAEG_PAGED_NATIVE_PIN_ALIAS');assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),digest,'PAEG_PAGED_NATIVE_OFFICIAL_PIN');}}
-function childCurrent(expected,parent){
+function childIdentityCurrent(expected,parent){
  const actual=nativeProcStatV1(expected.pid);assert.ok(same(actual,expected),'PAEG_PAGED_NATIVE_CHILD_IDENTITY');
  assert.equal(actual.ppid,parent.pid,'PAEG_PAGED_NATIVE_PARENT');assert.equal(actual.pgrp,parent.pgrp,'PAEG_PAGED_NATIVE_GROUP');assert.equal(actual.session,parent.session,'PAEG_PAGED_NATIVE_SESSION');
  assert.equal(readlinkSync('/proc/'+actual.pid+'/exe'),PAGED_NATIVE_PROVER_BINARY_V3,'PAEG_PAGED_NATIVE_EXECUTABLE');
  assert.deepEqual(/^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)$/m.exec(readFileSync('/proc/'+actual.pid+'/status','utf8'))?.slice(1),Array(4).fill(String(process.getuid())),'PAEG_PAGED_NATIVE_UID');
- assert.equal(classifyPagedNativeProverProcessV3(argvFor(actual.pid),PAGED_NATIVE_PROVER_BINARY_V3,{pid:parent.pid,argv:argvFor(parent.pid)})?.proofWorker,true);
  assert.ok(same(actual,nativeProcStatV1(actual.pid)),'PAEG_PAGED_NATIVE_CHILD_IDENTITY');return actual;
+}
+function childCurrent(expected,parent){
+ let actual=childIdentityCurrent(expected,parent),argv=argvFor(actual.pid);
+ // Linux exec can expose an empty /proc cmdline while the same live PID has
+ // already acquired its BB executable. Re-read that empty window only; every
+ // nonempty command still goes through the exact fixed SDK argument check.
+ const deadline=performance.now()+25,wait=new Int32Array(new SharedArrayBuffer(4));
+ while(argv.length===0){
+  childIdentityCurrent(expected,parent);
+  assert.ok(performance.now()<deadline,'PAEG_PAGED_NATIVE_FIXED_CHILD_ARGUMENTS');
+  Atomics.wait(wait,0,0,1);
+  actual=childIdentityCurrent(expected,parent);argv=argvFor(actual.pid);
+ }
+ assert.equal(classifyPagedNativeProverProcessV3(argv,PAGED_NATIVE_PROVER_BINARY_V3,{pid:parent.pid,argv:argvFor(parent.pid)})?.proofWorker,true);
+ childIdentityCurrent(expected,parent);return actual;
 }
 function socketStat(path){const stat=lstatSync(path,{bigint:true});assert.ok(stat.isSocket()&&stat.uid===BigInt(process.getuid())&&(stat.mode&0o077n)===0n,'PAEG_PAGED_NATIVE_PRIVATE_SOCKET');assert.equal(realpathSync(path),path,'PAEG_PAGED_NATIVE_SOCKET_ALIAS');return stat;}
 function retainSdkLifetime(api,parent,binaryFD,binaryIdentity,socketPath,loggerBytes){

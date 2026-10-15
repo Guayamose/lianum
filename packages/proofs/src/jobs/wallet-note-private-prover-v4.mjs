@@ -6,7 +6,9 @@ import {fork} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
-import {readFileSync,writeFileSync,mkdirSync,openSync,closeSync,unlinkSync,fstatSync,statSync,statfsSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,statfsSync} from 'node:fs';
+import {resourceRoot} from '@lianum/environment';
+import {acquireProofComputationSlotV4} from '../host/proof-computation-slot-v4.mjs';
 import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 import {selectProofResourcePolicy} from '../execution/proof-resource-policy.mjs';
 import {PROOF_PROJECT_ROOT,PROOF_PROTOCOL,need,exactObject,encodeProofMessage,decodeProofMessage,
@@ -17,10 +19,10 @@ import {sealPrivateProofJobV1,readOriginalPrivateProofRecipientV1,privateProofAu
  privateProofBindingSHA256V1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 export const ORIGINAL_WALLET_PRIVATE_PROVER_V4='ORIGINAL_PC23_TWO_PRIVATE_IPC_V4';
 const worker=fileURLToPath(new URL('./wallet-note-private-worker-v4.mjs',import.meta.url));
-const telemetryDirectory=join(PROOF_PROJECT_ROOT,'evidence/paeg-proof-attempts'),hostLock='/tmp/lianum-paeg-proof-host.lock';
+const telemetryDirectory=join(PROOF_PROJECT_ROOT,'evidence/paeg-proof-attempts');
 const codePaths=Object.freeze({worker,parent:fileURLToPath(import.meta.url),originalWorker:fileURLToPath(new URL('../execution/proof-worker.mjs',import.meta.url)),
  privateTransit:fileURLToPath(new URL('../../../engine/src/crypto/private-proof-transit-v1.mjs',import.meta.url)),resourcePolicy:fileURLToPath(new URL('../../../components/src/resources/private-resource-policy.mjs',import.meta.url)),
- originalProver:fileURLToPath(new URL('../toolchain/wallet-prover.mjs',import.meta.url))});
+ originalProver:fileURLToPath(new URL('../toolchain/wallet-prover.mjs',import.meta.url)),resourceQueue:fileURLToPath(new URL('../host/proof-computation-slot-v4.mjs',import.meta.url))});
 const stages=new Set(['checking-pins','legacy-proof-and-self-verification']);
 const modes=new Set(['deposit_balance','withdraw_balance']),digest=b=>createHash('sha256').update(b).digest('hex');
 let active=null;
@@ -40,9 +42,6 @@ function sample(child){const disk=statfsSync(PROOF_PROJECT_ROOT),mem=readFileSyn
  if(child?.pid&&child.exitCode===null&&child.signalCode===null){try{workerRSS=Number(/^VmRSS:\s+(\d+)/m.exec(readFileSync('/proc/'+child.pid+'/status','utf8'))?.[1]??0)*1024;}catch(e){if(!['ENOENT','ESRCH'].includes(e.code))throw e;}}
  return{at:new Date().toISOString(),availableRAM:Number(/MemAvailable:\s+(\d+)/.exec(mem)?.[1])*1024,freeDisk:disk.bavail*disk.bsize,workerRSS,parentRSS:process.memoryUsage().rss};}
 function resourceTrip(v,p){if(!Number.isSafeInteger(v.availableRAM)||!Number.isSafeInteger(v.freeDisk))return'PAEG_PROOF_RESOURCE_SAMPLE';if(v.availableRAM<p.floors.availableRAM)return'PAEG_PROOF_AVAILABLE_RAM_FLOOR';if(v.freeDisk<p.floors.freeDisk)return'PAEG_PROOF_DISK_FLOOR';if(v.workerRSS>p.proofWorkerRSSLimit)return'PAEG_PROOF_WORKER_RSS_LIMIT';return null;}
-function acquire(){let fd;try{fd=openSync(hostLock,'wx',0o600);}catch(e){if(e.code==='EEXIST')throw proofError('PAEG_PROOF_HOST_BUSY');throw e;}const identity=fstatSync(fd);
- try{writeFileSync(fd,JSON.stringify({parentPID:process.pid,createdAt:new Date().toISOString()})+'\n');}catch(e){closeSync(fd);unlinkSync(hostLock);throw e;}
- return()=>{closeSync(fd);const current=statSync(hostLock);need(current.ino===identity.ino&&current.dev===identity.dev,'PAEG_PROOF_LOCK_CHANGED');unlinkSync(hostLock);};}
 export function createOriginalWalletNotePrivateProverV4(original){
  need(arguments.length===1,'PAEG_PROOF_PRIVATE_CONFIG');const scope=readOriginalPrivateProofRecipientV1(original),mode=scope.relation;
  need(modes.has(mode)&&scope.role==='owner','PAEG_PROOF_PRIVATE_SCOPE');const authorization=privateProofAuthorizationBindingV1(original.authorization);need(authorization.kind==='ORIGINAL_CONSENT_V1','PAEG_PROOF_PRIVATE_BINDING');
@@ -64,21 +63,21 @@ export function createOriginalWalletNotePrivateProverV4(original){
   let normalized;try{normalized=normalizeProofWitness(currentLoaded.program,input);assertExpectedInputs(mode,publicInputsFromWitness(currentLoaded.program,normalized),expected);}catch(e){wipePrivate(normalized);throw e;}
   const id=randomUUID(),began=performance.now(),path=join(telemetryDirectory,id+'.json'),report={classification:'ACTUAL_PRIVATE_PROOF_PROCESS_PUBLIC_METRICS_ONLY',privateTransitProfile:ORIGINAL_WALLET_PRIVATE_PROVER_V4,id,mode,operation:'prove',purpose:'owner',label,
    startedAt:new Date().toISOString(),phase:'before-dispatch',...binding,policy,maximumPages:currentLoaded.maximumPages,threads:1,zeroKnowledgeEnabled:true,codePins,authorizationBindingSHA256:privateProofBindingSHA256V1(authorization),stages:[],resourceSamples:[],logs:{stdoutBytes:0,stderrBytes:0},acceptedResult:false};
-  let child,release,monitor,deadline,killTimer,result,failure,finished=false,resultSeen=false,sequence=0,ready=false,responseBytes=0,packet;
+  const slotControl=new AbortController();let child,slot,monitor,deadline,killTimer,result,failure,finished=false,resultSeen=false,sequence=0,ready=false,responseBytes=0,packet;
   let resolve,reject;const done=new Promise((a,b)=>{resolve=a;reject=b;});done.catch(()=>{});
   const persist=()=>{try{writeFileSync(path,JSON.stringify(report,null,2)+'\n',{mode:0o600});}catch{report.telemetryWriteFailed=true;try{writeFileSync('/tmp/lianum-paeg-proof-abort-'+id+'.json',JSON.stringify(report,null,2)+'\n',{mode:0o600});}catch{report.fallbackTelemetryWriteFailed=true;}throw proofError('PAEG_PROOF_TELEMETRY_WRITE');}};
-  const stop=(code,trip)=>{if(finished)return done;failure??=proofError(code);report.failedPhase??=report.phase;report.phase='aborting';report.failureCode=failure.code;if(trip&&!report.tripSample)report.tripSample=trip;try{persist();}catch{}if(child?.exitCode===null&&child.signalCode===null){child.kill('SIGTERM');killTimer??=setTimeout(()=>{if(!finished&&child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');},5000);}return done;};
-  const finish=(exitCode,signal)=>{if(finished)return;finished=true;clearInterval(monitor);clearTimeout(deadline);clearTimeout(killTimer);wipePrivate(normalized);normalized=null;wipePrivateProofInputsV1(packet);packet=null;
+  const stop=(code,trip)=>{if(finished)return done;slotControl.abort();failure??=proofError(code);report.failedPhase??=report.phase;report.phase='aborting';report.failureCode=failure.code;if(trip&&!report.tripSample)report.tripSample=trip;try{persist();}catch{}if(child?.exitCode===null&&child.signalCode===null){child.kill('SIGTERM');killTimer??=setTimeout(()=>{if(!finished&&child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');},5000);}return done;};
+  const finish=async(exitCode,signal)=>{if(finished)return;finished=true;clearInterval(monitor);clearTimeout(deadline);clearTimeout(killTimer);wipePrivate(normalized);normalized=null;wipePrivateProofInputsV1(packet);packet=null;
    report.exit={code:exitCode,signal};report.completedAt=new Date().toISOString();report.totalMilliseconds=performance.now()-began;if(!failure&&(exitCode!==0||signal!==null||!resultSeen))failure=proofError('PAEG_PROOF_CHILD_EXIT');
    report.phase=failure?'failed':'completed';report.acceptedResult=!failure;if(failure)report.failureCode=failure.code;
    try{filePin(worker,codePins.worker);filePin(fileURLToPath(import.meta.url),codePins.parent);persist();}catch(e){failure??=e;report.phase='failed';report.acceptedResult=false;report.failureCode=failure.code;}
-   try{release?.();}catch{failure??=proofError('PAEG_PROOF_LOCK_RELEASE');report.phase='failed';report.acceptedResult=false;report.failureCode=failure.code;}
+   try{await slot?.close();}catch{failure??=proofError('PAEG_PROOF_LOCK_RELEASE');report.phase='failed';report.acceptedResult=false;report.failureCode=failure.code;}
    current=null;active=null;lastReport=structuredClone(report);for(const stream of child?.stdio??[])stream?.destroy();
    if(failure){wipePrivate(result);failure.telemetry=structuredClone(report);reject(failure);}else resolve({...result,metrics:structuredClone(report)});
   };
   current={done,stop};active=current;
   try{
-   mkdirSync(telemetryDirectory,{recursive:true});release=acquire();const initial=sample(null);report.resourceSamples.push(initial);persist();const trip=resourceTrip(initial,policy);if(trip){report.tripSample=initial;throw proofError(trip);}
+   mkdirSync(telemetryDirectory,{recursive:true});report.phase='queued';persist();slot=await acquireProofComputationSlotV4(join(resourceRoot('engine'),'evidence/paeg-proof-attempts','.computation-slot-v4'),slotControl.signal);need(!closed&&!failure,'PAEG_PROOF_CLOSED');await slot.current();report.queueMilliseconds=slot.waitMilliseconds;const initial=sample(null);report.resourceSamples.push(initial);persist();const trip=resourceTrip(initial,policy);if(trip){report.tripSample=initial;throw proofError(trip);}
    child=fork(worker,[mode],{cwd:PROOF_PROJECT_ROOT,execPath:process.execPath,execArgv:[],serialization:'advanced',env:{LANG:'C.UTF-8'},stdio:['ignore','pipe','pipe','ipc']});child.once('error',()=>stop('PAEG_PROOF_CHILD_SPAWN'));child.once('close',finish);report.childPID=child.pid;report.phase='starting-child';persist();
    for(const[name,stream]of [['stdout',child.stdout],['stderr',child.stderr]]){stream.on('data',b=>{report.logs[name+'Bytes']+=b.length;b.fill(0);if(report.logs.stdoutBytes+report.logs.stderrBytes>1048576)stop('PAEG_PROOF_LOG_LIMIT');});stream.on('error',()=>stop('PAEG_PROOF_CHILD_IO'));}
    child.on('message',bytes=>{let message;try{if(failure||finished||closed){wipePrivateProofInputsV1(bytes);return;}
@@ -93,7 +92,7 @@ export function createOriginalWalletNotePrivateProverV4(original){
     }else if(message.event==='failure'){exactObject(message,['event','code']);need(/^PAEG_PROOF_[A-Z_]+$/.test(message.code),'PAEG_PROOF_PROTOCOL');stop(message.code);}else throw proofError('PAEG_PROOF_PROTOCOL');
    }catch(e){stop(/^PAEG_PROOF_[A-Z_]+$/.test(e?.code??'')?e.code:'PAEG_PROOF_PROTOCOL');}finally{wipePrivate(message);}});
    monitor=setInterval(()=>{if(finished||failure)return;try{const v=sample(child);report.resourceSamples.push(v);const t=resourceTrip(v,policy);if(t)stop(t,v);}catch{stop('PAEG_PROOF_RESOURCE_SAMPLE');}},PRIVATE_RESOURCE_POLICY.externalSampleMilliseconds);deadline=setTimeout(()=>stop('PAEG_PROOF_OPERATION_TIMEOUT'),900000);
-  }catch(e){failure=/^PAEG_PROOF_[A-Z_]+$/.test(e?.code??'')?e:proofError('PAEG_PROOF_STARTUP_FAILURE');if(child)stop(failure.code);else finish(null,null);}
+  }catch(e){failure??=/^PAEG_PROOF_[A-Z_]+$/.test(e?.code??'')?e:proofError(e?.message==='PAEG_PROOF_SLOT_WAIT_EXPIRED'?'PAEG_PROOF_QUEUE_WAIT_EXPIRED':'PAEG_PROOF_STARTUP_FAILURE');if(child)stop(failure.code);else await finish(null,null);}
   return done;
  }
 }

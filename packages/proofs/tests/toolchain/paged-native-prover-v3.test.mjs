@@ -8,13 +8,13 @@ import {resourcePath} from '@lianum/environment';
 import {PRIVATE_RESOURCE_POLICY} from '@lianum/components/resources/private-resource-policy';
 const coordinator=22001,native=22002,worker=fileURLToPath(new URL('../../src/toolchain/paged-proof-process-v3.mjs',import.meta.url)),binary=resourcePath('engine','experiments/private-core-proof/node_modules/@aztec/bb.js/build/amd64-linux/bb');
 const argv=[process.execPath,'--max-old-space-size=384',worker,'fold','11111111-2222-4333-8444-555555555555','a'.repeat(64)];
-let coordinatorRSS=900000000,nativeRSS=1800000000,children=String(native),descendants='',nativeTicks='100002';
+let coordinatorRSS=900000000,nativeRSS=1800000000,children=String(native),descendants='',nativeTicks='100002',nativeEmptyReads=0,nativeCommandReads=0,nativeSocketOverride=null,reuseAfterEmpty=false;
 function stat(pid){const f=Array(30).fill('0');f[0]='S';f[1]=String(pid===coordinator?process.pid:coordinator);f[2]='21000';f[3]='21000';f[19]=pid===coordinator?'100001':nativeTicks;return String(pid)+' (host-fixture) '+f.join(' ');}
 mock.module('node:fs',{namedExports:{...Object.fromEntries(Object.entries(fs).filter(([k])=>k!=='default')),readFileSync(path,...args){
  const p=String(path);for(const pid of [coordinator,native]){
   if(p==='/proc/'+pid+'/stat')return stat(pid);
   if(p==='/proc/'+pid+'/status')return 'Name:\thost-fixture\nTgid:\t'+pid+'\nUid:\t'+Array(4).fill(process.getuid()).join('\t')+'\nVmRSS:\t'+Math.ceil((pid===coordinator?coordinatorRSS:nativeRSS)/1024)+' kB\n';
-  if(p==='/proc/'+pid+'/cmdline')return (pid===coordinator?argv:[binary,'msgpack','run','--input','/tmp/bb-'+coordinator+'-0-0.sock']).join('\0')+'\0';
+  if(p==='/proc/'+pid+'/cmdline'){if(pid===native){nativeCommandReads++;if(nativeEmptyReads>0){nativeEmptyReads--;if(reuseAfterEmpty)nativeTicks='300003';return '\0';}}return (pid===coordinator?argv:[binary,'msgpack','run','--input',nativeSocketOverride??'/tmp/bb-'+coordinator+'-0-0.sock']).join('\0')+'\0';}
   if(p==='/proc/'+pid+'/task/'+pid+'/children')return pid===coordinator?children:descendants;
  }
  return fs.readFileSync(path,...args);
@@ -53,4 +53,16 @@ test('native PID reuse cannot keep a retained resource identity',()=>{
 test('unexpected second backend or native descendant fails closed',()=>{
  const before=children;try{children+=' 22003';assert.throws(()=>helper.pagedNativeProofResourcesV3(coordinator,new Map()),/PAEG_PAGED_NATIVE_ONE_BACKEND/);}finally{children=before;}
  try{descendants='22004';assert.throws(()=>helper.pagedNativeProofResourcesV3(coordinator,new Map()),/PAEG_PAGED_NATIVE_EXTRA_PRODUCER/);}finally{descendants='';}
+});
+
+
+test('real observed exec shape: same native identity with empty cmdline must become the exact SDK command before resource admission',()=>{
+ const prior=nativeCommandReads;try{nativeEmptyReads=2;const result=helper.pagedNativeProofResourcesV3(coordinator,new Map());assert.equal(nativeEmptyReads,0);assert.equal(nativeCommandReads-prior,3);assert.equal(result.liveNativeBackends,1);assert.ok(result.nativeBackendRSS>=nativeRSS);assert.equal(result.workerRSS,result.nativeBackendRSS+result.coordinatorRSS);}finally{nativeEmptyReads=0;}
+});
+test('persistent empty cmdline is bounded and never admitted; nonempty wrong socket is rejected immediately',()=>{
+ try{nativeEmptyReads=100000;assert.throws(()=>helper.pagedNativeProofResourcesV3(coordinator,new Map()),/PAEG_PAGED_NATIVE_FIXED_CHILD_ARGUMENTS/);assert.ok(nativeEmptyReads>0);}finally{nativeEmptyReads=0;}
+ const prior=nativeCommandReads;try{nativeSocketOverride='/tmp/caller.sock';assert.throws(()=>helper.pagedNativeProofResourcesV3(coordinator,new Map()),/PAEG_PAGED_NATIVE_FIXED_CHILD_ARGUMENTS/);assert.equal(nativeCommandReads-prior,1);}finally{nativeSocketOverride=null;}
+});
+test('empty exec window cannot hide PID reuse before the fixed command appears',()=>{
+ const ticks=nativeTicks;try{nativeEmptyReads=1;reuseAfterEmpty=true;assert.throws(()=>helper.pagedNativeProofResourcesV3(coordinator,new Map()),/PAEG_PAGED_NATIVE_CHILD_IDENTITY/);}finally{nativeTicks=ticks;nativeEmptyReads=0;reuseAfterEmpty=false;}
 });
