@@ -18,6 +18,7 @@ import {createDevicePagedReadRetryV3} from '../api/device-paged-read-retry-v3.mj
 import {readDevicePagedGraphExecutionSessionV3} from '../custody/device-paged-permission-v3.mjs';
 import {createDevicePagedGraphApiV3,readDevicePagedSourceContinuationV4} from '../api/device-paged-graph-api-v3.mjs';
 import {createDevicePagedConnectionTransportV3,parseDevicePagedConnectionProfileV3,readDevicePagedConnectionClipboardV3} from '../api/device-paged-connection-transport-v3';
+import {readCloudPagedConnectionV1} from '../api/cloud-wallet-connection-v1.ts';
 import {createDevicePagedGraphNoteVaultV3,createDevicePagedContinuedGraphNoteVaultV4,openExistingDevicePagedCustodyV3,restoreDevicePagedNoteBackupV3,devicePagedGraphTermsFromFormV3,DEVICE_PAGED_BACKUP_MAX_BYTES_V3,type DevicePagedWalletDisplayV3} from '../custody/device-paged-note-vault-v3';
 import {readDevicePublicKey,exportDeviceIdentityBackupV1,importDeviceIdentityBackupV1,signDevicePagedOwnerPermissionV3,signDevicePagedGraphPermissionV3,openDevicePagedGraphExecutionSessionV3,openDevicePagedGraphAutomationSessionV4,closeDevicePagedGraphExecutionSessionV3,signDevicePagedGraphExecutionPermissionV3} from '../custody/key-store';
 import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
@@ -162,6 +163,11 @@ export default function DevicePagedGraphScreen({onObservation,onInvalidate,onOpe
   }catch(error){automaticReconnectRef.current=false;await transport?.close();reportConnectionFailure(stage,error);throw error;}
  }
  async function importConnection(){const profile=await readDevicePagedConnectionClipboardV3();setPairing(profile);await connect(profile);}
+ async function connectCloud(){
+  const t=epoch.current;abort.current=new AbortController();setMessage('Conectando con tu cuenta de Lianum…');
+  try{const profile=await readCloudPagedConnectionV1(abort.current.signal);live(t);setPairing(profile);await connect(profile);}
+  catch(error){const code=error instanceof Error?error.message:'';if(code==='MOBILE_CLOUD_CONNECTION_NOT_ASSIGNED'){setMessage('Esta identidad todavía no tiene una cuenta privada asignada en Lianum. Tus conexiones guardadas se conservan.');setFeedbackKind('warning');return;}throw error;}
+ }
 
  async function prepareNextDeposit(){
   const s=current.current,t=epoch.current,signal=abort.current?.signal;if(!s||!signal)throw Error('MOBILE_PAGED_CANCELLED');
@@ -487,12 +493,13 @@ export default function DevicePagedGraphScreen({onObservation,onInvalidate,onOpe
    {historicalView.authorizationDeadline!==null&&<Text style={styles.help}>La autorización anterior {historicalView.authorizationRevoked?'está detenida.':Date.now()>=historicalView.authorizationDeadline?'ha vencido.':'conserva su plazo original.'} Su plazo terminaba {new Date(historicalView.authorizationDeadline).toLocaleString()}. Consultar no lo amplía.</Text>}
    {historicalView.pendingChannelIntent&&<Text style={styles.help}>Hay una solicitud de conexión pendiente de confirmación. No se volverá a crear ni se interpretará como autorización de pagos.</Text>}
    <WalletButton label="Actualizar registro guardado" disabled={busy} onPress={()=>{touch();const profile=savedProfileRef.current;if(profile)run(()=>connectRecovery(profile,false),false,true);}}/>
-   <WalletButton label="Cambiar conexión" tone="secondary" disabled={busy} onPress={()=>{touch();readOnlyProfileRef.current=null;run(importConnection,false,true);}}/>
+   <WalletButton label="Actualizar conexión de Lianum" tone="secondary" disabled={busy} onPress={()=>{touch();run(connectCloud,false,true);}}/>
   </WalletCard>}
-  {current.current===null&&historicalView===null&&<WalletCard title="Conecta tu wallet" subtitle="Importa el perfil público de tu ordenador. La conexión cifrada se conserva para reconectar al abrir tu sesión.">
+  {current.current===null&&historicalView===null&&<WalletCard title="Operaciones privadas" subtitle="Conecta con tu cuenta de Lianum. La conexión se guarda para las próximas sesiones.">
+   <WalletButton label="Conectar con Lianum" disabled={busy} onPress={()=>{touch();run(connectCloud,false,true);}}/>
    {savedProfileRef.current&&<WalletButton label="Volver a conectar mi cartera" disabled={busy} onPress={()=>{touch();const profile=savedProfileRef.current;if(profile)run(()=>connect(profile,false,true,true),false,true);}}/>}
    {savedProfileRef.current&&<WalletButton label="Consultar mi operación guardada" tone="secondary" disabled={busy} onPress={()=>{touch();const profile=savedProfileRef.current;if(profile)run(()=>connectRecovery(profile,true),false,true);}}/>}
-   <WalletButton label={savedProfileRef.current?'Cambiar servicio de la demo':'Conectar servicio de la demo'} tone={savedProfileRef.current?'secondary':'primary'} disabled={busy} onPress={()=>{touch();run(importConnection,false,true);}}/>
+   {showConnectionInput&&<WalletButton label="Importar conexión copiada" tone="secondary" disabled={busy} onPress={()=>{touch();run(importConnection,false,true);}}/>}
    <WalletButton tone="secondary" label={showConnectionInput?'Ocultar entrada manual':'Pegar perfil manualmente'} disabled={busy} onPress={()=>{touch();setShowConnectionInput(value=>!value);}}/>
    {showConnectionInput&&<View><Text style={styles.label}>Perfil público de conexión</Text><TextInput accessibilityLabel="Perfil público de conexión" value={pairing} onChangeText={value=>{touch();setPairing(value);}} editable={!busy} autoCapitalize="none" autoCorrect={false} multiline style={[styles.input,styles.largeInput]}/><WalletButton label="Conectar perfil pegado" disabled={busy||pairing.length===0} onPress={()=>{touch();run(()=>connect(),false,true);}}/></View>}
    {onOpenSettings&&<WalletButton label="Ver conexiones en Ajustes" tone="secondary" onPress={onOpenSettings}/>}
@@ -583,7 +590,8 @@ export default function DevicePagedGraphScreen({onObservation,onInvalidate,onOpe
    <WalletButton tone="secondary" label={showDetails?'Ocultar detalles':'Ver conexión y copia'} disabled={busy} onPress={()=>{touch();setShowDetails(value=>!value);}}/>
    {showDetails&&<View>
     {current.current!==null&&<WalletButton label="Cambiar conexión del ordenador" tone="secondary" disabled={busy} onPress={()=>{touch();run(importConnection,false,true);}}/>}
-    {connectionPreview?<View><Text style={styles.label}>{historicalView?'Servicio de consulta':'Servicio conectado'}</Text><Text selectable style={styles.address}>{connectionPreview.origin}</Text><Text style={styles.help}>Certificado verificado por la conexión cifrada</Text><Text selectable style={styles.address}>{connectionPreview.fingerprint}</Text>{button('Desconectar',disconnect,false,false,'secondary')}</View>:<Text style={styles.help}>Importa un perfil público para conectar esta wallet.</Text>}
+    <WalletButton label="Conectar con Lianum" tone="secondary" disabled={busy} onPress={()=>{touch();run(connectCloud,false,true);}}/>
+    {connectionPreview?<View><Text style={styles.label}>{historicalView?'Servicio de consulta':'Servicio conectado'}</Text><Text selectable style={styles.address}>{connectionPreview.origin}</Text><Text style={styles.help}>Certificado verificado por la conexión cifrada</Text><Text selectable style={styles.address}>{connectionPreview.fingerprint}</Text>{button('Desconectar',disconnect,false,false,'secondary')}</View>:<Text style={styles.help}>Conecta con Lianum para abrir tu cuenta privada.</Text>}
     {onOpenSettings&&<WalletButton label="Abrir Ajustes" tone="secondary" onPress={onOpenSettings}/>}
     {button(showBackup?'Ocultar copia y recuperación':'Copia y recuperación',async()=>{setShowBackup(value=>!value);setBackupPassword('');setBackupInput('');setBackupOutput('');setCopyConfirmed(false);},false,false,'secondary')}
     {showBackup&&<View><Text style={styles.sectionTitle}>Copia de tu wallet</Text><Text style={styles.help}>Guarda una nueva copia al preparar nuevos pagos. Incluye tu identidad y las claves conservadas hasta este momento. La contraseña y la copia deben guardarse por separado.</Text><Text style={styles.label}>Contraseña de la copia</Text><TextInput accessibilityLabel="Contraseña de la copia" value={backupPassword} onChangeText={value=>{touch();setBackupPassword(value);}} editable={!busy} secureTextEntry autoComplete="off" placeholder="Mínimo 12 caracteres" placeholderTextColor={walletColors.muted} style={styles.input}/><Text style={styles.label}>Copia cifrada para restaurar</Text><TextInput accessibilityLabel="Copia cifrada para restaurar" value={backupInput} onChangeText={value=>{touch();setBackupInput(value);}} editable={!busy} autoCapitalize="none" autoCorrect={false} multiline style={[styles.input,styles.largeInput]}/>{button(copyConfirmed?'✓ Copia local confirmada':'Confirmar copia local de esta identidad',async()=>setCopyConfirmed(value=>!value),false,false,'secondary')}{button('Crear copia cifrada actual',exportBackup,current.current===null||!copyConfirmed||backupPassword.length<12)}{button('Restaurar copia antes de conectar',importBackup,current.current!==null||!copyConfirmed||backupPassword.length<12||backupInput.length===0,false,'secondary')}{backupOutput!==''&&<Text selectable style={styles.address}>{backupOutput}</Text>}{button('Borrar copia y contraseña de la pantalla',async()=>{setBackupPassword('');setBackupInput('');setBackupOutput('');setCopyConfirmed(false);},false,false,'secondary')}</View>}
