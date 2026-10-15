@@ -21,9 +21,10 @@ const acquisitionControl=new AbortController();
 let configuration,ingress,acquisition,phoneAcquisition,product,closing,captureTimer,readOpening,readServer,transition,financialControl,financialDeadline,stopping=false;
 const ignoreFinancialSignalBeforeReady=()=>{};process.on('SIGUSR1',ignoreFinancialSignalBeforeReady);
 const emit=record=>process.stdout.write(JSON.stringify(record)+'\n');
+const diagnosticRPCMethods=new Set(['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getBlockByHash','eth_getBalance','eth_getCode','eth_getTransactionCount','eth_getTransactionReceipt','eth_getTransactionByHash','eth_getLogs','eth_call','eth_estimateGas','eth_gasPrice','eth_maxPriorityFeePerGas','eth_feeHistory']);
 // Do not emit exception messages: configuration and filesystem errors can
 // contain journal passwords, keys, or private operation details.
-const failure=(stage,error)=>{const firstLine=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';const reason=/^[A-Z][A-Z0-9_]{1,120}$/.test(firstLine)?firstLine:'UNCLASSIFIED_ORIGINAL_FAILURE';const httpStatus=Number.isInteger(error?.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599?error.httpStatus:undefined;process.stderr.write(JSON.stringify({stage,code:'PAEG_PUBLIC_ORIGINAL_OPERATION_FAILED',reason,httpStatus,automaticRebroadcast:false})+'\n');};
+const failure=(stage,error)=>{const firstLine=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';const reason=/^[A-Z][A-Z0-9_]{1,120}$/.test(firstLine)?firstLine:'UNCLASSIFIED_ORIGINAL_FAILURE';const httpStatus=Number.isInteger(error?.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599?error.httpStatus:undefined;const rpcMethod=diagnosticRPCMethods.has(error?.rpcMethod)?error.rpcMethod:undefined;process.stderr.write(JSON.stringify({stage,code:'PAEG_PUBLIC_ORIGINAL_OPERATION_FAILED',reason,httpStatus,rpcMethod,automaticRebroadcast:false})+'\n');};
 async function close(){
  stopping=true;acquisitionControl.abort();clearTimeout(captureTimer);return closing??=(async()=>{
   let controlledCapture=false,coldReopenFenced=false;

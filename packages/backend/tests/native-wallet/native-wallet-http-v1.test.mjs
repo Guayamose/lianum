@@ -18,9 +18,20 @@ test('read retries are bounded and retain only the numeric HTTP status',async t=
  let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response('private provider body',{status:429,headers:{'retry-after':'0'}});});
  await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_chainId'),error=>{
   assert.equal(error.code,'NATIVE_WALLET_HTTP_STATUS');assert.equal(error.httpStatus,429);
+  assert.equal(error.rpcMethod,'eth_chainId');
   assert.equal(error.message,'NATIVE_WALLET_HTTP_STATUS');return true;
  });
  assert.equal(calls,3);
+});
+
+test('HTTP 400 from an RPC read is retried but a signed send is not',async t=>{
+ let calls=0;const mocked=t.mock.method(globalThis,'fetch',async(_url,options)=>{
+  calls++;return calls===1?new Response('',{status:400,headers:{'retry-after':'0'}}):Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,result:null});
+ });
+ assert.equal(await nativeRpcV1('https://rpc.invalid')('eth_getTransactionReceipt',['0x123']),null);assert.equal(calls,2);
+ mocked.mock.mockImplementation(async()=>{calls++;return new Response('',{status:400,headers:{'retry-after':'0'}});});
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_getCode',['bad-params']),{code:'NATIVE_WALLET_HTTP_STATUS',httpStatus:400,rpcMethod:'eth_getCode'});assert.equal(calls,5);
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_sendRawTransaction',['signed-wire']),error=>{assert.equal(error.httpStatus,400);assert.equal(error.rpcMethod,undefined);return true;});assert.equal(calls,6);
 });
 
 test('nontransient HTTP failures and RPC errors do not repeat reads',async t=>{

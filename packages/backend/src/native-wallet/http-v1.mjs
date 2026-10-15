@@ -20,7 +20,10 @@ async function request(endpoint,{method='GET',body,signal,text=false,missing=fal
    reply=await fetch(endpoint,{method,body,signal:abort.signal,redirect:'error',headers:{Accept:text?'text/plain':'application/json',...(body!==undefined?{'Content-Type':text?'text/plain':'application/json'}:{})}});
    if(reply.status===200||missing&&reply.status===404)break;
    await reply.body?.cancel();
-   if(!readOnly||attempt>=2||!TRANSIENT_HTTP_STATUS.has(reply.status)){
+   // A gateway can also reject a validated RPC read with HTTP 400. Repeating
+   // that read remains bounded; invalid requests still fail after three tries.
+   const transient=TRANSIENT_HTTP_STATUS.has(reply.status)||method==='POST'&&readOnly&&reply.status===400;
+   if(!readOnly||attempt>=2||!transient){
     try{fail('HTTP_STATUS');}catch(error){error.httpStatus=reply.status;throw error;}
    }
    // The same 15-second deadline and cancellation cover all three attempts.
@@ -36,5 +39,5 @@ async function request(endpoint,{method='GET',body,signal,text=false,missing=fal
  }catch(error){if(/^NATIVE_WALLET_[A-Z_]+$/.test(error?.code??''))throw error;fail(signal?.aborted?'CANCELLED':abort.signal.aborted?'HTTP_TIMEOUT':'HTTP_FAILED');}
  finally{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);}
 }
-export function nativeRpcV1(endpoint){return async(method,params=[],signal)=>{const id=randomUUID(),result=await request(endpoint,{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id,method,params}),signal,readOnly:READ_RPC_METHODS.has(method)});need(result?.jsonrpc==='2.0'&&result.id===id&&Object.hasOwn(result,'result')&&!Object.hasOwn(result,'error'),'RPC_FAILED');return result.result;};}
+export function nativeRpcV1(endpoint){return async(method,params=[],signal)=>{const id=randomUUID();try{const result=await request(endpoint,{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id,method,params}),signal,readOnly:READ_RPC_METHODS.has(method)});need(result?.jsonrpc==='2.0'&&result.id===id&&Object.hasOwn(result,'result')&&!Object.hasOwn(result,'error'),'RPC_FAILED');return result.result;}catch(error){if(READ_RPC_METHODS.has(method)&&error?.code==='NATIVE_WALLET_HTTP_STATUS')error.rpcMethod=method;throw error;}};}
 export function nativeEsploraV1(endpoint){const base=endpoint.replace(/\/$/,'');return(path,options)=>{need(typeof path==='string'&&/^\/[a-zA-Z0-9/_:.-]+$/.test(path)&&path.length<=300,'HTTP_PATH');return request(base+path,{...options,readOnly:(options?.method??'GET')==='GET'});};}
