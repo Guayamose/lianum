@@ -4,6 +4,59 @@ Actualizado el 15 de octubre de 2026. La cartera pública y el recorrido privado
 PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
 
+## Motor en Google Cloud (15 de octubre, despliegue y reapertura comprobados)
+
+- VM `lianum-paeg-demo`, proyecto `lianum`, zona `europe-west1-b`:
+  `n2-standard-4`, 4 vCPU y 16 GiB; un trabajo ZK pesado simultáneo.
+- Versión instalada:
+  `6dfe36a2fd0a6653265b027bee66e913cb2096d0366b66a4d1c8b3cb694063ff`.
+  Generación de fuentes:
+  `88d38b55778d56e6a7fca432fa0f4cc72a3ac9fce2d1c9f7d5929177a2741c51`.
+- Las 57 transacciones de despliegue de Sepolia están incluidas con recibo
+  correcto. Se reutilizaron las 56 anteriores. El último pool está en
+  `0xee2f31019a4d6bc0027be1dc9aceabeccc3dd8bc`, transacción
+  `0x907379cba7dbd3aa139c3c2df1b9f06ec2d2d300eafad3f8b56073b5c9653510`,
+  bloque 11922764, 15 de octubre a las 20:21:48 UTC.
+- Los 57 contratos base ya están finalizados. La conexión móvil requiere su
+  propio pool: sus tres contratos adicionales también están finalizados con
+  recibo correcto. Total de este despliegue: 60
+  contratos. El pool móvil está en
+  `0x176e5bfe1abbfc8e3f8f09a6b688904569855e77`, transacción
+  `0x5c63ee6fd98c2c8b62f96cf82d61e23ef84523db0aef074a5e234be590c2eac6`,
+  bloque 11922844, 15 de octubre a las 20:38:12 UTC.
+- Se corrigió la estimación de gas limitada a 50 millones por el RPC principal.
+  La consulta alternativa verifica red, génesis y el mismo bloque canónico;
+  espera de forma acotada si ese bloque aún no está disponible. El contrato
+  consumió 51.396.288 de gas. Los límites de firma y presupuesto se conservan.
+- El permiso de despliegue se renovó explícitamente una vez, manteniendo el
+  mismo máximo total de 0,03 ETH de prueba y las comisiones ya reservadas.
+  Las actualizaciones conservaron las claves y el estado privado; contratos,
+  verificadores, recursos ZK y herramientas compiladas son idénticos.
+- Las dos conexiones están abiertas y su epoch financiero está registrado.
+  El transporte privado desde la API está comprobado: TLS 1.3, nombre y
+  certificado verificados, y rechazo de una consulta sin autorización (403).
+- **Punto 2 cerrado:** parada controlada con estado Original `CAPTURED` y
+  reapertura real con `reopenedOriginalState: true`, dos conexiones y servicio
+  activo. Se comprobaron las mismas claves protegidas, el mismo epoch firmado,
+  los mismos descriptores y los mismos envíos. El nonce Ethereum permanece
+  en 60. El servicio queda habilitado para iniciar con la VM.
+- La comprobación de reapertura detectó bibliotecas omitidas en el paquete.
+  El paquete ahora incluye explícitamente los módulos de consulta y recuperación;
+  su cierre de dependencias y sus imports se comprobaron antes de instalarlo.
+  La reparación conservó todos los módulos de ejecución existentes, contratos,
+  recursos ZK y estado privado. El refresco de la caché de estado financiero
+  conserva el mismo epoch y sus términos; no reinicia el presupuesto.
+- El permiso firmado actual vence el 16 de octubre a las 02:00 UTC. El servicio
+  conserva su captura preventiva 30 minutos antes: desde las 01:30 UTC
+  (03:30 de Madrid) queda en consulta, sin extender permisos automáticamente.
+  No se ha requerido el móvil ni repetido pagos de aceptación.
+- Evidencias de administración: `/var/lib/lianum-maintenance/20261015-point2/point2-closure.json`
+  en el motor y `engine-private-transport.json` en la VM de la API. Las pruebas
+  de este bloque son dirigidas; no se ha repetido la batería completa del repositorio.
+- La publicación de las rutas del motor a través de la API y su conexión con
+  la app corresponden al siguiente bloque; el servicio público de cartera
+  sigue siendo un despliegue separado.
+
 ## Cierre del motor local (15 de octubre)
 
 Los tres bloques pendientes del motor están integrados y comprobados en local.
@@ -54,9 +107,9 @@ No incluyen Google Cloud, las tres redes públicas ni el teléfono.
   `36c03efaca07a6a2822cdb1bf183882dec952e872f2b3a740ee90b9a021c72f2`.
 - MoonPay sigue desactivado: faltan cuenta de partner, aprobación y credenciales.
   No hay compra, venta ni envío mainnet completos verificados desde el móvil.
-- PAEG, pruebas privadas, operaciones DeFi y el ejecutor programático conservan
-  sus servicios locales separados. No forman parte de este despliegue público.
-  Conectar fondos reales al motor y publicar ese recorrido sigue pendiente.
+- El motor privado tiene un despliegue separado en Google Cloud, descrito
+  arriba. No forma parte de este servicio público de cartera. Publicar sus
+  rutas para la app sigue pendiente.
 - La instalación inicial limita identidades residentes y persistidas a 16 y 64.
   Usa proveedores RPC públicos; una consulta de Solana falló antes de las
   siguientes consultas correctas. Esto no acredita disponibilidad de producción.
