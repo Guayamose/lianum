@@ -1,0 +1,1 @@
+export function readSepoliaDefiSharesLedgerDataV4(runtime:object,target:object,head:object):Promise<{profile:string;head:object;pool:string;asset:string;scope:string;policy:string;commitments:string[];nullifiers:string[];roots:string[];paths:{root:string;index:number;leaf:string;siblings:string[]}[];publicState:Record<string,unknown>;raw:Record<string,unknown>}>;

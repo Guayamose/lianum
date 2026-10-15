@@ -1,0 +1,4 @@
+import type {OriginalReadonlyRuntime,OriginalAaveTarget,OriginalAaveRetainedAdapter} from './aave-sepolia-types-v4.d.mts';
+export interface OriginalAaveSepoliaRetainedInputV4 {runtime:OriginalReadonlyRuntime;target:OriginalAaveTarget;directory:string;password:string}
+export function createOriginalAaveSepoliaRetainedAdapterV4(input:OriginalAaveSepoliaRetainedInputV4):Promise<OriginalAaveRetainedAdapter>;
+export function reopenOriginalAaveSepoliaRetainedAdapterV4(input:OriginalAaveSepoliaRetainedInputV4):Promise<OriginalAaveRetainedAdapter>;

@@ -3,7 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "**/*.ts",

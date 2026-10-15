@@ -1,0 +1,10 @@
+import type {OriginalReadonlyRuntime,OriginalAaveVenue,OriginalAaveTargetPlan,OriginalAaveInitialization,OriginalAaveTarget,Hex} from '../../../defi/vaults/aave-sepolia-types-v4.d.mts';
+export function prepareOriginalAaveSepoliaTargetV4(runtime:OriginalReadonlyRuntime,uniswapTarget:unknown,venue:OriginalAaveVenue,startNonce:bigint):Promise<OriginalAaveTargetPlan>;
+export function readOriginalAaveSepoliaTargetPlanV4(runtime:OriginalReadonlyRuntime,plan:OriginalAaveTargetPlan):Readonly<{profile:'ORIGINAL_AAVE_SEPOLIA_TARGET_PLAN_V4';expiresAt:number;constructorCount:5;registrationCount:2;planSHA256:string;financialAcceptance:false;privateProofAcceptance:false;[key:string]:unknown}>;
+export function issueOriginalAaveSepoliaInitializationV4(runtime:OriginalReadonlyRuntime,plan:OriginalAaveTargetPlan,index:number):OriginalAaveInitialization;
+export function readOriginalAaveSepoliaInitializationV4(runtime:OriginalReadonlyRuntime,token:OriginalAaveInitialization):Promise<Readonly<{profile:'ORIGINAL_AAVE_SEPOLIA_INITIALIZATION_V4';kind:'CREATE'|'CALL';index:number;[key:string]:unknown}>>;
+export function consumeOriginalAaveSepoliaInitializationV4(runtime:OriginalReadonlyRuntime,token:OriginalAaveInitialization):ReturnType<typeof readOriginalAaveSepoliaInitializationV4>;
+export function advanceOriginalAaveSepoliaInitializationV4(runtime:OriginalReadonlyRuntime,plan:OriginalAaveTargetPlan,token:OriginalAaveInitialization,transactionHash:Hex):Promise<Readonly<{profile:'ORIGINAL_AAVE_SEPOLIA_INITIALIZATION_OBSERVED_V4';index:number;transactionHash:Hex;financialAcceptance:false}>>;
+export function finalizeOriginalAaveSepoliaTargetV4(runtime:OriginalReadonlyRuntime,plan:OriginalAaveTargetPlan):Promise<OriginalAaveTarget>;
+export function assertOriginalAaveSepoliaTargetV4(runtime:OriginalReadonlyRuntime,system:OriginalAaveTarget):OriginalAaveTarget;
+export function readOriginalAaveSepoliaTargetBindingV4(runtime:OriginalReadonlyRuntime,system:OriginalAaveTarget):Readonly<{parent:unknown;uniswapTarget:unknown;venue:OriginalAaveVenue;plan:OriginalAaveTargetPlan}>;

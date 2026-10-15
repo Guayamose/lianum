@@ -1,0 +1,4 @@
+import type {OriginalReadonlyRuntime,OriginalMorphoV2Target,OriginalMorphoV2RetainedAdapter} from './morpho-v2-sepolia-types-v4.d.mts';
+export interface OriginalMorphoV2SepoliaRetainedInputV4 {runtime:OriginalReadonlyRuntime;target:OriginalMorphoV2Target;directory:string;password:string}
+export function createOriginalMorphoV2SepoliaRetainedAdapterV4(input:OriginalMorphoV2SepoliaRetainedInputV4):Promise<OriginalMorphoV2RetainedAdapter>;
+export function reopenOriginalMorphoV2SepoliaRetainedAdapterV4(input:OriginalMorphoV2SepoliaRetainedInputV4):Promise<OriginalMorphoV2RetainedAdapter>;

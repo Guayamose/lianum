@@ -1,0 +1,36 @@
+import type {ExternalFlatDescriptor,ExternalFlatAccess,ExternalFlatConsent,ExternalFlatRow,ExternalFlatStatus} from '@lianum/mobile-protocol/device/source-note-v1';
+import type {DeviceSepoliaDefiReviewV4,DeviceSepoliaDefiReviewChallengeV4} from '@lianum/mobile-protocol/device/sepolia-defi-review-v4';
+declare const proofSlot:unique symbol,financialCommand:unique symbol,reviewGrant:unique symbol,capture:unique symbol;
+export type OriginalSepoliaDefiProofSlotV4=Readonly<{[proofSlot]:true}>;
+export type OriginalSepoliaDefiFinancialCommandV4=Readonly<{[financialCommand]:true}>;
+export type OriginalSepoliaDefiReviewGrantV4=Readonly<{[reviewGrant]:true}>;
+export type OriginalSepoliaDefiCaptureV4=Readonly<{[capture]:true}>;
+export type OriginalSepoliaDefiIssuerV4=Readonly<{
+ descriptor:ExternalFlatDescriptor;
+ challenge():ExternalFlatAccess;
+ review(review:DeviceSepoliaDefiReviewV4):Promise<DeviceSepoliaDefiReviewChallengeV4>;
+ authorizeReview(challenge:DeviceSepoliaDefiReviewChallengeV4,signature:string):Promise<OriginalSepoliaDefiReviewGrantV4>;
+ readReviewGrant(reference:string):Promise<OriginalSepoliaDefiReviewGrantV4>;
+ prepareProof(grant:OriginalSepoliaDefiReviewGrantV4,request:{jobId:string|null;statement:unknown;path:unknown;witnessSHA256:string}):Promise<ExternalFlatConsent>;
+ submitProof(request:{consent:ExternalFlatConsent;signature:string;privateProof:unknown}):Promise<ExternalFlatRow>;
+ status(request:{access:ExternalFlatAccess;signature:string}):Promise<ExternalFlatStatus>;
+ readReviewReference(request:{access:ExternalFlatAccess;signature:string;reference:string}):Promise<unknown>;
+ reviewNote(request:unknown,reference?:string|null):Promise<{consent:ExternalFlatConsent}>;
+ operation(request:unknown):Promise<unknown>;
+ close():Promise<void>;
+}>;
+export function createOriginalDeviceSepoliaDefiSharesAuthorityV4(runtime:object,target:object,input:{origin:string;devicePublicKey:string;journal:{path:string;password:string}}):Promise<OriginalSepoliaDefiIssuerV4>;
+export function reopenOriginalDeviceSepoliaDefiSharesAuthorityV4(runtime:object,target:object,capture:OriginalSepoliaDefiCaptureV4):Promise<OriginalSepoliaDefiIssuerV4>;
+export function captureOriginalDeviceSepoliaDefiSharesAuthorityV4(account:OriginalSepoliaDefiIssuerV4):Promise<OriginalSepoliaDefiCaptureV4>;
+export function originalDeviceSepoliaDefiSharesProofSlotV4(account:OriginalSepoliaDefiIssuerV4,jobId:string):OriginalSepoliaDefiProofSlotV4;
+export function readOriginalDeviceSepoliaDefiSharesProofV4(slot:OriginalSepoliaDefiProofSlotV4):Promise<unknown>;
+export function prepareOriginalDeviceSepoliaDefiInvestmentCommandV4(slot:OriginalSepoliaDefiProofSlotV4):Promise<OriginalSepoliaDefiFinancialCommandV4>;
+export function challengeOriginalDeviceSepoliaDefiWithdrawalV4(slot:OriginalSepoliaDefiProofSlotV4):Promise<ExternalFlatConsent>;
+export function armOriginalDeviceSepoliaDefiWithdrawalCommandV4(slot:OriginalSepoliaDefiProofSlotV4,consent:ExternalFlatConsent,signature:string):Promise<OriginalSepoliaDefiFinancialCommandV4>;
+export function prepareOriginalDeviceSepoliaDefiRedeemCommandV4(slot:OriginalSepoliaDefiProofSlotV4,transactionHash:string):Promise<OriginalSepoliaDefiFinancialCommandV4>;
+export function readOriginalDeviceSepoliaDefiFinancialCommandV4(runtime:object,command:OriginalSepoliaDefiFinancialCommandV4):Promise<unknown>;
+export function consumeOriginalDeviceSepoliaDefiFinancialCommandV4(runtime:object,command:OriginalSepoliaDefiFinancialCommandV4):Promise<unknown>;
+export function retainOriginalDeviceSepoliaDefiSubmissionV4(runtime:object,command:OriginalSepoliaDefiFinancialCommandV4,transactionHash:string):Promise<unknown>;
+export function observeOriginalDeviceSepoliaDefiSharesJobV4(account:OriginalSepoliaDefiIssuerV4,jobId:string):Promise<ExternalFlatRow>;
+
+export function readOriginalDeviceSepoliaDefiFinancialTargetV4(runtime:object,command:OriginalSepoliaDefiFinancialCommandV4):Promise<object>;

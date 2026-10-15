@@ -4,7 +4,8 @@ import * as P from './device-paged-owner-v3.mjs';
 import {normalizeExternalFlatDescriptorV1,DEVICE_EXTERNAL_FLAT_SHARE_V1} from './device-external-flat-note-v1.mjs';
 export const DEVICE_PAGED_UNISWAP_INTENT_V3='UNISWAP_V3_EXACT_OUTPUT_SINGLE';
 export function normalizeDevicePagedUniswapIntentV3(raw){
- const v=P.pagedOwnerExactV3(raw,['kind','depositJobId','rootId','outputCommitment','maximumInput','outputAmount','validFrom','validUntil']);
+ const hasRecipient=raw&&typeof raw==='object'&&Object.hasOwn(raw,'recipient'),v=P.pagedOwnerExactV3(raw,['kind','depositJobId','rootId','outputCommitment','maximumInput','outputAmount','validFrom','validUntil',...(hasRecipient?['recipient']:[])]);
+ if(hasRecipient&&(typeof v.recipient!=='string'||!/^[0-9a-f]{40}$/.test(v.recipient)||v.recipient==='0'.repeat(40)))throw Error('PAGED_UNISWAP_INTENT');
  if(v.kind!==DEVICE_PAGED_UNISWAP_INTENT_V3)throw Error('PAGED_UNISWAP_INTENT');
  for(const key of ['depositJobId','rootId','outputCommitment']){P.pagedOwnerHexV3(v[key]);if(v[key]==='0'.repeat(64))throw Error('PAGED_UNISWAP_INTENT');}
  for(const key of ['maximumInput','outputAmount','validFrom','validUntil'])P.pagedOwnerUintV3(v[key],true);

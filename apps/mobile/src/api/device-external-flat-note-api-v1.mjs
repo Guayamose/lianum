@@ -43,8 +43,12 @@ function freshStatus(value) {
   if (!Number.isSafeInteger(value.observedAt) || !Number.isSafeInteger(value.expiresAt)
     || value.observedAt > now || value.expiresAt !== value.observedAt + 15000 || value.expiresAt <= now) fail();
 }
-export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = globalThis.fetch } = {}) {
+export function createDeviceExternalFlatNoteApiV1(options = {}) { return createNoteApi(options,false); }
+/** Same original proof/row parser with a fixed dedicated PUBLIC DeFi route. */
+export function createDeviceSepoliaDefiSharesNoteApiV4(options = {}) { return createNoteApi(options,true); }
+function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReviewReference = null } = {},sepoliaDefi) {
   const original = normalizeExternalFlatDescriptorV1(descriptor);
+  if(sepoliaDefi&&sepoliaReviewReference!==null&&!/^[0-9a-f]{64}$/.test(sepoliaReviewReference))fail();
   if (typeof fetchImpl !== 'function') fail();
   let closed = false;
   const accesses = new WeakMap(), consents = new WeakMap(), controllers = new Set();
@@ -66,7 +70,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
     finally { controllers.delete(controller); }
   }
   async function post(path, payload, originalResultResponse = false) {
-    live(); const target = original.origin + (original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
+    live(); const target = original.origin + (sepoliaDefi?'/v1/mobile/sepolia-defi-shares/':original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
     const body = JSON.stringify(payload);
     if (new TextEncoder().encode(body).byteLength > (path==='private-operations'?16384:8192)) fail();
     const controller = new AbortController(); controllers.add(controller);
@@ -79,7 +83,7 @@ export function createDeviceExternalFlatNoteApiV1({ descriptor, fetchImpl = glob
     }, originalResultResponse ? 900000 : 15000); });
     const work = (async () => {
       const response = await fetchImpl(target, { method: 'POST', headers: { Accept: 'application/json', Origin: original.origin,
-        'Content-Type': 'application/json' }, body, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
+        'Content-Type': 'application/json',...(sepoliaDefi?{'x-lianum-defi-pairing-id':original.pairingId,...(sepoliaReviewReference?{'x-lianum-defi-review-reference':sepoliaReviewReference}:{})}:{}) }, body, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
       live();
       if (controller.signal.aborted || !response.ok || response.redirected || response.url && response.url !== target
         || /^application\/json(?:;\s*charset=utf-8)?$/i.exec(response.headers.get('content-type') ?? '')?.[0] !== response.headers.get('content-type')) fail();

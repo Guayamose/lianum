@@ -28,7 +28,8 @@ const digest=(b:Uint8Array)=>bytesToHex(sha256(b)),utf=(v:unknown)=>new TextEnco
 const need=(ok:unknown,code='MOBILE_EXTERNAL_FLAT_BINDING')=>{if(!ok)throw Error(code);};
 const wipeState=(value:any)=>{if(value?.graph){for(const role of ['change','recovery']){P.externalFlatWipeV1(value.graph[role]?.opening);if(value.graph[role])value.graph[role].privateKey=null;}value.graph=null;}if(value?.note){P.externalFlatWipeV1(value.note.opening);value.note.privateKey=null;}if(value)value.note=null;};
 const words=(s:string)=>{const b=localNoteHexBytesV1(s);return Array.from({length:8},(_,i)=>b[i*4]*16777216+b[i*4+1]*65536+b[i*4+2]*256+b[i*4+3]);};
-const occupied=new Set<string>(),approvedRestores=new WeakSet<object>();
+const occupied=new Set<string>(),approvedRestores=new WeakSet<object>(),originalVaults=new WeakMap<object,{check:(descriptor:unknown,root:string)=>void}>();
+export function assertOriginalDeviceExternalFlatNoteVaultV1(vault:object,descriptor:unknown,rootId:string):void{const own=originalVaults.get(vault);need(own,"MOBILE_EXTERNAL_FLAT_ORIGINAL_VAULT");own!.check(descriptor,rootId);}
 async function approveRecoveryImportV1(signal?:AbortSignal){const current=()=>need(!signal?.aborted,'MOBILE_CUSTODY_BACKUP_ABORTED');current();need(['ios','android'].includes(Platform.OS)&&await Store.isAvailableAsync()&&Store.canUseBiometricAuthentication()&&await Auth.hasHardwareAsync()&&await Auth.isEnrolledAsync(),'MOBILE_PROTECTED_STORAGE_UNAVAILABLE');current();const auth=await Auth.authenticateAsync({promptMessage:'Restaurar la misma raíz de tu nota ERC20',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();need(auth.success,'MOBILE_AUTHENTICATION_CANCELLED');}
 export type DeviceExternalFlatSummary={profile:string;rootId:string;noteRevision:number;descriptor:ExternalFlatDescriptor|null;recipient:string|null;amount:string|null;commitment:string|null;jobs:ExternalFlatRow[];pending:{jobId:string;action:ExternalFlatAction}|null;storageAvailable:boolean;custodyRoute:'LEGACY'|'ROUTED';recoveryFence:{source:boolean;graph:boolean};graph:{row:any;pending:string|null;changeAmount:string;recoveryAmount:string;withdrawals:any[];withdrawalPending:{noteRole:string;jobId:string;action:string}[]}|null};
 export type DeviceExternalFlatPrepared={draft:ExternalFlatDraft;witness:any};
@@ -285,5 +286,5 @@ async function createVault(route:ExternalFlatDescriptor|null,restore?:{payload:a
     readDeviceExternalFlatStatusV1(raw);s.value.recoveryFence.source=false;state(s.value);await write(s.value,s);return structuredClone(summaryOf(s.value));
   }finally{wipeState(s.value);}});},
   close(){closeSubmissionLoan();revokeSubmissionArm();closed=true;return(async()=>{if(active)await active.catch(()=>{});occupied.delete(ROOT);return{closed:true,storageAvailable:!poisoned,rootRetained:true};})();},
- });return vault;
+ });originalVaults.set(vault,{check:(d,root)=>{live();need(route!==null&&same(P.normalizeExternalFlatDescriptorV1(d),route)&&root===rootId,"MOBILE_EXTERNAL_FLAT_ORIGINAL_VAULT");}});return vault;
 }

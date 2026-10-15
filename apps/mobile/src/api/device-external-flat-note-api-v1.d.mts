@@ -17,3 +17,5 @@ export function readDeviceExternalFlatConsentV1(value:unknown):ExternalFlatConse
 export function readDeviceExternalFlatUnsubmittedConsentV1(value:unknown):ExternalFlatConsent;
 
 export function retireDeviceExternalFlatUnsubmittedConsentV1(value:unknown):void;
+
+export function createDeviceSepoliaDefiSharesNoteApiV4(input:{descriptor:ExternalFlatDescriptor;fetchImpl?:typeof globalThis.fetch;sepoliaReviewReference?:string|null}):DeviceExternalFlatNoteApiV1;
