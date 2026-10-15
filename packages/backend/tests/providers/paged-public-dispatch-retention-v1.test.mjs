@@ -25,7 +25,7 @@ const h=s=>createHash('sha256').update('DECLARED_PUBLIC_DISPATCH_HOST:'+s).diges
 const url=p=>new URL(p,import.meta.url).href,services=new WeakMap(),issued=new WeakMap(),observedReceivers=new WeakSet();let context;
 mock.module('@lianum/proofs/tooling/original-paged-artifacts-v3',{exports:{Graph}});
 mock.module(url('../../src/operations/local/funded-paged-native-source-v3.mjs'),{exports:{assertOriginalPagedNativeFinancialSourceV3(){}}});
-mock.module(url('../../src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs'),{exports:{readOriginalDevicePagedGraphExecutionContextV3(service){const c=services.get(service);assert.ok(c,'HOST_ORIGINAL_SERVICE');return c;}}});
+mock.module(url('../../src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs'),{exports:{readOriginalDevicePagedGraphExecutionContextV3(service){const c=services.get(service);assert.ok(c,'HOST_ORIGINAL_SERVICE');return c;},async readOriginalDevicePagedGraphProviderBirthContextV5(service){const c=services.get(service);assert.ok(c,'HOST_ORIGINAL_SERVICE');return c;}}});
 mock.module(url('../../src/operations/local/funded-graph-paged-deployment-v3.mjs'),{exports:{readOriginalFundedPagedGraphDeploymentV3(runtime,system){assert.equal(runtime,context.runtime);assert.equal(system,context.system);return{async call(){return'0x'+'0'.repeat(64);}};},pagedGraphStaticDataV3(){throw Error('HOST_UNUSED');}}});
 mock.module(url('../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),{exports:{
  assertOwnedLocalEvmObservedClockV1(runtime){assert.ok(observedReceivers.has(runtime),'HOST_ORIGINAL_OBSERVED_RECEIVER');},
@@ -33,6 +33,7 @@ mock.module(url('../../src/chains/evm/runtime/owned-evm-v2-runtime.mjs'),{export
  openOriginalPagedUniswapConstructionV3(){throw Error('HOST_UNUSED');},reopenOwnedOriginalPagedNativeRuntimesV3(){throw Error('HOST_UNUSED');},captureOwnedOriginalPagedNativeRuntimesV3(){throw Error('HOST_UNUSED');},assertOwnedDeviceExternalFlatReceiverLiveV1(){throw Error('HOST_UNUSED');},assertOwnedLocalPagedNativeEvmV3(){throw Error('HOST_UNUSED');},
 }});
 mock.module(url('../../src/accounts/authority/device-paged-note-authority-v3.mjs'),{exports:{
+ readOriginalDevicePagedRetainedSourceDescriptorV5:account=>account.descriptor(),
  async bindOriginalDevicePagedNativePreparationV3(account){assert.equal(account,context.account);},
  readOriginalPagedNativeQuoteScopeV3(token,provider){const record=issued.get(token);assert.ok(record?.kind==='scope'&&record.provider===provider,'HOST_ORIGINAL_SCOPE');return copy(record.scope);},
  async readOriginalDevicePagedNativeDispatchV3(token,provider){const record=issued.get(token);assert.ok(record?.kind==='grant'&&record.provider===provider&&!record.revoked,'HOST_ORIGINAL_GRANT');return{ready:copy(record.ready),quoteScope:copy(record.scope),head:await context.runtime.block()};},

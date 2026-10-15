@@ -43,7 +43,7 @@ async function fixture(failAtAcquisition){
   realpathSync(path,...args){return path===socketPath?path:fs.realpathSync(path,...args);},
   statSync(path,...args){return fs.statSync(path==='/proc/'+childPID+'/exe'?binary:path,...args);},
   unlinkSync(path){assert.equal(path,socketPath);assert.equal(present,true);present=false;unlinks++;},
-  join,fileURLToPath,pathToFileURL,createHash,resourcePath,nativeProcStatV1:proc,nativeOwnedRSSV1:()=>assert.fail('unexpected RSS fixture'),URL,Buffer,
+  join,fileURLToPath,pathToFileURL,createHash,resourcePath,nativeProcStatV1:proc,nativeOwnedRSSV1:()=>assert.fail('unexpected RSS fixture'),URL,Buffer,performance,
   process:{execPath:process.execPath,argv:[command[0],...command.slice(2)],execArgv:[command[1]],pid:parentPID,platform:'linux',arch:'x64',connected:true,send(){},getuid:process.getuid,umask:process.umask},
   loadOfficialProofLibrariesV1:async()=>({BackendType:{NativeUnixSocket:2},Barretenberg:{async new(options){assert.equal(options.threads,12);assert.equal(options.bbPath,binary);acquired=true;present=true;return api;}}}),
  };
