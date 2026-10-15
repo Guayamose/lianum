@@ -78,6 +78,8 @@ def prepare(output, profile='local'):
             'secretsIncluded': False, 'historicalWalletsIncluded': False,
             'workingStateDirectories': state_directories,
             'proverThreads': 12, 'maximumHeavyJobs': 1,
+            'heavyJobQueue': {'maximumJobs': 1, 'scheduling': 'PHYSICAL_DIRECTORY_FLOCK_V4',
+                             'clients': ['ORIGINAL_PAGED_NATIVE_V3', 'ORIGINAL_PC23_TWO_PRIVATE_IPC_V4']},
             'remoteExecutionAcceptance': False})
         files, links = {}, {}
         for parent, directories, names in os.walk(output, followlinks=False):

@@ -1,6 +1,8 @@
 #!/bin/sh
 # Install a reviewed public-testnet courier; never start, deploy or fund it.
 set -eu
+[ "$(uname -s)" = Linux ]
+[ -x /usr/bin/flock ] || { echo PAEG_PUBLIC_FLOCK_REQUIRED >&2; exit 1; }
 if [ "$(id -u)" -ne 0 ] || [ "$#" -ne 2 ]; then
   echo 'Usage (root): install-public-release-v4.sh /absolute/unpacked/release MANIFEST_SHA256' >&2
   exit 2
@@ -69,6 +71,7 @@ for name in sorted(manifest['files']):
 drop=pathlib.Path('/etc/systemd/system/lianum-paeg-public.service.d');drop.mkdir(parents=True,exist_ok=True)
 (drop/'artifacts.conf').write_text('\n'.join(lines)+'\n');(drop/'artifacts.conf').chmod(0o644)
 PY
+python3 "$destination/infra/initialize-public-prover-work-v5.py" "$workspace"
 ln -s -- "$destination" /opt/lianum-paeg-public/current
 ln -s -- "$workspace" /var/lib/lianum-paeg-public/current
 install -o root -g root -m 0644 "$destination/infra/lianum-paeg-public.service" /etc/systemd/system/lianum-paeg-public.service
