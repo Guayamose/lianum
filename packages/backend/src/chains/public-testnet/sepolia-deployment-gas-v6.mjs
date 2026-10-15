@@ -18,12 +18,22 @@ export async function estimateOriginalPagedSepoliaCreateGasV6(runtime,creation,h
  // accept caller-supplied gas, choose another chain, sign or broadcast.
  readOriginalPagedSepoliaRpcContextV4(runtime);
  const rpc=nativeRpcV1(FALLBACK);
- const [chain,genesis,block]=await Promise.all([
+ const [chain,genesis]=await Promise.all([
   rpc('eth_chainId',[]),rpc('eth_getBlockByNumber',['0x0',false]),
-  rpc('eth_getBlockByNumber',[head.number,false]),
  ]);
  assert.equal(chain,'0xaa36a7','SEPOLIA_GAS_FALLBACK_CHAIN');
  assert.equal(genesis?.hash,GENESIS,'SEPOLIA_GAS_FALLBACK_GENESIS');
+ // A secondary provider may be a few blocks behind. Only a missing header
+ // can wait; a conflicting hash is rejected immediately. Keep the SAME head.
+ let block;const deadline=performance.now()+45000;
+ for(let attempt=0;attempt<31;attempt++){
+  readOriginalPagedSepoliaRpcContextV4(runtime);
+  const remaining=deadline-performance.now();assert.ok(remaining>0,'SEPOLIA_GAS_FALLBACK_HEADER_TIMEOUT');
+  block=await rpc('eth_getBlockByNumber',[head.number,false],AbortSignal.timeout(Math.ceil(remaining)));
+  if(block!==null||attempt===30)break;
+  await new Promise(resolve=>setTimeout(resolve,Math.max(1,Math.min(1500,deadline-performance.now()))));
+ }
+ assert.equal(block?.number,head.number,'SEPOLIA_GAS_FALLBACK_CANONICAL');
  assert.equal(block?.hash,head.hash,'SEPOLIA_GAS_FALLBACK_CANONICAL');
  const estimate=await rpc('eth_estimateGas',[tx,head.number]);
  assert.match(estimate,/^0x(?:0|[1-9a-f][0-9a-f]*)$/);

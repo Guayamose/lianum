@@ -30,7 +30,9 @@ If a public Sepolia provider explicitly rejects a CREATE estimate because of
 its RPC gas cap, the engine may consult the fixed public Tenderly Sepolia
 endpoint. It verifies chain identity, genesis and the same canonical block;
 the original signer still enforces gas, balance and aggregate fee limits.
-Other RPC errors and contract reverts do not select this fallback.
+The secondary may wait up to 45 seconds for a missing header to arrive; a
+conflicting block hash is rejected immediately. Other RPC errors and contract
+reverts do not select this fallback.
 
 An expired partial deployment approval cannot restart the motor. While stopped,
 `renew-partial-public-birth-v6.mjs` with no arguments prints review data only.
