@@ -3,6 +3,7 @@ import {join} from 'node:path';
 import {mkdir,lstat,opendir} from 'node:fs/promises';
 import {isIP} from 'node:net';
 import {createPublicWalletAuthV1} from './auth-v1.mjs';
+import {readCloudConnectionDirectoryV1} from './connection-directory-v1.mjs';
 import {dispatchMoonPayHttpV1} from '../fiat/moonpay-http-v1.mjs';
 import {createMoonPayGatewayV1} from '../fiat/moonpay-gateway-v1.mjs';
 import {createNativeWalletServiceV1} from '../native-wallet/index.mjs';
@@ -106,7 +107,8 @@ async function originalOwners(directory){
 /** Keyless API behind a loopback-only HTTPS ingress. Limits apply before body
  * allocation and journal birth. Shutdown aborts reads and drains admitted signed
  * submissions; their gateway persists UNKNOWN rather than rebroadcasting. */
-export async function createPublicWalletHttpServiceV1({origin,directory,nativeConfiguration,moonpayConfiguration=null,nativeFactory=createNativeWalletServiceV1,fiatFactory=createMoonPayGatewayV1}){
+export async function createPublicWalletHttpServiceV1({origin,directory,nativeConfiguration,moonpayConfiguration=null,connectionDirectoryPath=null,nativeFactory=createNativeWalletServiceV1,fiatFactory=createMoonPayGatewayV1}){
+ const connections=await readCloudConnectionDirectoryV1(connectionDirectoryPath,origin);
  const auth=createPublicWalletAuthV1(origin,{maxPending:PUBLIC_WALLET_LIMITS_V1.pendingChallenges}),nativeServices=new Map(),active=new Set(),contexts=new Set(),admit=createAdmission();
  let closed=false,closeWork,ownerQueue=Promise.resolve();
  await privateDirectory(directory);const nativeDirectory=join(directory,'native');await privateDirectory(nativeDirectory);
@@ -133,8 +135,12 @@ export async function createPublicWalletHttpServiceV1({origin,directory,nativeCo
    if(path==='/v1/fiat/moonpay/webhook'){send(response,200,await fiat.receiveWebhook(raw,request.headers['moonpay-signature-v2']));return;}
    let envelope;try{envelope=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw));}catch{refuse('NATIVE_HTTP_BODY');}
    if(path==='/v1/auth/challenge'){send(response,200,context.admission.issueChallenge(()=>auth.issue(envelope)));return;}
-   const {ownerId,body}=auth.consume(path,envelope);
+   const {ownerId,devicePublicKey,body}=auth.consume(path,envelope);
    if(context.abort.signal.aborted)refuse('NATIVE_HTTP_CANCELLED');
+   if(path==='/v1/wallet/connections'){
+    exactBody(body,[]);
+    send(response,200,{profile:'LIANUM_CLOUD_CONNECTIONS_V1',devicePublicKey,connections:connections.filter(row=>row.descriptor.devicePublicKey===devicePublicKey)});return;
+   }
    if(path.startsWith('/v1/fiat/')){const result=await dispatchMoonPayHttpV1('POST',path,body,ownerId,fiat,context.abort.signal);send(response,result.status,result.body);return;}
    validateNativeBody(path,body);const service=await native(ownerId);
    if(context.abort.signal.aborted)refuse('NATIVE_HTTP_CANCELLED');

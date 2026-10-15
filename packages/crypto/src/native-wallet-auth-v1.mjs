@@ -4,6 +4,7 @@ import {secp256k1} from '@noble/curves/secp256k1.js';
 export const NATIVE_WALLET_AUTH_ROUTES_V1=Object.freeze([
  '/v1/native/account','/v1/native/prepare','/v1/native/submit','/v1/native/status','/v1/native/cancel',
  '/v1/fiat/sessions','/v1/fiat/orders/reconcile','/v1/fiat/orders/read',
+ '/v1/wallet/connections',
 ]);
 export function nativeWalletBodyHashV1(raw){if(typeof raw!=='string'||raw.length>1000000)throw Error('NATIVE_AUTH_BODY');return hex.encode(sha256(new TextEncoder().encode(raw)));}
 export function nativeWalletAuthMessageV1(value,expected,now=Date.now()){
