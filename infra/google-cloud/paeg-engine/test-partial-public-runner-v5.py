@@ -28,6 +28,7 @@ class PartialPublicRunner(unittest.TestCase):
         (infra / 'prebirth-financial-control-v5.mjs').write_text("import {readFile} from 'node:fs/promises';export async function readPendingPrebirthFinancialReviewV5(){const mode=JSON.parse(await readFile(new URL('../case.json',import.meta.url)));return mode.initialReview?{intentId:'4'.repeat(64)}:null;}export async function acknowledgeOriginalPrebirthFinancialReviewV5(){return {profile:'HOST_INITIAL_ACK',descriptorIssued:true};}\n")
         (infra / 'financial-epoch-control-v5.mjs').write_text("export async function openOriginalPublicFinancialEpochControlV5(){return{close:async()=>{},refresh:async()=>{}};}\n")
         (infra / 'captured-financial-epoch-control-v5.mjs').write_text("export async function continueCapturedOriginalPublicFinancialReviewV5(){return null;}\n")
+        (infra / 'public-uniswap-mode-v6.mjs').write_text("export async function readPublicUniswapModeV6(){return null;}\n")
         (infra / 'read-public-financial-window-v5.mjs').write_text("import {readFile} from 'node:fs/promises';export async function readCapturedOriginalPublicFinancialWindowV5(){const mode=JSON.parse(await readFile(new URL('../case.json',import.meta.url)));return{effectiveExpiresAt:mode.expired&&!mode.epochActive?Date.now():Date.now()+3600000};}\n")
         state = r'''
 import assert from 'node:assert/strict';
@@ -76,7 +77,7 @@ export const readOriginalPagedPublicNativePhoneConnectionV4=()=>({HOST:'phone'})
         return root, infra
 
     def invoke(self, path, *args):
-        return subprocess.run([str(NODE), '--max-old-space-size=384', str(path), *args], capture_output=True, text=True, timeout=20, env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
+        return subprocess.run([str(NODE), '--max-old-space-size='+('1024' if path.name=='run-public-operator-v4.mjs' else '384'), str(path), *args], capture_output=True, text=True, timeout=20, env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
 
     def test_partial_requires_review_and_does_not_fallback_to_fresh_birth(self):
         root, infra = self.fixture({'review':True,'supervisor':False,'expired':False})

@@ -10,7 +10,7 @@ User=lianum-testnet-signer
 Group=lianum-testnet-signer
 UMask=0077
 WorkingDirectory=/var/lib/lianum-paeg-public/prover-work-v5
-ExecStart=/var/lib/lianum-paeg-public/current/candidate/resources/tools/node --max-old-space-size=384 /var/lib/lianum-paeg-public/current/infra/run-public-operator-v4.mjs
+ExecStart=/var/lib/lianum-paeg-public/current/candidate/resources/tools/node --max-old-space-size=1024 /var/lib/lianum-paeg-public/current/infra/run-public-operator-v4.mjs
 KillMode=process
 KillSignal=SIGTERM
 SendSIGKILL=no
