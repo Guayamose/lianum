@@ -36,7 +36,7 @@ La comprobación de Node y herramientas nativas es de presencia y permisos de ej
 
 `available` no acredita ejecución económica ni aceptación de una publicación de fuentes. El informe lo expresa mediante `artifactIntegrityChecked: false`, `financialSourceGeneration: "NOT_CHECKED"` y `financialAcceptance: false`. La generación compatible comprueba los archivos públicos registrados en el último build; las generaciones económicas conservan su flujo de preparación y validación propio.
 
-Los originales conservados fuera de las carpetas de código solo se admiten si su ruta y destino coinciden con el mapa original de `scripts/layout.json` y con el inventario público permitido. Hay una única excepción histórica: `archive/source-evidence/wrapped-key-preparation-bound-20261006/execution-receipts/ci-prepare-key-20261006/failure-preservation-e84fb980-fbaf-428d-b7b3-ab5080623921/active.lock`. El inspector excluye ese registro sin leerlo ni autenticar su hash y enumera su ruta exacta en el resultado. La excepción no permite otros archivos `.lock` ni otras rutas privadas del archivo histórico.
+Los originales conservados fuera de las carpetas de código solo se admiten si su ruta y destino coinciden con el mapa original de `scripts/layout.json` y con el inventario público permitido. Hay una única excepción histórica: `packages/proofs/evidence/wrapped-key-preparation-bound-20261006/execution-receipts/ci-prepare-key-20261006/failure-preservation-e84fb980-fbaf-428d-b7b3-ab5080623921/active.lock`. El inspector excluye ese registro sin leerlo ni autenticar su hash y enumera su ruta exacta en el resultado. La excepción no permite otros archivos `.lock` ni otras rutas privadas del archivo histórico.
 
 ## Qué prepara `prepare-profile`
 
@@ -44,7 +44,7 @@ El comando reevalúa el inventario bajo un bloqueo exclusivo y ejecuta únicamen
 
 1. Instalar el Node oficial fijado si falta, mediante el bootstrap existente.
 2. Preparar enlaces y dependencias raíz con `source_runtime.py` si hacen falta. Esta herramienta valida el lock y conserva su bloqueo propio.
-3. Ejecutar `npm ci --ignore-scripts --no-audit --no-fund` para `apps/platform` o `apps/mobile` cuando el perfil necesita esas dependencias y el inventario está desfasado.
+3. Ejecutar `npm ci --ignore-scripts --no-audit --no-fund` para `services/api-server` o `apps/mobile` cuando el perfil necesita esas dependencias y el inventario está desfasado.
 4. Materializar la distribución compatible con `workspace.py` únicamente para los perfiles económicos que la necesitan.
 
 npm utiliza `.local/cache/npm`. Cada paso tiene un límite de 120 segundos y su grupo de procesos se cancela conjuntamente. Repetir la preparación con requisitos ya disponibles no reinstala esas dependencias.

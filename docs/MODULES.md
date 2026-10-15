@@ -43,7 +43,7 @@ sus mecanismos compartidos y proofs el proceso de prueba. El driver Java de
 `packages/chains/` mantiene su compilación propia.
 
 La aplicación web monta los recursos visuales en
-`apps/wallet/src/server/server.mjs` y usa `@lianum/backend/wallet/http-service`
+`packages/backend/tests/fixtures/api/wallet/application.mjs` y usa `@lianum/backend/wallet/http-service`
 para HTTP, sesiones y autorización. El backend puede utilizar ese servicio sin
 importar la aplicación. Los contratos y el cliente sin DOM pertenecen a
 `mobile-protocol`; el DOM, las pantallas y los recursos estáticos siguen en apps.
@@ -162,7 +162,7 @@ registro público de conexiones no acreditan saldo disponible ni permiso de gast
 Los agentes externos sólo pueden consumir un puerto autorizado de ese mismo
 recorrido. DTOs, perfiles públicos, semillas, plantillas y ciphertexts no se
 convierten en grants ni permiten reconstruir tokens. El `executor:null` de
-[`apps/platform/src/run.mjs`](../apps/platform/src/run.mjs) pertenece al perfil
+[`services/api-server/src/admission/run.mjs`](../services/api-server/src/admission/run.mjs) pertenece al perfil
 de admisión V1 TOP_UP/EXIT, distinto del executor Paged ligado a su cuenta
 original. Esta sección describe interfaces, no acredita aceptación financiera.
 
@@ -266,7 +266,7 @@ llama directamente al reconciliador de datos del journal. Ya no delega esa
 lectura a la autoridad de cuenta. Las entradas wrapped de cuenta, ejecutor,
 terminal, claims y sesión tienen consumidores directos a sus propietarios.
 Las nueve fachadas privadas retiradas se conservan como `.source` con hash
-en `archive/source-evidence/retired-facades`, fuera de `src` y sin copias de
+en `packages/proofs/evidence/retired-facades`, fuera de `src` y sin copias de
 ejecución. Los nombres antiguos de sus publicaciones se resuelven como evidencia;
 sus imports históricos no se siguen ni se ejecutan.
 

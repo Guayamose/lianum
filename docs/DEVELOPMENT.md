@@ -140,7 +140,7 @@ La aceptación conjunta con reinicios y cartera se registra separadamente en
 STATUS. Los resultados financieros ejercitan las funciones originales; no
 acreditan por sí solos toda la interacción de los asistentes CLI ni el teléfono
 físico. El arranque no financia notas automáticamente. Conserva los directorios retenidos y consulta
-[la guía de plataforma](../apps/platform/README.md) antes de operar.
+[la guía de plataforma](../services/api-server/README.md) antes de operar.
 
 ## Laboratorios y pruebas adicionales
 

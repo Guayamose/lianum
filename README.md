@@ -1,106 +1,61 @@
 # Lianum
 
-Wallet omnichain privada en desarrollo. El proyecto reúne una wallet web,
-un cliente móvil, backend compartido, contratos Solidity y circuitos Noir.
-
-La [visión original](PROJECT-VISION.md) define el producto y
-[EXCLUSIONS.md](EXCLUSIONS.md) delimita su alcance. Consulta
-[STATUS.md](STATUS.md) para saber qué funciona y qué falta, y
-[ROADMAP.md](ROADMAP.md) para el orden de trabajo.
-
-## Estado publicado: 13 de octubre de 2026
-
-La app Android incluye una cartera de ETH, BTC y SOL en redes públicas,
-con claves y firma en el dispositivo. Su API HTTPS está desplegada en
-`https://api.lianum.oryontechnology.com`; las direcciones, QR y consultas de
-saldo se han comprobado en el teléfono. El primer envío real sigue pendiente.
-MoonPay está implementado, pero desactivado hasta disponer de cuenta y credenciales.
-
-PAEG, las cuentas privadas y DeFi conservan sus servicios y recorridos locales.
-No están publicados en esa API ni conectados automáticamente al saldo de la
-cartera pública. Las aceptaciones locales descritas abajo conservan ese alcance.
+Wallet móvil y motor PAEG para preparar, autorizar, ejecutar y recuperar operaciones entre redes. El código de los servicios, las bibliotecas y los contratos se mantiene en este repositorio.
 
 ## Dónde trabajar
 
 | Carpeta | Responsabilidad |
-| --- | --- |
-| `apps/wallet/` | Wallet web y servidor del laboratorio |
-| `apps/mobile/` | Aplicación Expo/React Native y custodia del dispositivo |
-| `apps/platform/` | API móvil, persistencia PostgreSQL y gateways locales |
-| `packages/` | Backend, custodia, motor, protocolos y pruebas compartidos |
-| `contracts/` | Contratos Solidity |
-| `tests/` | Integración entre componentes |
-| `scripts/` | Comandos de desarrollo y laboratorios |
-| `infra/` | Despliegue de la wallet pública y perfiles anteriores de infraestructura |
-| `docs/` | Guías de desarrollo y contratos entre componentes |
-| `experiments/` | Implementaciones experimentales; algunas siguen en uso |
-| `archive/` | Entregas originales y referencias históricas |
+|---|---|
+| `apps/mobile` | Aplicación Android/iOS, custodia personal y revisión de operaciones. |
+| `services/api-server` | Entradas de la API pública y perfiles de admisión con persistencia. |
+| `services/paeg-engine` | Arranque, reapertura y ejecución del motor, local o remoto. |
+| `packages` | Lógica compartida: backend, motor, pruebas ZK, criptografía y protocolo del móvil. |
+| `contracts` | Contratos EVM y programas Solana. |
+| `infra/google-cloud` | Instalación y despliegue de API, motor y red privada. |
+| `scripts` | Preparación, diagnóstico, validación y mantenimiento. |
+| `tests/integration` | Recorridos que utilizan varios componentes. |
 
-Abre `lianum.code-workspace` o esta carpeta en VS Code. El
-[mapa del código](docs/STRUCTURE.md) explica los dominios y sus entradas.
+El mapa detallado está en [docs/STRUCTURE.md](docs/STRUCTURE.md). Los comandos salen de un único catálogo: `./dev help` y [docs/COMMANDS.md](docs/COMMANDS.md).
 
-## Comandos habituales
-
-Desde la raíz del proyecto:
+## Preparación
 
 ```sh
-./dev start     # Wallet local; Ctrl+C para cerrar
-./dev build     # Preparar dependencias; ejecutar directamente lo que editas
-./dev status    # Ver herramientas y aplicaciones disponibles
-./dev test      # Selección habitual de pruebas rápidas
-./dev test --changed --plan  # Ver qué pruebas corresponden a tus cambios
-./dev check     # Fronteras, análisis estático y pruebas de host acotadas
-./dev help      # Todos los comandos
+./dev prepare host
+./dev build
+./dev prepare mobile
+./dev prepare api-server
 ```
 
-Para conectar la app Android con las tres redes locales, usa
-`./dev platform paged-native-new`; para las tres redes y Uniswap en la misma
-operación, usa `./dev platform paged-mixed-new`. Una relación DeFi independiente
-se abre con `./dev platform defi-new`. Los asistentes generan su conexión pública para
-importar desde el teléfono. Sigue los pasos y límites de
-[apps/platform/README.md](apps/platform/README.md#usar-el-ordenador-con-la-app-android).
+`./dev build` prepara las dependencias de los paquetes. Las herramientas nativas, programas compilados y parámetros ZK se verifican por separado; no se descargan ni regeneran todos al instalar npm.
 
-La wallet web local inicia desconectada. Arrancar una interfaz u operador no financia
-notas ni acredita una operación. Los perfiles `paged-native-new` y
-`paged-mixed-new` exigen un entorno nuevo y preservan el estado existente.
-
-El recorrido actual está aceptado en el ordenador con custodia software y
-cadenas locales: Uniswap y tres pagos nativos, veintiuna pruebas, cuatro
-reaperturas completas, recuperación de respuesta perdida, cambio de 200 y
-cuatro liquidaciones de 100 al proveedor. La cartera registrada verificó
-600 → 400 → 0 unidades demo y conservó el cero tras reabrir, con el token
-Uniswap separado. Los recursos originales cerraron. Las aceptaciones anteriores
-se conservan en [STATUS.md](STATUS.md), junto a sus límites. Estos resultados
-no acreditan el recorrido del APK nuevo en teléfono físico ni redes públicas.
-
-La [guía de desarrollo](docs/DEVELOPMENT.md) explica el bootstrap de un clon
-limpio y la selección de pruebas por carpeta.
-
-[Comandos vigentes](docs/COMMANDS.md) · [Flujo por componente](docs/WORKFLOW.md) ·
-[Interfaces de módulos](docs/MODULES.md).
-`./dev workflows` muestra las entradas actuales, su alcance y sus comprobaciones.
-Los laboratorios y workers que verifican originales históricos usan
-compatibilidad explícita: `./dev build --legacy` y `./dev legacy test …`.
-`./dev sources prepare` prepara una generación nueva y comprueba qué artefactos
-se pueden reutilizar; conserva la publicación anterior y su procedencia.
-
-## Entorno local y limpieza
-
-Edita `apps/`, `packages/`, `contracts/`, `tests/` y `scripts/`.
-`.internal/runtime/` conserva las rutas compatibles que todavía necesita parte
-del código; `.internal/dev/` contiene herramientas y material de desarrollo.
-`.local/` guarda estado, configuración y cachés propios de esta máquina.
+## Ejecutar y comprobar
 
 ```sh
-./dev clean          # Ver selección y espacio; no modifica archivos
-./dev clean --apply  # Limpiar material regenerable y compactar el historial
+./dev status
+./dev doctor
+./dev boundaries
+./dev static
+./dev test --component api-server --plan
+./dev block-check --plan
 ```
 
-La limpieza conserva originales, custodia, estado económico, herramientas
-activas, APK actual y trabajo pendiente. El historial compactado queda en
-`.local/history/`. Consulta [el entorno local](docs/LOCAL-ENVIRONMENT.md) para
-conocer el alcance y restaurar un respaldo.
+La API pública requiere una configuración privada del servidor:
 
-[Móvil](apps/mobile/README.md) · [API y PostgreSQL](apps/platform/README.md) ·
-[Infraestructura local](infra/google-cloud/README.md) ·
-[Laboratorio EVM](docs/EVM-LAB.md)
+```sh
+LIANUM_PUBLIC_WALLET_CONFIG=/ruta/a/public-wallet.json ./dev api
+```
+
+El ejemplo de configuración está en `infra/google-cloud/api-server/config.example.json`. El arranque del motor utiliza perfiles explícitos y su estado retenido; consulta `services/paeg-engine/src/entry.mjs` y `./dev workflows` antes de abrir o reabrir una operación.
+
+## Recursos locales
+
+`.internal` conserva herramientas y recursos verificados. `.local` contiene datos de desarrollo, custodia de pruebas, recuperación e informes. Los programas de pruebas ZK también pueden tener artefactos retenidos en sus directorios `.local`.
+
+```sh
+./dev resources status
+./dev clean --help
+```
+
+La limpieza automática se limita a rutas regenerables declaradas. Las evidencias mínimas usadas por los lectores criptográficos están en `packages/proofs/evidence`: sus hashes conservan la identidad de los programas y verificadores originales.
+
+La interfaz web local se ha retirado. Los pequeños clientes de simulación que aún comprueban recorridos anteriores están bajo `scripts/engine/demos`; no son una segunda aplicación del producto.

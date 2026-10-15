@@ -1,19 +1,32 @@
 {
   "files.exclude": {
     "**/.internal": true,
+    "**/.local": true,
     "**/node_modules": true,
-    "**/__pycache__": true
+    "**/__pycache__": true,
+    "**/.gradle": true,
+    "**/.expo": true,
+    "**/.cxx": true,
+    "apps/mobile/android/app/build": true,
+    "apps/mobile/android/build": true,
+    "apps/mobile/dist": true
   },
   "search.exclude": {
     "**/.internal/**": true,
-    "**/archive/**": true,
+    "**/.local/**": true,
     "**/node_modules/**": true,
-    "**/__pycache__/**": true
+    "**/__pycache__/**": true,
+    "**/build/**": true,
+    "**/.gradle/**": true,
+    "**/.expo/**": true,
+    "**/.cxx/**": true,
+    "packages/protocol/**": true
   },
   "files.watcherExclude": {
     "**/.internal/**": true,
-    "**/archive/reference/**": true,
-    "**/archive/restoration/recipes/dependencies/**": true
+    "**/.local/**": true,
+    "**/node_modules/**": true,
+    "**/build/**": true
   },
   "explorer.compactFolders": false
 }

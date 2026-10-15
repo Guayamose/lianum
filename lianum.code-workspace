@@ -1,8 +1,40 @@
 {
-  "folders": [{ "name": "Lianum", "path": "." }],
+  "folders": [
+    {
+      "name": "Lianum",
+      "path": "."
+    }
+  ],
   "settings": {
-    "files.exclude": { "**/.internal": true, "**/.local": true, "**/node_modules": true, "**/__pycache__": true, "**/.gradle": true, "**/.expo": true, "apps/mobile/android/app/build": true, "apps/mobile/dist": true },
-    "search.exclude": { "**/.internal/**": true, "**/.local/**": true, "**/archive/**": true, "packages/protocol/**": true, "**/node_modules/**": true, "**/build/**": true, "**/.gradle/**": true, "**/.expo/**": true, "apps/mobile/dist/**": true },
+    "files.exclude": {
+      "**/.internal": true,
+      "**/.local": true,
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/.gradle": true,
+      "**/.expo": true,
+      "**/.cxx": true,
+      "apps/mobile/android/app/build": true,
+      "apps/mobile/android/build": true,
+      "apps/mobile/dist": true
+    },
+    "search.exclude": {
+      "**/.internal/**": true,
+      "**/.local/**": true,
+      "**/node_modules/**": true,
+      "**/__pycache__/**": true,
+      "**/build/**": true,
+      "**/.gradle/**": true,
+      "**/.expo/**": true,
+      "**/.cxx/**": true,
+      "packages/protocol/**": true
+    },
+    "files.watcherExclude": {
+      "**/.internal/**": true,
+      "**/.local/**": true,
+      "**/node_modules/**": true,
+      "**/build/**": true
+    },
     "explorer.compactFolders": false
   }
 }

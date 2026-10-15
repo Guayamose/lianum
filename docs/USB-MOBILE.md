@@ -98,7 +98,7 @@ contenido completo al portapapeles del teléfono y pulsa **Importar conexión
 del ordenador** en Operaciones o **Importar conexión DeFi del ordenador** en
 DeFi, según el perfil. No importes `operator.json`, que contiene secretos.
 
-[Guía del operador](../apps/platform/README.md#usar-el-ordenador-con-la-app-android).
+[Guía del operador](../services/api-server/README.md#usar-el-ordenador-con-la-app-android).
 
 ## Comprobación física realizada
 

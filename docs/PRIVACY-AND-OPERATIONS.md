@@ -81,7 +81,7 @@ despliegue. Las imágenes, permisos, secretos, persistencia, backups, límites y
 readiness requieren validación del servicio real antes de habilitar fondos.
 Los proof jobs permanecen deshabilitados hasta disponer de esa integración.
 
-Fuentes de requisitos: [visión original](../archive/delivery/PROJECT-VISION.md).
+Fuentes de requisitos: [visión original](../PROJECT-VISION.md).
 Las aceptaciones actuales se registran en [STATUS.md](../STATUS.md),
 [laboratorio EVM](EVM-LAB.md) y
 [redes/DeFi](../packages/backend/docs/LOCAL-ACCEPTANCE.md).

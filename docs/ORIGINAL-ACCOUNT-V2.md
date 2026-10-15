@@ -76,8 +76,8 @@ almacenamiento; el permiso se consume antes del POST. Prueba y espera de su
 respuesta tienen un presupuesto propio y no extienden el permiso de financiación.
 Una respuesta perdida se consulta sobre la intención original.
 
-Las entradas locales explícitas son [servicio nativo](../apps/platform/docs/ORIGINAL-LOCAL-DEVICE-OPERATOR.md)
-y [nota ERC20](../apps/platform/docs/DEVICE-ERC20-LOCAL.md). Preparan los
+Las entradas locales explícitas son [servicio nativo](../services/api-server/docs/ORIGINAL-LOCAL-DEVICE-OPERATOR.md)
+y [nota ERC20](../services/api-server/docs/DEVICE-ERC20-LOCAL.md). Preparan los
 originales en el mismo realm y publican el descriptor para el operador. No
 financian ni prueban una nota al arrancar. La entrada ERC20 prepara una allowance
 exacta del laboratorio; el importe introducido en la app debe coincidir.

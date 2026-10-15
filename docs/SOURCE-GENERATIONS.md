@@ -59,9 +59,9 @@ El informe de compilación sigue los módulos importados desde la entrada de com
 
 ## Artefactos N32 y paginados
 
-N32 comprueba sus nueve entradas originales de compilación en el archivo de entrega, con el manifiesto original fijado. Los propietarios actuales de recursos se identifican por separado de aquellas entradas. El lector conserva las verificaciones de programa, ABI, clave, stats, toolchain y CRS.
+N32 comprueba sus nueve entradas originales de compilación en `packages/proofs/evidence/original-sources`, con el manifiesto original fijado. Los propietarios actuales de recursos se identifican por separado de aquellas entradas. El lector conserva las verificaciones de programa, ABI, clave, stats, toolchain y CRS.
 
-El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Autentica los 100 registros originales: 58 entradas de compilación y 42 fuentes host. Los cuerpos históricos que cambiaron están archivados con sus hashes exactos; se conservan como evidencia y no se ejecutan. Los dos catálogos anteriores también se conservan por sus hashes en `archive/source-evidence/paged-source-catalogues/`. Las entradas actuales verifican la adopción explícita y la procedencia original de los artefactos.
+El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Autentica los 100 registros originales: 58 entradas de compilación y 42 fuentes host. Los cuerpos históricos que cambiaron están archivados con sus hashes exactos; se conservan como evidencia y no se ejecutan. Los dos catálogos anteriores también se conservan por sus hashes en `packages/proofs/evidence/paged-source-catalogues/`. Las entradas actuales verifican la adopción explícita y la procedencia original de los artefactos.
 
 ## Cómo se reutiliza I84
 

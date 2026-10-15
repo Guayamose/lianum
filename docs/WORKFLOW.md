@@ -187,7 +187,7 @@ de comandos coincide con el catálogo: `python3 -B scripts/development/workflow.
 | Económico | Operación y recuperación en un laboratorio con redes, custodia y pruebas originales | `./dev lab run` o `./dev lab recovery` |
 
 Las dos últimas filas necesitan preparación específica. PostgreSQL real,
-por ejemplo, se comprueba con `./dev npm --prefix apps/platform run
+por ejemplo, se comprueba con `./dev npm --prefix services/api-server run
 test:postgres` y necesita Docker. Los recorridos económicos se documentan en
 [EVM-LAB.md](EVM-LAB.md) y las guías del dominio correspondiente.
 `./dev test --changed` nunca añade un comando `lab` a su selección.
