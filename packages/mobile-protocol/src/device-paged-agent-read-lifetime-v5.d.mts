@@ -1,0 +1,12 @@
+import type {DevicePagedAgentReadGrantV4} from './device-paged-agent-v4.mjs';
+import type {DevicePagedAutomationTermsV4} from './device-paged-automation-v4.mjs';
+export const DEVICE_PAGED_AGENT_READ_GRANT_V5:'DEVICE_PAGED_AGENT_OPERATION_READ_GRANT_V5';
+export type DevicePagedAgentReadGrantV5=Readonly<{profile:typeof DEVICE_PAGED_AGENT_READ_GRANT_V5;descriptorSHA256:string;terms:DevicePagedAutomationTermsV4;readerPublicKey:string;maximumReads:number;readUntilMs:number;grantId:string}>;
+export type DevicePagedAgentReadGrantAnyV5=DevicePagedAgentReadGrantV4|DevicePagedAgentReadGrantV5;
+export type DevicePagedSignedAgentReadGrantAnyV5=Readonly<{grant:DevicePagedAgentReadGrantAnyV5;signature:string}>;
+export function devicePagedAgentReadGrantIdV5(descriptorSHA256:string,terms:unknown,readerPublicKey:string,maximumReads:number,readUntilMs:number):string;
+export function normalizeDevicePagedAgentReadGrantV5(raw:unknown):DevicePagedAgentReadGrantV5;
+export function normalizeDevicePagedAgentReadGrantAnyV5(raw:unknown):DevicePagedAgentReadGrantAnyV5;
+export function normalizeDevicePagedSignedAgentReadGrantAnyV5(raw:unknown):DevicePagedSignedAgentReadGrantAnyV5;
+export function devicePagedAgentReadGrantMessageAnyV5(raw:unknown):Uint8Array;
+export function devicePagedAgentReadUntilMsV5(raw:unknown):number;

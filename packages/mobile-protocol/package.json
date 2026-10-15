@@ -104,6 +104,34 @@
     "./device/paged-budget-asset-v4": {
       "types": "./src/device-paged-budget-asset-v4.d.mts",
       "default": "./src/device-paged-budget-asset-v4.mjs"
+    },
+    "./device/paged-agent-v4": {
+      "types": "./src/device-paged-agent-v4.d.mts",
+      "default": "./src/device-paged-agent-v4.mjs"
+    },
+    "./device/paged-automation-quota-v4": {
+      "types": "./src/device-paged-automation-quota-v4.d.mts",
+      "default": "./src/device-paged-automation-quota-v4.mjs"
+    },
+    "./device/paged-agent-read-lifetime-v5": {
+      "types": "./src/device-paged-agent-read-lifetime-v5.d.mts",
+      "default": "./src/device-paged-agent-read-lifetime-v5.mjs"
+    },
+    "./device/sepolia-defi-review-v4": {
+      "types": "./src/device-sepolia-defi-review-v4.d.mts",
+      "default": "./src/device-sepolia-defi-review-v4.mjs"
+    },
+    "./device/sepolia-defi-share-plan-v4": {
+      "types": "./src/device-sepolia-defi-share-plan-v4.d.mts",
+      "default": "./src/device-sepolia-defi-share-plan-v4.mjs"
+    },
+    "./device/sepolia-morpho-batch-review-v5": {
+      "types": "./src/device-sepolia-morpho-batch-review-v5.d.mts",
+      "default": "./src/device-sepolia-morpho-batch-review-v5.mjs"
+    },
+    "./device/paged-uniswap-public-v4": {
+      "types": "./src/device-paged-uniswap-public-v4.d.mts",
+      "default": "./src/device-paged-uniswap-public-v4.mjs"
     }
   },
   "types": "./src/authorization.d.mts",

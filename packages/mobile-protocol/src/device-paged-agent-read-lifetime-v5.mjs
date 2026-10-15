@@ -1,0 +1,16 @@
+/** Separate signed read lifetime. It cannot alter the original START terms or
+ * reopen a closed financial Source. V4 grant bytes and domains remain intact. */
+import * as P from './device-paged-owner-v3.mjs';
+import * as A from './device-paged-agent-v4.mjs';
+import {normalizeDevicePagedAutomationTermsV4} from './device-paged-automation-v4.mjs';
+import {boundedPermissionSha256V1} from './bounded-permission-sha256-v1.mjs';
+export const DEVICE_PAGED_AGENT_READ_GRANT_V5='DEVICE_PAGED_AGENT_OPERATION_READ_GRANT_V5';
+const need=value=>{if(!value)throw Error('PAGED_AGENT_READ_LIFETIME');};
+const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};
+function hash(text){const b=new TextEncoder().encode(text);try{return Array.from(boundedPermissionSha256V1(b),byte=>byte.toString(16).padStart(2,'0')).join('');}finally{b.fill(0);}}
+export function devicePagedAgentReadGrantIdV5(descriptorSHA256,terms,readerPublicKey,maximumReads,readUntilMs){P.pagedOwnerHexV3(descriptorSHA256);terms=normalizeDevicePagedAutomationTermsV4(terms);need(typeof readerPublicKey==='string'&&/^04[0-9a-f]{128}$/.test(readerPublicKey)&&Number.isSafeInteger(maximumReads)&&maximumReads>0&&maximumReads<=4096&&Number.isSafeInteger(readUntilMs)&&readUntilMs>=terms.expiresAt);return hash('LIANUM/AGENT-READ-GRANT-ID/5\n'+JSON.stringify([descriptorSHA256,A.devicePagedAgentAutomationTermsSHA256V4(terms),readerPublicKey,maximumReads,readUntilMs]));}
+export function normalizeDevicePagedAgentReadGrantV5(raw){const grant=P.pagedOwnerExactV3(raw,['profile','descriptorSHA256','terms','readerPublicKey','maximumReads','readUntilMs','grantId']);need(grant.profile===DEVICE_PAGED_AGENT_READ_GRANT_V5);grant.terms=normalizeDevicePagedAutomationTermsV4(grant.terms);need(grant.descriptorSHA256===grant.terms.descriptorSHA256&&grant.grantId===devicePagedAgentReadGrantIdV5(grant.descriptorSHA256,grant.terms,grant.readerPublicKey,grant.maximumReads,grant.readUntilMs));return freeze(grant);}
+export function normalizeDevicePagedAgentReadGrantAnyV5(raw){need(raw&&typeof raw==='object'&&Object.getPrototypeOf(raw)===Object.prototype);const profile=Object.getOwnPropertyDescriptor(raw,'profile');need(profile&&Object.hasOwn(profile,'value'));return profile.value===DEVICE_PAGED_AGENT_READ_GRANT_V5?normalizeDevicePagedAgentReadGrantV5(raw):A.normalizeDevicePagedAgentReadGrantV4(raw);}
+export function normalizeDevicePagedSignedAgentReadGrantAnyV5(raw){const signed=P.pagedOwnerExactV3(raw,['grant','signature']);signed.grant=normalizeDevicePagedAgentReadGrantAnyV5(signed.grant);need(typeof signed.signature==='string'&&/^[0-9a-f]{128}$/.test(signed.signature));return freeze(signed);}
+export function devicePagedAgentReadGrantMessageAnyV5(raw){const grant=normalizeDevicePagedAgentReadGrantAnyV5(raw);return grant.profile===DEVICE_PAGED_AGENT_READ_GRANT_V5?new TextEncoder().encode('LIANUM/AGENT-READ-ONLY-GRANT/5\n'+JSON.stringify(grant)):A.devicePagedAgentReadGrantMessageV4(grant);}
+export function devicePagedAgentReadUntilMsV5(raw){const grant=normalizeDevicePagedAgentReadGrantAnyV5(raw);return grant.profile===DEVICE_PAGED_AGENT_READ_GRANT_V5?grant.readUntilMs:grant.terms.expiresAt;}
