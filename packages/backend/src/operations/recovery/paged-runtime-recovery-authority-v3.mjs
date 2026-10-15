@@ -16,7 +16,7 @@ import {canonical} from '@lianum/engine/crypto/privacy';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import {readPrivateRuntimeRecoveryV1} from '../../chains/shared/runtime/owned-runtime-recovery-files-v1.mjs';
 
-const PROFILE='ORIGINAL_PAGED_SUPERVISOR_RETENTION_V3',tokens=new WeakMap(),activationAnchors=new WeakMap();
+const PROFILE='ORIGINAL_PAGED_SUPERVISOR_RETENTION_V3',tokens=new WeakMap(),activationAnchors=new WeakMap(),publicParentsV6=new WeakMap();
 export const PAGED_SOURCE_AUTHORITY_COLLECTION_RETENTION_V4='ORIGINAL_PAGED_SOURCE_AUTHORITY_COLLECTION_V4';
 export const PAGED_PUBLIC_INDEPENDENT_AUTHORITY_COLLECTION_V4='ORIGINAL_PAGED_PUBLIC_INDEPENDENT_AUTHORITY_COLLECTION_V4';
 function sourceAuthorityCollection(value,descriptor){
@@ -185,12 +185,16 @@ async function build(raw,descriptor,opening,mixed=false,publicSource=false,activ
    async close(){if(closed)return;assert.ok(!busy,'PAGED_SUPERVISOR_BUSY');closed=true;for(const token of issued)retireTokenTree(token);password=null;record=null;await lease.close();}
   });
   async function issue(kind,name){assert.ok(!closed&&!busy&&openingAllowed(),'PAGED_SUPERVISOR_OPEN_PHASE');busy=true;try{await current();assert.ok(![...issued].some(token=>tokens.get(token)?.kind===kind&&tokens.get(token)?.name===name),'PAGED_SUPERVISOR_OPEN_TOKEN_USED');const token=Object.freeze(Object.create(null));let data=kind==='runtime'?openingSnapshot.runtimes[name]:openingSnapshot[name];if(kind==='runtime'){const section=data;data=await readPrivateRuntimeRecoveryV1(section.cwd,section.terminalRecord);for(const key of ['family','cwd','processGeneration','genesis'])assert.equal(data[key],section[key],'PAGED_SUPERVISOR_RUNTIME_CAPTURE_HASH');assert.deepEqual(data.terminal,section.terminal);if(section.localCustody){assert.ok(name==='uniswap'?data.schema==='OWNED_EXTERNAL_DEFI_RECEIVER_CAPTURE_V3':['receiver','graphNative'].includes(name)&&data.schema==='OWNED_FIXED_EVM_CAPTURE_V2','PAGED_SUPERVISOR_ORIGINAL_EVM_CUSTODY');data.localCustody=clone(section.localCustody);}}tokens.set(token,{kind,name,data:clone(data),active:()=>!closed&&openingAllowed(),consumed:false,refillStorageRecovery,requiresSourceChildren:kind==='component'&&name==='authority'&&[PAGED_SOURCE_AUTHORITY_COLLECTION_RETENTION_V4,PAGED_PUBLIC_INDEPENDENT_AUTHORITY_COLLECTION_V4,PAGED_PUBLIC_SOURCE_CATALOGUE_V5,PAGED_PUBLIC_POOL_GROUP_V6].includes(data?.profile),children:null,publicAuthority:publicSource&&kind==='component'&&name==='authority',journalPath:publicSource&&kind==='component'&&name==='authority'?openingSnapshot.sourceLocation?.journalPath??null:null});issued.add(token);return token;}finally{busy=false;}}
+  if(publicSource)publicParentsV6.set(handle,async()=>{assert.ok(!closed&&!busy&&record.data.phase==='ACTIVE','PAGED_SUPERVISOR_PARENT_ADOPTION_PHASE');await current();return freeze({directory:input.directory,descriptor:clone(record.data.descriptor),checkpoint:handle.checkpoint()});});
   return handle;
  }catch(error){password=null;await lease.close();throw error;}
 }
 export async function createOriginalPagedPublicSupervisorRetentionV4(input,descriptor){assert.equal(arguments.length,2);return build(input,descriptor,false,false,true);}
 export async function openOriginalPagedPublicActiveRecoveryV4(input){assert.equal(arguments.length,1);return build(input,null,true,false,true,true);}
 export async function openOriginalPagedPublicSupervisorRetentionV4(input){assert.equal(arguments.length,1);return build(input,null,true,false,true);}
+/** Live Original parent binding only. DATA and copied methods cannot adopt a
+ * supervisor; credentials and component recovery tokens are never returned. */
+export async function readOriginalPagedPublicSupervisorParentV6(parent){assert.equal(arguments.length,1);const read=publicParentsV6.get(parent);assert.ok(read,'PAGED_SUPERVISOR_ORIGINAL_PARENT');return read();}
 /** Retry an interrupted PUBLIC opening under a new exclusive process claim.
  * Keep the authenticated snapshot, phase, revision and generation unchanged;
  * every component must still validate its physical files before consuming a token. */
