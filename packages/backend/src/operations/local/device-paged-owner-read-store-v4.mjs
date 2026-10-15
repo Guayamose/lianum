@@ -36,6 +36,13 @@ export async function createDevicePagedOwnerRetentionV3(config,descriptor){
     assert.ok(current.data.controller.pending?.proof&&current.data.controller.automation,'PAGED_OWNER_RECOVERY_PROOF_REQUIRED');return after;
    }finally{wipePrivateProofInputsV1(current.data.controller);}
   },
+  async readProofIntentCheckpointV4(before,accepted){
+   assert.ok(!closed);for(const item of [before,accepted])P.pagedOwnerExactV3(item,['profile','descriptorSHA256','revision','dataSHA256','public']);assert.equal(before.profile,PROFILE);assert.equal(before.descriptorSHA256,binding);assert.equal(accepted.profile,PROFILE);assert.equal(accepted.descriptorSHA256,binding);assert.equal(accepted.revision,before.revision+1);assert.deepEqual(accepted.public,before.public);await physical(true);const current=await vault.read(password);
+   try{const actual=validate(current),c=current.data.controller;assert.deepEqual(actual.public,before.public,'PAGED_OWNER_RECOVERY_PROGRESS_CHANGED');assert.ok(actual.revision===accepted.revision||actual.revision===accepted.revision+1,'PAGED_OWNER_PROOF_INTENT_CHECKPOINT_STEP');
+    if(actual.revision===accepted.revision){assert.deepEqual(actual,accepted,'PAGED_OWNER_PROOF_INTENT_CHECKPOINT_CHANGED');assert.ok(c.proofIntent&&c.pending===null,'PAGED_OWNER_ORIGINAL_PROOF_INTENT_REQUIRED');return {stage:'INTENT',checkpoint:actual};}
+    assert.ok(c.pending?.proof&&c.proofIntent===undefined,'PAGED_OWNER_RECOVERY_PROOF_REQUIRED');return {stage:'PROVED',checkpoint:actual};
+   }finally{wipePrivateProofInputsV1(current.data.controller);}
+  },
   async readEmptyBirthCheckpoint(){
    assert.ok(!closed);await physical(true);const current=await vault.read(password);
    try{const result=validate(current),c=current.data.controller;assert.equal(c.phase,'BUILDING','PAGED_REFILL_BIRTH_ALREADY_ACTIVE');assert.equal(c.pending,null);assert.equal(c.preparation,null);assert.equal(c.automation,null);assert.equal(c.public.sourceCommitment,null);assert.equal(c.public.authorizationRoot,null);assert.equal(c.public.progressCommitment,null);return result;}
