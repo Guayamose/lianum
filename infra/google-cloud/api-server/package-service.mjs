@@ -11,10 +11,14 @@ async function copy(path,expected){const source=join(root,path),bytes=await read
 for(const p of policy.packages)for(const file of p.files)await copy(p.path+'/'+file.path,file);
 const {readdir}=await import('node:fs/promises');for(const folder of ['packages/backend/src/public-wallet','packages/backend/src/native-wallet','packages/backend/src/fiat'])for(const name of await readdir(join(root,folder))){if(name.endsWith('.d.mts'))continue;if(!name.endsWith('.mjs'))throw Error('DEPLOYMENT_UNEXPECTED_SOURCE');await copy(folder+'/'+name);}
 for(const path of ['packages/crypto/src/native-wallet-v1.mjs','packages/crypto/src/native-wallet-auth-v1.mjs','packages/crypto/package.json','packages/backend/package.json'])await copy(path);
+for(const name of ['device-paged-owner-v3.mjs','device-paged-clock-v3.mjs'])await copy('packages/mobile-protocol/src/'+name);
+await copy('packages/mobile-protocol/package.json');
 await copy('services/api-server/src/wallet-entry.mjs');
 for(const name of ['bootstrap.sh','install-release.sh','config.example.json','Caddyfile.example','lianum-public-wallet.service'])await copy('infra/google-cloud/api-server/'+name);
+await copy('infra/google-cloud/paeg-engine/Caddyfile.example');
 await mkdir(join(out,'node_modules/@lianum'),{recursive:true});await symlink('../../packages/crypto',join(out,'node_modules/@lianum/crypto'));
 await symlink('../../packages/backend',join(out,'node_modules/@lianum/backend'));
+await symlink('../../packages/mobile-protocol',join(out,'node_modules/@lianum/mobile-protocol'));
 await mkdir(join(out,'bin'));await copyFile(process.execPath,join(out,'bin/node'));await chmod(join(out,'bin/node'),0o755);
 await writeFile(join(out,'package.json'),JSON.stringify({name:'lianum-public-wallet-deployment',private:true,type:'module'})+'\n');
 const smoke=execFileSync(join(out,'bin/node'),['--input-type=module','-e',"await import('./packages/backend/src/public-wallet/http-service-v1.mjs');console.log('IMPORT_OK')"],{cwd:out,encoding:'utf8',env:{PATH:'/usr/bin:/bin'}});if(smoke.trim()!=='IMPORT_OK')throw Error('DEPLOYMENT_IMPORT_FAILED');

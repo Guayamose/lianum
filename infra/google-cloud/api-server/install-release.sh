@@ -34,8 +34,12 @@ if ! test -f /etc/lianum/public-wallet.json; then
   install -m 0640 -o root -g lianum "$release/infra/google-cloud/api-server/config.example.json" /etc/lianum/public-wallet.json
 fi
 install -m 0644 "$release/infra/google-cloud/api-server/lianum-public-wallet.service" /etc/systemd/system/lianum-public-wallet.service
-caddy validate --config "$release/infra/google-cloud/api-server/Caddyfile.example" --adapter caddyfile
-install -m 0644 "$release/infra/google-cloud/api-server/Caddyfile.example" /etc/caddy/Caddyfile
+caddy_config="$release/infra/google-cloud/api-server/Caddyfile.example"
+if test -f /etc/caddy/lianum-paeg-transport.pem; then
+  caddy_config="$release/infra/google-cloud/paeg-engine/Caddyfile.example"
+fi
+caddy validate --config "$caddy_config" --adapter caddyfile
+install -m 0644 "$caddy_config" /etc/caddy/Caddyfile
 ln -s "$release" /opt/lianum/current.next
 mv -Tf /opt/lianum/current.next /opt/lianum/current
 systemctl daemon-reload

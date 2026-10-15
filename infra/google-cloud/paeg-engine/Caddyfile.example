@@ -1,7 +1,18 @@
 # Reviewed for the installed Caddy 2.6.2. Apply only after the original
 # motor is ready and its PUBLIC transport certificate has been installed.
 api.lianum.oryontechnology.com {
-	handle /v1/mobile/paged-owner/* {
+	@missingPairing {
+		path /v1/mobile/paged-owner/*
+		not header X-Lianum-Paged-Pairing-Id *
+	}
+	handle @missingPairing {
+		header Content-Type application/json
+		header Cache-Control no-store
+		respond `{"error":"PAGED_PAIRING_REQUIRED"}` 403
+	}
+
+	@engine path /v1/mobile/paged-owner/* /v1/mobile/external-flat-share/*
+	handle @engine {
 		request_body {
 			max_size 4194304
 		}
