@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {PUBLIC_OPERATOR_STATE_V4,readPrivateOperatorFileV4,publishOriginalPublicConnectionFileV4} from './public-operator-state-v4.mjs';
 
-export async function openCapturedPublicReadServerV4(root,configuration,ingress){
+export async function openCapturedPublicReadServerV4(root,configuration,ingress,uniswapInput=null){
  const load=path=>import(pathToFileURL(join(root,path)).href);
  const [R,I,H,T]=await Promise.all([
   load('packages/backend/src/operations/recovery/paged-runtime-recovery-authority-v3.mjs'),
@@ -13,7 +13,7 @@ export async function openCapturedPublicReadServerV4(root,configuration,ingress)
   load('packages/backend/src/api/mobile/device-paged-source-read-recovery-http-v4.mjs'),
   load('packages/backend/src/api/mobile/paged-remote-ingress-binding-v4.mjs')]);
  const transport=T.readOriginalPagedRemoteIngressBindingV4(ingress);
- let supervisor,server,closed=false,closing;
+ let supervisor,mixedSupervisor,server,closed=false,closing;
  const issuers=[],dispatchers=[],routes=new Map(),sockets=new Set();
  async function close(){return closing??=(async()=>{
   closed=true;
@@ -23,12 +23,16 @@ export async function openCapturedPublicReadServerV4(root,configuration,ingress)
   await stopped;
   const failures=[];
   for(const issuer of issuers)try{await I.closeOriginalPagedSourceReadRecoveryIssuerV4(issuer);}catch(error){failures.push(error);}
-  try{await supervisor?.close();}catch(error){failures.push(error);}
+  try{await (mixedSupervisor??supervisor)?.close();}catch(error){failures.push(error);}
   if(failures.length)throw new AggregateError(failures,'PAEG_PUBLIC_READ_CAPTURE_CLOSE_FAILED');
  })();}
  try{
-  supervisor=await R.openOriginalPagedSourceReadRecoverySupervisorV4({directory:configuration.supervisorDirectory,password:configuration.journal.password});
-  const descriptors=await supervisor.sourceDescriptors();
+  if(uniswapInput){
+   const M=await load('packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs');
+   mixedSupervisor=await M.openOriginalPagedPublicUniswapReadRecoverySupervisorV6({directory:uniswapInput.parent.supervisorDirectory,password:configuration.journal.password});supervisor=mixedSupervisor.parent;
+  }else supervisor=await R.openOriginalPagedSourceReadRecoverySupervisorV4({directory:configuration.supervisorDirectory,password:configuration.journal.password});
+  const mixedDescriptors=mixedSupervisor?await mixedSupervisor.sourceDescriptors():[],mixedPairings=new Set(mixedDescriptors.map(row=>row.pairingId));
+  const descriptors=[...await supervisor.sourceDescriptors(),...mixedDescriptors];
   assert.ok(Array.isArray(descriptors)&&descriptors.length>=1,'PAEG_PUBLIC_READ_SOURCE_COUNT');
   const pairings=await supervisor.currentWalletPairings();
   assert.ok(Array.isArray(pairings)&&pairings.length>=1,'PAEG_PUBLIC_READ_CURRENT_WALLETS');
@@ -47,13 +51,14 @@ export async function openCapturedPublicReadServerV4(root,configuration,ingress)
    assert.ok(descriptor.devicePublicKey===configuration.devicePublicKey||descriptor.devicePublicKey===phoneKey,'PAEG_PUBLIC_READ_UNCONFIGURED_WALLET');
    assert.equal(descriptor.origin,transport.origin,'PAEG_PUBLIC_READ_SOURCE_ORIGIN');
    assert.ok(!routes.has(descriptor.pairingId),'PAEG_PUBLIC_READ_PAIRING_DUPLICATE');
-   const issuer=await I.openOriginalPagedSourceReadRecoveryIssuerV4(await supervisor.issueSource(descriptor.pairingId),{journalPassword:configuration.journal.password});issuers.push(issuer);
+   const mixed=mixedPairings.has(descriptor.pairingId),sourceSupervisor=mixed?mixedSupervisor:supervisor;
+   const issuer=await I.openOriginalPagedSourceReadRecoveryIssuerV4(await sourceSupervisor.issueSource(descriptor.pairingId),{journalPassword:mixed?uniswapInput.mixed.journal.password:configuration.journal.password});issuers.push(issuer);
    assert.deepEqual(I.readOriginalPagedSourceReadRecoveryIssuerDescriptorV4(issuer),descriptor,'PAEG_PUBLIC_READ_ORIGINAL_DESCRIPTOR');
    const dispatcher=H.createOriginalDevicePagedSourceReadRecoveryHttpV4(issuer);dispatchers.push(dispatcher);routes.set(descriptor.pairingId,dispatcher);
    const connection={format:'DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3',descriptor,transport:{type:'ANDROID_PINNED_TLS_V1',certificatePEM:transport.publicCertificatePEM,certificateSHA256:transport.publicCertificateSHA256}};
    // The Original supervisor validates lineage and chooses its unique current
    // end. Historical pairings keep routes; array order never chooses a wallet.
-   if(currentByDevice.get(descriptor.devicePublicKey)===descriptor.pairingId){const bytes=Buffer.from(JSON.stringify(connection)+'\n');try{await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,bytes,descriptor.devicePublicKey===configuration.devicePublicKey?'paired-connection.json':'paired-phone-connection.json');}finally{bytes.fill(0);}}
+   if(mixed||currentByDevice.get(descriptor.devicePublicKey)===descriptor.pairingId){const bytes=Buffer.from(JSON.stringify(connection)+'\n');try{await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,bytes,mixed?'paired-uniswap-connection.json':descriptor.devicePublicKey===configuration.devicePublicKey?'paired-connection.json':'paired-phone-connection.json');}finally{bytes.fill(0);}}
   }
   server=createServer({...transport.privateTLS,minVersion:'TLSv1.3',maxVersion:'TLSv1.3'},(request,response)=>{
    try{

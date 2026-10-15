@@ -10,7 +10,7 @@ import {canonical} from '@lianum/engine/crypto/privacy';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import * as F from '@lianum/mobile-protocol/device/source-note-v1';
 import {claimOriginalPagedProcessFenceV4} from './paged-original-process-fence-v4.mjs';
-import {createOriginalPagedPublicSupervisorRetentionV4,openOriginalPagedPublicSupervisorRetentionV4,resumeOriginalPagedPublicSupervisorOpeningV5,readOriginalPagedPublicActivationAnchorV4,readOriginalPagedPublicSupervisorParentV6} from './paged-runtime-recovery-authority-v3.mjs';
+import {createOriginalPagedPublicSupervisorRetentionV4,openOriginalPagedPublicSupervisorRetentionV4,resumeOriginalPagedPublicSupervisorOpeningV5,readOriginalPagedPublicActivationAnchorV4,readOriginalPagedPublicSupervisorParentV6,openOriginalPagedSourceReadRecoverySupervisorV4} from './paged-runtime-recovery-authority-v3.mjs';
 const PROFILE='ORIGINAL_PUBLIC_UNISWAP_MIXED_SUPERVISOR_V4',names=Object.freeze(['deployment','target','mixedSource','flatAuthority','authority','provider','native']),tokens=new WeakMap(),activationAnchors=new WeakMap(),groupProfiles=Object.freeze({mixedSource:'ORIGINAL_PUBLIC_UNISWAP_MIXED_SOURCE_COLLECTION_V4',flatAuthority:'ORIGINAL_PUBLIC_UNISWAP_FLAT_COLLECTION_V4',authority:'ORIGINAL_PUBLIC_UNISWAP_AUTHORITY_COLLECTION_V4',provider:'ORIGINAL_PUBLIC_UNISWAP_PROVIDER_COLLECTION_V4'});
 const clone=structuredClone,sha=v=>createHash('sha256').update(typeof v==='string'||Buffer.isBuffer(v)?v:canonical(v)).digest('hex');
 function exact(v,fields){assert.ok(v&&Object.getPrototypeOf(v)===Object.prototype,'MIXED_SUP_OBJECT');assert.deepEqual(Reflect.ownKeys(v).sort(),[...fields].sort(),'MIXED_SUP_FIELDS');for(const k of fields)assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(v,k),'value'),'MIXED_SUP_GETTER');return v;}
@@ -104,3 +104,56 @@ export async function readOriginalPagedPublicUniswapMixedRecoveryModeV6(raw){
  if(data.phase==='CAPTURED'){const retained=await load(raw.directory,raw.password,data.snapshot,data.descriptor);await parentReference(parentDirectory,parentPassword,retained,'CAPTURED',data.parentIdentity);}
  assert.deepEqual(await new Vault(file).read(raw.password),before,'MIXED_SUP_INSPECTION_CHANGED');return freeze({profile:'ORIGINAL_PUBLIC_UNISWAP_MIXED_RECOVERY_MODE_V6',phase:data.phase,identity:data.identity,parentIdentity:data.parentIdentity,parentDirectory,descriptor:clone(data.descriptor),checkpointSHA256:sha(before),financialPermissionIssued:false});
 }
+
+// Separate read capabilities never enter the component/send token registry.
+const sourceReadTokensV6=new WeakMap(),sourceReadReadersV6=new WeakMap();
+export async function openOriginalPagedPublicUniswapReadRecoverySupervisorV6(raw){
+ assert.equal(arguments.length,1);exact(raw,['directory','password']);path(raw.directory);
+ const ds=await lstat(raw.directory);assert.ok(ds.isDirectory()&&!ds.isSymbolicLink()&&ds.uid===process.getuid()&&(ds.mode&0o777)===0o700&&await realpath(raw.directory)===raw.directory);
+ const fence=await claimOriginalPagedProcessFenceV4({directory:raw.directory,purpose:'PAGED_PUBLIC_MIXED_SUPERVISOR'}),file=join(raw.directory,'mixed-supervisor.vault'),vault=new Vault(file);
+ let password=raw.password,parentPassword,parent,record,retained,closed=false;
+ const issued=new Set(),readers=new Set(),pairings=new Set();
+ async function close(){
+  if(closed)return;closed=true;
+  for(const token of issued)sourceReadTokensV6.delete(token);
+  for(const reader of readers)sourceReadReadersV6.delete(reader);
+  try{await parent?.close();}finally{password=null;parentPassword=null;record=null;retained=null;await fence.close();}
+ }
+ try{
+  await physical(file);record=await vault.read(password);assert.equal(record.data.profile,PROFILE);assert.equal(record.data.phase,'CAPTURED','MIXED_SOURCE_READ_CAPTURE_REQUIRED');
+  retained=await load(raw.directory,password,record.data.snapshot,record.data.descriptor);
+  let parentDirectory=join(raw.directory,'native3-parent-v4');parentPassword=createHmac('sha256',password).update(PROFILE+'\0'+record.data.identity).digest('hex');
+  if(record.data.parentLocationV6){exact(record.data.parentLocationV6,['directory','credential']);path(record.data.parentLocationV6.directory);assert.equal(record.data.parentLocationV6.credential,'SHARED_ROOT_PASSWORD_V6');parentDirectory=record.data.parentLocationV6.directory;parentPassword=password;}
+  await parentReference(parentDirectory,parentPassword,retained,'CAPTURED',record.data.parentIdentity);
+  parent=await openOriginalPagedSourceReadRecoverySupervisorV4({directory:parentDirectory,password:parentPassword});
+  const checkpoint=()=>freeze({profile:PROFILE,identity:record.data.identity,generation:record.data.generation,revision:record.revision,dataSHA256:sha(record.data),phase:'CAPTURED'});
+  async function current(){
+   assert.ok(!closed,'MIXED_SOURCE_READ_CLOSED');await fence.current();await physical(file);assert.deepEqual(await vault.read(password),record,'MIXED_SOURCE_READ_HIGHWATER');
+   assert.deepEqual(await load(raw.directory,password,record.data.snapshot,record.data.descriptor),retained,'MIXED_SOURCE_READ_SNAPSHOT_HIGHWATER');
+   await parentReference(parentDirectory,parentPassword,retained,'CAPTURED',record.data.parentIdentity);await parent.sourceDescriptors();await fence.current();
+  }
+  await current();
+  return Object.freeze({
+   parent,
+   async sourceDescriptors(){assert.equal(arguments.length,0);await current();return freeze(retained.authority.entries.map(entry=>clone(entry.authority.descriptor)));},
+   async issueSource(pairingId){
+    assert.equal(arguments.length,1);await current();assert.ok(!pairings.has(pairingId),'MIXED_SOURCE_READ_ALREADY_ISSUED');
+    const entry=retained.authority.entries.find(entry=>entry.authority.descriptor.pairingId===pairingId);assert.ok(entry,'MIXED_SOURCE_READ_NOT_CAPTURED');
+    const token=Object.freeze(Object.create(null)),data=freeze({profile:'ORIGINAL_PAGED_SUPERVISOR_SOURCE_READ_RECOVERY_V4',authority:clone(entry.authority),supervisor:checkpoint(),selection:{systemIndex:entry.sourceIndex},composition:'PUBLIC_SEPOLIA_UNISWAP_MIXED_V6'});
+    const binding=freeze({deployment:clone(retained.deployment),native:clone(retained.native),sourceLocation:{journalPath:entry.journalPath},uniswap:{target:clone(retained.target),source:clone(retained.mixedSource.entries[entry.sourceIndex].source)}});
+    sourceReadTokensV6.set(token,{current,data,binding,location:{supervisorDirectory:raw.directory,journalPath:entry.journalPath},readers});issued.add(token);pairings.add(pairingId);return token;
+   },close,
+  });
+ }catch(error){await close();throw error;}
+}
+export function isOriginalPagedPublicUniswapSourceReadTokenV6(token){return sourceReadTokensV6.has(token);}
+export function isOriginalPagedPublicUniswapSourceReadReaderV6(reader){return sourceReadReadersV6.has(reader);}
+export async function consumeOriginalPagedPublicUniswapSourceReadV6(token){
+ assert.equal(arguments.length,1);const state=sourceReadTokensV6.get(token);assert.ok(state,'MIXED_SOURCE_READ_ORIGINAL_TOKEN');await state.current();assert.strictEqual(sourceReadTokensV6.get(token),state,'MIXED_SOURCE_READ_CONSUMED');sourceReadTokensV6.delete(token);
+ const reader=Object.freeze(Object.create(null));sourceReadReadersV6.set(reader,state);state.readers.add(reader);return reader;
+}
+async function readSourceV6(reader,field){const state=sourceReadReadersV6.get(reader);assert.ok(state,'MIXED_SOURCE_READ_ORIGINAL_READER');await state.current();assert.strictEqual(sourceReadReadersV6.get(reader),state,'MIXED_SOURCE_READ_CLOSED');return freeze(clone(state[field]));}
+export async function readOriginalPagedPublicUniswapSourceReadV6(reader){assert.equal(arguments.length,1);return readSourceV6(reader,'data');}
+export async function readOriginalPagedPublicUniswapSourceReadBindingV6(reader){assert.equal(arguments.length,1);return readSourceV6(reader,'binding');}
+export async function readOriginalPagedPublicUniswapSourceReadLocationV6(reader){assert.equal(arguments.length,1);return readSourceV6(reader,'location');}
+export function closeOriginalPagedPublicUniswapSourceReadV6(reader){assert.equal(arguments.length,1);sourceReadReadersV6.delete(reader);}

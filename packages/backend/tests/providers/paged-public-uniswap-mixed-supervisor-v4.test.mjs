@@ -33,3 +33,21 @@ test('Mixed adoption retains the actual Native3 parent identity and directory ac
   const {Vault}=await import('@lianum/engine/crypto/vault');const retained=await new Vault(join(parentInput.directory,'supervisor.vault')).read(password);assert.equal(retained.data.identity,before.checkpoint.identity);assert.equal(retained.data.phase,'OPENING');assert.equal(retained.data.generation,before.checkpoint.generation,'adoption does not reset or increment the parent generation');
  }finally{await sup?.close();await parent?.close();await rm(directory,{recursive:true,force:true});}
 });
+
+test('captured Mixed read capabilities preserve both supervisors and cannot become financial tokens',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'original-mixed-read-')),input={directory,password:'HOST captured Mixed read supervisor password 12345678'};let sup,readSup;
+ try{
+  const saved=fixture();sup=await M.createOriginalPagedPublicUniswapMixedSupervisorV4(input,descriptor);await sup.capture(saved);await sup.close();
+  const before=await M.readOriginalPagedPublicUniswapMixedRecoveryModeV6(input);readSup=await M.openOriginalPagedPublicUniswapReadRecoverySupervisorV6(input);
+  assert.deepEqual(await readSup.sourceDescriptors(),[saved.authority.entries[0].authority.descriptor]);assert.deepEqual(await readSup.parent.sourceDescriptors(),[descriptor]);
+  const token=await readSup.issueSource(saved.authority.entries[0].authority.descriptor.pairingId);
+  await assert.rejects(M.consumeOriginalPagedPublicUniswapSourceReadV6({...token}),/ORIGINAL_TOKEN/);
+  assert.throws(()=>M.consumeOriginalPagedPublicUniswapMixedComponentV4(token,'target'),/ORIGINAL_TOKEN/);
+  assert.throws(()=>consumeOriginalPagedComponentRecoveryV3(token,'native'),/ORIGINAL_OPEN_TOKEN/);
+  const reader=await M.consumeOriginalPagedPublicUniswapSourceReadV6(token);await assert.rejects(M.consumeOriginalPagedPublicUniswapSourceReadV6(token),/ORIGINAL_TOKEN/);
+  const scope=await M.readOriginalPagedPublicUniswapSourceReadV6(reader);assert.equal(scope.composition,'PUBLIC_SEPOLIA_UNISWAP_MIXED_V6');assert.equal(scope.supervisor.phase,'CAPTURED');
+  assert.deepEqual((await M.readOriginalPagedPublicUniswapSourceReadBindingV6(reader)).uniswap.source,saved.mixedSource.entries[0].source);
+  await readSup.close();await assert.rejects(M.readOriginalPagedPublicUniswapSourceReadV6(reader),/ORIGINAL_READER/);
+  assert.deepEqual(await M.readOriginalPagedPublicUniswapMixedRecoveryModeV6(input),before);
+ }finally{await readSup?.close();await sup?.close();await rm(directory,{recursive:true,force:true});}
+});

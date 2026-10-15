@@ -44,7 +44,7 @@ async function close(){
 function stop(){void close().catch(error=>{process.exitCode=1;failure('CAPTURE',error);});}
 async function beginReadOnly(){
  const bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,'operator.json');let input;
- try{input={...JSON.parse(bytes.toString('utf8')),providerDirectory:configuration.providerDirectory};if(!stopping){readOpening=openCapturedPublicReadServerV4(root,input,ingress);readServer=await readOpening;}}
+ try{input={...JSON.parse(bytes.toString('utf8')),providerDirectory:configuration.providerDirectory};if(!stopping){readOpening=openCapturedPublicReadServerV4(root,input,ingress,uniswapMode?.input??null);readServer=await readOpening;}}
  finally{bytes.fill(0);if(input)input.journal.password=null;}
  if(!stopping&&readServer)emit({stage:'READY',profile:readServer.profile,origin:configuration.origin??'https://api.lianum.oryontechnology.com',sources:readServer.sources,financialPermissionsReopened:false,automaticRebroadcast:false});
 }
