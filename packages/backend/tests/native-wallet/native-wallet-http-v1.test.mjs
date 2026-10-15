@@ -14,6 +14,32 @@ test('RPC reads recover from a temporary HTTP response and release its body',asy
  assert.equal(calls,2);assert.equal(bodies[0],bodies[1]);
 });
 
+test('a disconnected RPC read repeats the same request, within three attempts',async t=>{
+ const bodies=[];
+ t.mock.method(globalThis,'fetch',async(_url,options)=>{
+  bodies.push(options.body);if(bodies.length<3)throw new TypeError('private upstream connection details');
+  return Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,result:null});
+ });
+ assert.equal(await nativeRpcV1('https://rpc.invalid')('eth_getTransactionReceipt',['0x123']),null);
+ assert.equal(bodies.length,3);assert.equal(new Set(bodies).size,1);
+});
+
+test('an interrupted response body retries a read and releases its reader',async t=>{
+ let calls=0;
+ t.mock.method(globalThis,'fetch',async(_url,options)=>{
+  if(++calls===1)return new Response(new ReadableStream({start(controller){controller.error(new TypeError('private transport detail'));}}));
+  return Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,result:'0x1'});
+ });
+ assert.equal(await nativeRpcV1('https://rpc.invalid')('eth_chainId'),'0x1');assert.equal(calls,2);
+});
+
+test('persistent transport failures are bounded; signed and unknown sends stay single attempt',async t=>{
+ let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;throw new TypeError('private endpoint and wire');});
+ const rpc=nativeRpcV1('https://rpc.invalid');
+ await assert.rejects(rpc('eth_getCode'),error=>{assert.equal(error.message,'NATIVE_WALLET_HTTP_FAILED');assert.equal(error.cause,undefined);return true;});assert.equal(calls,3);
+ for(const method of ['eth_sendRawTransaction','sendTransaction','customMethod']){const before=calls;await assert.rejects(rpc(method,['signed-wire']),{code:'NATIVE_WALLET_HTTP_FAILED'});assert.equal(calls,before+1);}
+});
+
 test('read retries are bounded and retain only the numeric HTTP status',async t=>{
  let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response('private provider body',{status:429,headers:{'retry-after':'0'}});});
  await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_chainId'),error=>{

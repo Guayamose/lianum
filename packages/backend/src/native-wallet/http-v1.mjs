@@ -17,25 +17,28 @@ async function request(endpoint,{method='GET',body,signal,text=false,missing=fal
  try{
   for(let attempt=0;;attempt++){
    signalCurrent(signal);
-   reply=await fetch(endpoint,{method,body,signal:abort.signal,redirect:'error',headers:{Accept:text?'text/plain':'application/json',...(body!==undefined?{'Content-Type':text?'text/plain':'application/json'}:{})}});
-   if(reply.status===200||missing&&reply.status===404)break;
-   await reply.body?.cancel();
-   // A gateway can also reject a validated RPC read with HTTP 400. Repeating
-   // that read remains bounded; invalid requests still fail after three tries.
-   const transient=TRANSIENT_HTTP_STATUS.has(reply.status)||method==='POST'&&readOnly&&reply.status===400;
-   if(!readOnly||attempt>=2||!transient){
-    try{fail('HTTP_STATUS');}catch(error){error.httpStatus=reply.status;throw error;}
+   try{
+    reply=await fetch(endpoint,{method,body,signal:abort.signal,redirect:'error',headers:{Accept:text?'text/plain':'application/json',...(body!==undefined?{'Content-Type':text?'text/plain':'application/json'}:{})}});
+    if(missing&&reply.status===404){await reply.body?.cancel();return null;}
+    if(reply.status!==200){
+     await reply.body?.cancel();
+     // Both the attempt count and the original deadline cover status retries.
+     const transient=TRANSIENT_HTTP_STATUS.has(reply.status)||method==='POST'&&readOnly&&reply.status===400;
+     if(!readOnly||attempt>=2||!transient){try{fail('HTTP_STATUS');}catch(error){error.httpStatus=reply.status;throw error;}}
+     const retryAfter=reply.headers.get('retry-after'),wait=retryAfter!==null&&/^[0-9]+$/.test(retryAfter)?Math.min(2000,Number(retryAfter)*1000):250*2**attempt;
+     await pause(wait,undefined,{signal:abort.signal});continue;
+    }
+    const length=reply.headers.get('content-length');if(length!==null)need(/^[0-9]+$/.test(length)&&BigInt(length)<=BigInt(LIMIT),'RESPONSE_BOUND');
+    const reader=reply.body?.getReader();need(reader,'RESPONSE');const chunks=[];let bytes=0;
+    try{for(;;){const r=await reader.read();if(r.done)break;bytes+=r.value.length;need(bytes<=LIMIT,'RESPONSE_BOUND');chunks.push(r.value);}}catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
+    signalCurrent(signal);const raw=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks,bytes));if(text)return raw.trim();return JSON.parse(raw);
+   }catch(error){
+    // Socket failures and interrupted bodies are safe to repeat only for a
+    // whitelisted read. Never repeat sends or reset the shared 15s deadline.
+    if(!readOnly||attempt>=2||abort.signal.aborted||signal?.aborted||/^NATIVE_WALLET_[A-Z_]+$/.test(error?.code??''))throw error;
+    await pause(250*2**attempt,undefined,{signal:abort.signal});
    }
-   // The same 15-second deadline and cancellation cover all three attempts.
-   // Only reads reach this branch; a signed send is always attempted once.
-   const retryAfter=reply.headers.get('retry-after');
-   const wait=retryAfter!==null&&/^[0-9]+$/.test(retryAfter)?Math.min(2000,Number(retryAfter)*1000):250*2**attempt;
-   await pause(wait,undefined,{signal:abort.signal});
   }
-  if(missing&&reply.status===404){await reply.body?.cancel();return null;}
-  need(reply.status===200,'HTTP_STATUS');const length=reply.headers.get('content-length');if(length!==null)need(/^[0-9]+$/.test(length)&&BigInt(length)<=BigInt(LIMIT),'RESPONSE_BOUND');
-  const reader=reply.body?.getReader();need(reader,'RESPONSE');const chunks=[];let bytes=0;try{for(;;){const r=await reader.read();if(r.done)break;bytes+=r.value.length;need(bytes<=LIMIT,'RESPONSE_BOUND');chunks.push(r.value);}}catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
-  signalCurrent(signal);const raw=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks,bytes));if(text)return raw.trim();return JSON.parse(raw);
  }catch(error){if(/^NATIVE_WALLET_[A-Z_]+$/.test(error?.code??''))throw error;fail(signal?.aborted?'CANCELLED':abort.signal.aborted?'HTTP_TIMEOUT':'HTTP_FAILED');}
  finally{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);}
 }
