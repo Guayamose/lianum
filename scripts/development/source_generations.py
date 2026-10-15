@@ -41,6 +41,9 @@ PREFIXES = (
 )
 MAX_BYTES = 128 * 1024 * 1024
 CURRENT_SOURCE_INPUTS = (
+    "packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs",
+    "packages/backend/src/operations/recovery/paged-source-read-recovery-issuer-v4.mjs",
+    "packages/backend/src/api/mobile/device-paged-source-read-recovery-http-v4.mjs",
     "packages/backend/src/operations/local/funded-paged-public-testnet-native-graph-operator-v4.mjs",
     "packages/backend/src/operations/local/funded-paged-public-native-operator-v4.mjs",
     "contracts/wallet/v2/PrivateFlatAssetNotePoolV3.sol",

@@ -25,6 +25,13 @@ ENTRY = 'packages/backend/src/operations/local/funded-paged-native-operator-v3.m
 PUBLIC_ENTRY = 'packages/backend/src/operations/local/funded-paged-public-native-operator-v4.mjs'
 ADDITIONAL = ['packages/proofs/src/jobs/worker.mjs',
               'packages/proofs/src/toolchain/paged-proof-process-v3.mjs']
+# These are loaded by the delivered service helpers through a fixed candidate
+# locator, rather than an import reachable from PUBLIC_ENTRY.
+PUBLIC_RUNTIME_ROOTS = [
+    'packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs',
+    'packages/backend/src/operations/recovery/paged-source-read-recovery-issuer-v4.mjs',
+    'packages/backend/src/api/mobile/device-paged-source-read-recovery-http-v4.mjs',
+]
 BOOTSTRAP = 'services/paeg-engine/src/bootstrap/paged-native-bootstrap-v3.mjs'
 
 
@@ -74,7 +81,8 @@ def prepare(output, profile='local'):
         # working copy, with public artifact files bound read-only by systemd.
         # This does not weaken bundle.verify's no-writable-overlap predicate.
         built = bundle.build(ROOT, candidate, entry, resources, ROOT, 'tools/node',
-                             additional=ADDITIONAL, adopted_generation=True)
+                             additional=ADDITIONAL + (PUBLIC_RUNTIME_ROOTS if profile == 'public-testnet' else []),
+                             adopted_generation=True)
         generation = bundle.verify(candidate)['adoptedGeneration']
         infra = output / 'infra'; infra.mkdir()
         for source in sorted(Path(__file__).parent.iterdir()):
