@@ -42,6 +42,7 @@ PREFIXES = (
 MAX_BYTES = 128 * 1024 * 1024
 CURRENT_SOURCE_INPUTS = (
     "packages/backend/src/operations/local/funded-paged-public-testnet-native-graph-operator-v4.mjs",
+    "packages/backend/src/operations/local/funded-paged-public-native-operator-v4.mjs",
     "contracts/wallet/v2/PrivateFlatAssetNotePoolV3.sol",
     "archive/source-evidence/tron-original-builder-v1/provenance.json",
     "archive/source-evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source",
