@@ -40,6 +40,15 @@ test('persistent transport failures are bounded; signed and unknown sends stay s
  for(const method of ['eth_sendRawTransaction','sendTransaction','customMethod']){const before=calls;await assert.rejects(rpc(method,['signed-wire']),{code:'NATIVE_WALLET_HTTP_FAILED'});assert.equal(calls,before+1);}
 });
 
+test('transport diagnostics expose only known error classes and system codes',async t=>{
+ const cause=new Error('private URL or payload');cause.code='ECONNRESET';
+ const mocked=t.mock.method(globalThis,'fetch',async()=>{throw new TypeError('private upstream detail',{cause});});
+ const rpc=nativeRpcV1('https://rpc.invalid');
+ await assert.rejects(rpc('eth_chainId'),{code:'NATIVE_WALLET_HTTP_FAILED',message:'NATIVE_WALLET_HTTP_FAILED',transportClass:'TypeError',transportCode:'ECONNRESET'});
+ cause.code='PRIVATE_ENDPOINT_TOKEN';mocked.mock.mockImplementation(async()=>{throw new Error('private payload',{cause});});
+ await assert.rejects(rpc('eth_chainId'),error=>{assert.equal(error.transportClass,'Error');assert.equal(error.transportCode,undefined);assert.equal(error.cause,undefined);return true;});
+});
+
 test('read retries are bounded and retain only the numeric HTTP status',async t=>{
  let calls=0;t.mock.method(globalThis,'fetch',async()=>{calls++;return new Response('private provider body',{status:429,headers:{'retry-after':'0'}});});
  await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_chainId'),error=>{

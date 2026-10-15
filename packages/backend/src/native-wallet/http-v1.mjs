@@ -12,6 +12,7 @@ const READ_RPC_METHODS=new Set([
  'getTokenAccountBalance','getTokenAccountsByOwner','isBlockhashValid',
 ]);
 const TRANSIENT_HTTP_STATUS=new Set([408,429,500,502,503,504]);
+const TRANSPORT_CODES=new Set(['ECONNRESET','ECONNREFUSED','ETIMEDOUT','EAI_AGAIN','ENOTFOUND','ENETUNREACH','UND_ERR_SOCKET','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_BODY_TIMEOUT','ERR_TLS_CERT_ALTNAME_INVALID','UNABLE_TO_GET_ISSUER_CERT_LOCALLY']);
 async function request(endpoint,{method='GET',body,signal,text=false,missing=false,readOnly=false}={}){
  signalCurrent(signal);const abort=new AbortController(),onAbort=()=>abort.abort();signal?.addEventListener('abort',onAbort,{once:true});const timer=setTimeout(()=>abort.abort(),15000);let reply;
  try{
@@ -39,7 +40,7 @@ async function request(endpoint,{method='GET',body,signal,text=false,missing=fal
     await pause(250*2**attempt,undefined,{signal:abort.signal});
    }
   }
- }catch(error){if(/^NATIVE_WALLET_[A-Z_]+$/.test(error?.code??''))throw error;fail(signal?.aborted?'CANCELLED':abort.signal.aborted?'HTTP_TIMEOUT':'HTTP_FAILED');}
+ }catch(error){if(/^NATIVE_WALLET_[A-Z_]+$/.test(error?.code??''))throw error;try{fail(signal?.aborted?'CANCELLED':abort.signal.aborted?'HTTP_TIMEOUT':'HTTP_FAILED');}catch(failure){if(['TypeError','SyntaxError','AbortError','RangeError','Error'].includes(error?.name))failure.transportClass=error.name;const code=error?.cause?.code??error?.code;if(TRANSPORT_CODES.has(code))failure.transportCode=code;throw failure;}}
  finally{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);}
 }
 export function nativeRpcV1(endpoint){return async(method,params=[],signal)=>{const id=randomUUID();try{const result=await request(endpoint,{method:'POST',body:JSON.stringify({jsonrpc:'2.0',id,method,params}),signal,readOnly:READ_RPC_METHODS.has(method)});need(result?.jsonrpc==='2.0'&&result.id===id,'RPC_FAILED');if(Object.hasOwn(result,'error')){try{fail('RPC_FAILED');}catch(error){if(READ_RPC_METHODS.has(method)&&Number.isInteger(result.error?.code)){error.rpcErrorCode=result.error.code;const cap=/^out of gas: gas required exceeds: ([1-9][0-9]{0,19})$/.exec(result.error.message??'');if(method==='eth_estimateGas'&&result.error.code===-32003&&cap)error.rpcGasCap=cap[1];}throw error;}}need(Object.hasOwn(result,'result'),'RPC_FAILED');return result.result;}catch(error){if(READ_RPC_METHODS.has(method)&&['NATIVE_WALLET_HTTP_STATUS','NATIVE_WALLET_RPC_FAILED'].includes(error?.code))error.rpcMethod=method;throw error;}};}
