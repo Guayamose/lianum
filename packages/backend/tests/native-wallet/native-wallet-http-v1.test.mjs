@@ -63,3 +63,13 @@ test('cancellation during backoff prevents another request',async t=>{
  await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_chainId',[],controller.signal),{code:'NATIVE_WALLET_CANCELLED'});
  assert.equal(calls,1);
 });
+
+test('only a precise CREATE estimation cap exposes safe fallback metadata',async t=>{
+ let reply={code:-32003,message:'out of gas: gas required exceeds: 50000000'};
+ t.mock.method(globalThis,'fetch',async(_url,options)=>Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,error:reply}));
+ const rpc=nativeRpcV1('https://rpc.invalid');
+ await assert.rejects(rpc('eth_estimateGas'),{code:'NATIVE_WALLET_RPC_FAILED',rpcErrorCode:-32003,rpcGasCap:'50000000',rpcMethod:'eth_estimateGas'});
+ for(const method of ['eth_call','eth_sendRawTransaction'])await assert.rejects(rpc(method),error=>{assert.equal(error.rpcGasCap,undefined);return true;});
+ reply={code:-32000,message:'private upstream revert details'};
+ await assert.rejects(rpc('eth_estimateGas'),error=>{assert.equal(error.rpcGasCap,undefined);assert.equal(error.message,'NATIVE_WALLET_RPC_FAILED');return true;});
+});
