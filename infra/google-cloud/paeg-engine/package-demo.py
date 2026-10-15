@@ -31,6 +31,16 @@ PUBLIC_RUNTIME_ROOTS = [
     'packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs',
     'packages/backend/src/operations/recovery/paged-source-read-recovery-issuer-v4.mjs',
     'packages/backend/src/api/mobile/device-paged-source-read-recovery-http-v4.mjs',
+    'packages/backend/src/operations/deployments/defi/aave-sepolia-compilation-v4.mjs',
+    'packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-compilation-v4.mjs',
+]
+# These compilers read Solidity by a fixed filesystem locator, not a JS import.
+PUBLIC_SOLIDITY_ROOTS = [
+    'contracts/wallet/defi/PrivateSepoliaUniswapDeliveryV4.sol',
+    'contracts/wallet/defi/PrivateAaveStaticDeliverySepoliaV4.sol',
+    'contracts/wallet/defi/BoundedAaveStaticExitSepoliaV4.sol',
+    'contracts/wallet/defi/PrivateMorphoVaultV2DeliverySepoliaV4.sol',
+    'contracts/wallet/defi/BoundedMorphoVaultV2ExitSepoliaV4.sol',
 ]
 BOOTSTRAP = 'services/paeg-engine/src/bootstrap/paged-native-bootstrap-v3.mjs'
 
@@ -81,7 +91,7 @@ def prepare(output, profile='local'):
         # working copy, with public artifact files bound read-only by systemd.
         # This does not weaken bundle.verify's no-writable-overlap predicate.
         built = bundle.build(ROOT, candidate, entry, resources, ROOT, 'tools/node',
-                             additional=ADDITIONAL + (PUBLIC_RUNTIME_ROOTS if profile == 'public-testnet' else []),
+                             additional=ADDITIONAL + (PUBLIC_RUNTIME_ROOTS + PUBLIC_SOLIDITY_ROOTS if profile == 'public-testnet' else []),
                              adopted_generation=True)
         generation = bundle.verify(candidate)['adoptedGeneration']
         infra = output / 'infra'; infra.mkdir()
