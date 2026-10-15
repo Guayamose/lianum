@@ -19,7 +19,7 @@ mock.module('../wallet-platform/modules/api/flat-account-session.mjs', { exports
 mock.module('../wallet-platform/modules/defi-adapters/private-vault-exit.mjs', { exports: {
   assertOwnedPrivateVaultExit(runtime, service) { if (vaultBrand.get(service) !== runtime) throw code('SYNTHETIC_VAULT_REQUIRED'); },
 } });
-const { startWalletApplication } = await import('../../../../apps/wallet/src/server/server.mjs');
+const { startWalletApplication } = await import('../../../../packages/backend/tests/fixtures/api/wallet/application.mjs');
 const assetId = '6'.repeat(64), ownerOperationRef = '7'.repeat(64);
 const rows = [], admissions = [], operations = [], effects = [];
 const account = Object.freeze({

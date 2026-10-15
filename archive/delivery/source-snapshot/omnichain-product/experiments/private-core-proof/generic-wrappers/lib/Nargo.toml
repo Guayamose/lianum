@@ -1,7 +1,0 @@
-[package]
-name = "generic_wrappers"
-type = "lib"
-authors = ["Lianum rootless funding wrapper research"]
-
-[dependencies]
-generic_graph = { path = "../../generic-graph/lib" }

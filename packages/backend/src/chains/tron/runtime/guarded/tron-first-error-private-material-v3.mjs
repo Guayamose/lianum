@@ -51,7 +51,7 @@ export async function inspectOwnedTronFirstErrorPrivateMaterialV3(){
  assert.equal(build.inputs.compilerChildSHA256,ORIGINAL_HELPERS['compile-child.py']);
  // The receipt authenticates old source bytes; current execution uses the
  // independently adopted helper, never this retained Python source.
- await pin(sourcePath('archive/source-evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source'),build.inputs.ownedProcessHelperSHA256);
+ await pin(sourcePath('packages/proofs/evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source'),build.inputs.ownedProcessHelperSHA256);
  const adopted=assertAdoptedSourceGeneration(),helperSource='scripts/development/ledger_owned_processes.py';
  const helper=adopted.sourceFiles.find(row=>row.source===helperSource);
  assert.ok(helper,'TRON_FIRST_ERROR_CURRENT_HELPER_SOURCE');

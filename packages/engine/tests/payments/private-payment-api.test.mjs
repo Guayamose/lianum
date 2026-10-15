@@ -7,7 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { startLocalServer } from '../../../backend/src/api/private-runtime-server.mjs';
+import { startLocalServer } from '../../../../scripts/engine/demos/server.mjs';
 const base={phase:'PREPARING',progressCode:'PREPARING',engineState:'RUNNING',ownerState:'PREPARING',settlementState:'NOT_FUNDED',exposure:{evm:'NONE',sol:'NONE',btc:'NONE'},payouts:{sol:{state:'PENDING',amountWei:null},btc:{state:'PENDING',amountWei:null}},cleanupState:'NOT_STARTED',errorCode:null,observation:'LIVE'};
 class Engine extends EventEmitter{
  constructor(){super();this.connected=true;this.stdout=new PassThrough();this.stderr=new PassThrough();this.acks=[];}

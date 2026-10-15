@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { observeBitcoinDelivery, mergeBitcoinObservation, markObservation, retainBitcoinObservation } from '../../src/native/native-bitcoin.mjs';
-import { nativeOutcome } from '../../../../archive/legacy-client/native-outcome.mjs';
+import { nativeOutcome } from '../../../../scripts/engine/demos/client/native-outcome.mjs';
 
 // Scripted RPC replies only. These regressions do not run a native node, execute
 // a payout attack, or establish an atomic node snapshot.

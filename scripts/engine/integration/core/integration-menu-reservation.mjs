@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { createOwnedNativeRuntime, sha, hex, ZERO } from '../../../../packages/engine/src/chains/shared/native-runtime.mjs';
 import { projectRoot } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import { commitment, requireFundedOrder, requireExactMenuPackage, requireAuthenticatedCopies, ackBytes } from '../../../../packages/engine/src/native/native-authority.mjs';
-import { acknowledgeFrozenCopy } from '../../../../experiments/engine/pc5-proof-probe/qb/frozen-copy-gate.mjs';
+import { acknowledgeFrozenCopy } from '../../diagnostics/recursive-proof/qb/frozen-copy-gate.mjs';
 
 const evidence = { classification: 'REAL_FUNDED_NATIVE_OWNER_BINDING_OF_EXACT_QB_PAIRS_NOT_HIDDEN_AUTHORIZATION_OR_PC5_ACTIVATION', phase: 'starting', holders: [], checks: [], nativeTripleExposureAuthorized: false };
 const reviewRace = process.argv.includes('--review-race');
@@ -16,7 +16,7 @@ const local = await mkdtemp(join(projectRoot, '.local/m9-menu-'));
 try {
   const f = JSON.parse(await readFile(join(projectRoot, 'evidence/m8-qb-wire-fixtures.json'))), eq = JSON.parse(await readFile(join(projectRoot, 'evidence/m9-pair-equivocation/results.json')));
   assert.equal(eq.phase, 'completed'); assert.equal(eq.verified, true); assert.equal(eq.sameMenuBinding, true);
-  const { decode } = await import('../../../../experiments/engine/pc5-proof-probe/qb/wire.mjs');
+  const { decode } = await import('../../diagnostics/recursive-proof/qb/wire.mjs');
   const s = decode('statement', Buffer.from(f.branches[0].statementHex, 'hex'));
   const roles = ['E_S', 'P_S', 'E_B', 'P_B'], keys = {}, holders = {};
   for (const role of roles) {

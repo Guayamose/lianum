@@ -1,5 +1,0 @@
-[package]
-name="withdraw"
-type="bin"
-authors=["PC15 bounded local research"]
-[dependencies]

@@ -8,8 +8,8 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join, resolve, relative, sep } from 'node:path';
-import { verifyToolchain } from '../../../experiments/protocol/private-core-proof/wallet-notes/resources.mjs';
-import { NATIVE_PROFILES } from '../../../experiments/protocol/private-core-proof/generic-native/pin-key.mjs';
+import { verifyToolchain } from '../../../packages/protocol/circuits/wallet-notes/resources.mjs';
+import { NATIVE_PROFILES } from '../../../packages/protocol/circuits/generic-native/pin-key.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const experiment = join(root, 'experiments/private-core-proof');
@@ -74,7 +74,7 @@ try {
     const artifact = readFileSync(join(output, relation + '.json'));
     assert.equal(sha(artifact), manifest.programSHA256, 'NATIVE_COMPILED_ARTIFACT_HASH');
     const { Noir } = await import(pathToFileURL(require.resolve('@noir-lang/noir_js')));
-    const fixtures = await import('../../../experiments/protocol/private-core-proof/generic-native/dependency-fixtures.mjs');
+    const fixtures = await import('../../../packages/protocol/circuits/generic-native/dependency-fixtures.mjs');
     const fixturePath = join(experiment, 'generic-native/dependency-fixtures.mjs');
     report.fixtureSHA256 = sha(readFileSync(fixturePath));
     report.disclosure = 'Synthetic membership/state constraint fixtures. No admitted native fact or authenticated current chain state is claimed; Ready and the hub still supply those authority boundaries.';

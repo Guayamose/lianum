@@ -6,7 +6,7 @@ Los comandos cotidianos se ejecutan desde la raíz:
 ./dev start
 ./dev check
 ./dev test
-./dev test apps/wallet/tests/client/ui.test.mjs
+./dev test packages/backend/tests/api/wallet/client/wallet-client-model.test.mjs
 ./dev node packages/backend/src/ruta.mjs
 ./dev doctor
 ./dev evidence

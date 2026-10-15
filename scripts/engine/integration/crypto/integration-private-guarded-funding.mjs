@@ -7,7 +7,7 @@ import {fork} from 'node:child_process';
 import {randomUUID,createHash} from 'node:crypto';
 import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
 import {join} from 'node:path';
-import {startLocalServer} from '../../../../packages/backend/src/api/private-runtime-server.mjs';
+import {startLocalServer} from '../../demos/server.mjs';
 import {projectRoot} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import {ownerRefundMonitorAction} from '../../diagnostics/private-owner-refund-monitor.mjs';
 assert.ok(process.argv.includes('--authorized-local-guarded-funding'),'M22_EXPLICIT_LOCAL_AUTHORIZATION');

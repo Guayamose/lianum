@@ -130,7 +130,15 @@ function main(args) {
       ? git('diff', '--name-only', 'HEAD', '--') + '\n' + git('ls-files', '--others', '--exclude-standard')
       : git('ls-files', '--cached', '--others', '--exclude-standard');
     files = [...new Set(selected.split('\n'))].filter(path =>
-      /^(?:packages\/[^/]+\/src\/|apps\/(?:wallet|platform)\/src\/)/.test(path) && path.endsWith('.mjs') && existsSync(resolve(ROOT, path)));
+      /^(?:packages\/[^/]+\/src\/|apps\/wallet\/src\/|services\/[^/]+\/src\/)/.test(path) && path.endsWith('.mjs') && existsSync(resolve(ROOT, path)));
+    // Frozen, unreachable compatibility modules are authenticated as byte
+    // evidence by the shared inventory. Their former import targets are not
+    // current runtime dependencies. Exported/reachable compatibility stays in.
+    const frozen = JSON.parse(execFileSync('python3', ['-B', '-c',
+      'import json,sys; sys.path.insert(0,sys.argv[1]); from block_check import discover; print(json.dumps([r["path"] for r in discover()["explicitExclusions"] if r.get("inventory")]))',
+      resolve(ROOT, 'scripts/development')], { cwd: ROOT, encoding: 'utf8' }));
+    const excluded = new Set(frozen);
+    files = files.filter(path => !excluded.has(path));
   } else {
     files = args.map(path => {
       const absolute = resolve(ROOT, path);

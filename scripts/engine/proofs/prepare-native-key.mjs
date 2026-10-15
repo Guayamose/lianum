@@ -9,7 +9,7 @@ import { gunzipSync } from 'node:zlib';
 import { verifyToolchain, verifyCRS, hash, CRS, guard, resources } from '@lianum/components/resources/wallet-resources';
 import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { ROOT, NATIVE_PROFILES, KEY_FORMAT, KEY_CLASSIFICATION, nativePaths, keySettings,
-  assertCompiledNative, verifyNativeVerifier, validateNativeKeyBytes, validateNativeKey, installNativePin } from '../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
+  assertCompiledNative, verifyNativeVerifier, validateNativeKeyBytes, validateNativeKey, installNativePin } from '../../../packages/proofs/programs/generic-native/pin-key.mjs';
 
 assert.equal(process.argv.length, 3, 'NATIVE_KEY_SINGLE_FIXED_MODE_REQUIRED');
 const mode = process.argv[2], paths = nativePaths(mode), profile = NATIVE_PROFILES[mode];

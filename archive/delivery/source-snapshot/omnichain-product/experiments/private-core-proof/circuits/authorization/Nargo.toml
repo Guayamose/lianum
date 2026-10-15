@@ -1,6 +1,0 @@
-[package]
-name = "authorization"
-type = "bin"
-authors = ["PC15 local capability gate"]
-
-[dependencies]

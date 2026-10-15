@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { requireConstraintFailure } from '../../../../experiments/engine/pc5-proof-probe/validation/expected-constraint-failure.mjs';
+import { requireConstraintFailure } from '../../../../scripts/engine/diagnostics/recursive-proof/validation/expected-constraint-failure.mjs';
 
 test('pinned Noir constraint failure retains its concrete cause', async () => {
   assert.deepEqual(await requireConstraintFailure(async () => { throw new Error('Cannot satisfy constraint'); }), { name: 'Error', message: 'Cannot satisfy constraint' });

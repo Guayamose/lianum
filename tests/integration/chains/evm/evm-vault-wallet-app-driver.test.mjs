@@ -8,7 +8,7 @@ const defiBrands = new WeakMap();
 mock.module('../../../../packages/backend/src/defi/withdrawals/private-vault-exit.mjs', { exports: {
   assertOwnedPrivateVaultExit(runtime, service) { assert.equal(defiBrands.get(service), runtime, 'SYNTHETIC_ORIGINAL_DEFI_REQUIRED'); },
 } });
-const { startWalletApplication } = await import('../../../../apps/wallet/src/server/server.mjs');
+const { startWalletApplication } = await import('../../../../packages/backend/tests/fixtures/api/wallet/application.mjs');
 const { createEvmVaultWalletAppDriver } = await import('./evm-vault-wallet-app-driver.mjs');
 const request = (kind = 'TOP_UP', requestId = 'original_top_up') => ({ requestId, kind, ownerOperationRef: 'ab'.repeat(32), assetId: 'cd'.repeat(32) });
 const error = code => Object.assign(new Error(code), { code });

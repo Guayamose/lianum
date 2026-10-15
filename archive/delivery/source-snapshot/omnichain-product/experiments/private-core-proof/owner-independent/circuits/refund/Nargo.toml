@@ -1,5 +1,0 @@
-[package]
-name="refund"
-type="bin"
-authors=["PC18 local exact-transfer research"]
-[dependencies]

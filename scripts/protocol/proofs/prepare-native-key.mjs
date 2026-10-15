@@ -6,10 +6,10 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync, realpat
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
-import { verifyToolchain, verifyCRS, hash, CRS, guard, resources } from '../../../experiments/protocol/private-core-proof/wallet-notes/resources.mjs';
+import { verifyToolchain, verifyCRS, hash, CRS, guard, resources } from '../../../packages/protocol/circuits/wallet-notes/resources.mjs';
 import { PRIVATE_RESOURCE_POLICY } from '../../../packages/protocol/src/crypto/private-resource-policy.mjs';
 import { ROOT, NATIVE_PROFILES, KEY_FORMAT, KEY_CLASSIFICATION, nativePaths, keySettings,
-  assertCompiledNative, verifyNativeVerifier, validateNativeKeyBytes, validateNativeKey, installNativePin } from '../../../experiments/protocol/private-core-proof/generic-native/pin-key.mjs';
+  assertCompiledNative, verifyNativeVerifier, validateNativeKeyBytes, validateNativeKey, installNativePin } from '../../../packages/protocol/circuits/generic-native/pin-key.mjs';
 
 assert.equal(process.argv.length, 3, 'NATIVE_KEY_SINGLE_FIXED_MODE_REQUIRED');
 const mode = process.argv[2], paths = nativePaths(mode), profile = NATIVE_PROFILES[mode];

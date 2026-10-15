@@ -1,0 +1,42 @@
+# Linux local composition of the ORIGINAL owner/keeper/worker process.
+# Uses the retained workspace at the SAME path and UID. No private state is
+# copied into the image; no resources, accounts, migrations or keys are created.
+name: lianum-original-local
+services:
+  original:
+    image: lianum-platform:local
+    pull_policy: never
+    profiles: [original]
+    user: ${LIANUM_LOCAL_UID:?Set your existing workspace UID}:${LIANUM_LOCAL_GID:?Set your existing workspace GID}
+    working_dir: ${LIANUM_LOCAL_WORKSPACE:?Absolute retained workspace path}/services/api-server
+    entrypoint:
+      - ${LIANUM_LOCAL_WORKSPACE}/.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node
+      - --max-old-space-size=384
+      - ${LIANUM_LOCAL_WORKSPACE}/services/api-server/src/entry.mjs
+    command: ["${LIANUM_LOCAL_PLATFORM_PROFILE:-original-native-reopen}"]
+    environment:
+      PORT: ${PORT:-8080}
+      DATABASE_URL: ${DATABASE_URL:?Use the existing original PostgreSQL database}
+      LIANUM_PLATFORM_PRIVACY_KEY_FILE: ${LIANUM_PLATFORM_PRIVACY_KEY_FILE:?Use the original retained privacy key file}
+    # Original TLS and ingress are fixed to loopback. Linux host networking
+    # preserves that contract instead of exposing them to a bridge/public port.
+    network_mode: host
+    volumes:
+      - type: bind
+        source: ${LIANUM_LOCAL_WORKSPACE}
+        target: ${LIANUM_LOCAL_WORKSPACE}
+        read_only: true
+      - type: bind
+        source: ${LIANUM_LOCAL_WORKSPACE}/.internal/runtime
+        target: ${LIANUM_LOCAL_WORKSPACE}/.internal/runtime
+      - type: bind
+        source: ${LIANUM_PLATFORM_PRIVACY_KEY_FILE}
+        target: ${LIANUM_PLATFORM_PRIVACY_KEY_FILE}
+        read_only: true
+    restart: "no"
+    stop_grace_period: 30s
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: "2"

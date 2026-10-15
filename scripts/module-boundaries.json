@@ -40,20 +40,21 @@
       "packages/engine"
     ],
     "packages/mobile-protocol": [],
-    "apps/wallet": [
-      "packages/backend",
-      "packages/mobile-protocol"
-    ],
     "apps/mobile": [
       "packages/mobile-protocol",
       "packages/crypto"
     ],
-    "apps/platform": [
+    "services/api-server": [
       "packages/backend",
       "packages/proofs",
       "packages/mobile-protocol"
     ],
-    "packages/environment": []
+    "packages/environment": [],
+    "services/paeg-engine": [
+      "packages/backend",
+      "packages/proofs",
+      "packages/mobile-protocol"
+    ]
   },
   "legacyPrivateImports": {},
   "legacySupportImports": {
@@ -1676,11 +1677,11 @@
       "sourceMoves": {
         "apps/wallet/src/server/errors/public-errors.mjs": "packages/backend/src/api/wallet/http/public-errors.mjs",
         "apps/wallet/src/server/security/exact-action-capabilities.mjs": "packages/backend/src/api/wallet/http/exact-action-capabilities.mjs",
-        "experiments/engine/private-core-proof/generic-native/pin-key.mjs": "packages/proofs/src/verification/native-key.mjs",
-        "experiments/engine/private-core-proof/generic-wrappers/pin-owner-key.mjs": "packages/proofs/src/verification/owner-key.mjs",
-        "experiments/engine/private-core-proof/owner-independent/prover.mjs": "packages/proofs/src/toolchain/assembly-prover.mjs",
-        "experiments/engine/private-core-proof/wallet-notes/prover.mjs": "packages/proofs/src/toolchain/wallet-prover.mjs",
-        "experiments/wallet/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs": "packages/backend/src/proving/native-ingress/tooling/qualification-cases.mjs",
+        "packages/proofs/programs/generic-native/pin-key.mjs": "packages/proofs/src/verification/native-key.mjs",
+        "packages/proofs/programs/generic-wrappers/pin-owner-key.mjs": "packages/proofs/src/verification/owner-key.mjs",
+        "packages/proofs/programs/owner-independent/prover.mjs": "packages/proofs/src/toolchain/assembly-prover.mjs",
+        "packages/proofs/programs/wallet-notes/prover.mjs": "packages/proofs/src/toolchain/wallet-prover.mjs",
+        "packages/proofs/programs/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs": "packages/backend/src/proving/native-ingress/tooling/qualification-cases.mjs",
         "packages/backend/src/chains/evm/vault/evm-vault-delivery.mjs": "packages/engine/src/encoding/evm-vault-delivery.mjs",
         "packages/backend/src/chains/shared/dispatch/native-receipt-binding.mjs": "packages/engine/src/native/native-receipt-binding.mjs",
         "packages/backend/src/claims/authorization/permits.mjs": "packages/engine/src/claims/permits.mjs",
@@ -1710,7 +1711,7 @@
         "packages/engine/src/accounts/private-account-runtime.mjs": "packages/backend/src/accounts/runtime/private-account-runtime.mjs",
         "packages/engine/src/accounts/private-account-session.mjs": "packages/backend/src/api/accounts/private-account-session.mjs",
         "packages/engine/src/accounts/private-shared-account-runtime.mjs": "packages/backend/src/accounts/runtime/private-shared-account-runtime.mjs",
-        "packages/engine/src/api/server.mjs": "packages/backend/src/api/private-runtime-server.mjs",
+        "packages/engine/src/api/server.mjs": "scripts/engine/demos/server.mjs",
         "packages/engine/src/cohorts/private-cohort-coordinator.mjs": "packages/backend/src/coordination/cohorts/private-cohort-coordinator.mjs",
         "packages/engine/src/cohorts/private-cohort-session.mjs": "packages/backend/src/coordination/cohorts/private-cohort-session.mjs",
         "packages/engine/src/evidence/native-quorum-observer.mjs": "packages/backend/src/evidence/native-quorum-observer.mjs",
@@ -1929,7 +1930,7 @@
           ],
           "baselineLiteralImports": [
             [
-              "apps/wallet/src/server/server.mjs",
+              "packages/backend/tests/fixtures/api/wallet/application.mjs",
               "packages/backend/src/accounts/state/original-wallet-economic-state-v1.mjs"
             ]
           ],
@@ -1942,7 +1943,7 @@
           ],
           "baselineLiteralImports": [
             [
-              "apps/wallet/src/server/server.mjs",
+              "packages/backend/tests/fixtures/api/wallet/application.mjs",
               "packages/backend/src/api/accounts/flat-account-session.mjs"
             ]
           ],
@@ -1955,7 +1956,7 @@
           ],
           "baselineLiteralImports": [
             [
-              "apps/wallet/src/server/server.mjs",
+              "packages/backend/tests/fixtures/api/wallet/application.mjs",
               "packages/backend/src/api/accounts/flat-manual-graph-session.mjs"
             ]
           ],
@@ -1968,7 +1969,7 @@
           ],
           "baselineLiteralImports": [
             [
-              "apps/wallet/src/server/server.mjs",
+              "packages/backend/tests/fixtures/api/wallet/application.mjs",
               "packages/backend/src/api/claims/native-claim-session.mjs"
             ]
           ],
@@ -1981,7 +1982,7 @@
           ],
           "baselineLiteralImports": [
             [
-              "apps/wallet/src/server/server.mjs",
+              "packages/backend/tests/fixtures/api/wallet/application.mjs",
               "packages/backend/src/api/withdrawals/wrapped-withdrawal-session-v1.mjs"
             ]
           ],
@@ -1994,7 +1995,7 @@
           ],
           "baselineLiteralImports": [
             [
-              "apps/wallet/src/server/server.mjs",
+              "packages/backend/tests/fixtures/api/wallet/application.mjs",
               "packages/backend/src/defi/withdrawals/generation-private-vault-exit.mjs"
             ]
           ],
@@ -2007,7 +2008,7 @@
           ],
           "baselineLiteralImports": [
             [
-              "apps/wallet/src/server/server.mjs",
+              "packages/backend/tests/fixtures/api/wallet/application.mjs",
               "packages/backend/src/defi/withdrawals/private-vault-exit.mjs"
             ]
           ],
@@ -2926,7 +2927,7 @@
           "baselineLiteralImports": [
             [
               "tests/integration/wallet/wrapped/flows/wrapped-wallet-acceptance-v1.mjs",
-              "apps/wallet/src/server/server.mjs"
+              "packages/backend/tests/fixtures/api/wallet/application.mjs"
             ]
           ],
           "classification": "existing-literal-import-outside-reviewed-cycle"

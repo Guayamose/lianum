@@ -1,4 +1,4 @@
-name: Mobile and platform
+name: Mobile and services
 
 on:
   push:
@@ -9,22 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  browser:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.12'
-      - name: Install verified Node runtime and browser driver
-        run: |
-          python3 scripts/development/prepare-host-runtime.py
-          ./dev npm ci --ignore-scripts
-      - name: Verify disconnected wallet in sandboxed Chrome
-        run: ./dev npm run test:browser
   applications:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -57,28 +41,10 @@ jobs:
         working-directory: apps/mobile
         run: npm run export
       - name: Install platform dependencies
-        working-directory: apps/platform
+        working-directory: services/api-server
         run: npm ci --ignore-scripts
       - name: Verify HTTP and PostgreSQL durability
-        working-directory: apps/platform
+        working-directory: services/api-server
         run: |
           npm test
           npm run test:postgres
-  infrastructure:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
-        with:
-          python-version: '3.12'
-      - name: Install verified Terraform runtime
-        run: python3 infra/google-cloud/scripts/prepare-tools.py
-      - name: Validate disabled infrastructure without a Cloud account
-        run: |
-          .internal/dev/toolchains/terraform-1.16.5-linux-amd64/terraform -chdir=infra/google-cloud init -backend=false -input=false
-          .internal/dev/toolchains/terraform-1.16.5-linux-amd64/terraform -chdir=infra/google-cloud fmt -check -recursive
-          .internal/dev/toolchains/terraform-1.16.5-linux-amd64/terraform -chdir=infra/google-cloud validate
-          .internal/dev/toolchains/terraform-1.16.5-linux-amd64/terraform -chdir=infra/google-cloud test

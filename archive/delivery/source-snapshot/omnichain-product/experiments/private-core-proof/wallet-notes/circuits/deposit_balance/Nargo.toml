@@ -1,5 +1,0 @@
-[package]
-name="deposit_balance"
-type="bin"
-authors=["PC23 bounded local research"]
-[dependencies]

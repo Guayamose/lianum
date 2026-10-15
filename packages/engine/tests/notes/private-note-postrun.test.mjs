@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assertPrivateSnapshotCanonical } from '../../src/notes/private-note-runtime.mjs';
-import { savePublicNoteProofArtifacts } from '../../../../experiments/engine/private-core-proof/native-notes/public-artifacts.mjs';
+import { savePublicNoteProofArtifacts } from '../../../proofs/programs/native-notes/public-artifacts.mjs';
 
 test('authority snapshot binds header identity, not just equal height/sequence', async () => {
   const snapshot = { blockNumber: '0x8', blockHash: '0x' + '12'.repeat(32) };

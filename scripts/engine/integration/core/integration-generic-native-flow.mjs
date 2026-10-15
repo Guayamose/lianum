@@ -27,7 +27,7 @@ import { prepareNativeNode } from '../../../../packages/engine/src/execution/nat
 import { prepareNativeAdmission, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
 import { prepareNativeAggregatePair, prepareNativeAggregateAll, prepareNativeFulfillment } from '../../../../packages/engine/src/execution/native/dispatch/native-fulfillment.mjs';
 import { nativeReceiptCommitment } from '../../../../packages/engine/src/execution/native/state/native-receipt.mjs';
-import { reserveInputs, refundInputs, publicWords, digestHex } from '../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
+import { reserveInputs, refundInputs, publicWords, digestHex } from '../../../../packages/proofs/programs/generic-wrappers/abi.mjs';
 import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 import { parseGenericNativeFlowArguments, runPartialRefundNativeFlow } from '../../lib/generic-native-flow-profiles.mjs';
 

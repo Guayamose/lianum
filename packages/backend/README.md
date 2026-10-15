@@ -24,7 +24,7 @@ Entradas habituales:
 [cliente wallet](src/api/wallet/wallet-application-client.mjs) y
 [servicio HTTP wallet](src/api/wallet/http-service.mjs).
 La app web añade la lista de recursos visuales; el servicio HTTP funciona sin
-importar la app. `apps/platform` compone su entrada de API y los perfiles locales.
+importar la app. `services/api-server` compone su entrada de API y los perfiles locales.
 
 La autoridad nativa conserva su fábrica y controles de identidad, exclusión y
 cierre. Sus operaciones se organizan en

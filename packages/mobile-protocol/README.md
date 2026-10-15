@@ -107,7 +107,7 @@ el cliente exige consentimiento nuevo y no inicia consultas automáticas.
 actual exige `privatePortfolio: null`; un futuro estado privado autenticado
 necesitará ampliar el contrato y sus verificaciones.
 
-Los tests en `apps/mobile/tests` y `apps/platform/tests` cubren framing, firma y
+Los tests en `apps/mobile/tests` y `services/api-server/tests` cubren framing, firma y
 admisión. La validación en dispositivo, recuperación, auditoría criptográfica y
 la conexión con operaciones económicas reales siguen siendo responsabilidades
 separadas.

@@ -63,12 +63,12 @@ def walk(root, directory, exclusions):
 def discover(root=ROOT):
     root = Path(root)
     directories = []
-    for area in ('packages', 'apps'):
+    for area in ('packages', 'apps', 'services'):
         parent = root / area
         if parent.is_dir():
             directories.extend(path.relative_to(root).as_posix() for path in sorted(parent.glob('*/tests'))
                                if path.is_dir() and not path.is_symlink())
-    directories.extend(path for path in ('tests', 'scripts/development', 'infra/paeg-demo') if (root / path).is_dir())
+    directories.extend(path for path in ('tests', 'scripts/development', 'infra/google-cloud/paeg-engine') if (root / path).is_dir())
     nodes, python, unsupported, exclusions = set(), set(), [], []
     for directory in directories:
         for path in walk(root, directory, exclusions):
@@ -80,7 +80,7 @@ def discover(root=ROOT):
             elif UNSUPPORTED_TEST.search(name):
                 unsupported.append({'path': path, 'reason': 'Unsupported maintained test format; closure fails rather than omitting it.'})
     sources = set()
-    for area in ('packages', 'apps'):
+    for area in ('packages', 'apps', 'services'):
         parent = root / area
         if not parent.is_dir():
             continue
@@ -114,7 +114,7 @@ def discover(root=ROOT):
                  'scripts/development/static-bindings.json',
                  'scripts/development/static-operation-ports.json',
                  'scripts/development/tsconfig.checkjs.json', 'scripts/historical-module-inventory.json'}
-    for area in ('packages', 'apps'):
+    for area in ('packages', 'apps', 'services'):
         if (root / area).is_dir():
             for pattern in ('*/package.json', '*/package-lock.json', '*/tsconfig*.json'):
                 manifests.update(path.relative_to(root).as_posix() for path in (root / area).glob(pattern)
@@ -264,7 +264,7 @@ def stages(plan, root=ROOT):
         # ordinary app command may opt out; a block may never report that skip
         # as success. Keep the activation visible in its exact command.
         activation = {
-            'apps/platform/tests/postgres.test.mjs': 'LIANUM_TEST_POSTGRES_DOCKER=1',
+            'services/api-server/tests/postgres.test.mjs': 'LIANUM_TEST_POSTGRES_DOCKER=1',
             'packages/engine/tests/assembly/private-assembly-history.test.mjs': 'PC18_RUN_POOL_COMPILE_TEST=1',
         }
         environment = ['/usr/bin/env', activation[path]] if path in activation else []

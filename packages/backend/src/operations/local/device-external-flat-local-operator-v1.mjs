@@ -40,7 +40,7 @@ const sourceOperatorsV2=new WeakMap();
 // No new TLS/runtime/factory choice enters the original request API.
 function localSingleProtocolBind(origin){const host=new URL(origin).hostname.replace(/^\[|\]$/g,'');if(host==='localhost'||host==='127.0.0.1')return '127.0.0.1';assert.equal(isIP(host),4,'DEVICE_DEFI_LOCAL_INTERFACE');const[a,b]=host.split('.').map(Number);assert.ok(a===10||a===172&&b>=16&&b<=31||a===192&&b===168,'DEVICE_DEFI_LOCAL_INTERFACE');assert.ok(Object.values(networkInterfaces()).some(rows=>(rows??[]).some(row=>row.family==='IPv4'&&!row.internal&&row.address===host)),'DEVICE_DEFI_LOCAL_INTERFACE');return host;}
 const fresh=()=>randomBytes(32).toString('hex'),bare=v=>v.slice(2);
-const callerPin=Object.freeze({"path":"apps/platform/src/run-device-external-flat-local-v1.mjs","bytes":12039,"sha256":"52f1db3087be4b128c693bb310cf092736f47799d56f51bf1abb261bac97f18e"});
+const callerPin=Object.freeze({"path":"scripts/development/profiles/run-device-external-flat-local-v1.mjs","bytes":12081,"sha256":"5172e93aa1de0aa6e17816ec4cbf2a926dc61be7c536ea694d3625ddfd22ad8a"});
 function exact(value,names){
   assert.ok(value&&!types.isProxy(value)&&Object.getPrototypeOf(value)===Object.prototype
     &&Reflect.ownKeys(value).length===names.length&&names.every(k=>{const d=Object.getOwnPropertyDescriptor(value,k);return d?.enumerable&&Object.hasOwn(d,'value');}),'DEVICE_EXTERNAL_LOCAL_CONFIGURATION');

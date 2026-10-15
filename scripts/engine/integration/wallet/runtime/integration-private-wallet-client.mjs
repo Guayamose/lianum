@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { startLocalServer } from '../../../../../packages/backend/src/api/private-runtime-server.mjs';
+import { startLocalServer } from '../../../demos/server.mjs';
 import { projectRoot } from '../../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 assert.ok(process.argv.includes('--authorized-local-private-payment'),'PRIVATE_CLIENT_EXPLICIT_LOCAL_AUTHORIZATION');
 const runId=new Date().toISOString().replaceAll(':','-').replaceAll('.','-');

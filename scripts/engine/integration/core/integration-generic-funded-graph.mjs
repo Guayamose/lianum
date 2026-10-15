@@ -13,7 +13,7 @@ import { createLocalEvm } from '../../../../packages/engine/src/execution/local/
 import { compileGenericPool, deployGenericPool } from '../../../../packages/engine/src/execution/local/local-deployment.mjs';
 import { genericVerifierSources } from '../../../../packages/engine/src/execution/local/local-profile.mjs';
 import { inspectGenericSnapshot, reserveProjection } from '../../../../packages/engine/src/execution/local/local-ledger.mjs';
-import { reserveInputs, refundInputs, publicWords, A0, digestHex } from '../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
+import { reserveInputs, refundInputs, publicWords, A0, digestHex } from '../../../../packages/proofs/programs/generic-wrappers/abi.mjs';
 import { PRIVATE_RESOURCE_POLICY } from '@lianum/components/resources/private-resource-policy';
 
 const project = fileURLToPath(new URL('../', import.meta.url));

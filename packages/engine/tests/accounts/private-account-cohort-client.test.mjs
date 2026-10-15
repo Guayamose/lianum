@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
-import {ACCOUNT_CLIENT_KEY, SHARED_ACCOUNT_PROFILE, accountControls, createAccountRequestTracker, validateSharedAccountSnapshot, validateAccountPortfolio} from '../../../../archive/legacy-client/private-account.mjs';
+import {ACCOUNT_CLIENT_KEY, SHARED_ACCOUNT_PROFILE, accountControls, createAccountRequestTracker, validateSharedAccountSnapshot, validateAccountPortfolio} from '../../../../scripts/engine/demos/client/private-account.mjs';
 const storage = () => { const data = new Map(); return {getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value)}; };
 const snapshot = state => ({profile: SHARED_ACCOUNT_PROFILE, requests: [], available: true, occupied: true, busy: false, capabilities: {fullAcceptance: false}, group: {phase: 'READY', authorityAvailable: true, privacyEvaluation: 'NOT_EVALUATED', transparentFallback: false, owners: [0, 1].map(ownerIndex => ({ownerIndex, status: {workerAvailable: true, authorityAvailable: true}})), cohort: {state, active: false, joined: 2, roundNumber: 1, roundsUsed: 1, maxRounds: 4}}});
 const view = {cohortEnrollments: [], assets: [{positions: [{id: 'note-original', state: 'AVAILABLE'}]}], requests: [{requestId: 'request-payment', kind: 'payment', state: 'PREPARED'}, {requestId: 'request-deposit', kind: 'topup', state: 'PREPARED'}, {requestId: 'request-unknown', kind: 'payment', state: 'UNKNOWN'}]};
@@ -43,7 +43,7 @@ test('running pair permits cancellation but blocks owner changes; restart become
 test('UI reports shared pools and local trust without elevating privacy or exposing private HTML', async () => {
   assert.equal(validateSharedAccountSnapshot(snapshot('SETTLED_IN_POOL')).group.privacyEvaluation, 'NOT_EVALUATED');
   const bad = snapshot('SETTLED_IN_POOL'); bad.group.privacyEvaluation = 'PASS'; assert.throws(() => validateSharedAccountSnapshot(bad), /CONTRACT/);
-  const html = await readFile(new URL('../../../../archive/legacy-client/index.html', import.meta.url), 'utf8'), client = await readFile(new URL('../../../../archive/legacy-client/private-account.mjs', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../../../../scripts/engine/demos/client/index.html', import.meta.url), 'utf8'), client = await readFile(new URL('../../../../scripts/engine/demos/client/private-account.mjs', import.meta.url), 'utf8');
   for (const text of ['account-owner', 'account-consent', 'account-enroll', 'account-start', 'account-next', 'account-cancel', 'account-reset', '15 minutos', 'CONTROLADOR COMÚN DE CONFIANZA', 'NOT_EVALUATED', 'mismos pools', 'Cerrar pools vacíos']) assert.ok(html.includes(text), text);
   assert.ok(client.includes("cache:'no-store'")); assert.equal(client.includes('innerHTML'), false); assert.equal(client.includes("api('/api/private-account'"), false);
 });
@@ -55,8 +55,8 @@ test('private portfolio identity must match the selected owner in the current sh
 });
 
 test('rendered client discards a late owner view and retries an uncertain enrollment with the exact original consent', async t => {
-  const {startSharedAccountClient} = await import('../../../../archive/legacy-client/private-account.mjs');
-  const html = await readFile(new URL('../../../../archive/legacy-client/index.html', import.meta.url), 'utf8');
+  const {startSharedAccountClient} = await import('../../../../scripts/engine/demos/client/private-account.mjs');
+  const html = await readFile(new URL('../../../../scripts/engine/demos/client/index.html', import.meta.url), 'utf8');
   class Element {
     constructor(tag = '') { this.tag = tag; this.value = ''; this.children = []; this.textContent = ''; this.checked = false; }
     replaceChildren() { this.children = []; if (this.tag === 'select') this.value = ''; }

@@ -26,8 +26,8 @@ RUNTIME = ".internal/runtime/"
 FLAT = RUNTIME + "omnichain-flat-profile/flat-wallet/"
 RELEASE = "packages/backend/src/operations/releases/native-value/native-value-dev-release-v5.mjs"
 CATALOGS = {
-    "native-paged": "archive/source-evidence/paged-source-catalogues/0f0b25053fab8aa1de09585680325604700e68f1c69c71fe9a95867a8371b1f7.source",
-    "graph-paged": "archive/source-evidence/paged-source-catalogues/d38c5f6c7e31445f28cdc2d3a15396fd125482968cf084e2e6e8fb643ee583b8.source",
+    "native-paged": "packages/proofs/evidence/paged-source-catalogues/0f0b25053fab8aa1de09585680325604700e68f1c69c71fe9a95867a8371b1f7.source",
+    "graph-paged": "packages/proofs/evidence/paged-source-catalogues/d38c5f6c7e31445f28cdc2d3a15396fd125482968cf084e2e6e8fb643ee583b8.source",
 }
 PREFIXES = (
     ("development-tooling/", "scripts/development/"), ("development-config/", "scripts/"),
@@ -44,20 +44,20 @@ CURRENT_SOURCE_INPUTS = (
     "packages/backend/src/operations/local/funded-paged-public-testnet-native-graph-operator-v4.mjs",
     "packages/backend/src/operations/local/funded-paged-public-native-operator-v4.mjs",
     "contracts/wallet/v2/PrivateFlatAssetNotePoolV3.sol",
-    "archive/source-evidence/tron-original-builder-v1/provenance.json",
-    "archive/source-evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source",
-    "apps/platform/src/paged-native-bootstrap-v3.mjs",
-    "apps/platform/src/gateway-pairing.mjs",
-    "apps/platform/src/diagnostics.mjs",
+    "packages/proofs/evidence/tron-original-builder-v1/provenance.json",
+    "packages/proofs/evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source",
+    "services/paeg-engine/src/bootstrap/paged-native-bootstrap-v3.mjs",
+    "packages/backend/src/api/transport/gateway-pairing.mjs",
+    "packages/backend/src/api/transport/platform-diagnostics.mjs",
     "packages/backend/src/providers/paged-native-quote-v4.mjs",
     "packages/mobile-protocol/src/device-paged-provider-quote-v4.mjs",
     "packages/mobile-protocol/src/device-paged-provider-quote-v4.d.mts",
     "packages/mobile-protocol/src/device-paged-payment-list-v3.mjs",
     "packages/mobile-protocol/src/device-paged-payment-list-v3.d.mts",
-    "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json",
-    "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json",
+    "packages/proofs/programs/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json",
+    "packages/proofs/programs/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json",
     "scripts/development/active-paged-generation.json",
-    "archive/source-evidence/paged-original-compiler-v4/provenance.json",
+    "packages/proofs/evidence/paged-original-compiler-v4/provenance.json",
     "apps/mobile/src/screens/NativeWalletScreen.tsx",
     "apps/mobile/src/native-wallet/native-wallet-ui-port.ts",
     "apps/mobile/src/native-wallet/native-wallet-controller.ts",
@@ -68,7 +68,7 @@ CURRENT_SOURCE_INPUTS = (
     "apps/mobile/src/custody/native-wallet-custody-v1.ts",
     "packages/crypto/src/native-wallet-v1.d.mts",
     "packages/crypto/src/native-wallet-auth-v1.d.mts",
-    "packages/backend/src/public-wallet/entry-v1.mjs",
+    "services/api-server/src/wallet-entry.mjs",
     "packages/backend/src/public-wallet/http-service-v1.mjs",
     "packages/backend/src/public-wallet/auth-v1.mjs",
     "packages/backend/src/native-wallet/index.mjs",
@@ -138,15 +138,15 @@ CURRENT_SOURCE_INPUTS = (
     "scripts/development/source_generations.py", "scripts/development/source_pins.py",
     "scripts/development/module_boundaries.py", "scripts/development/import_paths.py",
     "scripts/development/workspace.py", "apps/mobile/package.json", "apps/mobile/package-lock.json",
-    "archive/source-evidence/paged-original-host-v4/provenance.json",
-    "archive/source-evidence/paged-original-host-v4/compiler-provenance-v1.json",
-    "archive/source-evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source",
+    "packages/proofs/evidence/paged-original-host-v4/provenance.json",
+    "packages/proofs/evidence/paged-original-host-v4/compiler-provenance-v1.json",
+    "packages/proofs/evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source",
     "packages/backend/src/operations/local/funded-paged-native-source-v3.mjs",
     "packages/backend/src/operations/local/funded-graph-paged-device-graph-source-v3.mjs",
-    "apps/platform/src/run-original-arbitrum-private-native-mobile-v1.mjs",
-    "apps/platform/src/run-original-base-private-native-mobile-v1.mjs",
-    "apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs",
-    "apps/platform/src/run-original-tron-private-native-mobile-v1.mjs",
+    "scripts/development/profiles/run-original-arbitrum-private-native-mobile-v1.mjs",
+    "scripts/development/profiles/run-original-base-private-native-mobile-v1.mjs",
+    "scripts/development/profiles/run-original-bsc-private-native-mobile-v3.mjs",
+    "scripts/development/profiles/run-original-tron-private-native-mobile-v1.mjs",
     "scripts/development/bsc_original_genesis_v3.py",
     "scripts/development/original-network-mobile-private-diagnostic-v1.mjs",
     "scripts/development/owned-arbitrum-native-value-dispatch-v1.mjs",
@@ -179,11 +179,8 @@ CURRENT_SOURCE_INPUTS = (
     "scripts/wallet/preparation/prepare-development-native-claims.mjs",
     "scripts/wallet/preparation/prepare-backed-assets.mjs",
     "packages/proofs/src/native-ingress/tooling/native-claims-parent-death.py",
-    "apps/wallet/src/client/app.mjs",
-    "apps/wallet/src/client/index.html",
-    "apps/wallet/src/client/style.css",
     "apps/mobile/src/custody/device-graph-string-table-v5.ts",
-    "apps/mobile/tsconfig.json", "apps/platform/package.json", "apps/platform/package-lock.json",
+    "apps/mobile/tsconfig.json", "services/api-server/package.json", "services/api-server/package-lock.json",
     "apps/mobile/src/api/device-external-flat-graph-api-v1.mjs",
     "apps/mobile/src/api/device-external-flat-note-api-v1.mjs",
     "apps/mobile/src/api/device-morpho-blue-redemption-api-v1.mjs",
@@ -201,8 +198,8 @@ CURRENT_SOURCE_INPUTS = (
     "apps/mobile/src/custody/sealed-custody-backup-v1.d.mts",
     "apps/mobile/src/custody/sealed-custody-backup-v1.mjs",
     "apps/mobile/src/custody/signing.mjs",
-    "apps/platform/src/run-device-external-flat-local-v1.mjs",
-    "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+    "scripts/development/profiles/run-device-external-flat-local-v1.mjs",
+    "scripts/development/profiles/run-device-external-flat-ordered-local-v1.mjs",
     "dev",
     "packages/backend/src/accounts/authority/device-external-flat-note-authority-v1.mjs",
     "packages/backend/src/accounts/authority/device-external-flat-source-graph-v1.mjs",
@@ -604,7 +601,7 @@ def unique_object(pairs):
 
 def retained_source_evidence(path):
     """Retired collector/facade bytes; never an executable replacement."""
-    return re.fullmatch(r"archive/source-evidence/(retired-source-collectors|retired-facades)/[0-9a-f]{64}\.source", path) is not None
+    return re.fullmatch(r"packages/proofs/evidence/(retired-source-collectors|retired-facades)/[0-9a-f]{64}\.source", path) is not None
 
 
 def source_relocations(definition):
@@ -625,7 +622,7 @@ def source_relocations(definition):
                 if sha(read(name)) != Path(name).stem:
                     raise ValueError("Retired source evidence was modified: " + name)
                 continue
-            if (name.split("/", 1)[0] not in {"packages", "apps", "scripts", "tests", "experiments", "contracts"}
+            if (name.split("/", 1)[0] not in {"packages", "apps", "services", "scripts", "tests", "experiments", "contracts"}
                     or any(part.startswith(".") or part in {"node_modules", "secrets"} for part in name.split("/"))
                     or name.endswith((".pem", ".key", ".p12", ".pfx"))):
                 raise ValueError("Source relocation requires a public source path: " + name)
@@ -650,6 +647,21 @@ class Capture:
         if read("scripts/layout.json") != self.layout_bytes:
             raise ValueError("Layout changed while resolving current sources")
         self.relocations = source_relocations(definition)
+        # Explicitly retired browser assets are not current executable roots.
+        # Preserve their identity as historical labels without shipping copies.
+        self.retired_non_runtime = definition.get("retiredNonRuntimeSources", {})
+        self.retired_non_runtime_labels = definition.get("retiredNonRuntimeLabels", {})
+        for name, record in self.retired_non_runtime.items():
+            relative(name)
+            if (not name.startswith("apps/wallet/") or physical(name).exists()
+                    or set(record) != {"sha256", "reason"}
+                    or not re.fullmatch(r"[0-9a-f]{64}", record["sha256"])
+                    or not record["reason"]):
+                raise ValueError("Invalid retired browser source: " + name)
+        for name, source in self.retired_non_runtime_labels.items():
+            relative(name)
+            if not name.startswith(RUNTIME) or source not in self.retired_non_runtime:
+                raise ValueError("Invalid retired browser publication label: " + name)
         self.files = {}
         self.objects = {}
         # Forward-map today's real files. Several domain directories share one
@@ -704,6 +716,14 @@ class Capture:
         relative(target)
         if target in self.files:
             return self.files[target]
+        retired_name = self.retired_non_runtime_labels.get(target, target)
+        if retired_name in self.retired_non_runtime:
+            record = self.retired_non_runtime[retired_name]
+            row = {"path": target, "source": retired_name,
+                   "status": "RETIRED_NON_RUNTIME", "retiredSourceSHA256": record["sha256"],
+                   "reason": record["reason"]}
+            self.files[target] = row
+            return row
         source = target
         mapped = None
         retired = False
@@ -722,6 +742,12 @@ class Capture:
                     raise ValueError("Non-reversible source mapping: " + target)
                 source = mapped
         original_source = source
+        # Compiled artifact names in retained catalogues are immutable labels.
+        # This fixed mapping concerns proof data only, never executable aliases.
+        if source.startswith("experiments/engine/private-core-proof/") and "/.local/" in source:
+            source = "packages/proofs/programs/" + source[len("experiments/engine/private-core-proof/"):]
+        elif source.startswith("experiments/protocol/private-core-proof/") and "/.local/" in source:
+            source = "packages/protocol/circuits/" + source[len("experiments/protocol/private-core-proof/"):]
         if source in self.relocations:
             # Recheck absence at observation time: a restored file must never be
             # shadowed by a candidate mapping captured earlier in this process.
@@ -966,7 +992,8 @@ def current_source_contract(report, capture):
     module retains that generated identity instead of pretending it ran source.
     """
     from module_boundaries import imports as module_imports, TOKEN
-    roots = {row["source"] for group in report["groups"] for row in group["files"]}
+    roots = {row["source"] for group in report["groups"] for row in group["files"]
+             if row["status"] != "RETIRED_NON_RUNTIME"}
     # Fixed inventory inputs may still name an old reviewed owner. Publish its
     # current name in this contract; retain the old label only in the original
     # inventory report. Imports are checked below and cannot use this mapping
@@ -981,7 +1008,7 @@ def current_source_contract(report, capture):
     platform_bindings = set()
     imported_by = {}
     mobile_dependencies = json.loads(read("apps/mobile/package.json")).get("dependencies", {})
-    platform_dependencies = json.loads(read("apps/platform/package.json")).get("dependencies", {})
+    platform_dependencies = json.loads(read("services/api-server/package.json")).get("dependencies", {})
     source_policy = json.loads(read("scripts/development/source-pins.json"), object_pairs_hook=unique_object)
     platform_policy = source_policy["profiles"]["platform"]
     reviewed_npm = ReviewedNativeWalletNpm(source_policy.get("nativeWalletNpm"), capture)
@@ -989,8 +1016,11 @@ def current_source_contract(report, capture):
     roots.update(reviewed_npm.manifests)
     npm_bindings = set()
     url_pattern = re.compile(r"\bnew\s+URL\s*\(\s*(['\"])([^'\"]+\.mjs)\1\s*,\s*import\.meta\.url\s*\)")
+    retained_program_sources = {new for old, new in capture.relocations.items()
+                                if old.startswith("experiments/")}
     def evidence_only(path):
-        return (retained_source_evidence(path) or path.startswith(("experiments/", "packages/protocol/"))
+        return (retained_source_evidence(path) or path in retained_program_sources
+                or path.startswith(("experiments/", "packages/protocol/", "packages/proofs/programs/"))
                 or path == "packages/crypto/src/component-tooling.mjs")
     queue = [(path, not evidence_only(path)) for path in sorted(roots)]
     while queue:
@@ -1086,19 +1116,20 @@ def current_source_contract(report, capture):
                 if target not in roots:
                     raise ValueError("Current npm import is outside the pinned public inventory: " + name)
                 queue.append((target, True))
-            elif path.startswith("apps/platform/") and name == "pg" and name in platform_dependencies:
+            elif path.startswith("services/api-server/") and name == "pg" and name in platform_dependencies:
                 # Platform's existing reviewed public inventory covers the CJS
                 # dependency tree; do not treat arbitrary npm imports as code.
-                package_path = "apps/platform/node_modules/pg/package.json"
+                package_path = "services/api-server/node_modules/pg/package.json"
                 package = json.loads(read(package_path))
-                locked = json.loads(read("apps/platform/package-lock.json"))["packages"]["node_modules/pg"]
+                locked = json.loads(read("services/api-server/package-lock.json"))["packages"]["node_modules/pg"]
                 if package.get("name") != "pg" or package.get("version") != platform_dependencies[name] \
                         or locked.get("version") != package.get("version"):
                     raise ValueError("Platform PostgreSQL package differs from its exact manifest and lock")
                 for dependency in platform_policy["dependencyPaths"]:
-                    queue.append(("apps/platform/" + relative(dependency), False))
-                queue.extend([("apps/platform/package.json", False),
-                              ("apps/platform/package-lock.json", False),
+                    base = platform_policy.get("sourceBase", "services/api-server")
+                    queue.append(((base + "/" if base else "") + relative(dependency), False))
+                queue.extend([("services/api-server/package.json", False),
+                              ("services/api-server/package-lock.json", False),
                               (platform_policy["target"], False)])
                 platform_bindings.add((path, name, package["version"]))
             elif path.startswith("apps/mobile/") and name in mobile_dependencies:
@@ -1265,7 +1296,7 @@ def retained_compiler_files(inspection):
     archive_roots = {"candidate": "omnichain-flat-profile/candidate-poseidon",
                      "flat-reference": "omnichain-flat-profile", "golden": "omnichain-product"}
     for row in inspection["nativeValue"]["nodeReuseReceipt"].get("compilerSources", []):
-        source = "archive/delivery/source-snapshot/" + archive_roots[row["root"]] + "/" + relative(row["path"])
+        source = "packages/proofs/evidence/original-sources/" + row["sha256"] + ".source"
         result.append(dict(row, source=source))
     return result
 

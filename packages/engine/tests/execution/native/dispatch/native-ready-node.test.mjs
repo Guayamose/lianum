@@ -13,7 +13,7 @@ import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures } fro
 import { freshKey, signature } from '../../../../src/notes/private-note-encoding.mjs';
 import { PrivateNoteTree } from '../../../../src/notes/private-note-tree.mjs';
 import { boundedListDigest, snapshotDigest, evidenceStateDigest, nativeDigestWords } from '../../../../src/execution/native/state/native-state.mjs';
-import { NATIVE_PROFILES } from '../../../../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
+import { NATIVE_PROFILES } from '../../../../../proofs/programs/generic-native/pin-key.mjs';
 
 // Host schema and byte-binding tests only. Recursive fields below are deliberately
 // synthetic and unverified. No compiler, prover, chain runtime or native admission
@@ -103,7 +103,7 @@ test('R98 and N51 compose actual role packets in the current source and pin ABI 
     ['node', padding(), prepareNativeNode, nodePublic, NATIVE_NODE_PUBLIC_INPUT_COUNT],
   ]) {
     const before = copy(input), result = compose(input);
-    const main = readFileSync(new URL(`../../../../../../experiments/engine/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
+    const main = readFileSync(new URL(`../../../../../../packages/proofs/programs/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
     const signature = main.split('fn main(')[1].split(') {')[0];
     const parameters = [...signature.matchAll(/^\s+(\w+): (.+),$/gm)].map(match => match[1]);
     assert.deepEqual(Object.keys(result.inputs), parameters);

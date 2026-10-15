@@ -11,7 +11,7 @@ import {PrivateNoteTree} from '../../../../engine/src/notes/private-note-tree.mj
 import {inspectGenericSnapshot} from '../../../../engine/src/execution/local/local-ledger.mjs';
 import {genericProofCalldata} from '../../../../engine/src/execution/local/local-deployment.mjs';
 import {decodeGenericBalanceCalldata} from '../../../../backend/src/accounts/balances/generic-balance-observer.mjs';
-import {digestWords} from '../../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
+import {digestWords} from '../../../../proofs/programs/generic-wrappers/abi.mjs';
 
 const h = n => n.toString(16).padStart(64, '0');
 const identity = {

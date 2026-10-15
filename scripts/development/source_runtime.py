@@ -139,7 +139,7 @@ def prepare(quiet=False):
                     raise RuntimeError('Dependencias incompletas tras npm ci. Revisa ./dev npm ci --ignore-scripts --include=dev.')
                 record_installation(stamp, after)
     if not quiet:
-        print(f'Source runtime ready: {len(inputs["packages"])} local packages; apps/ and packages/ execute directly.')
+        print(f'Source runtime ready: {len(inputs["packages"])} local packages; apps/, services/ and packages/ execute directly.')
 
 
 if __name__ == '__main__':

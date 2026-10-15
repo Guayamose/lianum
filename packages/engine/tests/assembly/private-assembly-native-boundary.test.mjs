@@ -4,7 +4,7 @@ import {privateAssemblyRevocationDigest} from '../../src/assembly/private-assemb
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { syntheticSetup } from '../../../../experiments/engine/private-core-proof/native-notes/fixtures.mjs';
+import { syntheticSetup } from '../../../proofs/programs/native-notes/fixtures.mjs';
 import { assemblySchema } from '../../src/assembly/private-assembly-encoding.mjs';
 import { wordsBE } from '../../src/notes/private-note-encoding.mjs';
 import { PrivateNoteTree, ZERO_NOTE_HASH, privateSpentDigest, privateEffectDigest } from '../../src/notes/private-note-tree.mjs';

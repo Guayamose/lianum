@@ -34,16 +34,16 @@ class SourcePinsTest(unittest.TestCase):
         self.write(pins.TARGETS["mobile"], "export const NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 = Object.freeze(" + json.dumps(mobile, indent=2) + ");\n"
                    "export const NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 = '" + digest + "';\n")
         pg = {"version": "1.0.0", "resolved": "https://registry.npmjs.org/pg.tgz", "integrity": "sha512-reviewed"}
-        self.write("apps/platform/package-lock.json", json.dumps({"packages": {"": {}, "node_modules/pg": pg}}))
-        self.write("apps/platform/package.json", json.dumps({"name": "platform", "dependencies": {"pg": "1.0.0"}}))
-        self.write("apps/platform/node_modules/pg/package.json", '{"name":"pg","version":"1.0.0"}')
-        self.write("apps/platform/node_modules/pg/index.js", 'export const reviewed = true;')
-        self.write("apps/platform/src/run.mjs", 'export const start = () => "ready";')
+        self.write("services/api-server/package-lock.json", json.dumps({"packages": {"": {}, "node_modules/pg": pg}}))
+        self.write("services/api-server/package.json", json.dumps({"name": "platform", "dependencies": {"pg": "1.0.0"}}))
+        self.write("services/api-server/node_modules/pg/package.json", '{"name":"pg","version":"1.0.0"}')
+        self.write("services/api-server/node_modules/pg/index.js", 'export const reviewed = true;')
+        self.write("services/api-server/src/run.mjs", 'export const start = () => "ready";')
         self.mutable = ["package.json", "package-lock.json", "src/run.mjs"]
         self.dependencies = ["node_modules/pg/package.json", "node_modules/pg/index.js"]
-        rows = [self.row("apps/platform/" + path, path) for path in self.mutable + self.dependencies]
+        rows = [self.row("services/api-server/" + path, path) for path in self.mutable + self.dependencies]
         self.write(pins.TARGETS["platform"], 'const PINS=Object.freeze(' + json.dumps(rows, separators=(",", ":")) + '.map(row=>Object.freeze(row)));\n')
-        self.callers = [pins.TARGETS["platform"], "apps/platform/src/run.mjs"]
+        self.callers = [pins.TARGETS["platform"], "services/api-server/src/run.mjs"]
         self.write(pins.TARGETS["callers"], 'const reviewedCallers = Object.freeze([\n' + "".join(
             '  Object.freeze(' + json.dumps(self.row(path, path), separators=(",", ":")) + '),\n' for path in self.callers) + ']);\n')
         policy = {"schema": "LIANUM_CURRENT_SOURCE_PIN_POLICY_V1", "profiles": {
@@ -80,7 +80,7 @@ class SourcePinsTest(unittest.TestCase):
 
     def test_update_current_sources_and_dependent_capsule_preserves_originals(self):
         original = self.before()
-        self.write("apps/platform/src/run.mjs", 'export const start = () => "changed";')
+        self.write("services/api-server/src/run.mjs", 'export const start = () => "changed";')
         self.write("packages/mobile-protocol/package.json", '{"name":"protocol","exports":{".":"./entry.mjs"}}')
         check = pins.run(root=self.root)
         self.assertEqual(check["status"], "STALE")
@@ -96,7 +96,7 @@ class SourcePinsTest(unittest.TestCase):
         self.assertEqual(pins.run("update", root=self.root)["written"], [])
 
     def test_platform_includes_its_reviewed_caller_hash_in_same_update(self):
-        self.write("apps/platform/src/run.mjs", 'export const start = () => "new code";')
+        self.write("services/api-server/src/run.mjs", 'export const start = () => "new code";')
         result = pins.run("update", "platform", self.root)
         self.assertEqual(result["profiles"], ["platform", "callers"])
         self.assertEqual(set(result["written"]), {pins.TARGETS["platform"], pins.TARGETS["callers"]})
@@ -127,7 +127,7 @@ class SourcePinsTest(unittest.TestCase):
         self.assertEqual((self.root / target).read_bytes(), before)
 
     def test_runtime_record_updates_bytes_and_hash_with_other_pin_in_same_file(self):
-        source, caller, target = "packages/backend/src/guard.mjs", "apps/platform/src/caller.mjs", "packages/backend/src/owner.mjs"
+        source, caller, target = "packages/backend/src/guard.mjs", "services/api-server/src/caller.mjs", "packages/backend/src/owner.mjs"
         self.write(source, "export const guard = 1;\n")
         self.write(caller, "export const caller = 1;\n")
         old = {"path": caller, "bytes": len((self.root / caller).read_bytes()), "sha256": pins.sha((self.root / caller).read_bytes())}
@@ -149,7 +149,7 @@ class SourcePinsTest(unittest.TestCase):
         self.assertIn("assert.equal(actual.sha256,callerPin.sha256);", text)
         self.assertIn("const historical='" + "ab" * 32, text)
         self.assertEqual(pins.run("check", "runtime", self.root)["status"], "CURRENT")
-        self.write(target, text.replace('"path":"' + caller + '"', '"path":"apps/platform/src/other.mjs"'))
+        self.write(target, text.replace('"path":"' + caller + '"', '"path":"services/api-server/src/other.mjs"'))
         before = (self.root / target).read_bytes()
         with self.assertRaisesRegex(ValueError, "exact reviewed source"):
             pins.run("update", "runtime", self.root)
@@ -157,7 +157,7 @@ class SourcePinsTest(unittest.TestCase):
 
     def test_runtime_record_chain_uses_updated_launcher_and_preserves_guard_table(self):
         product = 'scripts/development/mobile-product.mjs'
-        entry = 'apps/platform/src/mobile-entry.mjs'
+        entry = 'services/api-server/src/mobile-entry.mjs'
         host = 'packages/backend/src/mobile-host.mjs'
         self.write(product, 'export const version = 1;\n')
         product_pin = json.dumps(self.row(product, product), separators=(',', ':'))
@@ -193,7 +193,7 @@ class SourcePinsTest(unittest.TestCase):
 
     def test_changed_dependency_bytes_cannot_be_rebaselined(self):
         original = self.before()
-        for path in ("apps/mobile/node_modules/@noble/curves/index.js", "apps/platform/node_modules/pg/index.js"):
+        for path in ("apps/mobile/node_modules/@noble/curves/index.js", "services/api-server/node_modules/pg/index.js"):
             with self.subTest(path=path):
                 saved = (self.root / path).read_bytes()
                 self.write(path, 'export const changed = true;')
@@ -204,7 +204,7 @@ class SourcePinsTest(unittest.TestCase):
 
     def test_new_dependency_or_changed_integrity_requires_review(self):
         original = self.before()
-        for root in ("apps/mobile", "apps/platform"):
+        for root in ("apps/mobile", "services/api-server"):
             with self.subTest(root=root):
                 path = self.root / root / "package-lock.json"
                 saved = path.read_bytes()
@@ -220,7 +220,7 @@ class SourcePinsTest(unittest.TestCase):
     def test_undeclared_paths_and_duplicate_rows_are_rejected(self):
         target = self.root / pins.TARGETS["callers"]
         saved = target.read_text()
-        for suffix in ('Object.freeze({"path":"apps/platform/src/new.mjs","bytes":0,"sha256":"' + '0' * 64 + '"}),',
+        for suffix in ('Object.freeze({"path":"services/api-server/src/new.mjs","bytes":0,"sha256":"' + '0' * 64 + '"}),',
                        'Object.freeze(' + json.dumps(self.row(self.callers[0], self.callers[0])) + '),'):
             target.write_text(saved.replace(']);', suffix + '\n]);'))
             with self.assertRaisesRegex(ValueError, "Pin paths differ"):
@@ -229,28 +229,28 @@ class SourcePinsTest(unittest.TestCase):
 
     def test_private_paths_and_symlinks_fail_without_writes(self):
         original = self.before()
-        path = self.root / "apps/platform/src/run.mjs"
+        path = self.root / "services/api-server/src/run.mjs"
         path.unlink()
         path.symlink_to(self.root / self.historical)
         with self.assertRaisesRegex(ValueError, "Symlink"):
             pins.run("update", root=self.root)
         self.assertEqual(self.before(), original)
-        for private in ("../outside", ".local/private.json", "apps/platform/.env", "archive/receipt.json"):
+        for private in ("../outside", ".local/private.json", "services/api-server/.env", "archive/receipt.json"):
             with self.assertRaises(ValueError):
                 pins.public_path(private)
 
     def test_concurrent_source_change_rejects_before_any_write(self):
         original = self.before()
-        self.write("apps/platform/src/run.mjs", 'export const start = () => "version 2";')
+        self.write("services/api-server/src/run.mjs", 'export const start = () => "version 2";')
         plan = pins.Plan(self.root, "platform").build()
-        self.write("apps/platform/src/run.mjs", 'export const start = () => "version 3";')
+        self.write("services/api-server/src/run.mjs", 'export const start = () => "version 3";')
         with self.assertRaisesRegex(ValueError, "Concurrent input change"):
             plan.apply()
         self.assertEqual(self.before(), original)
 
     def test_concurrent_change_during_replace_rolls_back_only_our_writes(self):
         original = self.before()
-        self.write("apps/platform/src/run.mjs", 'export const start = () => "version 2";')
+        self.write("services/api-server/src/run.mjs", 'export const start = () => "version 2";')
         plan = pins.Plan(self.root, "platform").build()
         replace = pins.os.replace
         changed = False
@@ -260,13 +260,13 @@ class SourcePinsTest(unittest.TestCase):
             replace(source, destination)
             if not changed:
                 changed = True
-                self.write("apps/platform/src/run.mjs", 'export const start = () => "concurrent editor";')
+                self.write("services/api-server/src/run.mjs", 'export const start = () => "concurrent editor";')
 
         with patch.object(pins.os, "replace", side_effect=concurrent):
             with self.assertRaisesRegex(ValueError, "Concurrent input change"):
                 plan.apply()
         self.assertEqual(self.before(), original)
-        self.assertIn("concurrent editor", (self.root / "apps/platform/src/run.mjs").read_text())
+        self.assertIn("concurrent editor", (self.root / "services/api-server/src/run.mjs").read_text())
         self.assertEqual(list(self.root.rglob(".source-pins-*")), [])
 
     def test_preparation_stops_with_actionable_diff_without_updating_pins(self):

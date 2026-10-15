@@ -1,0 +1,24 @@
+{
+  "name": "@lianum/api-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "scripts": {
+    "start": "node src/entry.mjs",
+    "db:migrate": "node src/storage/migrate.mjs",
+    "db:migrate:original-device": "node src/original/migrate-original-device-v1.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:postgres": "node scripts/test-postgres.mjs",
+    "test:docker": "node scripts/test-docker.mjs",
+    "local:start": "node scripts/local.mjs start",
+    "local:stop": "node scripts/local.mjs stop",
+    "start:original": "node --max-old-space-size=384 src/entry.mjs original-native-new",
+    "reopen:original": "node --max-old-space-size=384 src/entry.mjs original-native-reopen"
+  },
+  "dependencies": {
+    "pg": "8.23.1"
+  }
+}

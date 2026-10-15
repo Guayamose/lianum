@@ -1,0 +1,13 @@
+{
+  "name": "@lianum/paeg-engine-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start:native": "node --max-old-space-size=384 src/entry.mjs paged-native-new",
+    "start:mixed": "node --max-old-space-size=384 src/entry.mjs paged-mixed-new",
+    "reopen:native": "node --max-old-space-size=384 src/entry.mjs paged-native-reopen",
+    "reopen:mixed": "node --max-old-space-size=384 src/entry.mjs paged-mixed-reopen",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

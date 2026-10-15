@@ -7,7 +7,7 @@ import { assertOwnedNativeValueAccountAuthority } from '../../../../packages/bac
 import { assertOwnedNativeValueWalletSystem } from '../../../../packages/backend/src/operations/deployments/native-value/native-value-wallet-binding-v2.mjs';
 import { createOriginalSessionWalletEconomicStateV1 } from '@lianum/backend/accounts/manual-graph';
 import { createNativeValueManualGraphAccountSession } from '@lianum/backend/operations/recovery/native-original-source-lifecycle-v1';
-import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
+import { startWalletApplication } from '../../../../packages/backend/tests/fixtures/api/wallet/application.mjs';
 import { createManualWalletAppDriver } from '../manual/manual-wallet-app-driver.mjs';
 export const NATIVE_NOTE_WALLET_ACCEPTANCE_RELEASE = null;
 export const NATIVE_NOTE_WALLET_ACCEPTANCE_PROFILE = 'GENUINE_NATIVE_VALUE_NOTE_WALLET_ACCEPTANCE_V1';

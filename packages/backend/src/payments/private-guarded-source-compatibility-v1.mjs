@@ -8,11 +8,11 @@ import {projectRoot} from '@lianum/environment';
 
 const sources=Object.freeze({
  'contracts/PrivateAssemblyNativeNotePool.sol':Object.freeze({
-  before:'archive/delivery/source-snapshot/omnichain-product/contracts/PrivateAssemblyNativeNotePool.sol',
+  before:'packages/proofs/evidence/original-sources/8a41d0e76bd1f1d53b6690e1e052a180d23498125bb8d9964be060ecc5a186da.source',
   after:'contracts/engine/PrivateAssemblyNativeNotePool.sol',
   bytes:23942,sha256:'8a41d0e76bd1f1d53b6690e1e052a180d23498125bb8d9964be060ecc5a186da'}),
  'src/private-assembly-runtime.mjs':Object.freeze({
-  before:'archive/delivery/source-snapshot/omnichain-product/src/private-assembly-runtime.mjs',
+  before:'packages/proofs/evidence/original-sources/682221c9da9016852751f7d551b98508ae6ae84263da45955f3c6f039d9b628f.source',
   after:'packages/engine/src/assembly/private-assembly-runtime.mjs',
   bytes:26113,sha256:'682221c9da9016852751f7d551b98508ae6ae84263da45955f3c6f039d9b628f'}),
 });

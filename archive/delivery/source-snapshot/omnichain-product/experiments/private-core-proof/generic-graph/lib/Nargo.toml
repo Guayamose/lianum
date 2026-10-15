@@ -1,6 +1,0 @@
-[package]
-name = "generic_graph"
-type = "lib"
-authors = ["Lianum bounded graph relation research"]
-
-[dependencies]

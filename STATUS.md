@@ -435,7 +435,7 @@ pago ni retirada durante esta actualización.
 - `./dev platform paged-native-new` configura identidad pública, interfaz,
   certificado y archivos de arranque; inicia las tres redes y publica la conexión
   de la app. `./dev platform defi-new` prepara una relación DeFi original y su
-  conexión propia. [Uso con Android y WSL](apps/platform/README.md).
+  conexión propia. [Uso con Android y WSL](services/api-server/README.md).
 - DeFi guía financiación, reserva, ejecución y recuperación sobre ExternalFlat:
   Uniswap, Aave y Morpho conservan sus protocolos originales. La pestaña DeFi
   y su conexión están incorporadas; convertir estas acciones en nodos Paged
@@ -1380,7 +1380,7 @@ La wallet web no inventa saldo al arrancar. Cada integración tiene preparación
 
 - [Laboratorio EVM](docs/EVM-LAB.md): build nuevo y recorrido con pruebas reales.
 - [Móvil](apps/mobile/README.md): instalación, contratos, tipos y bundles Android/iOS.
-- [API y PostgreSQL](apps/platform/README.md): réplica Docker y pruebas con base real.
+- [API y PostgreSQL](services/api-server/README.md): réplica Docker y pruebas con base real.
 - [Google Cloud](infra/google-cloud/README.md): validación y seis tests simulados, sin credenciales.
 - [Redes y DeFi](packages/backend/docs/LOCAL-ACCEPTANCE.md): alcance de cada aceptación.
 
@@ -1461,7 +1461,7 @@ salida del padre, GRAPH ni operación pública. Los rechazos `c9ca1b34` y anteri
 permanecen conservados.
 [Resultado original](.internal/runtime/omnichain-flat-profile/flat-wallet/.local/device-external-flat-ordered-observation-v1/attempt-da603751-cafa-4cfa-913e-87e846fe0050/result.json).
 
-La [entrada local ERC20](apps/platform/docs/DEVICE-ERC20-LOCAL.md) crea un realm
+La [entrada local ERC20](services/api-server/docs/DEVICE-ERC20-LOCAL.md) crea un realm
 nuevo y la cuenta original antes de aprobar exactamente el importe del operador
 y abrir TLS. No genera claves del usuario ni prueba o financia la nota al arrancar.
 Su HOST de adquisición, cancelación y cierre pasó (110,679 ms; `1fd5ae0`);

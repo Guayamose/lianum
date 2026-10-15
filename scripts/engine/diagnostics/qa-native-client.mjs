@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { once } from 'node:events';
-import { startLocalServer } from '../../../packages/backend/src/api/private-runtime-server.mjs';
+import { startLocalServer } from '../demos/server.mjs';
 import { unusedLoopbackPort, sleep, projectRoot } from '../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 
 const app = await startLocalServer({ port: 0 }), profile = await mkdtemp(join(projectRoot, '.local/m9-browser-'));

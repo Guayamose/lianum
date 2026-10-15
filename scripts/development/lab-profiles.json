@@ -14,7 +14,7 @@
     },
     "platform-dependencies": {
       "kind": "npm",
-      "path": "apps/platform",
+      "path": "services/api-server",
       "scope": "Platform public lock/manifest agreement and installed package metadata"
     },
     "mobile-dependencies": {
@@ -105,7 +105,7 @@
         "platform-dependencies"
       ],
       "entrypoints": [
-        "apps/platform/src/entry.mjs"
+        "services/api-server/src/entry.mjs"
       ],
       "commands": [
         "./dev platform admission"

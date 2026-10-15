@@ -1,8 +1,0 @@
-[package]
-name = "paeg_funded_4_authorization"
-type = "bin"
-authors = ["Lianum bounded rootless authorization research"]
-
-[dependencies]
-generic_graph = { path = "../../../generic-graph/lib" }
-generic_funding = { path = "../../lib" }

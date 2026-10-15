@@ -19,18 +19,18 @@ CATALOG = Path(__file__).with_name('lab-profiles.json')
 NODE = '.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node'
 NPM = '.internal/dev/toolchains/node-v24.19.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js'
 ACTIONS = {'source-runtime', 'platform-dependencies', 'mobile-dependencies', 'compatibility-runtime'}
-PUBLIC_ROOTS = {'apps', 'packages', 'scripts', 'tests', 'contracts', 'experiments'}
+PUBLIC_ROOTS = {'apps', 'services', 'packages', 'scripts', 'tests', 'contracts', 'experiments'}
 # Retained source paths must also have an exact original layout mapping below.
-RETAINED_PUBLIC_PREFIXES = ('docs/reference/wallet/', 'archive/legacy-client/', 'archive/legacy-engine/')
+RETAINED_PUBLIC_PREFIXES = ('docs/reference/wallet/', 'scripts/engine/demos/client/',)
 RETAINED_PUBLIC_FILES = frozenset({
-    'archive/source-evidence/native-value-genuine-deployment-artifacts/w39-adapter/' + filename
+    'packages/proofs/evidence/native-value-genuine-deployment-artifacts/w39-adapter/' + filename
     for filename in ('compiler-pin.mjs', 'read-original-w39.mjs', 'verifier-ast.mjs',
                      'original-file-pins.mjs', 'source-manifest.json')
-} | {'archive/source-evidence/wrapped-activation-installation-v2/source-manifest.json'})
+} | {'packages/proofs/evidence/wrapped-activation-installation-v2/source-manifest.json'})
 # This archived execution lock is bookkeeping, not public executable source.
 # Its content/hash is intentionally not read or authenticated by this inventory.
 EXCLUDED_HISTORICAL_METADATA = frozenset({
-    'archive/source-evidence/wrapped-key-preparation-bound-20261006/execution-receipts/'
+    'packages/proofs/evidence/wrapped-key-preparation-bound-20261006/execution-receipts/'
     'ci-prepare-key-20261006/failure-preservation-e84fb980-fbaf-428d-b7b3-ab5080623921/active.lock',
 })
 
@@ -165,7 +165,8 @@ def runtime_status(root):
             retained_public = retained and (source.startswith(RETAINED_PUBLIC_PREFIXES)
                 and Path(source).suffix in {'.mjs', '.json', '.css', '.html', '.md'}
                 or source in RETAINED_PUBLIC_FILES)
-            if source.split('/')[0] not in PUBLIC_ROOTS and not retained_public:
+            if ((source.split('/')[0] not in PUBLIC_ROOTS
+                 or source.startswith('packages/proofs/evidence/')) and not retained_public):
                 return 'stale-generation', 'Build metadata contains a non-public source'
             source_path = root / source
             destination = root / '.internal/runtime' / target
@@ -233,8 +234,8 @@ def preparation_commands(report, root=ROOT):
         elif action == 'compatibility-runtime':
             commands.append([sys.executable, '-B', str(root / 'scripts/development/workspace.py'), '--quiet'])
         else:
-            application = 'platform' if action == 'platform-dependencies' else 'mobile'
-            commands.append([str(root / NODE), str(root / NPM), '--prefix', 'apps/' + application,
+            application = 'services/api-server' if action == 'platform-dependencies' else 'apps/mobile'
+            commands.append([str(root / NODE), str(root / NPM), '--prefix', application,
                              'ci', '--ignore-scripts', '--no-audit', '--no-fund'])
     return commands
 

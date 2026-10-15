@@ -7,7 +7,7 @@ import {readFile,writeFile,mkdir,copyFile,readdir} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 import {once} from 'node:events';
-import {startLocalServer} from '../../../../packages/backend/src/api/private-runtime-server.mjs';
+import {startLocalServer} from '../../demos/server.mjs';
 import {projectRoot} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import {createPrivateAccountKeeperForTest} from '../../../../packages/backend/src/accounts/runtime/private-account-keeper.mjs';
 import {PRIVATE_ACCOUNT_PROFILE} from '../../../../packages/engine/src/accounts/private-account-state.mjs';

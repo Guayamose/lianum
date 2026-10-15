@@ -1,4 +1,4 @@
-import { startLocalServer } from '../../../packages/backend/src/api/private-runtime-server.mjs';
+import { startLocalServer } from '../demos/server.mjs';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve, join } from 'node:path';

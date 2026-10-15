@@ -1,1 +1,0 @@
-export { createWrappedWalletTerminalObserverV1, assertOwnedWrappedWalletTerminalObserverV1, decodeNativeValueTerminalCalldata as decodeWrappedWalletTerminalCalldataV1 } from './native-value-terminal-observer-v2.mjs';

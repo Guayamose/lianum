@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shaHex } from '../../../../experiments/engine/private-core-proof/encoding.mjs';
+import { shaHex } from '../../../../packages/proofs/programs/encoding.mjs';
 import { linuxRuntimePins } from '../../../../packages/engine/src/chains/shared/linux-runtime-pins.mjs';
 import { pinnedBinary, unusedLoopbackPort, startOwnProcess, stopOwnProcess, isolatedRuntimeEnvironment, sleep } from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 

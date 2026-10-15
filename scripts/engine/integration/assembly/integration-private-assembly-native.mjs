@@ -117,7 +117,7 @@ export async function runAssemblyNativeIntegration(options = {}) {
       const key=JSON.parse(await readFile(join(projectRoot,'experiments/private-core-proof/owner-independent/.local/prepared',proof.mode+'.key.json'),'utf8'));
       assert.equal(key.keySHA256,proof.verificationKeySHA256,'PC18_CAPABILITY_KEY_CHANGED');assert.equal(key.circuitSHA256,proof.circuitSHA256,'PC18_CAPABILITY_CIRCUIT_CHANGED');assert.equal(sha(await readFile(join(projectRoot,'experiments/private-core-proof/owner-independent/circuits',proof.mode,'src/main.nr'))),proof.sourceSHA256,'PC18_CAPABILITY_SOURCE_CHANGED');
     }
-    const {assemblyVerificationPins}=await import('../../../../experiments/engine/private-core-proof/owner-independent/prover.mjs');
+    const {assemblyVerificationPins}=await import('../../../../packages/proofs/programs/owner-independent/prover.mjs');
     const pins=assemblyVerificationPins(); // File/hash reads only; no warm prover.
     await checkpoint('starting-owned-local-runtimes');runtime=await createOwnedNativeRuntime(()=>{});solana=await createOwnedSolanaRuntime(()=>{},{ledgerRetentionShreds:1_000_000,ticksPerSlot:64});
     await privateAudit('runtime-bootstrap',{kind:'private-runtime-metadata',evmBitcoin:runtime.metadata,solana:solana.metadata});

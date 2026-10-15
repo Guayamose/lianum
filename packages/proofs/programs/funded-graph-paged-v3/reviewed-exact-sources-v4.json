@@ -1,0 +1,510 @@
+{
+  "profile": "LIANUM_PAEG_FUNDED_PAGED_V3",
+  "sources": [
+    {
+      "path": ".internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs",
+      "bytes": 4665,
+      "sha256": "92d31ff845b483006262d4f3968908f29ad8f82282defafd3d6321edb4ed0928"
+    },
+    {
+      "path": ".internal/runtime/omnichain-flat-profile/src/resources/private-resource-policy.mjs",
+      "bytes": 833,
+      "sha256": "cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/experiments/private-core-proof/wallet-notes/resources.mjs",
+      "bytes": 3089,
+      "sha256": "415d49b3da693225700281f986d7f1658a5f1e89aa73be7f7a622afeebecdc0c"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/chains/linux-runtime-pins.mjs",
+      "bytes": 664,
+      "sha256": "6956aaf4e19fd1cc97acadef9e5299bbbc9c1f976cd31733ab37b2df25386de8"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/chains/owned-process-lifecycle.mjs",
+      "bytes": 2920,
+      "sha256": "0f9666265f76d5fb3299459abf9a584acc6f89f44f996b15a2434f3d446f568f"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/chains/runtime-harness.mjs",
+      "bytes": 6412,
+      "sha256": "0047f97d35f8386e08972d42a07600531d7c3cea19157aa9c94f0d670b2df68a"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/environment/paths.mjs",
+      "bytes": 4560,
+      "sha256": "cd5d5802e59095e45a6acd59f4227ee64f2f954356c50f77cdbb45b38759110a"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/paeg/local-deployment.mjs",
+      "bytes": 29860,
+      "sha256": "b99d5cb96f4b02f399d375d173fe6f3216acd5dc5d37ff8cc908f10d0e9b189c"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/paeg/local-evm.mjs",
+      "bytes": 15911,
+      "sha256": "bdbe143d11b8193ccc37bfb4a4986bcc3fd994a4cadd5867e1dbb7b4f454f724"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/private-assembly-history.mjs",
+      "bytes": 4597,
+      "sha256": "45f15a77524dd1d7d8ac402fbf632ecc7a99856885d488f223ea71bdbb4e82c8"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/private-assembly-revocations.mjs",
+      "bytes": 2232,
+      "sha256": "23582051db05fa1d7c9d5e050a94ebd7aa795b9e9cddcbc5092cbacf76665683"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/private-asset-runtime.mjs",
+      "bytes": 34821,
+      "sha256": "130ab4a4cc953b0f4c0f90bec32d9bd65a957ecbd2cacc4e1fafcd1a35315f5d"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/private-note-tree.mjs",
+      "bytes": 10499,
+      "sha256": "e2ac35aa1d1f2a805feb55717fa3bd18308867f9d14940754fb52877f063eb57"
+    },
+    {
+      "path": ".internal/runtime/omnichain-product/src/private-resource-policy.mjs",
+      "bytes": 163,
+      "sha256": "b3242d43c0392339c2bb7f203811c49430e3bad7f40a639f9fab0872894f8908"
+    },
+    {
+      "path": "contracts/wallet/FlatHubCodec.sol",
+      "bytes": 14909,
+      "sha256": "aadabeafefc8c985f485f3c31cdd31002426b14dd90096e6d38113f14035d487"
+    },
+    {
+      "path": "contracts/wallet/FlatVerifierSet.sol",
+      "bytes": 5813,
+      "sha256": "dff6e8d216f6eebba2331fe38f54b57c4aaa3ba5d8355c0de1fd1d10410b6710"
+    },
+    {
+      "path": "contracts/wallet/PrivatePagedFundedGraphNativeStateV3.sol",
+      "bytes": 11124,
+      "sha256": "0e27ed56f7f117c779c41fb15cf797370578c2b626e5b0de45098fc9642bb5b9"
+    },
+    {
+      "path": "contracts/wallet/PrivatePagedFundedGraphPoolV4.sol",
+      "bytes": 12922,
+      "sha256": "cbb56b79a84f1762a6d9e44385e93325503f6c55735e37a29bbafd98d185168c"
+    },
+    {
+      "path": "contracts/wallet/PrivatePagedFundedGraphStateV3.sol",
+      "bytes": 10900,
+      "sha256": "e6b3a4c6f098a78fcc0cb0d8180d9fd5a09335fb6b34c465d62f72fc0bfa8881"
+    },
+    {
+      "path": "contracts/wallet/crypto/PagedSparsePoseidon2V3.sol",
+      "bytes": 1496,
+      "sha256": "1ea06c05f2089af476342edda84428d245d71565f08811e6105eacf2b08cc49f"
+    },
+    {
+      "path": "contracts/wallet/crypto/Poseidon2.sol",
+      "bytes": 15124,
+      "sha256": "e1faf5b4497e7e9cc569e6711231eca9f4a4a4887cd673cc7257e8233b7ac740"
+    },
+    {
+      "path": "contracts/wallet/crypto/Poseidon2Domains.sol",
+      "bytes": 7536,
+      "sha256": "ea25f1871682cb3498c83c1aba44cb954c68d7f962e69e2d79f1ac7edf177562"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-64-v2/lib/Nargo.toml",
+      "bytes": 283,
+      "sha256": "af40c7f1672185333ee9f27e8162e738f7557a6a41e7e77fb1858d6630357f13"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-64-v2/lib/src/framing.nr",
+      "bytes": 13569,
+      "sha256": "ba0d68b615074b5f607d7abb89aac5e57916c7d37836c75571cba3f95ed422b4"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-64-v2/lib/src/graph.nr",
+      "bytes": 8786,
+      "sha256": "6b00dae28c24fcfb5b3fc9bc6dec3dd931f0c2500bcef777be0700ba153c4dc9"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-64-v2/lib/src/lib.nr",
+      "bytes": 83,
+      "sha256": "936707b9cb30c573b99b89591f9662b5f19c3d8e124b695fdee864757e7b9384"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-64-v2/lib/src/native_statement.nr",
+      "bytes": 11402,
+      "sha256": "4882897e255fd0f80200c5c17cfecb5818119225e25a176813601bb16061f8be"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-64-v2/lib/src/receipt_helpers.nr",
+      "bytes": 549,
+      "sha256": "f220b841497eca08b4415d18e8015f187659ed76d3accffd60bd3342109ed6f5"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/artifacts.mjs",
+      "bytes": 22664,
+      "sha256": "731c34c772afe6d557726ade153721cfa637b1ec0e18046c300f11ec3ca6e7f8"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/admission/Nargo.toml",
+      "bytes": 316,
+      "sha256": "47e55f7fbe2f2d91a84ac12742a920c55abce5db41caf702b3516fa73e0de557"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/admission/src/main.nr",
+      "bytes": 6093,
+      "sha256": "75bd03d62350b5fcbfb10999fc834defe0dbf3eefdf99879e964962c5ba3cac9"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/fold/Nargo.toml",
+      "bytes": 311,
+      "sha256": "a6dc2a8ad9c7a91fc28c379e4c08395efa5b27c7c79cf3f91becab6cd40ab6ca"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/fold/src/main.nr",
+      "bytes": 7593,
+      "sha256": "48d5612f6d6ee5659ce22c9244392e21cc9799e3999618a6699960be4a37a109"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/reserve/Nargo.toml",
+      "bytes": 314,
+      "sha256": "06d03a6ea93814126946bbb1ddfd1c512c6ec26afc5336b8e93324e97eccad65"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/reserve/src/main.nr",
+      "bytes": 1508,
+      "sha256": "53dbdf61bf80ce1341205d75fc309a33dc4ab804a452df24e7551f022a2cfa2d"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/terminal/Nargo.toml",
+      "bytes": 315,
+      "sha256": "3b9a5c639c5d24bdde433835fe7d3c19aa0f9e571a38dd43d7986ef8d153e361"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/terminal/src/main.nr",
+      "bytes": 1364,
+      "sha256": "e19ce6304858947a35f619dc7c0215c51999feb84a320ac3e6a21c68fe0799bd"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/withdraw/Nargo.toml",
+      "bytes": 143,
+      "sha256": "e16891f242240a7e3e94e1de8f1999ff9dd9360f47513a472648ea76f46fdced"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/circuits/withdraw/src/main.nr",
+      "bytes": 5864,
+      "sha256": "98fb5d30c230b45aed5eb80062cb4c00cc6a8b9ae90fab5d48aa84b01d63f752"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/exact-payout-artifacts-v4.mjs",
+      "bytes": 18316,
+      "sha256": "c632ced22eb891241a5242375822e65c68ca97b8c94204b29f867c0bd717da6d"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/lib/Nargo.toml",
+      "bytes": 402,
+      "sha256": "6eb0ed19375aa5a36b84ae0997694cd42d3873a8448e7a7d97b7cb0082eaba9c"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/lib/src/framing.nr",
+      "bytes": 27336,
+      "sha256": "a472f2dfa9e170bd72a9fb176d4e5df36135f456eef093c92753690208d94c76"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/lib/src/graph.nr",
+      "bytes": 7615,
+      "sha256": "b3d174422a187ead8213594b6cc394350ed76dd3b583c9c2bb0c0c8e45293a30"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/lib/src/lib.nr",
+      "bytes": 66,
+      "sha256": "88928a003a797b15e03126df2e28a5c54b2034f7b7e04ebe86f2628891ee1261"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/lib/src/progress.nr",
+      "bytes": 4031,
+      "sha256": "5f962431ae3b861586edb16231899e44ab0a2c209230ca938ee0a03114b00eb6"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/lib/src/sparse.nr",
+      "bytes": 5762,
+      "sha256": "ee184d68fc4b7883407b7f746fcc431df7543d7c4e70b27755f11ab37b06c81a"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/proof-client.mjs",
+      "bytes": 8727,
+      "sha256": "71ee205bd573d60038301d8b650421e5edf71b09ce4afe15f5d94bc477a5697c"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/proof-process.mjs",
+      "bytes": 4371,
+      "sha256": "dd95557805414a55d2e229323c0eebb2470326cf5e3f76ea30346f073bf05b78"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/run-bounded.mjs",
+      "bytes": 6072,
+      "sha256": "36f31f8f24ffaae9b813ce4eae017ecc5b126639e25654b5f05c24ecc742168e"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/run-exact-bounded.mjs",
+      "bytes": 6091,
+      "sha256": "6d3eebd852ab5ebc681d6e3a9ec417300101d4938f9ccb041bd5e85b55699682"
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/transcript.json",
+      "bytes": 3191,
+      "sha256": "56db41cef1f1ee07d4be7f98d2e0c529c117a2de111989209cb0169d3452e484"
+    },
+    {
+      "path": "packages/proofs/programs/generic-funding/lib/Nargo.toml",
+      "bytes": 178,
+      "sha256": "3ccd031c9e9fd22ba0995fec1c93aa1d2cc8d45ea77b6c315499ad9ffb7498d8"
+    },
+    {
+      "path": "packages/proofs/programs/generic-funding/lib/src/framing.nr",
+      "bytes": 10893,
+      "sha256": "a6f0333e3343c8786bae348c7ae6d5880768abd58d066369cd74f7dfd28fe99e"
+    },
+    {
+      "path": "packages/proofs/programs/generic-funding/lib/src/funding.nr",
+      "bytes": 8841,
+      "sha256": "a44efa6cc43a84008a6a71f33fc17f30e3c15d3dc41f889e51e499f16a1d4798"
+    },
+    {
+      "path": "packages/proofs/programs/generic-funding/lib/src/lib.nr",
+      "bytes": 34,
+      "sha256": "a04ad9406d24ee6c8a414cbc022195f71c8c1abff7e2bcab29e6c8956a7aef91"
+    },
+    {
+      "path": "packages/proofs/programs/generic-graph/lib/Nargo.toml",
+      "bytes": 115,
+      "sha256": "74d54bdd7810f8459f3a027144ecb35e3aa0721304a291da2a6a43b4e3574980"
+    },
+    {
+      "path": "packages/proofs/programs/generic-graph/lib/src/coverage.nr",
+      "bytes": 3253,
+      "sha256": "2929d06c75104d05a96610c0dd0bb5a678e5420b69d7f62e48bcd440d70d140a"
+    },
+    {
+      "path": "packages/proofs/programs/generic-graph/lib/src/framing.nr",
+      "bytes": 5497,
+      "sha256": "322ffea1d810f14ededdb66fcf05f21518276a1ca39cfc44454fb16d5995c7b2"
+    },
+    {
+      "path": "packages/proofs/programs/generic-graph/lib/src/graph.nr",
+      "bytes": 5062,
+      "sha256": "622571e479ee83421c2b8aea7030a40b4d17ea9596f1f0546b1e158ae5fad4ae"
+    },
+    {
+      "path": "packages/proofs/programs/generic-graph/lib/src/lib.nr",
+      "bytes": 147,
+      "sha256": "b8b3cce2f9392bba19ac0c3f3f6c2450c6c8ef533a420e00edaeabf74375d741"
+    },
+    {
+      "path": "packages/proofs/programs/generic-graph/lib/src/sha256.nr",
+      "bytes": 2814,
+      "sha256": "0ba89bcb8ec8d26070de96ba5302a76ee493e747c4ceb14300d70a2dfcaa992d"
+    },
+    {
+      "path": "packages/proofs/programs/generic-native/lib/Nargo.toml",
+      "bytes": 233,
+      "sha256": "26dbc45b6581aa3e4e3614ddec9e3eedc4ebedbdece156c6a2f3354448aba9ca"
+    },
+    {
+      "path": "packages/proofs/programs/generic-native/lib/src/capsule.nr",
+      "bytes": 11618,
+      "sha256": "f1fd9641a7f817d6c441ba528ea993134690b4e1a84a21b1f87022ea14273c1b"
+    },
+    {
+      "path": "packages/proofs/programs/generic-native/lib/src/capsule_framing.nr",
+      "bytes": 10077,
+      "sha256": "c9d75179f733293f47214eb14cd0e0d252bdab1cfba433cb18aed97bd997bb63"
+    },
+    {
+      "path": "packages/proofs/programs/generic-native/lib/src/lib.nr",
+      "bytes": 248,
+      "sha256": "9b2751f5475efbb35b555713f581557370058d8f37c63c450a12c2e9e5808c7b"
+    },
+    {
+      "path": "packages/proofs/programs/generic-native/lib/src/quorum.nr",
+      "bytes": 4395,
+      "sha256": "8324bcef9971cf625d786de02aadc64cbf17e9b9ea4ac018af08d7ce22b72cfa"
+    },
+    {
+      "path": "packages/proofs/programs/generic-native/lib/src/receipt.nr",
+      "bytes": 8836,
+      "sha256": "1f943ccea08d566e6d73dd2bd841ea2bf0f04102b8f4082cfe424531cf09f4b5"
+    },
+    {
+      "path": "packages/proofs/programs/generic-native/lib/src/state.nr",
+      "bytes": 6777,
+      "sha256": "54bb703e8a0ff47addcdee0960f4c92b2ec0a98fce7f2ead5aedad75167c93f3"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/Nargo.toml",
+      "bytes": 102,
+      "sha256": "551d27ec7bf58e6e40896ee424210ac0f3724b29c05068cf34fef3ea8ca1b57a"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/bench.nr",
+      "bytes": 1693,
+      "sha256": "64f658d97495738f12585aa0fbba025bcf51e9bc7930da8ca94fe02d3c9b479a"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/lib.nr",
+      "bytes": 121,
+      "sha256": "5d8b3eeccceb4ac36b66430d3678fc2e8d9e6ab5b759556244be1234882fdff9"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/oracle_tests.nr",
+      "bytes": 4002,
+      "sha256": "f5e7fb3f99cf446974836548e2cba9b34f1bf72434a4a3764dbc51fb998aa398"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254.nr",
+      "bytes": 2508,
+      "sha256": "4800b851b4b0e2c71cd6456efb021be865e4fde040c6e63797b6f157c042653a"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254/consts.nr",
+      "bytes": 1907961,
+      "sha256": "0e1ce6ec6ed2ebbab52739ab07a2ab7a9cfb9b479cb012527f5e08447677dfd2"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/bn254/perm.nr",
+      "bytes": 2299,
+      "sha256": "1daf55657af0418deb717b74cd45a1a4e9ac9d59678335cf0e677ed8a682be23"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon/mod.nr",
+      "bytes": 10045,
+      "sha256": "d0b044a17c0d7c26470137c17b7a43c172051da8ea74e56797323f3cc07a5a84"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/poseidon2.nr",
+      "bytes": 4704,
+      "sha256": "727ab4c68338938edb3d300c1f7949395beda882f6b06456bc21e8917102b507"
+    },
+    {
+      "path": "packages/crypto/vendor/poseidon/src/tests.nr",
+      "bytes": 3424,
+      "sha256": "8364bc5d1cfdf4783728c0ed0ef1001a9423a38b06d04dddfc3275a78bf215a0"
+    },
+    {
+      "path": "packages/engine/src/chains/shared/owned-process-lifecycle.mjs",
+      "bytes": 2920,
+      "sha256": "0f9666265f76d5fb3299459abf9a584acc6f89f44f996b15a2434f3d446f568f"
+    },
+    {
+      "path": "packages/engine/src/chains/shared/runtime-harness.mjs",
+      "bytes": 6407,
+      "sha256": "7ebc0d987508605f25b8840e9e5628f03720a78cfda7a9c364013637f6eb9115"
+    },
+    {
+      "path": "packages/engine/src/chains/solana/solana-runtime.mjs",
+      "bytes": 45927,
+      "sha256": "fe6960baed250ac545f8fb491e47c7e27af10a799fe24c85543593285da122d2"
+    },
+    {
+      "path": "packages/engine/src/crypto/private-proof-transit-v1.mjs",
+      "bytes": 13259,
+      "sha256": "b4ed378cb081421d91630ab808fec3abf91073c5c6051791894e84a67fd12278"
+    },
+    {
+      "path": "packages/engine/src/crypto/private-resource-policy.mjs",
+      "bytes": 145,
+      "sha256": "87d2502832636c40257e75df35b1e54ec8b3b242b2995d11d539c321cafa994d"
+    },
+    {
+      "path": "packages/engine/src/evidence/native-evidence.mjs",
+      "bytes": 19668,
+      "sha256": "8d93007c6d95a2064af9e32a13cbd0000e9deda183cff13ce50a841bb522d98e"
+    },
+    {
+      "path": "packages/engine/src/evidence/native-quorum.mjs",
+      "bytes": 7603,
+      "sha256": "d8fcb494326e7ad9befd975a8252651fc60a75b4dd6b2ad10c14bc78c7f71915"
+    },
+    {
+      "path": "packages/engine/src/execution/graph/funded-graph-64-v2.mjs",
+      "bytes": 20037,
+      "sha256": "b7acf48f9ab6239b4040a24dae9dba072bd64bea7a502dfdbd51a211a1cc9dbd"
+    },
+    {
+      "path": "packages/engine/src/execution/graph/funded-graph-paged-trees-v3.mjs",
+      "bytes": 1871,
+      "sha256": "7a68d76f37187fddf6c8dd8d31356c8629dfe00af49756243b1a56e1a5f310a5"
+    },
+    {
+      "path": "packages/engine/src/execution/graph/funded-graph-paged-v3.mjs",
+      "bytes": 59949,
+      "sha256": "f33022152c03145afd5193b9382fd4099d82768a7d4f8881e71b48813ba6b81a"
+    },
+    {
+      "path": "packages/engine/src/execution/graph/funded-graph.mjs",
+      "bytes": 14226,
+      "sha256": "7118e47af0fd24c061fadfd764336aa9c4aa10f2a21d8b7584f995b061221be8"
+    },
+    {
+      "path": "packages/engine/src/execution/graph/graph.mjs",
+      "bytes": 8964,
+      "sha256": "06c512a41c12621e4ed56691d697ed18d02aa39ec86d2cf291dd7ee6e63c5e99"
+    },
+    {
+      "path": "packages/engine/src/execution/local/solidity-compiler-v1.mjs",
+      "bytes": 3897,
+      "sha256": "99aa27ab644e80a2d8aa10257eeb743fadb5663a88c93ae2e82cdc88e9a86023"
+    },
+    {
+      "path": "packages/engine/src/execution/native/dispatch/native-admission.mjs",
+      "bytes": 25211,
+      "sha256": "7566e4008f20a5347751a8db02f23c4123e3e1652f7b2bcf446743910ff2776c"
+    },
+    {
+      "path": "packages/engine/src/execution/native/dispatch/native-capsules.mjs",
+      "bytes": 24975,
+      "sha256": "3f58f78e0a2336cbfaf250bab35347b1d3afdcc83a6642c7d20eb3afc4e2e07e"
+    },
+    {
+      "path": "packages/engine/src/execution/native/state/native-receipt.mjs",
+      "bytes": 6803,
+      "sha256": "d49a64d6176aa1a592c0b5e6f1f699d983addb061447528ac078f7028fa2baaa"
+    },
+    {
+      "path": "packages/engine/src/execution/native/state/native-state.mjs",
+      "bytes": 9382,
+      "sha256": "0432453c7aafb8e4612e231f2aed1f9415aa6473c9d165edd72e51ad0f86fd33"
+    },
+    {
+      "path": "packages/engine/src/native/native-bitcoin.mjs",
+      "bytes": 6630,
+      "sha256": "01a2b3e1da168a9b04ba73a804aa72ab65085aff5b7e0582e6f18278487bc9ef"
+    },
+    {
+      "path": "packages/engine/src/notes/private-native-certificate.mjs",
+      "bytes": 28588,
+      "sha256": "78c64734fdb554f7f445f380f17df27ae8e38ee9f54a3e9ba74ab394abee2a1a"
+    },
+    {
+      "path": "packages/engine/src/notes/private-note-encoding.mjs",
+      "bytes": 8547,
+      "sha256": "ee091ea2a0e003c965910f9f96d986a385bc0b496323e9c3f4f72da8e68b1d5c"
+    },
+    {
+      "path": "packages/engine/src/notes/private-note-tree.mjs",
+      "bytes": 10499,
+      "sha256": "e2ac35aa1d1f2a805feb55717fa3bd18308867f9d14940754fb52877f063eb57"
+    },
+    {
+      "path": "packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs",
+      "bytes": 8145,
+      "sha256": "8633efa599ebf6b70d13b5b5a615b614dcb60c891206409aefa7baf685be33e6"
+    },
+    {
+      "path": "packages/proofs/src/tooling/solidity-compiler.mjs",
+      "bytes": 4623,
+      "sha256": "7ee6c0e1cc00c9811a6bc919c6264ffb6385b0afc4c665e543b0409092aba03a"
+    }
+  ]
+}

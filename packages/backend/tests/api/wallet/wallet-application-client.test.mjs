@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { startWalletApplication } from '../../../../../apps/wallet/src/server/server.mjs';
+import { startWalletApplication } from '../../fixtures/api/wallet/application.mjs';
 import { ALL_ACTIONS, ACCOUNT_ACTIONS, DEFI_ACTIONS, WALLET_PROFILE, DEFI_PROFILE,
   NATIVE_IDENTITY_PROFILE } from '../../../../mobile-protocol/src/wallet/client/view-model.mjs';
 import { createWalletApplicationClient } from '../../../src/api/wallet/wallet-application-client.mjs';

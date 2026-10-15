@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 POLICY = "scripts/development/source-pins.json"
 TARGETS = {
     "mobile": "packages/backend/src/operations/releases/native-value/native-value-dev-mobile-package-pins-v5.mjs",
-    "platform": "apps/platform/src/original-device-cloud-source-pins-v1.mjs",
+    "platform": "services/api-server/src/original/original-device-cloud-source-pins-v1.mjs",
     "callers": "packages/backend/src/operations/recovery/native-device-source-review-v1.mjs",
 }
 PROFILES = (*TARGETS, "runtime")
@@ -199,7 +199,7 @@ class Plan:
             if set(binding) != {"target", "source", "declaration"}:
                 raise ValueError("Unexpected current runtime binding fields")
             target, source = (public_path(binding[key]) for key in ("target", "source"))
-            if any(not name.startswith(("apps/", "packages/", "scripts/", "tests/"))
+            if any(not name.startswith(("apps/", "services/", "packages/", "scripts/", "tests/"))
                    or name.startswith("packages/protocol/") or "/node_modules/" in name
                    for name in (target, source)):
                 raise ValueError("Runtime bindings require active public source paths")
@@ -223,7 +223,7 @@ class Plan:
             if set(binding) != {"target", "source", "declaration"}:
                 raise ValueError("Unexpected current runtime record fields")
             target, source = (public_path(binding[key]) for key in ("target", "source"))
-            if any(not name.startswith(("apps/", "packages/", "scripts/", "tests/"))
+            if any(not name.startswith(("apps/", "services/", "packages/", "scripts/", "tests/"))
                    or name.startswith("packages/protocol/") or "/node_modules/" in name
                    for name in (target, source)):
                 raise ValueError("Runtime records require active public source paths")
@@ -294,14 +294,17 @@ class Plan:
 
     def rows(self, profile, policy, text):
         platform = profile == "platform"
+        source_base = policy.get("sourceBase", "services/api-server")
+        if source_base not in ("", "services/api-server"):
+            raise ValueError("Unknown gateway capsule source base")
         parsed = rows_at(text, "const PINS=Object.freeze(" if platform else "const reviewedCallers = Object.freeze(", not platform)
         immutable = policy.get("dependencyPaths", [])
         mutable = policy["mutablePaths"]
         exact_paths([row for row, _, _ in parsed], mutable + immutable)
         if platform:
             packages = [dict(value, name=path[len("node_modules/"):]) for path, value in policy["packages"].items()]
-            self.verify_packages("apps/platform", packages, exact=True)
-            manifest = DECODER.decode(self.snapshot.read("apps/platform/package.json").decode())
+            self.verify_packages("services/api-server", packages, exact=True)
+            manifest = DECODER.decode(self.snapshot.read("services/api-server/package.json").decode())
             if manifest.get("dependencies", {}) != policy["dependencies"] or manifest.get("devDependencies", {}):
                 raise ValueError("Platform public dependencies changed; explicit dependency review required")
         replacements = []
@@ -310,11 +313,16 @@ class Plan:
                 raise ValueError("Unexpected source pin fields")
             name = row["path"]
             if platform:
-                allowed = name in immutable and name.startswith("node_modules/") or name in mutable and (
-                    name.startswith(("src/", "migrations/")) or name in ("package.json", "package-lock.json"))
-                path = "apps/platform/" + name
+                if source_base:
+                    allowed = (name in immutable and name.startswith("node_modules/")
+                        or name in mutable and (name.startswith(("src/", "migrations/"))
+                            or name in ("package.json", "package-lock.json")))
+                else:
+                    allowed = (name in immutable and name.startswith("services/api-server/node_modules/")
+                        or name in mutable and name.startswith(("services/api-server/", "packages/backend/src/api/transport/")))
+                path = source_base + "/" + name if source_base else name
             else:
-                allowed, path = name.startswith("apps/platform/src/") and name.endswith(".mjs"), name
+                allowed, path = name.startswith(("services/api-server/src/", "services/paeg-engine/src/", "scripts/development/profiles/", "packages/backend/src/api/transport/")) and name.endswith(".mjs"), name
             if not allowed:
                 raise ValueError("Source outside the fixed public profile: " + name)
             value = self.source(path)

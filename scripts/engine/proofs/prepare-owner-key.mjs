@@ -8,7 +8,7 @@ import { gunzipSync } from 'node:zlib';
 import { verifyToolchain, verifyCRS, filePin, hash, CRS } from '@lianum/components/resources/wallet-resources';
 import {
   sourceManifest, sourceTreeHash, assertOwnerArtifact,
-} from '../../../experiments/engine/private-core-proof/generic-wrappers/pin-owner-key.mjs';
+} from '../../../packages/proofs/programs/generic-wrappers/pin-owner-key.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const experiment = join(root, 'experiments/private-core-proof');

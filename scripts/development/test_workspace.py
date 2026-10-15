@@ -84,7 +84,7 @@ class WorkspaceExecutionTests(unittest.TestCase):
         self.assertNotIn(self.value, {row['source'] for row in workspace.source_files(workspace.layout()).values()})
 
     def test_reviewed_unmapped_current_dependency_keeps_its_canonical_source(self):
-        dependency = "apps/platform/src/current.mjs"
+        dependency = "services/api-server/src/current.mjs"
         physical = self.root / dependency
         physical.parent.mkdir(parents=True)
         physical.write_text("export const current=1;\n")
@@ -92,13 +92,13 @@ class WorkspaceExecutionTests(unittest.TestCase):
         pins.parent.mkdir(parents=True)
         pins.write_text(json.dumps({"profiles": {"platform": {"mutablePaths": [dependency]}}}))
         config = workspace.layout()
-        source = "import '../../../platform/src/current.mjs';\n"
+        source = "import '../../../../services/api-server/src/current.mjs';\n"
         rendered = translate(source, self.entry, "app/run.mjs", config, "runtime")[0]
-        self.assertEqual(rendered, "import '../../../apps/platform/src/current.mjs';\n")
-        self.assertEqual((self.runtime / "app" / "../../../apps/platform/src/current.mjs").resolve(), physical)
+        self.assertEqual(rendered, "import '../../../services/api-server/src/current.mjs';\n")
+        self.assertEqual((self.runtime / "app" / "../../../services/api-server/src/current.mjs").resolve(), physical)
         physical.unlink()
         self.assertEqual(translate(source, self.entry, "app/run.mjs", config, "runtime")[0], source)
-        actual = self.root / "apps/platform/src/actual.mjs"
+        actual = self.root / "services/api-server/src/actual.mjs"
         actual.write_text("export const current=2;\n")
         physical.symlink_to(actual)
         with self.assertRaisesRegex(RuntimeError, 'Canonical source reference has symlink ancestors'):

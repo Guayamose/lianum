@@ -1,5 +1,5 @@
 import test from'node:test';import assert from'node:assert/strict';import{randomBytes}from'node:crypto';
-import{syntheticSetup,syntheticCertificate,allSyntheticInputs}from'../../../../experiments/engine/private-core-proof/native-notes/fixtures.mjs';
+import{syntheticSetup,syntheticCertificate,allSyntheticInputs}from'../../../proofs/programs/native-notes/fixtures.mjs';
 import{origin,admission,paymentCommitment,localCommitment,reservedCommitment,graphCommitment,nullifier,wordsBE,uintBE,policyCommitment,withdrawFrame}from'../../src/notes/private-note-encoding.mjs';
 import{decodePC15Frame}from'../../src/notes/private-native-certificate.mjs';
 test('acyclic private origin tree changes every local leg under fresh admission seed',()=>{const{graph:g}=syntheticSetup(),fresh=randomBytes(32);assert.notDeepEqual(admission(g.scope,g.originSeed),admission(g.scope,fresh));for(const[c,slot,n]of[['sol',1,g.solNote],['btc',2,g.btcNote]]){const p=paymentCommitment(g.scope,{...n,origin:origin(g.scope,fresh,slot)});assert.notDeepEqual(p,n.commitment);assert.notDeepEqual(localCommitment(g.scope,g.policy,{...g[c],payout:p}),g[c].commitment);}});

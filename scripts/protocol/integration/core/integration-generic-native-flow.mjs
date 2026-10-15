@@ -27,7 +27,7 @@ import { prepareNativeNode } from '../../../../packages/protocol/src/execution/n
 import { prepareNativeAdmission, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../../packages/protocol/src/execution/native/dispatch/native-admission.mjs';
 import { prepareNativeAggregatePair, prepareNativeAggregateAll, prepareNativeFulfillment } from '../../../../packages/protocol/src/execution/native/dispatch/native-fulfillment.mjs';
 import { nativeReceiptCommitment } from '../../../../packages/protocol/src/execution/native/state/native-receipt.mjs';
-import { reserveInputs, refundInputs, publicWords, digestHex } from '../../../../experiments/protocol/private-core-proof/generic-wrappers/abi.mjs';
+import { reserveInputs, refundInputs, publicWords, digestHex } from '../../../../packages/protocol/circuits/generic-wrappers/abi.mjs';
 import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/protocol/src/crypto/private-resource-policy.mjs';
 import { parseGenericNativeFlowArguments, runPartialRefundNativeFlow } from '../../lib/generic-native-flow-profiles.mjs';
 

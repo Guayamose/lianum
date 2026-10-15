@@ -386,7 +386,7 @@ test('HOST fixed network CLI retains its first sanitized cause before cleanup wi
   await writer()('BSC714',cause);assert.equal((await readdir(directory)).length,4);assert.deepEqual(await readFile(path),bytes);
   // Creation can reject during validation before the producer's try/catch.
   // The actual CLI checks durable writer completion, never acquisition truthiness.
-  const cli=await readFile(join(repository,'apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs'),'utf8');
+  const cli=await readFile(join(repository,'scripts/development/profiles/run-original-bsc-private-native-mobile-v3.mjs'),'utf8');
   const cliStart=cli.lastIndexOf('}catch(error){')+'}catch(error){'.length,cliEnd=cli.trimEnd().length-1;
   assert.ok(cliStart>0&&cli.trimEnd().endsWith('}'));
   const runCLI=new AsyncFunction('error','originalNetworkMobileFirstErrorRetainedV1','retainOriginalNetworkMobileFirstErrorV1','close','process',cli.slice(cliStart,cliEnd));
@@ -398,7 +398,7 @@ test('HOST fixed network CLI retains its first sanitized cause before cleanup wi
   await runCLI(new AggregateError([primary,cleanupOriginal],'PRIVATE WRAPPER'),earlyLifetime.hasFirst,async()=>{throw Error('HOST duplicate first write must not run');},async()=>{earlyClosed++;},cliProcess);
   assert.equal(earlyWrites,1);assert.equal(earlyClosed,2);assert.equal((await readdir(directory)).length,5);assert.deepEqual(await readFile(path),bytes);
   for(const entry of ['run-original-bsc-private-native-mobile-v3.mjs','run-original-arbitrum-private-native-mobile-v1.mjs','run-original-base-private-native-mobile-v1.mjs','run-original-tron-private-native-mobile-v1.mjs']){
-   const source=await readFile(join(repository,'apps/platform/src',entry),'utf8');
+   const source=await readFile(join(repository,'services/api-server/src',entry),'utf8');
    const first=source.lastIndexOf('}catch(error){process.exitCode=1;'),diagnostic=source.indexOf('await retainOriginalNetworkMobileFirstErrorV1(',first),close=source.indexOf('try{await close();}',first);
    assert.ok(first>=0&&diagnostic>first&&close>diagnostic,'HOST diagnostic retained before same original cleanup');
   }

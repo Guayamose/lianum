@@ -18,7 +18,7 @@ import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures, fund
 import { prepareNativeCapsules, nativeReceiptKeyCommitment, nativeTransferActionCommitment,
   capsuleAuthorizationWords } from '../../../packages/protocol/src/execution/native/dispatch/native-capsules.mjs';
 import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../packages/protocol/src/execution/native/dispatch/native-admission.mjs';
-import { authorizationInputs } from '../../../experiments/protocol/private-core-proof/generic-funding/witness.mjs';
+import { authorizationInputs } from '../../../packages/protocol/circuits/generic-funding/witness.mjs';
 import { freshKey, signature } from '../../../packages/protocol/src/notes/private-note-encoding.mjs';
 import { walletNoteCommitment, walletDepositInput, walletInputPublicWords } from '../../../packages/protocol/src/wallet/notes/private-wallet-note-encoding.mjs';
 

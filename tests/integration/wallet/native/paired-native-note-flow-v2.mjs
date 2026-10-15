@@ -43,7 +43,7 @@ import { originalAccountAccessMessageV2, originalAccountReviewMessageV2, validat
   privateStateAccessMessageV1, privateStateReviewMessageV1 } from '@lianum/mobile-protocol/original-account-v2';
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
-import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
+import { startWalletApplication } from '../../../../packages/backend/tests/fixtures/api/wallet/application.mjs';
 import { createManualWalletAppDriver } from '../manual/manual-wallet-app-driver.mjs';
 import { assertPrivateMetaMorphoProofTelemetry } from '../../defi/private-metamorpho-proof-evidence.mjs';
 import { freshFixtureId, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';

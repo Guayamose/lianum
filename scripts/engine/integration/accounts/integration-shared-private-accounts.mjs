@@ -111,7 +111,7 @@ async function bounded(work, milliseconds, code) {
 
 export async function runSharedPrivateAccountsAcceptance(argv = process.argv.slice(2)) {
   const runProfile=m26RunProfile(argv),balanceOnly=runProfile==='BALANCE_RECOVERY_ONLY';
-  const {startLocalServer} = await import('../../../../packages/backend/src/api/private-runtime-server.mjs');
+  const {startLocalServer} = await import('../../demos/server.mjs');
   const {projectRoot} = await import('../../../../packages/engine/src/chains/shared/runtime-harness.mjs');
   const {createPrivateAccountCohortService, PRIVATE_ACCOUNT_COHORT_PROFILE} = await import('../../../../packages/backend/src/accounts/runtime/private-account-cohort-service.mjs');
   const {PRIVATE_WALLET_SOURCE_PROFILE, checkPrivateWalletSourcePrerequisites} = await import('../../../../packages/backend/src/operations/wallet/private-wallet-prerequisites.mjs');

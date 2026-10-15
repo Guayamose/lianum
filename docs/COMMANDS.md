@@ -3,8 +3,8 @@
 Generado desde `scripts/development/workflows.json`; `./dev help` usa el mismo catálogo.
 
 ```text
-./dev start                             Arrancar la wallet desde fuentes editables; Ctrl+C para cerrar
-./dev platform [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new] Arrancar el perfil explícito; new exige estado nuevo, reopen conserva el original
+./dev api                               Arranca la API pública usando LIANUM_PUBLIC_WALLET_CONFIG.
+./dev engine [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new] Arrancar el perfil explícito; new exige estado nuevo, reopen conserva el original
 ./dev build                             Preparar paquetes y lock; no genera la compatibilidad
 ./dev check                             Comprobar módulos, análisis estático y selección host
 ./dev block-check [--plan]              Batería mantenida completa, imports runtime y tipos móviles; sin omisiones ni adopción
@@ -13,7 +13,7 @@ Generado desde `scripts/development/workflows.json`; `./dev help` usa el mismo c
 ./dev test --component NOMBRE           Comprobaciones acotadas de uno o varios componentes
 ./dev static [--changed]                Sintaxis e imports del núcleo; checkJs estricto de APIs declaradas
 ./dev status                            Presencia y versión de herramientas; no certifica integridad
-./dev prepare [host|mobile|platform]    Instalar dependencias públicas del perfil
+./dev prepare [host|mobile|api-server]  Instalar dependencias públicas del perfil
 ./dev workflows                         Entradas vigentes y alcance de cada comprobación
 ./dev boundaries                        Comprobar dependencias y exports entre módulos
 ./dev sources [status|prepare|check|verify|adopt] Inspeccionar, preparar, verificar o adoptar por digest una generación de fuentes
@@ -27,8 +27,8 @@ Generado desde `scripts/development/workflows.json`; `./dev help` usa el mismo c
 ./dev lab prepare-profile PERFIL        Preparar solo dependencias y compatibilidad necesarias del perfil
 ./dev clean [--scope caches|history|all] [--apply] Previsualizar limpieza por clase; --apply aplica la selección
 ./dev build --legacy                    Materializar expresamente la compatibilidad histórica
-./dev legacy [start|node|test|check]    Ejecutar el recorrido heredado correspondiente
-./dev doctor                            Comprobar restauración e integridad; necesita materiales
+./dev legacy [node|test|check]          Ejecutar el recorrido heredado correspondiente
+./dev doctor                            Comprobar herramientas instaladas y hashes actuales de fuentes
 ./dev artifacts                         Inventariar originales históricos ausentes
 ./dev evidence                          Verificar evidencias públicas originales restauradas
 ./dev node [args]                       Node local sobre las fuentes editables
@@ -40,7 +40,6 @@ Generado desde `scripts/development/workflows.json`; `./dev help` usa el mismo c
 ./dev lab mobile-original               Cuenta original V2 pareada: lectura y conciliación
 ./dev lab mobile-original-ledger        Compilar ledger nativo V5 con watchdog propio
 ./dev lab audit-base                    Auditorías originales vacías; ejecución explícita
-./dev [setup|import|restore-package]    Restauración de herramientas y materiales originales
 ./dev canonical                         Preparar la ubicación fija del lector I84
 ./dev [legacy-node|proof-node] [args]   Runtimes fijados de compatibilidad
 ```

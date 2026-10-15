@@ -1,7 +1,0 @@
-[package]
-name = "paeg_graph_4_opening"
-type = "bin"
-authors = ["Lianum bounded graph relation research"]
-
-[dependencies]
-generic_graph = { path = "../../lib" }

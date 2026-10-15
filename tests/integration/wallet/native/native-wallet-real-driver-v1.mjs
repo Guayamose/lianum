@@ -46,7 +46,7 @@ import { decodeStatement, joinReadiness } from '@lianum/components/encoding/stat
 import { decodeNativeValueTerminalCalldata } from '../../../../packages/backend/src/execution/encoding/terminal-calldata-codec.mjs';
 import { privateFailureDiagnostic } from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import { nativeValueFailureDiagnostic } from '../../../../packages/backend/src/execution/native-value/reconciliation/native-value-failure-retention.mjs';
-import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
+import { startWalletApplication } from '../../../../packages/backend/tests/fixtures/api/wallet/application.mjs';
 import { createManualWalletAppDriver } from '../manual/manual-wallet-app-driver.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../../fixtures/runners/owned-flat-fixture.mjs';
 import { NATIVE_FLOW_LIMITS } from '../../native/native-flow-supervisor.mjs';

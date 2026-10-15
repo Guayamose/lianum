@@ -35,7 +35,6 @@ await check('solidity-source-compilation', async () => {
   const require = createRequire(join(dev, 'npm-solc/package.json'));
   const solc = require(require.resolve('solc'));
   assert.match(solc.version(), /^0\.8\.37\+commit\.f401782d/);
-  const freeze = JSON.parse(readFileSync(join(root, 'archive/delivery/CLOSED1684-FREEZE.json')));
   // The ops snapshot is historical text whose relative imports refer to its
   // former location. Only compile source units in their actual contract tree.
   const build = JSON.parse(readFileSync(join(dev, 'reports/workspace-build.json')));
@@ -48,8 +47,7 @@ await check('solidity-source-compilation', async () => {
   const errors = (output.errors ?? []).filter(row => row.severity === 'error');
   assert.equal(errors.length, 0, errors.map(row => row.formattedMessage).join('\n'));
   return { compiler: solc.version(), sourceFiles: Object.keys(sources).length,
-    historicalSnapshotsExcluded: freeze.files.filter(row => row.path.endsWith('.sol') && !row.path.includes('/contracts/'))
-      .map(row => row.path),
+    sourceSelection: 'Current mapped contract sources; historical snapshots are not build inputs',
     contracts: Object.values(output.contracts).reduce((n, value) => n + Object.keys(value).length, 0),
     scope: 'ABI compilation/type checking; no deployable bytecode or deployment acceptance' };
 });

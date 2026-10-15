@@ -27,7 +27,7 @@ export async function runPartialRefundNativeFlow({ evm, system, solana, bitcoin,
   stage, persist, audit, prove, proofRole, savePublic, send, setReturningOwner, markRefunded }) {
   const { readNativeSystemState } = await import('../../../packages/protocol/src/execution/native/state/native-system-state.mjs');
   const { createGenericOwnerRecoveryProcess } = await import('../../../packages/protocol/src/execution/native/recovery/native-owner-recovery-process.mjs');
-  const { refundInputs, publicWords, digestHex } = await import('../../../experiments/protocol/private-core-proof/generic-wrappers/abi.mjs');
+  const { refundInputs, publicWords, digestHex } = await import('../../../packages/protocol/circuits/generic-wrappers/abi.mjs');
   const { walletInputPublicWords } = await import('../../../packages/protocol/src/wallet/notes/private-wallet-note-encoding.mjs');
   const { wipePrivate } = await import('../../../packages/protocol/src/execution/proofs/proof-worker.mjs');
   const pool = system.pools[0];

@@ -23,7 +23,7 @@ test('preparation authenticates the genuine N32 evidence without accepting curre
 test('retained compiler bytes and physical paths are checked independently of their manifest', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'lianum-n32-evidence-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const target = 'archive/delivery/source-snapshot/omnichain-product/src/private-resource-policy.mjs';
+  const target = 'packages/proofs/evidence/original-sources/cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c.source';
   const original = await readFile(sourcePath(target));
   const copy = join(directory, 'policy.mjs');
   await writeFile(copy, original);

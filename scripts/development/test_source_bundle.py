@@ -106,7 +106,7 @@ console.log(JSON.stringify({state: exported.value, arguments: process.argv.slice
         self.assertFalse(dependencies)
         for relative in reader_files:
             self.write(relative, (bundle.ROOT / relative).read_text())
-        evidence = 'archive/source-evidence/test-original.source'
+        evidence = 'packages/proofs/evidence/test-original.source'
         self.write(evidence, 'original publication remains immutable\n')
         rows = []
         for path in sorted(self.root.rglob('*')):

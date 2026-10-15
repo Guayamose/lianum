@@ -103,7 +103,7 @@ mock.module(moduleURL('../../../src/defi/withdrawals/generation-private-vault-ex
 const {projectPrivatePositionStateV2}=await import('../../../src/defi/positions/private-position-state-v2.mjs');
 ({createFlatAccountSession}=await import('../../../src/api/accounts/flat-account-session.mjs'));
 const {createOriginalWalletEconomicStateV1, openOriginalWalletEconomicStateV1, assertOriginalWalletEconomicStateV1} = await import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs');
-const {startWalletApplication} = await import('../../../../../apps/wallet/src/server/server.mjs');
+const {startWalletApplication} = await import('../../fixtures/api/wallet/application.mjs');
 const h = v => createHash('sha256').update(v).digest('hex');
 const asset = (id, domain, token = '3'.repeat(40)) => ({assetId: id, kind: 'ERC20', symbol: 'USDC', decimals: 6,
   chainId: '31337', genesis: h(domain + '-genesis'), pool: domain === 'first' ? '1'.repeat(40) : '2'.repeat(40), scope: h(domain + '-scope'),

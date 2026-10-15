@@ -88,7 +88,7 @@ async function rollupClients() {
     assert(root!==parse(root).root,'OWNED_NATIVE_SOURCE_ORIGINAL_REPOSITORY_REQUIRED');root=realpathSync(root);
     const sourcePath=join(root,'scripts/development/owned-rollup-original-source-profile-v1.mjs');
     // Reviewed current diagnostics tables from 7e243fb; original publication stays fixed.
-    const sourcePin='6d366fd75e4752bdbeb0565326d5e161576037270c583921fdf22b83dbd08835';
+    const sourcePin='cfa347e3509fbb4d6080903f515b76252ea612ed2e1360e71ce370d6a708283d';
     assert.equal(sha(readFileSync(sourcePath)),sourcePin,'OWNED_NATIVE_SOURCE_REVIEWED_ROLLUP_MODULE_CHANGED');
     const sourceModule=await import(pathToFileURL(sourcePath).href);
     assert.equal(sourceModule.readOriginalOwnedRollupSourceModuleV1(),sourcePin,'OWNED_NATIVE_SOURCE_LOADED_ROLLUP_MODULE_CHANGED');
@@ -100,7 +100,7 @@ async function rollupClients() {
       Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-arbitrum-nitro-v1.mjs')).href),
         prefix:'ArbitrumNitro',chainId:'42161',profile:'OWNED_ARBITRUM_NITRO_NATIVE_VALUE_POS_V1'}),
       await (async()=>{const path=join(root,'scripts/development/owned-bsc-original-source-profile-v3.mjs');
-        const pin='fd690ed27ed9300873b0eb57c877d98cbcaec7038d92444f93c0ab303593feb4';assert.equal(sha(readFileSync(path)),pin,'OWNED_NATIVE_SOURCE_REVIEWED_BSC_MODULE_CHANGED');
+        const pin='5b3d143038d9bfa8c24b8c5a23b5d18088482e22fcc6d0aa93265b818557c378';assert.equal(sha(readFileSync(path)),pin,'OWNED_NATIVE_SOURCE_REVIEWED_BSC_MODULE_CHANGED');
         const profile=await import(pathToFileURL(path).href);assert.equal(profile.readOriginalOwnedBscSourceModuleV3(),pin,'OWNED_NATIVE_SOURCE_LOADED_BSC_MODULE_CHANGED');profile.inspectOriginalBscSourcesV3();
         return Object.freeze({module:await import(pathToFileURL(join(root,'scripts/development/owned-bsc-posa-v1.mjs')).href),prefix:'BscPoSA',chainId:'714',profile:'OWNED_BSC_POSA_NATIVE_VALUE_714_V3',bsc:true});})()]);
   })();return originalRollupClients;

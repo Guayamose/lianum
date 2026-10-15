@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { resolve, relative, dirname, isAbsolute, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireFundedOrder, requireAuthenticatedCopies } from '../../../packages/engine/src/native/native-authority.mjs';
-import { parseStrictJSON } from '../../../experiments/engine/pc5-proof-probe/proving/strict-json.mjs';
+import { parseStrictJSON } from '../diagnostics/recursive-proof/proving/strict-json.mjs';
 
 const root=fileURLToPath(new URL('..',import.meta.url)),parent='f34b1dcd2983b13f312ff5f0556549c7757c8ce3';
 const read=p=>readFileSync(resolve(root,p)),json=p=>parseStrictJSON(read(p).toString('utf8'));

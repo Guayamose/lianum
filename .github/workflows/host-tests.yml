@@ -90,7 +90,7 @@ jobs:
           tests/integration/mobile/paired-original-account-actor-v2.test.mjs
           tests/integration/mobile/paired-original-account-http-v2.test.mjs
           tests/integration/mobile/paired-original-account-production-boundary.test.mjs
-          apps/platform/tests/original-account-v2-protocol.test.mjs
+          services/api-server/tests/original-account-v2-protocol.test.mjs
           tests/integration/claims/development/development-btc-sol-redemption-request.test.mjs
           packages/backend/tests/operations/payouts/claim-authorization-lifecycle-v4.test.mjs
           packages/backend/tests/operations/payouts/operator-audit-metrics.test.mjs

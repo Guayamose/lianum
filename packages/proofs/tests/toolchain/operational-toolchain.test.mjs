@@ -10,10 +10,10 @@ import * as wallet from '../../src/toolchain/wallet-prover.mjs';
 import * as assembly from '../../src/toolchain/assembly-prover.mjs';
 import * as nativeKey from '../../src/verification/native-key.mjs';
 import * as ownerKey from '../../src/verification/owner-key.mjs';
-import * as previousWallet from '../../../../experiments/engine/private-core-proof/wallet-notes/prover.mjs';
-import * as previousAssembly from '../../../../experiments/engine/private-core-proof/owner-independent/prover.mjs';
-import * as previousNative from '../../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
-import * as previousOwner from '../../../../experiments/engine/private-core-proof/generic-wrappers/pin-owner-key.mjs';
+import * as previousWallet from '../../programs/wallet-notes/prover.mjs';
+import * as previousAssembly from '../../programs/owner-independent/prover.mjs';
+import * as previousNative from '../../programs/generic-native/pin-key.mjs';
+import * as previousOwner from '../../programs/generic-wrappers/pin-owner-key.mjs';
 
 test('historical proof entries share one active operation implementation',()=>{
  assert.equal(previousWallet.proveWallet,wallet.proveWallet);

@@ -1,9 +1,0 @@
-[package]
-name = "generic_native_node"
-type = "bin"
-authors = ["Lianum scoped native execution"]
-
-[dependencies]
-native_support = { path = "../../lib" }
-graph_support = { path = "../../../generic-graph/lib" }
-approved_capsule = { path = "../../keys/capsule" }

@@ -14,7 +14,7 @@ import source_bundle as bundle
 ROOT = Path(__file__).resolve().parents[2]
 ENTRY = 'tests/integration/proofs/source-generation-portable-readback.mjs'
 NODE = '.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node'
-PAGED = 'experiments/engine/private-core-proof/funded-graph-paged-v3'
+PAGED = 'packages/proofs/programs/funded-graph-paged-v3'
 ENGINE = 'omnichain-product'
 PROOF = ENGINE + '/experiments/private-core-proof'
 

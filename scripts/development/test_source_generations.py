@@ -70,7 +70,7 @@ class SourceGenerationsTest(unittest.TestCase):
         self.write("packages/a/package.json", b'{"name":"@lianum/a","exports":{"./main":"./src/main.mjs"}}')
         self.write("packages/b/package.json", b'{"name":"@lianum/b","exports":{"./leaf":"./src/leaf.mjs"}}')
         self.write("apps/mobile/package.json", b'{"dependencies":{"expo-crypto":"1.0.0"}}')
-        self.write("apps/platform/package.json", b'{"dependencies":{}}')
+        self.write("services/api-server/package.json", b'{"dependencies":{}}')
         self.write("scripts/development/source-pins.json", b'{"profiles":{"platform":{"dependencyPaths":[]}}}')
         self.layout(relocations)
         capture = generations.Capture()
@@ -178,8 +178,8 @@ class SourceGenerationsTest(unittest.TestCase):
         report, capture = self.closure_fixture([frozen, active])
         contract = generations.current_source_contract(report, capture)
         self.assertEqual(contract["retainedEvidenceRoots"], sorted([frozen,
-            "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json",
-            "experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json"]))
+            "packages/proofs/programs/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json",
+            "packages/proofs/programs/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json"]))
         self.assertIn(frozen, {row["path"] for row in contract["files"]})
         self.write(active, b"import '../../../experiments/old/frozen.mjs';\n")
         with self.assertRaisesRegex(ValueError, "Current source dependency is missing"):
@@ -304,7 +304,7 @@ class SourceGenerationsTest(unittest.TestCase):
         capture = SimpleNamespace(objects={generations.sha(value): value})
         inspection = self.inspection()
         original = b"original compiler body, not executable candidate code\n"
-        source = "archive/source-evidence/compiler.source"
+        source = "packages/proofs/evidence/compiler.source"
         path = self.write(source, original)
         inspection["paged"]["hostSources"] = [{"path": "packages/old-original.mjs", "source": source,
             "sha256": generations.sha(original), "bytes": len(original)}]
@@ -507,7 +507,7 @@ class SourceGenerationsTest(unittest.TestCase):
         raw = b"import './removed-legacy-worker.mjs';\n"
         for family in ['retired-source-collectors', 'retired-facades']:
             with self.subTest(family=family):
-                target = "archive/source-evidence/" + family + "/" + generations.sha(raw) + ".source"
+                target = "packages/proofs/evidence/" + family + "/" + generations.sha(raw) + ".source"
                 archive = self.write(target, raw)
                 report, capture = self.closure_fixture([old], {old: target})
                 contract = generations.current_source_contract(report, capture)

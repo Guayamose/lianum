@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir,readdir,copyFile} from 'node:fs/promises';
 import {join,dirname} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
-import {startLocalServer} from '../../../../packages/backend/src/api/private-runtime-server.mjs';
+import {startLocalServer} from '../../demos/server.mjs';
 import {projectRoot} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import {PRIVATE_COHORT_PROFILE,PRIVATE_COHORT_TERMS} from '../../../../packages/backend/src/coordination/cohorts/private-cohort-coordinator.mjs';
 import {PRIVATE_WALLET_SOURCE_PROFILE,checkPrivateWalletSourcePrerequisites} from '../../../../packages/backend/src/operations/wallet/private-wallet-prerequisites.mjs';

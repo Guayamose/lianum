@@ -1,6 +1,0 @@
-import test from 'node:test';import assert from 'node:assert/strict';
-import {ownerRefundMonitorAction as next} from '../scripts/private-owner-refund-monitor.mjs';
-const op=(allowedActions=[],phase='REFUNDABLE')=>({phase,allowedActions});
-test('monitor accepts each explicit owner refund phase once without rereading a mutated request flag',()=>{const requested={refund:false,recoverRefund:false};assert.equal(next(op(['refund']),requested),'refund');requested.refund=true;assert.equal(next(op([],'REFUNDING'),requested),'wait');assert.equal(next(op(['recoverRefund']),requested),'recoverRefund');requested.recoverRefund=true;assert.equal(next(op([],'REFUNDING'),requested),'wait');assert.equal(next(op([],'REFUNDED'),requested),'terminal');});
-test('monitor waits for genuine retained authority or unresolved inclusion without fabricating retry',()=>{assert.equal(next(op([]),{refund:false,recoverRefund:false}),'wait');assert.equal(next(op([]),{refund:true,recoverRefund:false}),'wait');});
-test('monitor rejects a second failed attempt and never requests an automatic extra worker',()=>{assert.throws(()=>next(op(['refund']),{refund:true}),/RETURNED_WITHOUT/);assert.throws(()=>next(op(['recoverRefund']),{refund:true,recoverRefund:true}),/NOT_COMPLETED/);assert.throws(()=>next(op(['recoverRefund']),{}),/UNEXPECTED/);});

@@ -60,12 +60,15 @@ case "$task_command" in
   static)
     python3 -B "$task_helpers/source_runtime.py" --quiet
     exec "$task_node_dir/node" --max-old-space-size=384 "$task_helpers/static-check.mjs" "$@" ;;
-  platform)
+  platform|engine)
     case "${1:-}" in
       paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen)
         exec python3 -B "$task_helpers/paged_platform_process.py" "$@" ;;
     esac
-    exec "$task_node_dir/node" --max-old-space-size=384 "$task_root/apps/platform/src/entry.mjs" "$@" ;;
+    if [ "$task_command" = engine ]; then
+      exec "$task_node_dir/node" --max-old-space-size=384 "$task_root/services/paeg-engine/src/entry.mjs" "$@"
+    fi
+    exec "$task_node_dir/node" --max-old-space-size=384 "$task_root/services/api-server/src/entry.mjs" "$@" ;;
   pins) exec python3 -B "$task_helpers/source_pins.py" "$@" ;;
   resources) exec python3 -B "$task_helpers/local_resources.py" "$@" ;;
   bundle) exec python3 -B "$task_helpers/source_bundle.py" "$@" ;;
@@ -77,21 +80,17 @@ case "$task_command" in
       build) exec python3 -B "$task_helpers/workspace.py" "$@" ;;
       node) exec python3 -B "$task_helpers/run_node.py" --legacy "$@" ;;
       test) exec python3 -B "$task_helpers/run_tests.py" --legacy "$@" ;;
-      start|wallet)
-        python3 -B "$task_helpers/workspace.py" --quiet
-        cd "$task_flat"
-        exec "$task_node_dir/node" wallet-app/run.mjs "$@" ;;
       check)
         python3 -B "$task_helpers/workspace.py"
         python3 -B "$task_helpers/verify_layout.py"
         exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
-      *) printf '%s\n' 'Uso: ./dev legacy [build|start|node|test|check]'; exit 2 ;;
+      *) printf '%s\n' 'Uso: ./dev legacy [build|node|test|check]'; exit 2 ;;
     esac ;;
   clean) exec python3 -B "$task_helpers/clean.py" "$@" ;;
-  start|wallet)
+  start|api)
     python3 -B "$task_helpers/source_runtime.py" --quiet
     cd "$task_root"
-    exec "$task_node_dir/node" apps/wallet/src/server/run.mjs "$@" ;;
+    exec "$task_node_dir/node" services/api-server/src/wallet-entry.mjs "$@" ;;
   check)
     python3 -B "$task_helpers/source_runtime.py"
     python3 -B "$task_helpers/module_boundaries.py"
@@ -104,14 +103,13 @@ case "$task_command" in
       exec python3 -B "$task_helpers/workflow.py" test "$@"
     fi
     exec python3 -B "$task_helpers/run_tests.py" "$@" ;;
-  doctor) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/doctor.py" "$@" ;;
+  doctor) exec python3 "$task_helpers/doctor.py" "$@" ;;
   artifacts) exec python3 "$task_helpers/artifacts.py" "$@" ;;
   smoke) python3 "$task_helpers/workspace.py" --quiet; exec "$task_node_dir/node" "$task_helpers/smoke.mjs" "$@" ;;
   evidence|verify-restored) python3 "$task_helpers/workspace.py" --quiet; exec "$task_node_dir/node" "$task_helpers/verify_restored.mjs" "$@" ;;
   node) exec python3 "$task_helpers/run_node.py" "$@" ;;
   setup) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/setup.py" "$@" ;;
   import) exec python3 "$task_helpers/import_public_backup.py" "$@" ;;
-  restore-package) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/restore_package.py" "$@" ;;
   canonical) python3 "$task_helpers/workspace.py" --quiet; exec python3 "$task_helpers/materialize_canonical.py" "$@" ;;
   legacy-node) export PATH="$task_legacy_node_dir:$PATH"; exec "$task_legacy_node_dir/node" "$@" ;;
   proof-node) exec "$task_node_dir/node" "$@" ;;

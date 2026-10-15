@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { verifyToolchain, verifyCRS, filePin, hash, CRS } from '@lianum/components/resources/wallet-resources';
-import { validateOwnerPin } from '../../../experiments/engine/private-core-proof/generic-wrappers/pin-owner-key.mjs';
+import { validateOwnerPin } from '../../../packages/proofs/programs/generic-wrappers/pin-owner-key.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const mode = process.argv[2];

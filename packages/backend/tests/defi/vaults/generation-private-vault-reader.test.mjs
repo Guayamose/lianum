@@ -182,7 +182,7 @@ const { createFlatManualGraphCatalogueSession } = await import('../../../src/api
 const { createGenerationPrivateVaultExit, generationPrivateVaultExitActionTarget } = await import('../../../src/defi/withdrawals/generation-private-vault-exit.mjs');
 const { ownedPrivateVaultExitBinding } = await import('../../../src/defi/withdrawals/private-vault-exit.mjs');
 mock.module('../../../src/api/claims/native-claim-session.mjs', { exports: { assertWalletClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, walletClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); }, assertNativeClaimSession() { throw Error('UNUSED_NATIVE_SESSION'); }, nativeClaimSessionIdentity() { throw Error('UNUSED_NATIVE_SESSION'); } } });
-const { startWalletApplication } = await import('../../../../../apps/wallet/src/server/server.mjs');
+const { startWalletApplication } = await import('../../fixtures/api/wallet/application.mjs');
 const { createWalletApplicationClient } = await import('../../../src/api/wallet/wallet-application-client.mjs');
 async function generation(w, n, includeUnderlying = true) {
   const reg = { ...w.asset, codeHash: h('code'), assetIdentity: h('asset-id'), custody: 'ONCHAIN_NOTE_POOL', trust: 'PINNED_LOCAL_CONTRACT_AND_TRUSTED_NATIVE_ISSUER' };

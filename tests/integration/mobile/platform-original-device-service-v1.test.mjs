@@ -77,7 +77,7 @@ const { installOriginalNativeDeviceLocalServiceV1, installOriginalNativeDeviceDu
 function currentProject(){let path=dirname(fileURLToPath(import.meta.url));for(let i=0;i<16;i++,path=dirname(path)){try{if(lstatSync(join(path,'scripts/layout.json')).isFile()&&realpathSync(path)===path)return path;}catch(error){if(error.code!=='ENOENT')throw error;}}assert.fail('HOST_ORIGINAL_PROJECT_REQUIRED');}
 const root=currentProject();
 const { startPlatformOriginalDeviceServiceV1 } = await import(pathToFileURL(join(root,
-  'apps/platform/src/original-device-service-v1.mjs')));
+  'services/api-server/src/original/original-device-service-v1.mjs')));
 const h = label => createHash('sha256').update('PLATFORM ORIGINAL SERVICE HOST ' + label).digest('hex');
 const deferred = () => { let resolve; return { promise: new Promise(done => { resolve = done; }), resolve }; };
 async function setup(t, execute = false, operator = false) {
@@ -304,8 +304,8 @@ test('local product installation requires original owner/account/executor/provid
 
 test('durable original installation joins the same actor and bridges to real SQL without funding at startup', { timeout: 20000 }, async t => {
   const c = await setup(t, false, true);
-  const { startTestPostgres, poolFor } = await import(pathToFileURL(join(root, 'apps/platform/tests/helpers/postgres-container.mjs')));
-  const { migrateOriginalDeviceDispatchSchemaV1 } = await import(pathToFileURL(join(root, 'apps/platform/src/original-device-schema-v1.mjs')));
+  const { startTestPostgres, poolFor } = await import(pathToFileURL(join(root, 'services/api-server/tests/helpers/postgres-container.mjs')));
+  const { migrateOriginalDeviceDispatchSchemaV1 } = await import(pathToFileURL(join(root, 'services/api-server/src/original/original-device-schema-v1.mjs')));
   const pg = await startTestPostgres(), pool = poolFor(pg.connectionString);
   let installed;
   t.after(async () => { await installed?.transport.close(); installed?.dispatch.close(); await pool.end(); await pg.close(); });

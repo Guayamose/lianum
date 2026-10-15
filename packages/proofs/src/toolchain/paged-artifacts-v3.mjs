@@ -11,7 +11,7 @@ import {hasAdoptedSourceGeneration,assertAdoptedSourceGeneration} from './curren
 export const PAEG_PAGED_PROFILE_V3='LIANUM_PAEG_FUNDED_PAGED_V3';
 export const PAEG_PAGED_WORDS_V3=Object.freeze({reserve:119,fold:66,terminal:46,admission:85,withdraw:39});
 export const PAEG_PAGED_SETTINGS_V3=Object.freeze({ipaAccumulation:false,oracleHashType:'keccak',disableZk:false,optimizedSolidityVerifier:false});
-export const PAEG_PAGED_ROOT_V3=sourcePath('experiments/engine/private-core-proof/funded-graph-paged-v3')+'/';
+export const PAEG_PAGED_ROOT_V3=sourcePath('packages/proofs/programs/funded-graph-paged-v3')+'/';
 export const PAEG_PAGED_SPARSE_ENCODING_V3='BN254_POSEIDON2_SPARSE_V3';
 // The original five-key generation and its rejected consumer compile remain
 // untouched. The successor retains those exact keys only after recompiling all
@@ -34,33 +34,41 @@ const originalArtifactManifestSHA256='0bafbc32a6ff4e645bb9aba4b6a20e50f552cbc251
 // Fixed byte evidence for the relocated/changed host records. These files
 // are read and hashed only; they are never imported or installed as launchers.
 const retainedHostSources=Object.freeze({
- "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/fold/src/main.nr":"archive/source-evidence/paged-original-compiler-v4/fafc76aef9bf4f2f70933127a69a1ac80b2450dc205620312c858458ed02a567.source",
- "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/terminal/src/main.nr":"archive/source-evidence/paged-original-compiler-v4/c434e9a5416b008e1813cf0e57b13239b34e4a7be719f58347fe195c7848bd65.source",
- "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/framing.nr":"archive/source-evidence/paged-original-compiler-v4/5834818ecac7688cffb0f3fbf342fb14350f4005d98db8b0f77ec9bfcad52110.source",
- "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/progress.nr":"archive/source-evidence/paged-original-compiler-v4/17f10d09212b8d0eb87eef97c53ea4fc3c226c3f23a885ba2599be19ce8bcf86.source",
- "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-client.mjs":"archive/source-evidence/paged-original-compiler-v4/6662da11e6550557fc230fef8af235c7ea270eb3b578a13c43411b51492baee1.source",
- "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-process.mjs":"archive/source-evidence/paged-original-compiler-v4/ac4bd78d91c55bce4696c083ee6eb23da2b6ee7f9ecaa2aa175fd55ceb78ad37.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/fold/src/main.nr":"packages/proofs/evidence/paged-original-compiler-v4/fafc76aef9bf4f2f70933127a69a1ac80b2450dc205620312c858458ed02a567.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/circuits/terminal/src/main.nr":"packages/proofs/evidence/paged-original-compiler-v4/c434e9a5416b008e1813cf0e57b13239b34e4a7be719f58347fe195c7848bd65.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/framing.nr":"packages/proofs/evidence/paged-original-compiler-v4/5834818ecac7688cffb0f3fbf342fb14350f4005d98db8b0f77ec9bfcad52110.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/lib/src/progress.nr":"packages/proofs/evidence/paged-original-compiler-v4/17f10d09212b8d0eb87eef97c53ea4fc3c226c3f23a885ba2599be19ce8bcf86.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-client.mjs":"packages/proofs/evidence/paged-original-compiler-v4/6662da11e6550557fc230fef8af235c7ea270eb3b578a13c43411b51492baee1.source",
+ "experiments/engine/private-core-proof/funded-graph-paged-v3/proof-process.mjs":"packages/proofs/evidence/paged-original-compiler-v4/ac4bd78d91c55bce4696c083ee6eb23da2b6ee7f9ecaa2aa175fd55ceb78ad37.source",
 
- '.internal/runtime/omnichain-product/src/paeg/local-deployment.mjs':'archive/delivery/source-snapshot/omnichain-product/src/paeg/local-deployment.mjs',
- 'packages/engine/src/execution/local/local-deployment.mjs':'archive/source-evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source',
- '.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs':'archive/delivery/source-snapshot/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs',
- '.internal/runtime/omnichain-product/src/chains/runtime-harness.mjs':'archive/delivery/source-snapshot/omnichain-product/src/chains/runtime-harness.mjs',
- '.internal/runtime/omnichain-product/src/private-resource-policy.mjs':'archive/delivery/source-snapshot/omnichain-product/src/private-resource-policy.mjs',
- 'packages/engine/src/chains/shared/runtime-harness.mjs':'archive/delivery/source-snapshot/omnichain-product/src/chains/runtime-harness.mjs',
- 'packages/engine/src/crypto/private-resource-policy.mjs':'archive/delivery/source-snapshot/omnichain-product/src/private-resource-policy.mjs',
- 'apps/mobile/src/custody/poseidon2-bn254-v1.mjs':'archive/source-evidence/paged-original-host-v4/a647de5c112bb8f76bfd39362f2ef0442c0c7c95e041014198e3788782bf74ab.source',
- 'packages/engine/src/execution/graph/funded-graph-paged-trees-v3.mjs':'archive/source-evidence/paged-original-host-v4/5d889f2f365bb89ef1fe6a96269534c97e74021799f6b0739be5e067ce90cd22.source',
- 'packages/engine/src/execution/graph/funded-graph-paged-v3.mjs':'archive/source-evidence/paged-original-host-v4/0c78278135f719afc593c4eef8e196784371e15a414ae353a9f2db2bdec6f779.source',
- 'packages/proofs/src/jobs/private-proof-transit-v1.mjs':'archive/source-evidence/paged-original-host-v4/b4ed378cb081421d91630ab808fec3abf91073c5c6051791894e84a67fd12278.source',
- 'packages/proofs/src/tooling/solidity-compiler.mjs':'archive/source-evidence/paged-original-host-v4/144113a0642dcba06d4396dfc40cfc8cd94eeb4b79cba6e9aab05b25e4171473.source',
+ '.internal/runtime/omnichain-product/src/paeg/local-deployment.mjs':'packages/proofs/evidence/original-sources/849eb503f5212c22ffb1a3a3eeb5b716eabc517990e533e16e70a59e69067bc2.source',
+ 'packages/engine/src/execution/local/local-deployment.mjs':'packages/proofs/evidence/paged-original-host-v4/214068d85598663c86bcd76873cda7add4a6f86a4f820511c9dd18cb407eb813.source',
+ '.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs':'packages/proofs/evidence/original-sources/3983cdab7a9e7b2068604eb860b14daa6e319806f978a0545cd626666aec3935.source',
+ '.internal/runtime/omnichain-product/src/chains/runtime-harness.mjs':'packages/proofs/evidence/original-sources/df1d8a20108efba3992790d017e4b5b42a65a7171c299c3274792b35ce28c3ae.source',
+ '.internal/runtime/omnichain-product/src/private-resource-policy.mjs':'packages/proofs/evidence/original-sources/cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c.source',
+ 'packages/engine/src/chains/shared/runtime-harness.mjs':'packages/proofs/evidence/original-sources/df1d8a20108efba3992790d017e4b5b42a65a7171c299c3274792b35ce28c3ae.source',
+ 'packages/engine/src/crypto/private-resource-policy.mjs':'packages/proofs/evidence/original-sources/cfa5d5c298d968c0027e4bba1398a6746ab151aad24debaa1429a9232e35927c.source',
+ 'apps/mobile/src/custody/poseidon2-bn254-v1.mjs':'packages/proofs/evidence/paged-original-host-v4/a647de5c112bb8f76bfd39362f2ef0442c0c7c95e041014198e3788782bf74ab.source',
+ 'packages/engine/src/execution/graph/funded-graph-paged-trees-v3.mjs':'packages/proofs/evidence/paged-original-host-v4/5d889f2f365bb89ef1fe6a96269534c97e74021799f6b0739be5e067ce90cd22.source',
+ 'packages/engine/src/execution/graph/funded-graph-paged-v3.mjs':'packages/proofs/evidence/paged-original-host-v4/0c78278135f719afc593c4eef8e196784371e15a414ae353a9f2db2bdec6f779.source',
+ 'packages/proofs/src/jobs/private-proof-transit-v1.mjs':'packages/proofs/evidence/paged-original-host-v4/b4ed378cb081421d91630ab808fec3abf91073c5c6051791894e84a67fd12278.source',
+ 'packages/proofs/src/tooling/solidity-compiler.mjs':'packages/proofs/evidence/paged-original-host-v4/144113a0642dcba06d4396dfc40cfc8cd94eeb4b79cba6e9aab05b25e4171473.source',
 });
+const retainedExactCompilerSources=Object.freeze({"experiments/engine/private-core-proof/funded-graph-paged-v3/artifacts.mjs":"packages/proofs/evidence/exact-payouts-v4/731c34c772afe6d557726ade153721cfa637b1ec0e18046c300f11ec3ca6e7f8.source","experiments/engine/private-core-proof/funded-graph-paged-v3/exact-payout-artifacts-v4.mjs":"packages/proofs/evidence/exact-payouts-v4/c632ced22eb891241a5242375822e65c68ca97b8c94204b29f867c0bd717da6d.source","experiments/engine/private-core-proof/funded-graph-paged-v3/proof-client.mjs":"packages/proofs/evidence/exact-payouts-v4/71ee205bd573d60038301d8b650421e5edf71b09ce4afe15f5d94bc477a5697c.source","experiments/engine/private-core-proof/funded-graph-paged-v3/proof-process.mjs":"packages/proofs/evidence/exact-payouts-v4/dd95557805414a55d2e229323c0eebb2470326cf5e3f76ea30346f073bf05b78.source","experiments/engine/private-core-proof/funded-graph-paged-v3/run-bounded.mjs":"packages/proofs/evidence/exact-payouts-v4/36f31f8f24ffaae9b813ce4eae017ecc5b126639e25654b5f05c24ecc742168e.source","experiments/engine/private-core-proof/funded-graph-paged-v3/run-exact-bounded.mjs":"packages/proofs/evidence/exact-payouts-v4/6d3eebd852ab5ebc681d6e3a9ec417300101d4938f9ccb041bd5e85b55699682.source",".internal/runtime/omnichain-product/experiments/private-core-proof/wallet-notes/resources.mjs":"packages/proofs/evidence/original-sources/415d49b3da693225700281f986d7f1658a5f1e89aa73be7f7a622afeebecdc0c.source"});
+// Old names are immutable compiler-manifest labels. Resolve only their data
+// locations; no JavaScript is imported through historical aliases.
+function compilerSourceLocation(label){
+ if(Object.hasOwn(retainedExactCompilerSources,label))return retainedExactCompilerSources[label];
+ const old='experiments/engine/private-core-proof/';
+ return label.startsWith(old)?'packages/proofs/programs/'+label.slice(old.length):label;
+}
 const project=projectRoot;
 const original=join(project,'.internal/runtime/omnichain-product');
 const sha=v=>createHash('sha256').update(v).digest('hex');
 function regular(p){assert.equal(realpathSync(p),resolve(p),'PAEG_PAGED_FILE_SYMLINK');assert.ok(lstatSync(p).isFile(),'PAEG_PAGED_REGULAR_FILE');return readFileSync(p);}
 function retainedSource(row){
  assert.match(row.sha256,/^[0-9a-f]{64}$/,'PAEG_PAGED_RETAINED_SOURCE_DIGEST');
- const source=Object.hasOwn(retainedHostSources,row.path)?retainedHostSources[row.path]:row.path;
+ const source=Object.hasOwn(retainedHostSources,row.path)?retainedHostSources[row.path]:compilerSourceLocation(row.path);
  // The fixed, authenticated artifact manifest selects these bytes. A content
  // digest names evidence only: no historical JavaScript is imported here.
  const path=resourceMode==='candidate'
@@ -72,10 +80,10 @@ function sourceClosure(seeds){
  const seen=new Set();function visit(p){p=resolve(p);assert.ok(p.startsWith(project+'/'),'PAEG_PAGED_SOURCE_OUTSIDE_PROJECT');if(seen.has(p))return;assert.ok(seen.size<1024,'PAEG_PAGED_SOURCE_CLOSURE_BOUND');const text=regular(p).toString('utf8');seen.add(p);const re=/\b(?:from|import)\s*(?:\(\s*)?["'](\.[^"']+)["']/g;const sol=/\bimport\s+(?:[^;]*?\sfrom\s+)?["'](\.[^"']+)["']/g;for(const pattern of [re,sol])for(const m of text.matchAll(pattern)){const next=resolve(dirname(p),m[1]);if(/\.(mjs|ts|sol)$/.test(next))visit(next);}}seeds.forEach(visit);return [...seen];
 }
 export function fundedPagedGraphSourcePinsV3(){
- const paths=sourceClosure([...files(PAEG_PAGED_ROOT_V3),join(PAEG_PAGED_ROOT_V3,'transcript.json'),...files(join(project,'experiments/engine/private-core-proof/generic-graph/lib')),
-  ...files(join(project,'experiments/engine/private-core-proof/generic-funding/lib')),...files(join(project,'experiments/engine/private-core-proof/generic-native/lib')),
+ const paths=sourceClosure([...files(PAEG_PAGED_ROOT_V3),join(PAEG_PAGED_ROOT_V3,'transcript.json'),...files(join(project,'packages/proofs/programs/generic-graph/lib')),
+  ...files(join(project,'packages/proofs/programs/generic-funding/lib')),...files(join(project,'packages/proofs/programs/generic-native/lib')),
   join(project,'packages/engine/src/execution/graph/funded-graph-paged-v3.mjs'),join(project,'packages/proofs/src/tooling/solidity-compiler.mjs'),
-  ...files(join(project,'experiments/engine/private-core-proof/funded-graph-64-v2/lib')),
+  ...files(join(project,'packages/proofs/programs/funded-graph-64-v2/lib')),
   ...files(join(project,'packages/crypto/vendor/poseidon')),
   join(project,'contracts/wallet/PrivatePagedFundedGraphPoolV3.sol'),join(project,'contracts/wallet/PrivatePagedFundedGraphStateV3.sol'),join(project,'contracts/wallet/PrivatePagedFundedGraphNativeStateV3.sol'),
   join(project,'.internal/runtime/omnichain-flat-profile/flat-wallet/proof-workers/solidity-compiler.mjs'),join(original,'experiments/private-core-proof/wallet-notes/resources.mjs')]);
@@ -160,10 +168,10 @@ export function inspectFundedPagedGraphArtifactsForPreparationV4(){
  const compilerInputs=[],hostSources=[];
  for(const row of manifest.sources){
   assert.ok(typeof row.path==='string'&&!row.path.startsWith('/')&&!row.path.split('/').some(p=>!p||p==='.'||p==='..'),'PAEG_PAGED_RETAINED_SOURCE_PATH');
-  const source=row.path,path=resourceMode==='candidate'?resourcePath('engine','evidence/paged-v3/sources/'+row.sha256+'.source'):join(project,source),value=regular(path);
+  const source=compilerSourceLocation(row.path),path=resourceMode==='candidate'?resourcePath('engine','evidence/paged-v3/sources/'+row.sha256+'.source'):join(project,source),value=regular(path);
   const host=row.path.endsWith('.mjs');assert.equal(value.length,row.bytes,host?'PAEG_PAGED_RETAINED_HOST_BYTES':'PAEG_PAGED_RETAINED_COMPILER_BYTES');
   assert.equal(sha(value),row.sha256,host?'PAEG_PAGED_RETAINED_HOST_PIN':'PAEG_PAGED_RETAINED_COMPILER_PIN');
-  if(host)hostSources.push({...row,source});else{assert.ok(/\.(nr|toml|sol|json)$/.test(row.path),'PAEG_PAGED_RETAINED_SOURCE_KIND');compilerInputs.push({...row});}
+  if(host)hostSources.push({...row,source});else{assert.ok(/\.(nr|toml|sol|json)$/.test(row.path),'PAEG_PAGED_RETAINED_SOURCE_KIND');compilerInputs.push({...row,source});}
  }
  const consumer=regular(join(PAEG_PAGED_ARTIFACT_DIRECTORY_V3,'consumer.json'));assert.equal(sha(consumer),activeSelection.consumerSHA256,'PAEG_PAGED_ACTIVE_CONSUMER_PIN');
  const recorded=JSON.parse(consumer);assert.equal(recorded.securityGeneration,manifest.securityGeneration,'PAEG_PAGED_ACTIVE_CONSUMER_GENERATION');assert.equal(recorded.manifestSHA256,manifestSHA256);assert.deepEqual(recorded.sources,manifest.sources,'PAEG_PAGED_ACTIVE_CONSUMER_SOURCES');

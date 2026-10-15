@@ -1,5 +1,5 @@
 /** Real HTTP/journal, injected non-cryptographic worker. */
-import test from 'node:test';import assert from 'node:assert/strict';import {EventEmitter} from 'node:events';import {PassThrough} from 'node:stream';import {mkdtemp,rm,readFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {randomUUID} from 'node:crypto';import {startLocalServer} from '../../../../backend/src/api/private-runtime-server.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {EventEmitter} from 'node:events';import {PassThrough} from 'node:stream';import {mkdtemp,rm,readFile} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {randomUUID} from 'node:crypto';import {startLocalServer} from '../../../../../scripts/engine/demos/server.mjs';
 const profile='PC23_SHARED_LOCAL_V1';
 class Worker extends EventEmitter{constructor(){super();this.connected=true;this.stdout=new PassThrough();this.stderr=new PassThrough();this.count=0;this.sequence=0;this.wait=new Map();this.prepared=new Map();this.executions=0;}
  async checkpoint(patch){this.state={...this.state,...patch};const sequence=++this.sequence;const p=new Promise(r=>this.wait.set(sequence,r));this.emit('message',{type:'checkpoint',walletId:this.id,sequence,payload:this.state});await p;}

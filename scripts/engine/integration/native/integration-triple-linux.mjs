@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { startLocalServer } from '../../../../packages/backend/src/api/private-runtime-server.mjs';
+import { startLocalServer } from '../../demos/server.mjs';
 import { RESERVE, CERTIFY, CLAIM, toBTC } from '../../../../packages/engine/src/native/native-triple.mjs';
 import { commitment } from '../../../../packages/engine/src/native/native-authority.mjs';
 import { observeBitcoinDelivery } from '../../../../packages/engine/src/native/native-bitcoin.mjs';

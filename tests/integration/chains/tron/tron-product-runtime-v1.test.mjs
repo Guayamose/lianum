@@ -536,7 +536,7 @@ test('original private Tron mobile host lifetime is born before effects and admi
  const helpers=text.slice(text.indexOf('function own(row)'),text.indexOf('/** Data-only joins'));
  const capturedScript=text.slice(text.indexOf('function assertCapturedScript(scope,path)'),c);
  const guardBody=text.slice(c).replace('export function createTronProductHostGuardV1','function createTronProductHostGuardV1');
- const repo=resolve(ROOT,'../../../..'),entry=join(repo,'apps/platform/src/run-original-tron-private-native-mobile-v1.mjs'),node=join(repo,'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node');
+ const repo=resolve(ROOT,'../../../..'),entry=join(repo,'scripts/development/profiles/run-original-tron-private-native-mobile-v1.mjs'),node=join(repo,'.internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node');
  const proof=join(repo,'packages/proofs/src/jobs/wallet-note-private-worker-v4.mjs'),nativeProof=join(repo,'packages/backend/src/proving/native-value/runtime/native-value-dev-live-v5-worker.mjs'),goldenProof=join(repo,'packages/proofs/src/execution/proof-worker.mjs');
  function fixture(mutate=()=>{}){
   const main={...originalMain(),executable:node,argv:[node,'--max-old-space-size=384',entry],cwd:repo};

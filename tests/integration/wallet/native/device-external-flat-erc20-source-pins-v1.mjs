@@ -107,7 +107,7 @@ const MOBILE=Object.freeze([
   "f23d26cfb8a0c7b6f06f9056efb638365420290946f29fc1515f7b3aec04ecfa"
  ],
  [
-  "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+  "scripts/development/profiles/run-device-external-flat-ordered-local-v1.mjs",
   "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
  ],
  [
@@ -204,11 +204,11 @@ const GRAPH_MOBILE=Object.freeze([
   "2848c57c097160ae4e5fa6546c3a698ef1a977da8395128ad792206933cd9d18"
  ],
  [
-  "apps/platform/src/run-device-external-flat-local-v1.mjs",
+  "scripts/development/profiles/run-device-external-flat-local-v1.mjs",
   "4a4dc50f894e811399e21e1f6d3d9bfb5eeb8e69a535d4c5d68532418eff0eb3"
  ],
  [
-  "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+  "scripts/development/profiles/run-device-external-flat-ordered-local-v1.mjs",
   "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
  ],
  [
@@ -387,11 +387,11 @@ const BLUE_MOBILE=Object.freeze([
   "2848c57c097160ae4e5fa6546c3a698ef1a977da8395128ad792206933cd9d18"
  ],
  [
-  "apps/platform/src/run-device-external-flat-local-v1.mjs",
+  "scripts/development/profiles/run-device-external-flat-local-v1.mjs",
   "4a4dc50f894e811399e21e1f6d3d9bfb5eeb8e69a535d4c5d68532418eff0eb3"
  ],
  [
-  "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+  "scripts/development/profiles/run-device-external-flat-ordered-local-v1.mjs",
   "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
  ],
  [
@@ -605,11 +605,11 @@ const META_FOUR_MOBILE=Object.freeze([
   "2848c57c097160ae4e5fa6546c3a698ef1a977da8395128ad792206933cd9d18"
  ],
  [
-  "apps/platform/src/run-device-external-flat-local-v1.mjs",
+  "scripts/development/profiles/run-device-external-flat-local-v1.mjs",
   "4a4dc50f894e811399e21e1f6d3d9bfb5eeb8e69a535d4c5d68532418eff0eb3"
  ],
  [
-  "apps/platform/src/run-device-external-flat-ordered-local-v1.mjs",
+  "scripts/development/profiles/run-device-external-flat-ordered-local-v1.mjs",
   "eaba6f701180641ff13f32ef6d25f3e2137643349cf0c5ea775c4b880d896b08"
  ],
  [

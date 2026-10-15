@@ -11,7 +11,7 @@ import {openExternalDefiRecoveryAuthorityV1,reopenExternalDefiReceiverRuntimeV2,
 import {closeWrappedPrivateLifetimeRegistryV1} from '../../../../packages/backend/src/claims/wrapped/recovery/wrapped-recovery-authority-v1.mjs';
 import {ownedPrivateVaultExitBinding,retainedOwnedPrivateVaultExitContextV1} from '@lianum/backend/defi/withdrawal';
 import {createFlatManualGraphCatalogueSession} from '@lianum/backend/accounts/manual-graph';
-import {startWalletApplication} from '../../../../apps/wallet/src/server/server.mjs';
+import {startWalletApplication} from '../../../../packages/backend/tests/fixtures/api/wallet/application.mjs';
 import {createManualWalletAppDriver} from '../../wallet/manual/manual-wallet-app-driver.mjs';
 import {privateFailureDiagnostic} from '../../../../packages/backend/src/execution/account/reconciliation/failure-diagnostics.mjs';
 import {writeFixturePrivate} from '../../fixtures/runners/owned-flat-fixture.mjs';

@@ -7,7 +7,7 @@ import { createRoleProofClient } from '@lianum/backend/proving/roles/role-client
 import { loadNativeClaimIngressV3ProofArtifacts } from '../../../../packages/backend/src/operations/deployments/claims/native-claim-ingress-v3-artifacts.mjs';
 import { loadNativeClaimArtifacts } from '../../../../packages/backend/src/operations/deployments/claims/native-claim-artifacts.mjs';
 import { FIELD_MODULUS } from '@lianum/components/encoding/statements';
-import { buildSyntheticGenericIngressV3Fixture } from '../../../../experiments/wallet/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs';
+import { buildSyntheticGenericIngressV3Fixture } from '../../../../packages/proofs/programs/native-ingress-v3/fixtures/synthetic-ingress-v3.mjs';
 import { regular } from '@lianum/proofs/tooling/tooling';
 import { ROOT } from '@lianum/proofs/catalog';
 import { join } from 'node:path';

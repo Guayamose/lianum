@@ -8,7 +8,7 @@ import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 const root=mkdtempSync(join(tmpdir(),'wrapped-current-sources-'));
 const installation=join(root,'installation');
-const originalManifest=readFileSync(new URL('../../../../archive/source-evidence/wrapped-activation-installation-v2/source-manifest.json',import.meta.url));
+const originalManifest=readFileSync(new URL('../../../proofs/evidence/wrapped-activation-installation-v2/source-manifest.json',import.meta.url));
 const inspectorPath='packages/components/src/verification/wrapped-installation-source-inspector-v2.mjs';
 const inspector=readFileSync(new URL('../../src/verification/wrapped-installation-source-inspector-v2.mjs',import.meta.url));
 mock.module('@lianum/environment',{exports:{projectRoot:root,legacyDataRoot:()=>join(installation,'omnichain-flat-profile/flat-wallet')}});

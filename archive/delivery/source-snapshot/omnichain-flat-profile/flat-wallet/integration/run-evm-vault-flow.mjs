@@ -1,3 +1,0 @@
-/** Fixed local fake-value PALT -> actual vault -> private BLTV acceptance. */
-import { runEvmVaultSupervisor } from './native-flow-supervisor.mjs';
-await runEvmVaultSupervisor();

@@ -1,6 +1,0 @@
-[package]
-name = "bb_honk_verifier"
-type = "lib"
-authors = ["Official bb.js 5.2.0 helper, byte-identical vendoring"]
-
-[dependencies]

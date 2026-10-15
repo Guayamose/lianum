@@ -20,7 +20,7 @@ mock.module(url('../../../../src/claims/wrapped/controller/wrapped-controller-jo
 mock.module(url('../../../../src/operations/releases/wrapped/wrapped-wallet-release-v1.mjs'), { exports: { assertWrappedWalletAccountReleasedV1() {} } });
 const { createWrappedClaimSessionV1: createNativeClaimSession, assertWrappedClaimSessionV1, walletClaimSessionIdentity,
   assertNativeClaimSession, nativeClaimSessionIdentity } = await import('../../../../src/api/claims/native-claim-session.mjs');
-const { startWalletApplication } = await import('../../../../../../apps/wallet/src/server/server.mjs');
+const { startWalletApplication } = await import('../../../fixtures/api/wallet/application.mjs');
 const { createWalletApplicationClient } = await import('../../../../src/api/wallet/wallet-application-client.mjs');
 const hash = value => createHash('sha256').update(value).digest('hex');
 function syntheticConfig(family = '2') {

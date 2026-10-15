@@ -50,13 +50,15 @@ def imports(text):
 
 def owner(path):
     parts = Path(path).parts
-    if len(parts) >= 2 and parts[0] in {"apps", "packages"}:
+    if len(parts) >= 2 and parts[0] in {"apps", "services", "packages"}:
         return "/".join(parts[:2])
     return None
 
 
 def sources(root):
-    for area in ("packages", "apps"):
+    for area in ("packages", "apps", "services"):
+        if not (root / area).is_dir():
+            continue
         for component in sorted((root / area).iterdir()):
             source = component / "src"
             if not source.is_dir():

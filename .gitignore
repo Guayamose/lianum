@@ -8,12 +8,6 @@ __pycache__/
 !.env.example
 
 # Local restored payloads and historical references, outside everyday changes.
-/archive/reference/
-/archive/reviewed-packets/
-/archive/drafts/
-/archive/restoration/recipes/dependencies/
-/archive/restoration/recipes/package-evidence/
-/archive/restoration/pre-reorganization-reports/
 
 .DS_Store
 *.swp

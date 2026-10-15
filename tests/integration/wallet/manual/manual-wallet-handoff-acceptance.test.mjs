@@ -63,7 +63,7 @@ const { createFlatAccountAuthority, flatAccountManualGraphDetails } = await impo
 const { createFlatPortfolioAuthority } = await import('../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs');
 const { createFlatJournalGeneration, createFlatJournalCatalogue } = await import('../../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs');
 const { createFlatManualGraphCatalogueSession } = await import('@lianum/backend/accounts/manual-graph');
-const { startWalletApplication } = await import('../../../../apps/wallet/src/server/server.mjs');
+const { startWalletApplication } = await import('../../../../packages/backend/tests/fixtures/api/wallet/application.mjs');
 const { createManualWalletAppDriver } = await import('./manual-wallet-app-driver.mjs');
 async function fixture(t, { manual = false, driver = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'genuine-manual-handoff-'));

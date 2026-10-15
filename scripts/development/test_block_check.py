@@ -38,7 +38,7 @@ class BlockCheckTests(unittest.TestCase):
         for path in wanted:
             self.write(path)
         self.write('scripts/development/test_runner.py', 'import unittest')
-        self.write('infra/paeg-demo/test-release.py', 'import unittest')
+        self.write('infra/google-cloud/paeg-engine/test-release.py', 'import unittest')
         for path in ['apps/mobile/node_modules/vendor/tests/wrong.test.mjs',
                      'packages/a/tests/node_modules/vendor/wrong.test.mjs',
                      'tests/.local/private.test.mjs', 'tests/archive/old.test.mjs',
@@ -50,7 +50,7 @@ class BlockCheckTests(unittest.TestCase):
         (self.root / 'tests/linked').symlink_to(self.root / 'packages/a/tests', target_is_directory=True)
         plan = block_check.discover(self.root)
         self.assertEqual(plan['nodeTests'], sorted(wanted))
-        self.assertEqual(plan['pythonTests'], ['infra/paeg-demo/test-release.py','scripts/development/test_runner.py'])
+        self.assertEqual(plan['pythonTests'], ['infra/google-cloud/paeg-engine/test-release.py','scripts/development/test_runner.py'])
         self.assertEqual(plan['sourceFiles'], ['apps/mobile/App.tsx', 'apps/mobile/plugins/native.cjs', 'apps/mobile/src/Native.tsx'])
         self.assertTrue(any(row['path'] == 'tests/linked' for row in plan['explicitExclusions']))
         self.assertTrue(any(row['path'] == 'tests/.local' for row in plan['explicitExclusions']))
@@ -136,7 +136,7 @@ class BlockCheckTests(unittest.TestCase):
         self.assertFalse(complete)
 
     def test_complete_block_activates_only_the_real_postgres_fixture(self):
-        paths = ['apps/platform/tests/postgres.test.mjs', 'packages/a/tests/a.test.mjs']
+        paths = ['services/api-server/tests/postgres.test.mjs', 'packages/a/tests/a.test.mjs']
         plan = {'pythonTests': [], 'nodeTests': paths}
         commands = block_check.stages(plan, self.root)[4:]
         self.assertEqual(commands[0]['command'][:2], ['/usr/bin/env', 'LIANUM_TEST_POSTGRES_DOCKER=1'])

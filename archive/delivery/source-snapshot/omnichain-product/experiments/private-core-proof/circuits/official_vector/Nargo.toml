@@ -1,6 +1,0 @@
-[package]
-name = "official_vector"
-type = "bin"
-authors = ["PC15 local capability gate"]
-
-[dependencies]

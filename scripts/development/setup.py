@@ -94,7 +94,7 @@ def source_index():
     index = {}
     for directory, dirs, files in os.walk(ROOT):
         parent = Path(directory)
-        dirs[:] = [name for name in dirs if name not in [".internal", "node_modules", ".git", "__pycache__"]
+        dirs[:] = [name for name in dirs if name not in [".internal", ".local", "node_modules", ".git", "__pycache__"]
                    and not (parent / name).is_symlink()]
         for name in files:
             path = parent / name
@@ -108,21 +108,10 @@ def source_index():
 
 
 def restoration_rows():
-    canonical = json.loads((ROOT / "archive/restoration/recipes/canonical-root-restoration.json").read_text())
-    rows = [row for row in canonical["files"] if row["kind"] == "public-dependency"]
-    recipes = ["public-proof-dependency-restoration.json", "stage-dependency-restoration.json",
-               "retained-reader-dependency-restoration.json", "flat-lineage-restoration.json",
-               "i84-reader-restoration.json", "node-component-restoration.json",
-               "w39-original-restoration.json"]
-    for name in recipes:
-        data = json.loads((ROOT / "archive/restoration/recipes" / name).read_text())
-        rows.extend(data["files"])
-    rows.extend(json.loads((ROOT / "archive/restoration/recipes/legacy-verifier-restoration.json").read_text()))
-    rows.extend([
-        {"path": "omnichain-product/evidence/m15-linux-package-provenance.json", "sha256": PACKAGE_AUDIT_HASH},
-        {"path": "golden-overlay-v17/development-evidence/supervision/restored-crs.json", "sha256": CRS_PROVENANCE_HASH},
-    ])
-    return rows
+    inventory = json.loads((ROOT / "scripts/development/resources/public-resources.json").read_text())
+    if inventory.get("schema") != "LIANUM_PUBLIC_RESOURCE_INVENTORY_V1":
+        raise RuntimeError("Unknown public resource inventory")
+    return inventory["files"]
 
 
 def restoration_inventory():

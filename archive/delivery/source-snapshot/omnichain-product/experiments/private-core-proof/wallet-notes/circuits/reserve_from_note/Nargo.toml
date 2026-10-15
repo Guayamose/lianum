@@ -1,5 +1,0 @@
-[package]
-name="reserve_from_note"
-type="bin"
-authors=["PC23 bounded local research"]
-[dependencies]

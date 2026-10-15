@@ -108,12 +108,12 @@ export function assertTronProductSupervisorEvidenceV1(value) {
 // Distinct fixed mobile producer, before Java-Tron/receiver/native effects.
 // Exact kernel/source ancestry is read here; no PID, hash, flags or DTO can
 // request a host scope. The historical supervisor checks below are unchanged.
-const MOBILE_ENTRY=join(resolve(ROOT,'../../../..'),'apps/platform/src/run-original-tron-private-native-mobile-v1.mjs');
+const MOBILE_ENTRY=join(resolve(ROOT,'../../../..'),'scripts/development/profiles/run-original-tron-private-native-mobile-v1.mjs');
 const MOBILE_PRODUCT_PIN=Object.freeze({"path":"scripts/development/owned-tron-private-native-mobile-v1.mjs","bytes":15527,"sha256":"539db91c05c9e9f19a76e22aba7130ed28584a42bfba33ba080958622fc1a773"});
-const MOBILE_ENTRY_PIN=Object.freeze({"path":"apps/platform/src/run-original-tron-private-native-mobile-v1.mjs","bytes":6438,"sha256":"95ff5035df87a2a4685960d4c35decc54d66350c074088e34b7cdf354ac1631c"});
-const MOBILE_PROFILE_PIN=Object.freeze({"path":"scripts/development/owned-tron-original-mobile-source-v1.mjs","bytes":13093,"sha256":"c2a88a066a1f8a740352357d8529f1b0b99d388c8b82a6d57ddd00327ef267cc"});
-const MOBILE_DIAGNOSTIC_PIN=Object.freeze({"path":"scripts/development/original-network-mobile-private-diagnostic-v1.mjs","bytes":6271,"sha256":"870e84474716d5c49f5b289428434ccc7cccfb88b2794ea5b6e7bf6cc74f1bd7"});
-const MOBILE_PARSER_PIN=Object.freeze({"path":"tests/integration/wallet/native/native-device-economic-private-error-v1.mjs","bytes":37835,"sha256":"adec7f79c404d7153dbe34e0013cffdb1383f084683553896f7356007c00aa28"});
+const MOBILE_ENTRY_PIN=Object.freeze({"path":"scripts/development/profiles/run-original-tron-private-native-mobile-v1.mjs","bytes":6386,"sha256":"b089cf4469f4554947cba9c04f8d4309c225674877053af56b5e90818102b117"});
+const MOBILE_PROFILE_PIN=Object.freeze({"path":"scripts/development/owned-tron-original-mobile-source-v1.mjs","bytes":13104,"sha256":"13fbedb5c7520d0bf3a8e24257dd75207f28f63f2e826a8ef114712cf0ea0d39"});
+const MOBILE_DIAGNOSTIC_PIN=Object.freeze({"path":"scripts/development/original-network-mobile-private-diagnostic-v1.mjs","bytes":6315,"sha256":"55be7270109dbb2173b026c99dbe4cb9d93df689e6fc271e67cef4f6558253fe"});
+const MOBILE_PARSER_PIN=Object.freeze({"path":"tests/integration/wallet/native/native-device-economic-private-error-v1.mjs","bytes":37923,"sha256":"5c61007e0f31dbd1aed361b97e0f575e3c1f6dbc253d58088da4ab977eebb513"});
 const MOBILE_SOURCES=Object.freeze([MOBILE_PRODUCT_PIN,MOBILE_ENTRY_PIN,MOBILE_PROFILE_PIN,MOBILE_DIAGNOSTIC_PIN,MOBILE_PARSER_PIN]);
 // Closed correspondence of the already-discovered proof entries. Publication
 // labels retain the original V5 identity; current execution is authenticated at

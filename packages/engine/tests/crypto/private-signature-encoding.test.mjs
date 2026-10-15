@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { verify } from 'node:crypto';
-import { frame, decodeFrame, u32be, wordsBE, fromWordsBE, SCOPE, TAGS, sha256, makeFixture, normalizeLowS, ORDER, HALF_ORDER, authorizationFrame } from '../../../../experiments/engine/private-core-proof/encoding.mjs';
+import { frame, decodeFrame, u32be, wordsBE, fromWordsBE, SCOPE, TAGS, sha256, makeFixture, normalizeLowS, ORDER, HALF_ORDER, authorizationFrame } from '../../../proofs/programs/encoding.mjs';
 import { verifierCalldata } from '../../../../scripts/engine/integration/crypto/integration-private-signature.mjs';
 
 test('PC15 frame uses exact big-endian length prefixes and preserves boundaries', () => {

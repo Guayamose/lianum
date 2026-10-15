@@ -19,7 +19,7 @@ import { prepareNativeCapsules, nativeReceiptKeyCommitment, nativeTransferAction
   capsuleAuthorizationWords } from '../../../packages/engine/src/execution/native/dispatch/native-capsules.mjs';
 import { nativeDeliveryRiskCommitment, NATIVE_ADMISSION_LOSS_CLAUSE } from '../../../packages/engine/src/execution/native/dispatch/native-admission.mjs';
 import {assertDistinctNativeReceiptSpendSecretsV1} from '../../../packages/engine/src/execution/balances/generic-balance-native-preparation.mjs';
-import { authorizationInputs } from '../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
+import { authorizationInputs } from '../../../packages/proofs/programs/generic-funding/witness.mjs';
 import { freshKey, signature } from '../../../packages/engine/src/notes/private-note-encoding.mjs';
 import { walletNoteCommitment, walletDepositInput, walletInputPublicWords } from '../../../packages/engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 

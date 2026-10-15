@@ -1,8 +1,0 @@
-[package]
-name = "flat_wallet_deposit_intent"
-type = "bin"
-authors = ["Lianum flat wallet source integration"]
-
-[dependencies]
-generic_funding = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-funding/lib" }
-graph_support = { path = "../../../../omnichain-product/experiments/private-core-proof/generic-graph/lib" }

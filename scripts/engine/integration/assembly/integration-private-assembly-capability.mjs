@@ -1,7 +1,7 @@
 /** PC18 disclosed synthetic proof capability, not funded/native owner-offline evidence. */
 import assert from 'node:assert/strict';import {spawn} from 'node:child_process';import {randomBytes} from 'node:crypto';import {mkdir,readFile,writeFile,cp} from 'node:fs/promises';import {statfsSync,readFileSync} from 'node:fs';import {join} from 'node:path';
 import {projectRoot} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';
-import {syntheticSetup,syntheticCertificate} from '../../../../experiments/engine/private-core-proof/native-notes/fixtures.mjs';
+import {syntheticSetup,syntheticCertificate} from '../../../../packages/proofs/programs/native-notes/fixtures.mjs';
 import {assemblyAuthorizationInput,assemblyLocalInput,assemblyRecursiveInput} from '../../../../packages/engine/src/assembly/private-assembly-encoding.mjs';
 import {privateAssemblyRootHistoryDigest} from '../../../../packages/engine/src/assembly/private-assembly-history.mjs';
 import {PrivateNoteTree,privateSpentDigest,privateEffectDigest} from '../../../../packages/engine/src/notes/private-note-tree.mjs';

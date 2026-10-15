@@ -37,7 +37,7 @@ test('paged reuse authenticates the original programs and compiler inputs withou
   [join(PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3,'manifest.json'),'PAEG_PAGED_MANIFEST_PIN'],
   [join(PAEG_PAGED_RETAINED_ARTIFACT_DIRECTORY_V3,'prepared/reserve.json'),'PAEG_PAGED_ARTIFACT_PIN'],
   [join(projectRoot,receipt.compilerInputs.find(row=>row.path===circuit).source??circuit),'PAEG_PAGED_RETAINED_COMPILER_PIN'],
-  [join(projectRoot,receipt.hostSources.find(row=>row.source.startsWith('archive/source-evidence/')).source),'PAEG_PAGED_RETAINED_HOST_PIN'],
+  [join(projectRoot,receipt.hostSources.find(row=>row.source.startsWith('packages/proofs/evidence/')).source),'PAEG_PAGED_RETAINED_HOST_PIN'],
  ]){
   alteredPath=path;
   assert.throws(()=>inspectRetainedFundedPagedGraphArtifactsForPreparationV4(),new RegExp(code));

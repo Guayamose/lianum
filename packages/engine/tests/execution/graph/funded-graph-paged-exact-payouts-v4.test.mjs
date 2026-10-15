@@ -68,7 +68,7 @@ test('executed payout root begins empty, inserts the actual payout and rejects a
  }finally{wipePrivateProofInputsV1(retained);f.close();}
 });
 
-const sourceRoot=join(projectRoot,'experiments/engine/private-core-proof/funded-graph-paged-v3');
+const sourceRoot=join(projectRoot,'packages/proofs/programs/funded-graph-paged-v3');
 const newProgram=join(sourceRoot,'.local/exact-payouts-v4/compiled/terminal.json');
 test('original Noir terminal accepted a coherent extra-note tree; exact payout terminal rejects it',{skip:!existsSync(newProgram)},async()=>{
  verifyToolchain();const requireOriginal=createRequire(join(legacyDataRoot('engine'),'experiments/private-core-proof/package.json'));
@@ -81,7 +81,7 @@ test('original Noir terminal accepted a coherent extra-note tree; exact payout t
  assert.equal(record.securityGeneration,'EXACT_PAYOUT_SET_V4');
  assert.equal(createHash('sha256').update(newBytes).digest('hex'),record.programSHA256);
  for(const path of ['lib/src/progress.nr','lib/src/framing.nr','circuits/terminal/src/main.nr']){
-  const pinned=record.sources.find(row=>row.path===join('experiments/engine/private-core-proof/funded-graph-paged-v3',path));assert.ok(pinned);
+  const pinned=record.sources.find(row=>row.path===join('packages/proofs/programs/funded-graph-paged-v3',path));assert.ok(pinned);
   assert.equal(createHash('sha256').update(readFileSync(join(sourceRoot,path))).digest('hex'),pinned.sha256);
  }
  const f=fixture();let honest,attack,legacy;

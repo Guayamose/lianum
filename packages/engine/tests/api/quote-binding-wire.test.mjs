@@ -5,9 +5,9 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { schemas, decode, encode, u64, publicInputs, H } from '../../../../experiments/engine/pc5-proof-probe/qb/wire.mjs';
+import { schemas, decode, encode, u64, publicInputs, H } from '../../../../scripts/engine/diagnostics/recursive-proof/qb/wire.mjs';
 
-import { fixtures as originalSyntheticFixtures } from '../../../../experiments/engine/pc5-proof-probe/qb/fixtures.mjs';
+import { fixtures as originalSyntheticFixtures } from '../../../../scripts/engine/diagnostics/recursive-proof/qb/fixtures.mjs';
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
 // New public synthetic vectors from the original emitter. No historical m8
 // result, proof, verifier acceptance or authorization is claimed.

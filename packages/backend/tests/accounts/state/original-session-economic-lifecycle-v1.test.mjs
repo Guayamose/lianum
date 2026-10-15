@@ -96,7 +96,7 @@ test('HOST real native and wrapped session factories retain pending state and re
  install('operations/recovery/native-original-source-lifecycle-v1.mjs',{...sourcePorts,...native});
  const APIs={...native,...await import('../../../src/api/accounts/flat-manual-graph-session.mjs')};
  const {reopenOriginalWalletEconomicStateAfterCrashV1,originalWalletEconomicStateBindingsV1}=await import('../../../src/accounts/state/original-wallet-economic-state-v1.mjs');
- const {startWalletApplication}=await import('../../../../../apps/wallet/src/server/server.mjs');
+ const {startWalletApplication}=await import('../../fixtures/api/wallet/application.mjs');
  async function family(kind,recovered=null,crashName=null,password='original-observation-private-password'){
   const runtime={},system={claimsEnabled:false},a=asset(h(kind+'-a'),'first'),b=asset(h(kind+'-b'),'second');let phase=recovered?'CONFIRMED':'PREPARED',viewChanged=false;
   const requestId=kind+'_original_request',body={requestId,kind:kind==='native'?'TOP_UP':'GRAPH',ownerOperationRef:h(kind+'-ref'),assetId:a.assetId};

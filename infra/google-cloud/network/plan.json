@@ -1,0 +1,13 @@
+{
+  "project": "lianum",
+  "region": "europe-west1",
+  "network": "lianum-wallet",
+  "subnetwork": "lianum-wallet-europe-west1",
+  "subnetworkRange": "10.71.0.0/24",
+  "sshOnlyFromIAP": "35.235.240.0/20",
+  "apiPrivateAddress": "10.71.0.2",
+  "enginePrivateAddress": "10.71.0.3",
+  "enginePort": 9445,
+  "router": "lianum-paeg-egress",
+  "nat": "lianum-paeg-egress"
+}

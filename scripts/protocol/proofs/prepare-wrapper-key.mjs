@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
-import { verifyToolchain, verifyCRS, filePin, hash, CRS } from '../../../experiments/protocol/private-core-proof/wallet-notes/resources.mjs';
-import { validateOwnerPin } from '../../../experiments/protocol/private-core-proof/generic-wrappers/pin-owner-key.mjs';
+import { verifyToolchain, verifyCRS, filePin, hash, CRS } from '../../../packages/protocol/circuits/wallet-notes/resources.mjs';
+import { validateOwnerPin } from '../../../packages/protocol/circuits/generic-wrappers/pin-owner-key.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const mode = process.argv[2];

@@ -16,7 +16,7 @@ PROFILES = ("paged-native-new", "paged-native-reopen", "paged-mixed-new", "paged
 
 def _command(profile):
     node = ROOT / ".internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node"
-    entry = ROOT / "apps/platform/src/entry.mjs"
+    entry = ROOT / "services/paeg-engine/src/entry.mjs"
     if not node.is_file() or node.resolve() != node or not entry.is_file() or entry.resolve() != entry:
         raise RuntimeError("PAGED_PLATFORM_FIXED_ENTRY_REQUIRED")
     return [str(node), "--max-old-space-size=384", str(entry), profile]

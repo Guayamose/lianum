@@ -248,7 +248,7 @@ test('new contract preserves PC16 exactly outside explicit history, revocation a
 });
 
 test('runtime source retains trusted local limits and pins all four snapshot reads to one block', async () => {
-  const original = await readFile(new URL('../../../../archive/delivery/source-snapshot/omnichain-product/src/private-finality-runtime.mjs', import.meta.url), 'utf8');
+  const original = await readFile(new URL('../../../proofs/evidence/original-sources/0a471812dbbd7a1b438398f7b67e77930b628ef4a52dda5555cd56a64d8d4c8e.source', import.meta.url), 'utf8');
   assert.equal(sha(original), '0a471812dbbd7a1b438398f7b67e77930b628ef4a52dda5555cd56a64d8d4c8e');
   const source = await readFile(new URL('../../src/assembly/private-assembly-runtime.mjs', import.meta.url), 'utf8');
   for (const method of ['canonicalState', 'canonicalEffects', 'canonicalRootHistory', 'canonicalRevocations']) assert.ok(source.includes(`call('${method}()', [], header.number)`));

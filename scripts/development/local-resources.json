@@ -5,27 +5,88 @@
     ".local",
     "node_modules",
     "apps/mobile/node_modules",
-    "apps/platform/node_modules",
+    "services/api-server/node_modules",
     "apps/mobile/android/build",
     "apps/mobile/android/app/build",
-    "apps/mobile/android/.gradle"
+    "apps/mobile/android/.gradle",
+    "apps/mobile/android/app/.cxx",
+    "apps/mobile/node_modules/expo-modules-core/android/build",
+    "apps/mobile/node_modules/expo-modules-core/android/.cxx",
+    "apps/mobile/node_modules/expo/android/build",
+    "apps/mobile/node_modules/expo-asset/android/build",
+    "apps/mobile/node_modules/expo-file-system/android/build",
+    "apps/mobile/node_modules/expo-font/android/build",
+    "apps/mobile/node_modules/expo-constants/android/build",
+    "apps/mobile/node_modules/expo-keep-awake/android/build",
+    "apps/mobile/node_modules/react-native-svg/android/build",
+    "packages/proofs/programs/funded-graph-paged-v3/.local"
   ],
   "categories": {
     "tools": "Herramientas instaladas; conservar",
     "originals": "Artefactos y materiales originales; conservar",
-    "legacy-runtime": "Compatibilidad y estado histórico; conservar",
+    "legacy-runtime": "Compatibilidad y estado hist\u00f3rico; conservar",
     "dependencies": "Dependencias instaladas; preparar por perfil",
     "private-state": "Estado privado, custodia y redes; conservar",
     "backups": "Respaldos verificados; conservar",
     "generations": "Fuentes y candidatos de desarrollo; conservar",
     "pending": "Trabajo pendiente; conservar",
     "reports": "Informes; archivar antes de retirar",
-    "configuration": "Configuración local; conservar",
-    "builds": "Salidas de compilación; conservar entregables",
-    "cache": "Caché regenerable; limpieza explícita",
+    "configuration": "Configuraci\u00f3n local; conservar",
+    "builds": "Salidas de compilaci\u00f3n; conservar entregables",
+    "cache": "Cach\u00e9 regenerable; limpieza expl\u00edcita",
     "legacy-support": "Ayudantes locales heredados; conservar hasta migrar sus consumidores"
   },
   "rules": [
+    {
+      "path": "apps/mobile/node_modules/react-native-svg/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo-keep-awake/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo-constants/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo-font/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo-file-system/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo-asset/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo-modules-core/android/.cxx",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/node_modules/expo-modules-core/android/build",
+      "category": "cache",
+      "cleanup": true
+    },
+    {
+      "path": "apps/mobile/android/app/.cxx",
+      "category": "cache",
+      "cleanup": true
+    },
     {
       "path": ".internal/dev/toolchains",
       "category": "tools",
@@ -117,7 +178,7 @@
       "cleanup": false
     },
     {
-      "path": "apps/platform/node_modules",
+      "path": "services/api-server/node_modules",
       "category": "dependencies",
       "cleanup": false
     },
@@ -173,18 +234,18 @@
     },
     {
       "path": "apps/mobile/android/build",
-      "category": "builds",
-      "cleanup": false
+      "category": "cache",
+      "cleanup": true
     },
     {
       "path": "apps/mobile/android/app/build",
-      "category": "builds",
-      "cleanup": false
+      "category": "cache",
+      "cleanup": true
     },
     {
       "path": "apps/mobile/android/.gradle",
-      "category": "builds",
-      "cleanup": false
+      "category": "cache",
+      "cleanup": true
     },
     {
       "path": ".local/cache/npm",
@@ -294,6 +355,11 @@
     {
       "path": ".internal/dev/MOBILE-ACCOUNT-BRIDGE-DESIGN.md",
       "category": "pending",
+      "cleanup": false
+    },
+    {
+      "path": "packages/proofs/programs/funded-graph-paged-v3/.local",
+      "category": "originals",
       "cleanup": false
     }
   ],

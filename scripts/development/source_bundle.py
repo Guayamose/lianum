@@ -24,12 +24,12 @@ FAMILIES = {'engine': 'omnichain-product', 'protocol': 'golden-overlay-v17',
             'crypto': 'omnichain-flat-profile/candidate-poseidon',
             'components': 'omnichain-flat-profile'}
 PUBLIC_KINDS = {'toolchain', 'public-parameter', 'public-artifact', 'historical-source', 'npm-package'}
-SOURCE_AREAS = {'apps', 'packages', 'contracts', 'experiments', 'scripts', 'tests'}
+SOURCE_AREAS = {'apps', 'services', 'packages', 'contracts', 'experiments', 'scripts', 'tests'}
 # Already declared by CurrentSourceInputs; immutable evidence is DATA, never
 # an executable historical source alias. Do not broaden the archive prefix.
 SOURCE_EVIDENCE_PATHS = frozenset({
-    'archive/source-evidence/tron-original-builder-v1/provenance.json',
-    'archive/source-evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source',
+    'packages/proofs/evidence/tron-original-builder-v1/provenance.json',
+    'packages/proofs/evidence/tron-original-builder-v1/88bfed03dc18587fe2282479d6e36316047ae68e1fb9086f1caac6d8e3079c09.source',
 })
 IGNORED = {'node_modules', '.git', '.local', '.internal', '__pycache__', 'dist', 'build'}
 URL_RESOURCE = re.compile(r"\bnew\s+URL\(\s*['\"]([^'\"]+)['\"]\s*,\s*import\.meta\.url\s*\)")
@@ -75,6 +75,8 @@ def source_allowed(relative):
     parts = PurePosixPath(safe_relative(relative)).parts
     if relative in SOURCE_EVIDENCE_PATHS:
         return relative
+    if relative.startswith('packages/proofs/evidence/'):
+        raise ValueError(f'Evidence cannot become executable source: {relative}')
     if parts[0] not in SOURCE_AREAS or set(parts).intersection(IGNORED):
         raise ValueError(f'Not a public source path: {relative}')
     if any(part.startswith('.env') for part in parts):
@@ -210,13 +212,13 @@ NATIVE_NPM_ROOTS.update({
 # does not turn either record into executable source. The manifest is separately
 # checked by the paged reader; the complete consumer program is retained evidence.
 ADOPTED_RETAINED_PUBLIC_FILES = {
-    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json':
+    'packages/proofs/programs/funded-graph-paged-v3/.local/exact-payouts-v4/consumer.json':
         '27649ee59274bc12b5602d10f87af2322cddebcb2263278aefe40c1e7eed0eca',
-    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json':
+    'packages/proofs/programs/funded-graph-paged-v3/.local/exact-payouts-v4/manifest.json':
         'b9ea61d9944b74cafa59b79e2049767d00aa65e06dbf3eed7deb0590919715d9',
-    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/consumer.json':
+    'packages/proofs/programs/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/consumer.json':
         'd3ad4ad81918ef832f35f4399ad64aa15a47f7fe99359b8d0a719a7eb9287fc3',
-    'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/manifest.json':
+    'packages/proofs/programs/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/manifest.json':
         'a3cfb7d05246a5876590f1c5c0a50ab8313c7d1e863dfe7636f18aa8199fe8aa',
 }
 
@@ -235,7 +237,7 @@ def adopted_npm_package(parts):
                 if 'node_modules' not in suffix.split('/'):
                     return 'native-wallet', package_root, NATIVE_NPM_ROOTS[package_root]
         raise ValueError('Root npm file is outside the reviewed native-wallet package names')
-    if (len(parts) < 5 or parts[:2] not in {('apps', 'mobile'), ('apps', 'platform')}
+    if (len(parts) < 5 or parts[:2] not in {('apps', 'mobile'), ('services', 'api-server')}
             or parts[2] != 'node_modules' or parts.count('node_modules') != 1):
         raise ValueError('Adopted npm file is outside a reviewed application inventory')
     count = 5 if parts[3].startswith('@') else 4
@@ -364,7 +366,7 @@ def adopted_source_inventory(root):
         if row['path'] != name or name.startswith('.internal/'):
             raise ValueError('Adopted execution still requires a compatibility alias: ' + row['path'])
         if (name not in {'dev', 'package.json', 'package-lock.json'} and not name.startswith('node_modules/') and
-                not (parts[0] in SOURCE_AREAS or name.startswith('archive/source-evidence/'))):
+                not (parts[0] in SOURCE_AREAS or name.startswith('packages/proofs/evidence/'))):
             raise ValueError('Adoption names a non-source path: ' + name)
         npm = 'node_modules' in parts
         if npm:

@@ -20,7 +20,7 @@ import { nativeStaticCalldata } from '../../../packages/backend/src/execution/na
 import { createFlatNativeExecution } from '../../../packages/backend/src/execution/account/execution/flat-native-execution.mjs';
 import { createFlatJournalCatalogue, closeUnattachedFlatJournalGeneration } from '../../../packages/backend/src/accounts/storage/flat-journal-catalogue.mjs';
 import { createFlatManualGraphCatalogueSession } from '@lianum/backend/accounts/manual-graph';
-import { startWalletApplication } from '../../../apps/wallet/src/server/server.mjs';
+import { startWalletApplication } from '../../../packages/backend/tests/fixtures/api/wallet/application.mjs';
 import { createManualWalletAppDriver } from '../wallet/manual/manual-wallet-app-driver.mjs';
 import { freshFixtureId, fixtureJSON, writeFixturePrivate } from '../fixtures/runners/owned-flat-fixture.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');

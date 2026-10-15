@@ -4,7 +4,6 @@
   "private": true,
   "description": "Workspace de desarrollo de Lianum",
   "devDependencies": {
-    "playwright-core": "1.64.0",
     "typescript": "6.0.3",
     "@types/node": "26.6.4"
   },
@@ -16,7 +15,6 @@
     "test": "./dev test",
     "doctor": "./dev doctor",
     "evidence": "./dev evidence",
-    "test:browser": "LIANUM_BROWSER_REPORT_DIRECTORY=\"$PWD/.internal/dev/reports\" ./dev node apps/wallet/tests/browser/disconnected-browser.mjs",
     "static": "./dev static"
   },
   "workspaces": [

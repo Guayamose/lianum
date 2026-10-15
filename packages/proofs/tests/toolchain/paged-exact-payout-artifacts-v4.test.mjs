@@ -10,7 +10,7 @@ const {inspectFundedPagedGraphArtifactsForPreparationV4:inspect,PAEG_PAGED_ARTIF
 test('active exact-payout artifacts have fresh programs and reject VK, consumer and compiler-input changes',()=>{
  const receipt=inspect();assert.equal(receipt.securityGeneration,'EXACT_PAYOUT_SET_V4');assert.equal(receipt.artifactGenerationKind,'FRESH_EXACT_PAYOUTS_V4');assert.equal(receipt.originalManifestSHA256,null);assert.equal(receipt.artifactSourceRebind,null);
  assert.deepEqual(Object.keys(receipt.roles),['reserve','fold','terminal','admission','withdraw']);assert.ok(receipt.hostSources.every(row=>row.path===row.source));assert.equal(receipt.financialAcceptance,false);
- const historical=JSON.parse(fs.readFileSync(join(projectRoot,'experiments/engine/private-core-proof/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/manifest.json')));
+ const historical=JSON.parse(fs.readFileSync(join(projectRoot,'packages/proofs/programs/funded-graph-paged-v3/.local/poseidon-sparse-v3-consumer-fix-v1/manifest.json')));
  for(const role of ['reserve','fold','terminal']){assert.notEqual(receipt.roles[role].programSHA256,historical.roles[role].programSHA256);assert.notEqual(receipt.roles[role].keySHA256,historical.roles[role].keySHA256);}
  const consumer=JSON.parse(fs.readFileSync(join(directory,'consumer.json'))),pool=consumer.consumer.contracts['contracts/wallet/PrivatePagedFundedGraphPoolV4.sol'].PrivatePagedFundedGraphPoolV4;
  assert.ok(pool.abi.some(row=>row.type==='function'&&row.name==='minimumDepositAmount'));assert.ok(pool.evm.deployedBytecode.object.length/2<=24576);

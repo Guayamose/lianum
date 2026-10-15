@@ -21,8 +21,8 @@ REPORTS = ROOT / ".internal/dev/reports"
 DEFAULT_TESTS = [
     "packages/backend/tests/api/accounts/flat-account-session-family-v1.test.mjs",
     "packages/backend/tests/accounts/authority/native-source-record-validator-v1.test.mjs",
-    "apps/wallet/tests/server/server.test.mjs", "apps/wallet/tests/client/ui.test.mjs",
-    "apps/wallet/tests/server/exact-action-capabilities.test.mjs", "apps/wallet/tests/server/public-errors.test.mjs",
+    "packages/backend/tests/api/wallet/server/server.test.mjs", "packages/backend/tests/api/wallet/client/wallet-client-model.test.mjs",
+    "packages/backend/tests/api/wallet/server/exact-action-capabilities.test.mjs", "packages/backend/tests/api/wallet/server/public-errors.test.mjs",
     "packages/backend/tests/api/wallet/wallet-application-client.test.mjs",
     "packages/backend/tests/api/wallet/wallet-application-client.transport.test.mjs",
     "packages/backend/tests/accounts/portfolio/catalogue-owner-requests.test.mjs",
@@ -60,7 +60,7 @@ def revision(root=ROOT):
     def git(*arguments):
         return subprocess.check_output(['git', *arguments], cwd=root, stderr=subprocess.DEVNULL)
     head = git('rev-parse', 'HEAD').decode().strip()
-    scopes = ['apps', 'packages', 'scripts', 'tests', 'contracts', 'infra', '.github',
+    scopes = ['apps', 'services', 'packages', 'scripts', 'tests', 'contracts', 'infra', '.github',
               'dev', 'package.json', 'package-lock.json']
     changed = set(git('diff', '--name-only', '-z', 'HEAD', '--', *scopes).split(b'\0'))
     changed.update(git('ls-files', '--others', '--exclude-standard', '-z', '--', *scopes).split(b'\0'))

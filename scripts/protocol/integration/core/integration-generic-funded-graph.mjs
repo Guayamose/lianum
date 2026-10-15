@@ -13,7 +13,7 @@ import { createLocalEvm } from '../../../../packages/protocol/src/execution/loca
 import { compileGenericPool, deployGenericPool } from '../../../../packages/protocol/src/execution/local/local-deployment.mjs';
 import { genericVerifierSources } from '../../../../packages/protocol/src/execution/local/local-profile.mjs';
 import { inspectGenericSnapshot, reserveProjection } from '../../../../packages/protocol/src/execution/local/local-ledger.mjs';
-import { reserveInputs, refundInputs, publicWords, A0, digestHex } from '../../../../experiments/protocol/private-core-proof/generic-wrappers/abi.mjs';
+import { reserveInputs, refundInputs, publicWords, A0, digestHex } from '../../../../packages/protocol/circuits/generic-wrappers/abi.mjs';
 import { PRIVATE_RESOURCE_POLICY } from '../../../../packages/protocol/src/crypto/private-resource-policy.mjs';
 
 const project = fileURLToPath(new URL('../', import.meta.url));

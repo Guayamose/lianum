@@ -48,9 +48,9 @@ class SourceEvidenceBundleTests(unittest.TestCase):
             self.assertEqual(bundle.source_allowed(name), name)
         for name in [self.source.replace('88bf', '99bf'), self.source + '.mjs',
                      self.provenance.replace('provenance.json', 'other.json'),
-                     'archive/source-evidence/tron-original-builder-v1/active.mjs',
-                     'archive/source-evidence/other/provenance.json',
-                     'archive/source-evidence/tron-original-builder-v1/../provenance.json']:
+                     'packages/proofs/evidence/tron-original-builder-v1/active.mjs',
+                     'packages/proofs/evidence/other/provenance.json',
+                     'packages/proofs/evidence/tron-original-builder-v1/../provenance.json']:
             with self.subTest(name=name), self.assertRaises(ValueError):
                 bundle.source_allowed(name)
 

@@ -1,0 +1,19 @@
+{
+  "zone": "europe-west1-b",
+  "instance": "lianum-wallet-api",
+  "machineType": "e2-small",
+  "imageProject": "debian-cloud",
+  "imageFamily": "debian-12",
+  "bootDiskGB": 20,
+  "bootDiskType": "pd-standard",
+  "bootDiskAutoDelete": false,
+  "staticAddress": "lianum-wallet-api-ip",
+  "httpsHostname": "api.lianum.oryontechnology.com",
+  "publicPorts": [
+    80,
+    443
+  ],
+  "serviceAccount": null,
+  "moonpayEnabled": false,
+  "createsBillableResources": true
+}

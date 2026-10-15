@@ -15,7 +15,7 @@ import {FLAT} from '@lianum/proofs/catalog';
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const generated=fileURLToPath(import.meta.url).endsWith('/wallet-platform/modules/global-state/device-external-flat-local-operator-v1.test.mjs');
 const backendURL=new URL(generated?'../operations/local/device-external-flat-local-operator-v1.mjs':'../../../src/operations/local/device-external-flat-local-operator-v1.mjs',import.meta.url);
-const appURL=pathToFileURL(join(resolve(FLAT,'../../..'),'apps/platform/src/run-device-external-flat-local-v1.mjs'));
+const appURL=pathToFileURL(join(resolve(FLAT,'../../..'),'scripts/development/profiles/run-device-external-flat-local-v1.mjs'));
 const deferred=()=>{let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b;});return{promise,resolve,reject};};
 test('HOST original local ERC20 entry retains startup acquisition; cancels publication and drains owned originals, or preserves uncertain lock',{timeout:10000},async t=>{
   const directory=await mkdtemp(join(tmpdir(),'device-external-entry-'));t.after(()=>rm(directory,{recursive:true,force:true}));

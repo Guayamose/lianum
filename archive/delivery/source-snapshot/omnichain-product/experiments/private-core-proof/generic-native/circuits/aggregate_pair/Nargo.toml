@@ -1,7 +1,0 @@
-[package]
-name = "generic_native_aggregate_pair"
-type = "bin"
-authors = ["Lianum scoped native execution"]
-
-[dependencies]
-approved_node = { path = "../../keys/node" }

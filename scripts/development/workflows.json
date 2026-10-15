@@ -3,12 +3,13 @@
   "components": {
     "wallet": {
       "watch": [
-        "apps/wallet/"
+        "packages/backend/src/api/wallet/",
+        "packages/mobile-protocol/src/wallet/"
       ],
       "tests": [
-        "apps/wallet/tests/server/public-errors.test.mjs",
-        "apps/wallet/tests/server/exact-action-capabilities.test.mjs",
-        "apps/wallet/tests/client/ui.test.mjs"
+        "packages/backend/tests/api/wallet/server/public-errors.test.mjs",
+        "packages/backend/tests/api/wallet/server/exact-action-capabilities.test.mjs",
+        "packages/backend/tests/api/wallet/client/wallet-client-model.test.mjs"
       ]
     },
     "backend": {
@@ -159,19 +160,6 @@
         "apps/mobile/tests/device-recovery-copy-gate.test.mjs"
       ]
     },
-    "platform": {
-      "watch": [
-        "apps/platform/"
-      ],
-      "tests": [
-        "apps/platform/tests/server.test.mjs",
-        "apps/platform/tests/privacy-key-v1.test.mjs",
-        "apps/platform/tests/schema-migrations.test.mjs",
-        "apps/platform/tests/gateway-pairing.test.mjs",
-        "apps/platform/tests/diagnostics.test.mjs",
-        "apps/platform/tests/composition.test.mjs"
-      ]
-    },
     "tooling": {
       "watch": [
         "dev",
@@ -189,7 +177,6 @@
         "scripts/development/test_module_boundaries.py",
         "scripts/development/test_source_generations.py",
         "scripts/development/test_workspace.py",
-        "scripts/development/test_doctor.py",
         "scripts/development/test_bounded_process.py",
         "scripts/development/test-static-check.test.mjs",
         "scripts/development/test_clean.py",
@@ -198,15 +185,36 @@
         "scripts/development/test_lab_profiles.py",
         "scripts/development/test_source_bundle.py"
       ]
+    },
+    "api-server": {
+      "watch": [
+        "services/api-server/"
+      ],
+      "tests": [
+        "services/api-server/tests/server.test.mjs",
+        "services/api-server/tests/privacy-key-v1.test.mjs",
+        "services/api-server/tests/schema-migrations.test.mjs",
+        "services/api-server/tests/gateway-pairing.test.mjs",
+        "services/api-server/tests/diagnostics.test.mjs",
+        "services/api-server/tests/composition.test.mjs"
+      ]
+    },
+    "paeg-engine": {
+      "watch": [
+        "services/paeg-engine/"
+      ],
+      "tests": [
+        "services/paeg-engine/tests/paged-native-bootstrap-v3.test.mjs"
+      ]
     }
   },
   "entrypoints": [
     {
-      "id": "wallet",
+      "id": "api-server",
       "level": "host",
-      "entry": "apps/wallet/src/server/run.mjs",
-      "command": "./dev start",
-      "description": "Wallet web local; la disponibilidad econ\u00f3mica depende del perfil conectado."
+      "entry": "services/api-server/src/wallet-entry.mjs",
+      "command": "./dev api",
+      "description": "API p\u00fablica de wallet; requiere configuraci\u00f3n del servidor."
     },
     {
       "id": "mobile",
@@ -216,11 +224,11 @@
       "description": "Cliente Expo; necesita dependencias m\u00f3viles y un development build."
     },
     {
-      "id": "platform",
+      "id": "api-admission",
       "level": "component",
-      "entry": "apps/platform/src/entry.mjs",
+      "entry": "services/api-server/src/entry.mjs",
       "command": "./dev platform admission",
-      "description": "API de admisi\u00f3n y perfiles locales expl\u00edcitos: original-native-new/reopen, paged-native-new/reopen, paged-mixed-new/reopen y defi-new. Reopen requiere captura original completa; no reemplaza wallets ni financia notas."
+      "description": "Entrada de API p\u00fablica y perfiles de admisi\u00f3n autorizados."
     },
     {
       "id": "paired-http",
@@ -232,8 +240,8 @@
     {
       "id": "postgres",
       "level": "integration",
-      "entry": "apps/platform/scripts/test-postgres.mjs",
-      "command": "./dev npm --prefix apps/platform run test:postgres",
+      "entry": "services/api-server/scripts/test-postgres.mjs",
+      "command": "./dev npm --prefix services/api-server run test:postgres",
       "description": "Persistencia PostgreSQL real en Docker, con base de datos de prueba."
     },
     {
@@ -277,15 +285,22 @@
       "entry": "packages/backend/tests/chains/shared/runtime/wrapped-graph-v4-runtime.test.mjs",
       "command": "./dev test --timeout 3600 packages/backend/tests/chains/shared/runtime/wrapped-graph-v4-runtime.test.mjs",
       "description": "22 casos EVM/TRON de autoridades de un solo uso, firmas y limites temporales con propietarios completos y puertos inferiores de prueba; ejecucion lenta explicita."
+    },
+    {
+      "id": "paeg-engine",
+      "level": "component",
+      "entry": "services/paeg-engine/src/entry.mjs",
+      "command": "./dev engine paged-mixed-reopen",
+      "description": "Reabre el motor con su estado retenido. Los perfiles new requieren preparaci\u00f3n privada expl\u00edcita."
     }
   ],
   "commands": [
     {
-      "usage": "./dev start",
-      "description": "Arrancar la wallet desde fuentes editables; Ctrl+C para cerrar"
+      "usage": "./dev api",
+      "description": "Arranca la API p\u00fablica usando LIANUM_PUBLIC_WALLET_CONFIG."
     },
     {
-      "usage": "./dev platform [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new]",
+      "usage": "./dev engine [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new]",
       "description": "Arrancar el perfil expl\u00edcito; new exige estado nuevo, reopen conserva el original"
     },
     {
@@ -321,7 +336,7 @@
       "description": "Presencia y versi\u00f3n de herramientas; no certifica integridad"
     },
     {
-      "usage": "./dev prepare [host|mobile|platform]",
+      "usage": "./dev prepare [host|mobile|api-server]",
       "description": "Instalar dependencias p\u00fablicas del perfil"
     },
     {
@@ -377,12 +392,12 @@
       "description": "Materializar expresamente la compatibilidad hist\u00f3rica"
     },
     {
-      "usage": "./dev legacy [start|node|test|check]",
+      "usage": "./dev legacy [node|test|check]",
       "description": "Ejecutar el recorrido heredado correspondiente"
     },
     {
       "usage": "./dev doctor",
-      "description": "Comprobar restauraci\u00f3n e integridad; necesita materiales"
+      "description": "Comprobar herramientas instaladas y hashes actuales de fuentes"
     },
     {
       "usage": "./dev artifacts",
@@ -427,10 +442,6 @@
     {
       "usage": "./dev lab audit-base",
       "description": "Auditor\u00edas originales vac\u00edas; ejecuci\u00f3n expl\u00edcita"
-    },
-    {
-      "usage": "./dev [setup|import|restore-package]",
-      "description": "Restauraci\u00f3n de herramientas y materiales originales"
     },
     {
       "usage": "./dev canonical",

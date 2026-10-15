@@ -36,7 +36,7 @@ export async function inspectRetainedNodeArtifactsForPreparationV1() {
       // adoption or an executable compatibility alias.
       const path = resourceMode === 'candidate'
         ? resourcePath('crypto', 'evidence/retained-n32/sources/' + assertHash(row.sha256) + '.source')
-        : sourcePath('archive/delivery/source-snapshot/' + name);
+        : sourcePath('packages/proofs/evidence/original-sources/' + assertHash(row.sha256) + '.source');
       const bytes = regular(path);
       assert.equal(bytes.length, row.bytes, 'RETAINED_NODE_SOURCE_BYTES');
       assert.equal(hash(bytes), row.sha256, 'RETAINED_NODE_SOURCE_PIN');

@@ -200,8 +200,8 @@ def environment_status():
             pass
     host = {"python": sys.version_info >= (3, 12), "git": shutil.which("git") is not None,
             "node": version == "v24.19.0"}
-    dependencies = {name: (ROOT / "apps" / name / "node_modules" / package / "package.json").is_file()
-                    for name, package in (("mobile", "typescript"), ("platform", "pg"))}
+    dependencies = {"mobile": (ROOT / "apps/mobile/node_modules/typescript/package.json").is_file(),
+                    "api-server": (ROOT / "services/api-server/node_modules/pg/package.json").is_file()}
     reports = ROOT / ".internal/dev/reports"
     materials = {name: (reports / name).is_file() for name in
                  ("dependency-package.json", "packages.json", "crs.json", "native-tools.json", "solana-tools.json")}
@@ -210,14 +210,14 @@ def environment_status():
             "restorationReportMarkers": materials,
             "integrityChecked": False, "economicReadiness": "NOT_CHECKED",
             "nextCommands": {"host": "./dev prepare host", "mobile": "./dev prepare mobile",
-                             "platform": "./dev prepare platform", "integrity": "./dev doctor"},
+                             "api-server": "./dev prepare api-server", "integrity": "./dev doctor"},
             "scope": "Fast tool/version and presence checks; package markers do not verify a complete install or original artifact integrity."}
 
 
 def prepare(scope):
     subprocess.run([sys.executable, "-B", str(ROOT / "scripts/development/prepare-host-runtime.py")], cwd=ROOT, check=True)
     if scope != "host":
-        subprocess.run([str(ROOT / "dev"), "npm", "--prefix", "apps/" + scope, "ci", "--ignore-scripts"], cwd=ROOT, check=True)
+        subprocess.run([str(ROOT / "dev"), "npm", "--prefix", ("services/api-server" if scope in {"platform", "api-server"} else "apps/" + scope), "ci", "--ignore-scripts"], cwd=ROOT, check=True)
     print(f"Prepared {scope}. Start and lab commands remain explicit; see ./dev workflows.")
 
 
@@ -280,7 +280,7 @@ def main(arguments=None):
         commands.add_parser(name).add_argument("--json", action="store_true")
     commands.add_parser('help')
     commands.add_parser('docs-check')
-    commands.add_parser("prepare").add_argument("scope", nargs="?", default="host", choices=("host", "mobile", "platform"))
+    commands.add_parser("prepare").add_argument("scope", nargs="?", default="host", choices=("host", "mobile", "api-server", "platform"))
     tests = commands.add_parser("test")
     choice = tests.add_mutually_exclusive_group(required=True)
     choice.add_argument("--changed", action="store_true")
@@ -301,7 +301,7 @@ def main(arguments=None):
             for name, present in report["installedDependencyMarkers"].items():
                 print(f"{name} dependency marker: {'present' if present else 'missing; run ./dev prepare ' + name}")
             print(report["scope"])
-            print("Economic readiness: NOT_CHECKED. ./dev doctor checks restored integrity; ./dev workflows lists explicit execution paths.")
+            print("Economic readiness: NOT_CHECKED. ./dev doctor checks installed tools and current pins; ./dev workflows lists explicit execution paths.")
         return 0 if report["hostReady"] else 1
     if args.command == "prepare":
         prepare(args.scope)

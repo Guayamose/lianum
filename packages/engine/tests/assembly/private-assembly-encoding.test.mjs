@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {assemblyAuthorizationInput,assemblyLocalInput,assemblySchema,assertAssemblyStatement,ASSEMBLY_PUBLIC_WORDS,assemblyRecursiveInput} from '../../src/assembly/private-assembly-encoding.mjs';
-import {syntheticSetup,syntheticCertificate} from '../../../../experiments/engine/private-core-proof/native-notes/fixtures.mjs';
+import {syntheticSetup,syntheticCertificate} from '../../../proofs/programs/native-notes/fixtures.mjs';
 import {wordsBE} from '../../src/notes/private-note-encoding.mjs';
 const flat=(mode,input)=>{const prefix=mode==='authorization'?['schema','scope','policy','root','spent','local_sol','local_btc','output_sol','output_btc','output_recovery','cutoff']:mode==='sol_join'?['schema','authorization_inputs','effect_sol','observed_at','valid_from','valid_until']:['schema','scope','policy','local','effect','observed_at','valid_from','valid_until'];return prefix.flatMap(k=>Array.isArray(input[k])?input[k]:[input[k]]).map(String);};
 const dummyPackage=(mode,input)=>({publicInputs:flat(mode,input),vkFields:Array(115).fill('0'),proofFields:Array(458).fill('0')});

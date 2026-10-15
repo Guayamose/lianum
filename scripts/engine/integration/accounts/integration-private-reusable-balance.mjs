@@ -3,7 +3,7 @@
  * Fixed local fake-fund benchmark; public report is not an anonymity claim. */
 import assert from 'node:assert/strict';import {fork} from 'node:child_process';import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';import {join} from 'node:path';import {createHash,randomUUID} from 'node:crypto';
 import {isPrivateWalletExitReceipt} from '../../lib/private-wallet-exit-receipts.mjs';
-import {startLocalServer} from '../../../../packages/backend/src/api/private-runtime-server.mjs';import {projectRoot} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';import {checkPrivateWalletSourcePrerequisites,PRIVATE_WALLET_SOURCE_PROFILE} from '../../../../packages/backend/src/operations/wallet/private-wallet-prerequisites.mjs';
+import {startLocalServer} from '../../demos/server.mjs';import {projectRoot} from '../../../../packages/engine/src/chains/shared/runtime-harness.mjs';import {checkPrivateWalletSourcePrerequisites,PRIVATE_WALLET_SOURCE_PROFILE} from '../../../../packages/backend/src/operations/wallet/private-wallet-prerequisites.mjs';
 assert.ok(process.argv.includes('--authorized-local-reusable-balance'),'PC23_EXPLICIT_LOCAL_AUTHORIZATION');
 await checkPrivateWalletSourcePrerequisites();
 const runId=new Date().toISOString().replace(/[:.]/g,'-'),local=join(projectRoot,'.local','private-reusable-balance-'+runId),file=join(projectRoot,'evidence','m23-private-reusable-balance-'+runId+'.json'),sha=b=>createHash('sha256').update(b).digest('hex'),pause=ms=>new Promise(r=>setTimeout(r,ms));await mkdir(local,{recursive:true,mode:0o700});

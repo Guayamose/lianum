@@ -1,0 +1,29 @@
+[Unit]
+Description=Lianum public wallet gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lianum
+Group=lianum
+WorkingDirectory=/opt/lianum/current
+Environment=LIANUM_PUBLIC_WALLET_CONFIG=/etc/lianum/public-wallet.json
+Environment=PORT=8788
+ExecStart=/opt/lianum/current/bin/node /opt/lianum/current/services/api-server/src/wallet-entry.mjs
+StateDirectory=lianum-public-wallet
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lianum-public-wallet
+LimitNOFILE=4096
+MemoryMax=512M
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target

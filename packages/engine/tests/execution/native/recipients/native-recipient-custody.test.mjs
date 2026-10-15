@@ -15,7 +15,7 @@ import { nativeTransferActionCommitment } from '../../../../src/execution/native
 import { createNativeRecipientCustody, recoverNativeRecipientCustody, nativeRecipientPayoutNote,
   nativeRecipientInvoiceRequest, nativeRecipientInvoiceMessage } from '../../../../src/execution/native/recipients/native-recipient-custody.mjs';
 import { createNativeRecipientProcess, assertOwnedNativeRecipientProcess } from '../../../../../backend/src/execution/native/recipients/native-recipient-process.mjs';
-import { positiveFixtures } from '../../../../../../experiments/engine/private-core-proof/generic-funding/fixtures.mjs';
+import { positiveFixtures } from '../../../../../proofs/programs/generic-funding/fixtures.mjs';
 
 const hash = text => createHash('sha256').update('synthetic recipient test:' + text).digest('hex');
 const raw = text => Buffer.from(text, 'hex');

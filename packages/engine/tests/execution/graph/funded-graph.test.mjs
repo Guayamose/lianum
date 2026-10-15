@@ -5,7 +5,7 @@ import { compileFundedGraph, attachFundedSignatures, fundedSigningRequests, fund
   fundedHash, fundedFrame, fundedAdmission, FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '../../../src/execution/graph/funded-graph.mjs';
 import { walletNoteCommitment } from '../../../src/wallet/notes/private-wallet-note-encoding.mjs';
 import { nullifier, frame as legacyFrame, uintBE } from '../../../src/notes/private-note-encoding.mjs';
-import { positiveFixtures, negativeFixtures } from '../../../../../experiments/engine/private-core-proof/generic-funding/fixtures.mjs';
+import { positiveFixtures, negativeFixtures } from '../../../../proofs/programs/generic-funding/fixtures.mjs';
 import { authorizationInputs, authorizationPublicWords } from '../../../src/execution/inputs/funding-witness.mjs';
 
 const fixtures = positiveFixtures();

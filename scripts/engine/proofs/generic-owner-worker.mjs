@@ -12,7 +12,7 @@ import {
   normalizeOwnerInit, normalizeOwnerWithdrawal,
 } from '../../../packages/backend/src/operations/local/local-owner.mjs';
 import { compileFundedGraph, fundedSigningRequests, attachFundedSignatures, fundedAuthorizationWords } from '../../../packages/engine/src/execution/graph/funded-graph.mjs';
-import { authorizationInputs } from '../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
+import { authorizationInputs } from '../../../packages/proofs/programs/generic-funding/witness.mjs';
 import { freshKey, signature } from '../../../packages/engine/src/notes/private-note-encoding.mjs';
 import {
   walletNoteCommitment, walletDepositInput, walletWithdrawInput, walletInputPublicWords,

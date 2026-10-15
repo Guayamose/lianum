@@ -6,14 +6,14 @@ import { resolve, dirname, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { loadRetainedInventory, validateRetainedChecks, expectedChecks } from '../../../../experiments/engine/pc5-proof-probe/validation/retained-inventory.mjs';
-import { parseStrictJSON } from '../../../../experiments/engine/pc5-proof-probe/proving/strict-json.mjs';
-import { requireVerifierRejection } from '../../../../experiments/engine/pc5-proof-probe/validation/verifier-negative.mjs';
+import { loadRetainedInventory, validateRetainedChecks, expectedChecks } from '../../../../scripts/engine/diagnostics/recursive-proof/validation/retained-inventory.mjs';
+import { parseStrictJSON } from '../../../../scripts/engine/diagnostics/recursive-proof/proving/strict-json.mjs';
+import { requireVerifierRejection } from '../../../../scripts/engine/diagnostics/recursive-proof/validation/verifier-negative.mjs';
 
 /** Structural validation only. Every byte and report below is synthetic DATA.
  * Metadata's true/false cases exercise the parser; no verifier, proof issuer,
  * grant, historical M7 evidence, or cryptographic acceptance is involved. */
-const reader = new URL('../../../../experiments/engine/pc5-proof-probe/validation/retained-inventory.mjs', import.meta.url);
+const reader = new URL('../../../../scripts/engine/diagnostics/recursive-proof/validation/retained-inventory.mjs', import.meta.url);
 const synthetic = 'SYNTHETIC_STRUCTURE_ONLY_NOT_VERIFIED';
 function fixture(run) {
   const dir = mkdtempSync(resolve(tmpdir(), 'paeg-m7-inventory-'));

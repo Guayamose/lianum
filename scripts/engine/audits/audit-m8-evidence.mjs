@@ -4,9 +4,9 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, relative, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseStrictJSON } from '../../../experiments/engine/pc5-proof-probe/proving/strict-json.mjs';
-import { loadRetainedInventory, validateRetainedChecks } from '../../../experiments/engine/pc5-proof-probe/validation/retained-inventory.mjs';
-import { publicInputs } from '../../../experiments/engine/pc5-proof-probe/qb/wire.mjs';
+import { parseStrictJSON } from '../diagnostics/recursive-proof/proving/strict-json.mjs';
+import { loadRetainedInventory, validateRetainedChecks } from '../diagnostics/recursive-proof/validation/retained-inventory.mjs';
+import { publicInputs } from '../diagnostics/recursive-proof/qb/wire.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const parent = '1390a30620d85f1500bc1b0c711da0a7d97ba549';

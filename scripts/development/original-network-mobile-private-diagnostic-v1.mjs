@@ -8,8 +8,8 @@ import {join,resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {privateOwnedNetworkMobileFirstErrorV1} from '../../tests/integration/wallet/native/native-device-economic-private-error-v1.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
-const PARSER=Object.freeze({"path":"tests/integration/wallet/native/native-device-economic-private-error-v1.mjs","bytes":37835,"sha256":"adec7f79c404d7153dbe34e0013cffdb1383f084683553896f7356007c00aa28"});
-const NETWORKS=Object.freeze({"BSC714":{"entry":"apps/platform/src/run-original-bsc-private-native-mobile-v3.mjs","directory":".local/original-bsc714-mobile-v3"},"ARB42161":{"entry":"apps/platform/src/run-original-arbitrum-private-native-mobile-v1.mjs","directory":".local/original-arbitrum-mobile-v1"},"BASE8453":{"entry":"apps/platform/src/run-original-base-private-native-mobile-v1.mjs","directory":".local/original-base-mobile-v1"},"TRON":{"entry":"apps/platform/src/run-original-tron-private-native-mobile-v1.mjs","directory":".local/original-tron-mobile-v1"}});
+const PARSER=Object.freeze({"path":"tests/integration/wallet/native/native-device-economic-private-error-v1.mjs","bytes":37923,"sha256":"5c61007e0f31dbd1aed361b97e0f575e3c1f6dbc253d58088da4ab977eebb513"});
+const NETWORKS=Object.freeze({"BSC714":{"entry":"scripts/development/profiles/run-original-bsc-private-native-mobile-v3.mjs","directory":".local/original-bsc714-mobile-v3"},"ARB42161":{"entry":"scripts/development/profiles/run-original-arbitrum-private-native-mobile-v1.mjs","directory":".local/original-arbitrum-mobile-v1"},"BASE8453":{"entry":"scripts/development/profiles/run-original-base-private-native-mobile-v1.mjs","directory":".local/original-base-mobile-v1"},"TRON":{"entry":"scripts/development/profiles/run-original-tron-private-native-mobile-v1.mjs","directory":".local/original-tron-mobile-v1"}});
 const FIELDS=['dev','ino','uid','gid','mode','nlink','size','mtimeMs','ctimeMs'];
 let first=false,closeFirst=false,firstDurable=false;
 async function assertParser() {

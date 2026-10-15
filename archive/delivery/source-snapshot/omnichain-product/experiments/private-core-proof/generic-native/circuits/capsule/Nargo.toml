@@ -1,9 +1,0 @@
-[package]
-name = "paeg_native_4_capsule"
-type = "bin"
-authors = ["Lianum bounded protocol development"]
-
-[dependencies]
-generic_native_support = { path = "../../lib" }
-generic_wrappers = { path = "../../../generic-wrappers/lib" }
-graph_support = { path = "../../../generic-graph/lib" }

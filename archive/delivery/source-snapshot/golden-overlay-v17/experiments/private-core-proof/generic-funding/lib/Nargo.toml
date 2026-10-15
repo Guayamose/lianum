@@ -1,7 +1,0 @@
-[package]
-name = "generic_funding"
-type = "lib"
-authors = ["Lianum bounded rootless authorization research"]
-
-[dependencies]
-generic_graph = { path = "../../generic-graph/lib" }

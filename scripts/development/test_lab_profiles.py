@@ -164,8 +164,8 @@ class LabProfileTests(unittest.TestCase):
 
     def test_real_retained_public_sources_require_exact_original_mappings(self):
         for source in ('docs/reference/wallet/owned-tron-native-value-runtime.md',
-                       'archive/legacy-client/app.mjs', 'archive/legacy-engine/package.json',
-                       'archive/source-evidence/native-value-genuine-deployment-artifacts/w39-adapter/source-manifest.json'):
+                       'scripts/engine/demos/client/app.mjs',
+                       'packages/proofs/evidence/native-value-genuine-deployment-artifacts/w39-adapter/source-manifest.json'):
             with self.subTest(source=source):
                 self.retained_runtime_entry(source)
                 self.assertEqual(labs.runtime_status(self.root)[0], 'available')
@@ -190,7 +190,7 @@ class LabProfileTests(unittest.TestCase):
         self.assertEqual(status, 'available')
         self.assertIn('excluded without reading or authenticating', detail)
         self.assertIn(original, detail)
-        for rejected in ('archive/source-evidence/another/active.lock', 'archive/private/wallet.json',
+        for rejected in ('packages/proofs/evidence/another/active.lock', 'archive/private/wallet.json',
                          'archive/legacy-client/active.lock'):
             self.retained_runtime_entry(rejected, 'PRIVATE_SENTINEL_NOT_TO_BE_READ')
             self.assertEqual(labs.runtime_status(self.root)[0], 'stale-generation')
@@ -223,8 +223,8 @@ class LabProfileTests(unittest.TestCase):
             self.assertNotIn('NPM_CONFIG_CACHE', kwargs['env'])
             self.assertEqual(command[-4:], ['ci', '--ignore-scripts', '--no-audit', '--no-fund'])
             package = {'name': '@lianum/platform', 'version': '1.0.0'}
-            self.json('apps/platform/package.json', package)
-            self.json('apps/platform/package-lock.json', {'lockfileVersion': 3, 'packages': {'': package}})
+            self.json('services/api-server/package.json', package)
+            self.json('services/api-server/package-lock.json', {'lockfileVersion': 3, 'packages': {'': package}})
         report = labs.prepare_profile('platform', self.root, self.data, runner=install)
         self.assertEqual(report['status'], 'available')
         self.assertEqual(report['preparationsExecuted'], 1)

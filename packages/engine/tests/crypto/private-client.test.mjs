@@ -3,8 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createPrivateRequestTracker, validatePrivateSnapshot, startPrivateClient, PRIVATE_CLIENT_STORAGE_KEY } from '../../../../archive/legacy-client/private.mjs';
-import { PRIVATE_PROFILE, PRIVATE_OWNER_REFUND_DEFAULT, PRIVATE_ENGINE_UNAVAILABLE, privateStorageErrorLabel, privateControls, privateOutcome, privateCleanupLabel, privateRecoveryLabel, privateOwnerRefundLabel, privatePayoutLabel, privatePhaseLabel, privatePublicDetails, privateProgressSteps } from '../../../../archive/legacy-client/private-outcome.mjs';
+import { createPrivateRequestTracker, validatePrivateSnapshot, startPrivateClient, PRIVATE_CLIENT_STORAGE_KEY } from '../../../../scripts/engine/demos/client/private.mjs';
+import { PRIVATE_PROFILE, PRIVATE_OWNER_REFUND_DEFAULT, PRIVATE_ENGINE_UNAVAILABLE, privateStorageErrorLabel, privateControls, privateOutcome, privateCleanupLabel, privateRecoveryLabel, privateOwnerRefundLabel, privatePayoutLabel, privatePhaseLabel, privatePublicDetails, privateProgressSteps } from '../../../../scripts/engine/demos/client/private-outcome.mjs';
 
 const id = 'a'.repeat(32), otherId = 'b'.repeat(32), uuid = '12345678-1234-4123-8123-123456789abc';
 function operation(overrides = {}) {
@@ -140,7 +140,7 @@ test('public details omit request credentials, witness, native wire and arbitrar
   assert.doesNotMatch(text, /HIDDEN_|requestId/); assert.equal(detail.errorCode, null); assert.equal(detail.executionRestart, false); assert.equal(detail.recoveryWithdrawal, true);
 });
 test('existing wallet contains separate private payout and owner-refund controls without resend controls', async () => {
-  const html = await readFile(new URL('../../../../archive/legacy-client/index.html', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../../../../scripts/engine/demos/client/index.html', import.meta.url), 'utf8');
   const panel = html.slice(html.indexOf('id="private"'), html.indexOf('id="triple"'));
   for (const id of ['private-heading', 'private-prepare', 'private-start', 'private-recover', 'private-recovery', 'private-recovery-limit', 'private-refund', 'private-recover-refund', 'private-refund-limit', 'private-owner-refund', 'private-refresh', 'private-operation-select', 'private-outcome', 'private-evidence']) assert.ok(panel.includes(`id="${id}"`), id);
   assert.match(html, /src="\/private.mjs"/); assert.match(panel, /aria-live="polite"/); assert.match(panel, /100\.000 sats/); assert.match(panel, /3\.000\.000 lamports/);
@@ -150,7 +150,7 @@ test('existing wallet contains separate private payout and owner-refund controls
   assert.doesNotMatch(html, /Sin fondos reales[^\n]*Sin settlement privado|No hay prueba ZK,/);
 });
 test('browser code remains read-only on polling/reconnection and restores polling after back navigation', async () => {
-  const source = await readFile(new URL('../../../../archive/legacy-client/private.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../../../../scripts/engine/demos/client/private.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /innerHTML|eval\(/);
   assert.match(source, /tracker\.begin\(action, selectedId\)/); assert.match(source, /POST', body: JSON\.stringify\(body\)/);
   assert.match(source, /window\.addEventListener\('online', \(\) => \{ void refresh\(\); \}\)/);

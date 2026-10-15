@@ -1,7 +1,0 @@
-[package]
-name = "paeg_funded_4_refund"
-type = "bin"
-authors = ["Lianum rootless funding wrapper research"]
-
-[dependencies]
-generic_wrappers = { path = "../../lib" }

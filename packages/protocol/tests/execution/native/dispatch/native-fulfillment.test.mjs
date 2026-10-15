@@ -8,8 +8,8 @@ import { prepareNativeAggregatePair, prepareNativeAggregateAll, prepareNativeFul
 import { a0Context } from '../../../../../engine/src/execution/native/dispatch/native-capsules.mjs';
 import { FUNDED_GRAPH_PROFILE, fundedAuthorizationWords } from '../../../../../engine/src/execution/graph/funded-graph.mjs';
 import { PrivateNoteTree } from '../../../../../engine/src/notes/private-note-tree.mjs';
-import { A0, FIELD_MODULUS, digestWords, digestHex } from '../../../../../../experiments/engine/private-core-proof/generic-wrappers/abi.mjs';
-import { NATIVE_PROFILES } from '../../../../../../experiments/engine/private-core-proof/generic-native/pin-key.mjs';
+import { A0, FIELD_MODULUS, digestWords, digestHex } from '../../../../../proofs/programs/generic-wrappers/abi.mjs';
+import { NATIVE_PROFILES } from '../../../../../proofs/programs/generic-native/pin-key.mjs';
 
 // Host byte/schema tests only. Every recursive proof/VK field package below is
 // deliberately synthetic and UNVERIFIED, including the padding placeholders.
@@ -57,7 +57,7 @@ const cases = [
 test('composers match actual A67/A98/T131 source signatures and pinned public ABI order', () => {
   for (const [mode, make, compose, count] of cases) {
     const input = make(), before = copy(input), result = compose(input);
-    const source = readFileSync(new URL(`../../../../../../experiments/protocol/private-core-proof/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
+    const source = readFileSync(new URL(`../../../../../../packages/protocol/circuits/generic-native/circuits/${mode}/src/main.nr`, import.meta.url), 'utf8');
     const signature = source.split('fn main(')[1].split(') {')[0];
     const parameters = [...signature.matchAll(/^\s+(\w+): (.+),$/gm)].map(match => match[1]);
     const publicParameters = [...signature.matchAll(/^\s+(\w+): pub (.+),$/gm)].map(match => match[1]);

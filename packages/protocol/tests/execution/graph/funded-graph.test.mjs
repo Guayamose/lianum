@@ -5,8 +5,8 @@ import { compileFundedGraph, attachFundedSignatures, fundedSigningRequests, fund
   fundedHash, fundedFrame, fundedAdmission, FUNDED_DOMAINS, FUNDED_GRAPH_PROFILE } from '../../../../engine/src/execution/graph/funded-graph.mjs';
 import { walletNoteCommitment } from '../../../../engine/src/wallet/notes/private-wallet-note-encoding.mjs';
 import { nullifier, frame as legacyFrame, uintBE } from '../../../../engine/src/notes/private-note-encoding.mjs';
-import { positiveFixtures, negativeFixtures } from '../../../../../experiments/engine/private-core-proof/generic-funding/fixtures.mjs';
-import { authorizationInputs, authorizationPublicWords } from '../../../../../experiments/engine/private-core-proof/generic-funding/witness.mjs';
+import { positiveFixtures, negativeFixtures } from '../../../../proofs/programs/generic-funding/fixtures.mjs';
+import { authorizationInputs, authorizationPublicWords } from '../../../../proofs/programs/generic-funding/witness.mjs';
 
 const fixtures = positiveFixtures();
 const base = fixtures.find(f => f.name === 'two-independent-type4');

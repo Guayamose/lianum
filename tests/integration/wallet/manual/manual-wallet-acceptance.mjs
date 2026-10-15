@@ -27,7 +27,7 @@ import { createFlatNativeExecution } from '../../../../packages/backend/src/exec
 import { encodeFlatTransaction } from '../../../../packages/backend/src/execution/encoding/transaction-codec.mjs';
 import { createFlatAccountAuthority } from '../../../../packages/backend/src/accounts/authority/flat-account-authority.mjs';
 import { createFlatPortfolioAuthority } from '../../../../packages/backend/src/accounts/authority/flat-portfolio-authority.mjs';
-import { startWalletApplication } from '../../../../apps/wallet/src/server/server.mjs';
+import { startWalletApplication } from '../../../../packages/backend/tests/fixtures/api/wallet/application.mjs';
 import { createManualWalletAppDriver } from './manual-wallet-app-driver.mjs';
 import { assertManualWalletConvertedPosition } from './manual-wallet-position-checks.mjs';
 import { createFlatPoolAdmissionPolicy } from '../../../../packages/backend/src/accounts/authority/flat-pool-admission-policy.mjs';

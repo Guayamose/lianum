@@ -182,7 +182,7 @@ def build(quiet=False):
                 temporary.unlink(missing_ok=True)
         report = {"schema": "LIANUM_WORKSPACE_BUILD_V1", "files": sources,
                   "copied": copied, "removed": removed,
-                  "sourceOfTruth": "apps/, packages/, contracts/, tests/, scripts/, experiments/",
+                  "sourceOfTruth": "apps/, services/, packages/, contracts/, tests/, scripts/",
                   "relativeImportsTranslated": True, "symlinksCreated": False}
         report_path.write_text(json.dumps(report, indent=2) + "\n")
     if not quiet:

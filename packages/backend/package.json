@@ -39,7 +39,10 @@
     "./defi/resources/official-protocol-v1": "./src/operations/deployments/defi/official-protocol-resources-v1.mjs",
     "./claims/http": "./src/api/claims/native-claim-http.mjs",
     "./claims/deployment": "./src/operations/deployments/claims/deploy-native-claims.mjs",
-    "./encoding/flat-words": "./src/execution/encoding/flat-words.mjs"
+    "./encoding/flat-words": "./src/execution/encoding/flat-words.mjs",
+    "./transport/platform-diagnostics": "./src/api/transport/platform-diagnostics.mjs",
+    "./transport/gateway-pairing": "./src/api/transport/gateway-pairing.mjs",
+    "./public-wallet/http-service": "./src/public-wallet/http-service-v1.mjs"
   },
   "lianum": {
     "status": "active"

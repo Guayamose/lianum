@@ -17,6 +17,6 @@ Las dependencias fluyen desde la sesión hacia reglas, presentación, validació
 
 Para código nuevo, utiliza la entrada pública específica de `@lianum/mobile-protocol/wallet/…`: `action-catalog`, `account-context`, `action-rules`, `state-validation`, `projection`, `native-identity`, `values` o `session`. `wallet/client` conserva la compatibilidad para integraciones existentes.
 
-Las pruebas de `apps/wallet/tests/client/ui.test.mjs` comprueban revisiones inmutables, respuesta perdida, cancelación del cuerpo HTTP, conciliación de la solicitud original y ausencia de reintentos. `packages/mobile-protocol/tests/wallet-client-architecture.test.mjs` conserva las identidades exportadas y rechaza ciclos o dependencias que inviertan estas responsabilidades.
+Las pruebas de `packages/backend/tests/api/wallet/client/wallet-client-model.test.mjs` comprueban revisiones inmutables, respuesta perdida, cancelación del cuerpo HTTP, conciliación de la solicitud original y ausencia de reintentos. `packages/mobile-protocol/tests/wallet-client-architecture.test.mjs` conserva las identidades exportadas y rechaza ciclos o dependencias que inviertan estas responsabilidades.
 
-Los módulos del navegador se sirven mediante la lista explícita de `apps/wallet/src/server/server.mjs`. Al añadir uno, registra ese recurso; nunca publiques la carpeta entera.
+Los módulos del navegador se sirven mediante la lista explícita de `packages/backend/tests/fixtures/api/wallet/application.mjs`. Al añadir uno, registra ese recurso; nunca publiques la carpeta entera.

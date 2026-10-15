@@ -1,5 +1,0 @@
-[package]
-name="sol_ready"
-type="bin"
-authors=["PC15 bounded local research"]
-[dependencies]

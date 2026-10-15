@@ -32,7 +32,7 @@ class PlatformSourceLaunchers(unittest.TestCase):
                      'run-original-native-source-v1.mjs']:
             with self.subTest(entry=name):
                 child = subprocess.run([str(node), '--max-old-space-size=384',
-                                        str(evm_lab.ROOT / 'apps/platform/src' / name), '--unreviewed-run'],
+                                        str(evm_lab.ROOT / ('services/paeg-engine/src/local' if 'paged-' in name else 'scripts/development/profiles') / name), '--unreviewed-run'],
                                        cwd='/', env={'LANG': 'C.UTF-8', 'PATH': '/usr/bin:/bin'},
                                        text=True, capture_output=True, timeout=5)
                 self.assertEqual(child.returncode, 1)
