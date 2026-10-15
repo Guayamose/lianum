@@ -6,3 +6,7 @@ export function readDevicePagedGraphReplyV3(raw:unknown):any;
 export function readDevicePagedGraphReplyConsentV3(raw:unknown):any;
 
 export function readDevicePagedSourceContinuationV4(raw:unknown):import('../../../../packages/mobile-protocol/src/device-paged-source-continuation-v4.mjs').DevicePagedSourceContinuationDataV4;
+
+export function readDevicePagedGraphPairingV3(raw:unknown):any;
+
+export function readDevicePagedGraphApiV3(api:unknown):any;

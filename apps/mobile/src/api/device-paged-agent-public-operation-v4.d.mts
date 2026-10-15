@@ -1,0 +1,12 @@
+import type {DevicePagedSignedAgentProposalV4} from '@lianum/mobile-protocol/device/paged-agent-v4';
+import type {DevicePagedSignedAgentReadGrantAnyV5} from '@lianum/mobile-protocol/device/paged-agent-read-lifetime-v5';
+export const DEVICE_PAGED_AGENT_PROPOSAL_LINK_MAX_V4:number;
+export type DevicePagedAgentPublicConnectionV4=Readonly<{format:'DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3';descriptor:any;transport:Readonly<{type:'ANDROID_PINNED_TLS_V1';certificatePEM:string;certificateSHA256:string}>}>;
+export type DevicePagedAgentSavedOperationV4=Readonly<{profile:'DEVICE_PAGED_AGENT_SAVED_PUBLIC_OPERATION_V4';proposalSHA256:string;connection:DevicePagedAgentPublicConnectionV4;readerGrant:DevicePagedSignedAgentReadGrantAnyV5;confirmation:'UNCONFIRMED'|'CONFIRMED'}>;
+export function parseDevicePagedAgentProposalLinkV4(text:string,descriptor:unknown):DevicePagedSignedAgentProposalV4;
+export function createDevicePagedAgentProposalLinkV4(raw:unknown):string;
+export function normalizeDevicePagedAgentPublicConnectionV4(raw:unknown):DevicePagedAgentPublicConnectionV4;
+export function normalizeDevicePagedAgentSavedOperationV4(raw:unknown,descriptor:unknown):DevicePagedAgentSavedOperationV4;
+export function createDevicePagedAgentSavedOperationV4(connection:unknown,proposal:unknown,grant:unknown,confirmation?:'UNCONFIRMED'|'CONFIRMED'):DevicePagedAgentSavedOperationV4;
+export function devicePagedAgentReadConnectionExportV4(raw:unknown,descriptor:unknown):string;
+export function createDevicePagedAgentPublicOperationStoreV4(descriptor:unknown,storage:{get(key:string):Promise<string|null>;set(key:string,value:string):Promise<void>;digest(value:string):Promise<string>}):Readonly<{read():Promise<DevicePagedAgentSavedOperationV4|null>;save(record:unknown):Promise<DevicePagedAgentSavedOperationV4|null>}>;

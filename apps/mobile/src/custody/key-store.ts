@@ -569,3 +569,7 @@ export async function signDevicePagedGraphExecutionPermissionV3(session:object,r
  if(signal?.aborted||AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');
  return permission.signDevicePagedGraphSessionConsentV3(session,rawConsent,command);
 }
+
+/** Original review includes the external reader before the single biometric. */
+export async function openDevicePagedGraphAgentAutomationSessionV4(review:unknown,signal?:AbortSignal,refreshOriginalReview?:()=>Promise<unknown>):Promise<object>{if(!WalletSession.walletSessionStatusV1().managed)throw Error('MOBILE_WALLET_SESSION_LOCKED');return WalletSession.openWalletSessionPagedAgentAutomationV4(review,signal,refreshOriginalReview);}
+export async function signDevicePagedAgentReadGrantV4(session:object,signal?:AbortSignal):Promise<import('@lianum/mobile-protocol/device/paged-agent-read-lifetime-v5').DevicePagedSignedAgentReadGrantAnyV5>{const permission=await import('./device-paged-permission-v3.mjs'),binding=permission.readDevicePagedGraphExecutionSessionV3(session);if(signal?.aborted||AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');await assertProtectedStorage();if(await readDevicePublicKey()!==binding.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');if(signal?.aborted||AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');return permission.signDevicePagedGraphAgentReadGrantV4(session);}

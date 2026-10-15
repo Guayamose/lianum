@@ -76,7 +76,11 @@ test('original build monitor retains its first finite FS or parser cause before 
     const closed=once(owned,'close');await once(owned,'spawn');
     let injecting=false,reads=0;
     const originalError=Object.assign(new Error('PRIVATE-MESSAGE-MUST-NOT-ESCAPE'),{code:'EIO'});
-    const environment={assert,ChildProcess:owned.constructor,types,process,readdirSync,
+    // This fault case selects the actual owned child. An unrelated process
+    // disappearing from /proc must not become this fixture's first cause.
+    // The other monitor cases retain the full real process table.
+    const environment={assert,ChildProcess:owned.constructor,types,process,
+      readdirSync(path){assert.equal(path,'/proc');return [String(owned.pid)];},
       readFileSync(path,...options){
         if(injecting&&path===`/proc/${owned.pid}/stat`){reads++;if(kind==='FS')throw originalError;return '';}
         return readFileSync(path,...options);
