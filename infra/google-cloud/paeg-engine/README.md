@@ -21,6 +21,16 @@ the persistent checkpoint. The upgrade preserves private files and requires
 identical contracts, proof artifacts and tools; it never starts the service or
 extends a financial permission. It cannot migrate an active Source.
 
+For an already captured product, `upgrade-captured-public-package-v6.sh`
+repairs an incomplete courier by adding libraries and updating adoption
+metadata. It authenticates the Original CAPTURED state before and after the
+switch and rejects changes to existing runtime modules, contracts or proof
+resources. Only the offline adoption builder is allowed to change alongside
+its metadata. It preserves the rollback release and never starts the service.
+The public courier explicitly includes the libraries loaded by its recovery
+and financial-window service helpers; the delivery closure test checks their
+fixed candidate locators.
+
 Native RPC reads retry temporary HTTP failures at most three times within their
 existing 15-second deadline. Signed sends use one attempt. An interrupted
 deployment can continue by observing its persisted signed transactions, with

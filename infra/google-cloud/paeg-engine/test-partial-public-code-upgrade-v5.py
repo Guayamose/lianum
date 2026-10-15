@@ -23,9 +23,10 @@ class PartialCodeUpgradeTests(unittest.TestCase):
         (old_release/'infra/lianum-paeg-public.service').write_text('old-unit')
         release=root/'new-release';(release/'infra').mkdir(parents=True)
         (release/'infra/verify-release.py').write_text('')
-        inventory={'files':{'candidate/resources/tool':{'sha256':'e'*64,'bytes':1,'mode':'0755'}}}
+        inventory={'files':{'candidate/resources/tool':{'sha256':'e'*64,'bytes':1,'mode':'0755'},'candidate/packages/backend/src/chains/public-testnet/key-store-v1.mjs':{'sha256':'a'*64,'bytes':1,'mode':'0644'}}}
         (old_release/'release-manifest.json').write_text(json.dumps(inventory))
         if mode=='changed-artifacts':inventory['files']['candidate/resources/tool']['sha256']='f'*64
+        if mode=='changed-runtime':inventory['files']['candidate/packages/backend/src/chains/public-testnet/key-store-v1.mjs']['sha256']='b'*64
         (release/'release-manifest.json').write_text(json.dumps(inventory))
         unit=root/'unit.service';unit.write_text('old-unit')
         artifacts=root/'artifacts.conf';artifacts.write_text('old-artifacts')
