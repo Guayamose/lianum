@@ -53,9 +53,51 @@ conservan sus fechas, generaciones y límites históricos.
 - Evidencias de administración: `/var/lib/lianum-maintenance/20261015-point2/point2-closure.json`
   en el motor y `engine-private-transport.json` en la VM de la API. Las pruebas
   de este bloque son dirigidas; no se ha repetido la batería completa del repositorio.
-- La publicación de las rutas del motor a través de la API y su conexión con
-  la app corresponden al siguiente bloque; el servicio público de cartera
-  sigue siendo un despliegue separado.
+- Las rutas privadas ya están publicadas a través de la API. El motor mantiene
+  su mismo proceso y despliegue; la API y la app tienen cambios propios, descritos
+  a continuación.
+
+## API pública conectada al motor y acceso móvil (15 de octubre)
+
+- La API pública instala la versión
+  `bef33422d6e51d5bef2afbdbf3ce763411530d6d8a75efbce8b8bf32825a8756`.
+  Caddy envía `/v1/mobile/paged-owner/*` al motor por TLS privado verificado,
+  sin reintentar escrituras. Exige el identificador de conexión y conserva
+  los plazos de las operaciones ZK. Las rutas nativas y de euros conservan
+  su servicio; MoonPay continúa desactivado.
+- Comprobación pública con el certificado fijado de las dos conexiones reales:
+  cada una devuelve su mismo descriptor y preparación nativa; los identificadores
+  desconocidos y las peticiones sin identificador se rechazan. `/health` sigue
+  respondiendo `ready: true`. No se han enviado depósitos ni pagos nuevos.
+- `POST /v1/wallet/connections`, autenticado con el reto de un solo uso y la
+  firma de la identidad, entrega únicamente la conexión asignada a esa identidad.
+  La API guarda dos perfiles públicos, sin claves ni autoridad para gastar.
+  Una identidad no asignada recibe una lista vacía. La consulta pública con una
+  identidad nueva, el rechazo de replay y el rechazo sin firma están comprobados.
+- La app incorpora «Conectar con Lianum» en Operaciones. Solicita la conexión
+  desde la sesión abierta y utiliza después el SDK y el transporte TLS fijado
+  existentes. No requiere copiar el perfil del ordenador ni añade huellas a las
+  consultas. Conserva las conexiones anteriores y sus custodias; una identidad
+  sin cuenta asignada recibe un mensaje explícito. No crea cuentas privadas nuevas.
+- APK autónomo generado y firmado para desarrollo: 48.900.551 bytes, SHA256
+  `699929867d6218bf4baef29c0c60bab8a1c3e7fdd0f63924195d04e252ff1903`.
+  Incluye el nuevo acceso a la nube y no requiere Metro ni el ordenador para
+  conectarse. Está retenido en
+  `.local/mobile/artifacts/android-cloud-5d1f84ca-6730-48c3-9bb7-a08b12f339bd/app-release.apk`.
+  No está instalado ni comprobado en Android físico en este bloque.
+- Las comprobaciones dirigidas de autenticación, aislamiento, cliente móvil,
+  selección de conexión y conservación de envíos pendientes pasan: 11 tests.
+  TypeScript y la comprobación de límites entre paquetes pasan; no se ha repetido
+  la batería financiera ni la prueba física del teléfono.
+- **Límite explícito:** el proceso remoto actual abre la composición nativa de
+  Ethereum, Bitcoin y Solana. No abre la composición Uniswap ni los servicios de
+  Aave/Morpho. Publicar rutas y conectar la app no activa esas composiciones.
+  Sus aceptaciones anteriores conservan su alcance; falta su activación remota.
+- Evidencias locales: `.local/maintenance/20261015-point3-routing.json` y
+  `20261015-point3-discovery.json`. Instalación remota de la API:
+  `/var/lib/lianum-maintenance/20261015-point3-final/api-installation.json`.
+  La configuración de Caddy añade después el rechazo de conexión ausente;
+  su SHA256 es `d539b0653278155326aa7529f4d22462dfe2019d5dd49c8358cafae83d756ab3`.
 
 ## Cierre del motor local (15 de octubre)
 
