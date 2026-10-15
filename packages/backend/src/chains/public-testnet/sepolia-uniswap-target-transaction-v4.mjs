@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {nativeRpcV1} from '../../native-wallet/http-v1.mjs';
+import {estimateOriginalPagedSepoliaCreateGasV6} from './sepolia-deployment-gas-v6.mjs';
 import {readOriginalPagedSepoliaRpcContextV4,readOriginalPagedSepoliaSourceLaneV4,assertOriginalPagedSepoliaSourcePolicyBirthV5} from './sepolia-receiver-rpc-v4.mjs';
 import {readOriginalSepoliaUniswapTargetInitializationV4,consumeOriginalSepoliaUniswapTargetInitializationV4} from '../../operations/local/sepolia-uniswap-target-kernel-v4.mjs';
 import {sepoliaReceiverCreationUnsignedV4,validateSepoliaReceiverCreationWireV4} from './sepolia-receiver-wire-v4.mjs';
@@ -39,7 +40,7 @@ export async function prepareOriginalSepoliaUniswapTargetInitializationV4(runtim
  assert.equal(quantity(nonce).toString(),grant.request.nonce,'PUBLIC_UNISWAP_INITIALIZATION_NONCE');
  if(grant.kind==='CREATE')assert.equal(await runtime.code(grant.request.expectedAddress),'0x','PUBLIC_UNISWAP_INITIALIZATION_CREATE_EXISTS');
  const request=grant.kind==='CREATE'?{from:context.account.address,data:grant.request.creation,value:'0x0',gasPrice:'0x0'}:{from:context.account.address,to:grant.request.to,data:grant.request.data,value:'0x0',gasPrice:'0x0'};
- const estimate=quantity(await rpc('eth_estimateGas',[request])),gas=(estimate*120n+99n)/100n,tip=quantity(priority),maximum=quantity(head.baseFeePerGas)*2n+tip;
+ const estimate=quantity(grant.kind==='CREATE'?await estimateOriginalPagedSepoliaCreateGasV6(runtime,grant.request.creation,head):await rpc('eth_estimateGas',[request])),gas=(estimate*120n+99n)/100n,tip=quantity(priority),maximum=quantity(head.baseFeePerGas)*2n+tip;
  await runtime.assertCanonical(head);assert.deepEqual(await runtime.block(head.number),head,'PUBLIC_UNISWAP_INITIALIZATION_CANONICAL_FORK');assert.ok(gas>21000n&&gas<=quantity(head.gasLimit)&&gas<=(grant.kind==='CREATE'&&quantity(head.timestamp)>=GLAMSTERDAM?(1n<<32n)-1n:30000000n),'PUBLIC_UNISWAP_INITIALIZATION_GAS_BOUND');assert.ok(maximum>0n&&tip<=maximum);
  const transaction=unsigned(grant,gas,maximum,tip,head),framed=framing(grant,transaction),fee=BigInt(framed.maximumFeeAtomic);
  assert.ok(fee<=BigInt(lane.policy.maximumFeePerTransactionAtomic),'PUBLIC_UNISWAP_INITIALIZATION_TRANSACTION_CEILING');
