@@ -2,6 +2,7 @@
 import {readFileSync,existsSync,statSync,realpathSync} from 'node:fs';
 import {dirname,resolve,relative,extname,join} from 'node:path';
 import {builtinModules} from 'node:module';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import ts from 'typescript';
 
 const extensions=['.mjs','.js','.cjs','.ts','.tsx','.mts','.cts'];
@@ -23,7 +24,11 @@ export function auditBlockImports({root,files,exceptions=[]}){
  function resolveImport(source,specifier,kind){
   if(builtins.has(specifier))return{builtin:specifier};
   if(specifier.startsWith('.')||specifier.startsWith('/')){
-   const allow=kind==='require'||/\.(?:tsx?|mts|cts)$/.test(source),direct=resolve(dirname(source),specifier);if(!direct.startsWith(root+'/'))return null;const found=candidate(direct,allow);
+   const allow=kind==='require'||/\.(?:tsx?|mts|cts)$/.test(source);let direct;
+   // ESM query/fragment suffixes select another module instance of the same
+   // physical source. CommonJS require keeps its literal filename semantics.
+   try{direct=kind==='require'?resolve(dirname(source),specifier):fileURLToPath(new URL(specifier,pathToFileURL(source)));}catch{return null;}
+   if(!direct.startsWith(root+'/'))return null;const found=candidate(direct,allow);
    if(found)return{path:found};
    // TypeScript permits .js spellings for authored .ts files. Resolve this
    // only for TS consumers; runtime JS may not substitute a declaration.

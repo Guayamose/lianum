@@ -87,6 +87,18 @@ class BlockCheckTests(unittest.TestCase):
         result = self.audit(['apps/mobile/src/Bad.cjs'])
         self.assertEqual(result['issues'][0]['name'], 'absent')
 
+    def test_esm_query_instances_check_the_physical_source_without_loading_it(self):
+        self.write('packages/a/src/api.mjs', 'throw Error("MUST_NOT_EXECUTE"); export const real=1;')
+        self.write('packages/a/src/api.cjs', 'exports.real=1;')
+        self.write('packages/a/src/client.mjs', 'import {real} from "./api.mjs?fresh#instance"; const {real: value}=await import("./api.mjs?second");')
+        self.assertEqual(self.audit(['packages/a/src/client.mjs'])['issues'], [])
+        self.write('packages/a/src/client.mjs', 'import {invented} from "./api.mjs?fresh"; import "./missing.mjs?fresh";')
+        result = self.audit(['packages/a/src/client.mjs'])
+        self.assertEqual({row['kind'] for row in result['issues']}, {'EXPORT_NOT_FOUND', 'MODULE_NOT_FOUND'})
+        self.assertTrue(any(row.get('name') == 'invented' for row in result['issues']))
+        self.write('packages/a/src/client.cjs', 'const {real}=require("./api.cjs?fresh");')
+        self.assertEqual(self.audit(['packages/a/src/client.cjs'])['issues'][0]['kind'], 'MODULE_NOT_FOUND')
+
     def test_package_runtime_exports_conditions_and_computed_imports_are_explicit(self):
         self.write('packages/a/package.json', json.dumps({'name': '@lianum/a', 'exports': {
             './api': {'types': './src/api.d.mts', 'react-native': './src/native.mjs',
