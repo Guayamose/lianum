@@ -1,8 +1,39 @@
 # Estado actual
 
-Actualizado el 13 de octubre de 2026. La cartera pública y el recorrido privado
+Actualizado el 15 de octubre de 2026. La cartera pública y el recorrido privado
 PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
+
+## Cierre del motor local (15 de octubre)
+
+Los tres bloques pendientes del motor están integrados y comprobados en local.
+No incluyen Google Cloud, las tres redes públicas ni el teléfono.
+
+- **Ingresos sucesivos:** una Source interrumpida en CREATING se recupera con
+  el mismo hijo tras varios ingresos (Source2→3), sin reenvíos ni nuevas
+  claves. Prueba HOST compilada con caída real y caducidad.
+- **Cambio de pool:** el sucesor desplegado se retiene en la base de
+  activación antes de crear la Source. Tras una caída, el producto recupera el
+  mismo hijo en el pool sucesor antes de escuchar, sin firmar ni enviar nada
+  nuevo. Prueba HOST compilada nueva; la ocupación del pool padre es un valor
+  HOST declarado, no un pool real con 253 depósitos.
+- **Salidas de un grafo terminal tras sustituir la Source:** sustituir una
+  Source con grafo terminal ya no registra su nota de entrada, gastada, como
+  nota independiente. Aceptación en fork local de Sepolia: raíz real
+  RECOVERED, Source2 y retirada de `change` y `recovery` con W39 real; cero
+  difusiones públicas.
+- **Batería mantenida:** 845 etapas. La ejecución completa dio 788 PASS; los
+  19 fallos eran pruebas desalineadas con el código actual (mocks sin las
+  funciones nuevas y códigos de rechazo renombrados) y pasan tras alinearlas.
+  Las 37 etapas que el plazo global dejó sin ejecutar y las 2 repetidas pasan,
+  salvo `sepolia-public-historical-withdrawal-broker-fork-genuine-v10`, que es
+  intermitente (falló 2 de 3 ejecuciones).
+- **Riesgo conocido:** el pool exige que el depósito lleve exactamente el
+  epoch actual de 600 s (`STALE_EPOCH`). Si la ventana cambia entre la prueba y
+  el envío, la simulación previa lo rechaza antes de enviar, sin pérdida de
+  fondos, y hay que repetir el depósito. Es la causa más probable de la
+  intermitencia anterior: el rechazo ocurrió en esa simulación del segundo
+  depósito, pero no se capturó su motivo exacto.
 
 ## Cartera pública y API desplegada
 
