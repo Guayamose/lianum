@@ -42,7 +42,8 @@
     "packages/mobile-protocol": [],
     "apps/mobile": [
       "packages/mobile-protocol",
-      "packages/crypto"
+      "packages/crypto",
+      "packages/sdk"
     ],
     "services/api-server": [
       "packages/backend",
@@ -54,6 +55,10 @@
       "packages/backend",
       "packages/proofs",
       "packages/mobile-protocol"
+    ],
+    "packages/sdk": [
+      "packages/mobile-protocol",
+      "packages/crypto"
     ]
   },
   "legacyPrivateImports": {},
@@ -162,7 +167,12 @@
       ],
       "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs": [
         "packages/backend/src/operations/local/funded-graph-paged-deployment-v3.mjs",
-        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs"
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/paged-public-pool-rollover-v5.mjs",
+        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs",
+        "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs"
       ],
       "packages/backend/src/accounts/authority/flat-account-authority.mjs": [
         "packages/backend/src/accounts/authority/flat-portfolio-authority.mjs",
@@ -937,13 +947,26 @@
         "packages/backend/src/providers/evm-vault-provider.mjs"
       ],
       "packages/backend/src/operations/local/funded-graph-paged-deployment-v3.mjs": [
-        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs"
+        "packages/backend/src/chains/evm/runtime/local-evm-ownership.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs"
       ],
       "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs": [
         "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs",
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs",
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-http-v4.mjs",
+        "packages/backend/src/api/mobile/device-sepolia-uniswap-flat-http-v5.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-receiver-runtime-v4.mjs",
         "packages/backend/src/operations/local/funded-graph-paged-deployment-v3.mjs",
-        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs"
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs",
+        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs",
+        "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs",
+        "packages/backend/src/providers/paged-public-uniswap-context-owner-v5.mjs"
       ],
       "packages/backend/src/operations/local/wrapped-wallet-runtime-v1.mjs": [
         "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
@@ -1127,9 +1150,19 @@
       ],
       "packages/backend/src/providers/funded-paged-native-provider-v3.mjs": [
         "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs",
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs",
         "packages/backend/src/chains/evm/runtime/owned-evm-v2-runtime.mjs",
         "packages/backend/src/operations/local/funded-graph-paged-deployment-v3.mjs",
-        "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs"
+        "packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs",
+        "packages/backend/src/providers/paged-public-sepolia-defi-capital-owner-v8.mjs",
+        "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs",
+        "packages/backend/src/providers/paged-public-uniswap-context-v4.mjs"
       ],
       "packages/backend/src/providers/native-provider.mjs": [
         "packages/backend/src/chains/bitcoin/runtime/owned-bitcoin-runtime.mjs",
@@ -1139,6 +1172,201 @@
         "packages/backend/src/execution/native/recipients/native-recipient-process.mjs",
         "packages/backend/src/operations/deployments/system/deploy-system.mjs",
         "packages/backend/src/operations/operators/claims/native-operators.mjs"
+      ],
+      "apps/mobile/src/api/device-sepolia-defi-financial-api-v7.mjs": [
+        "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
+        "apps/mobile/src/custody/wallet-session-v1.ts"
+      ],
+      "apps/mobile/src/api/device-sepolia-defi-shares-api-v4.mjs": [
+        "apps/mobile/src/api/device-sepolia-defi-financial-api-v7.mjs",
+        "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts",
+        "apps/mobile/src/custody/wallet-session-v1.ts"
+      ],
+      "apps/mobile/src/custody/device-external-flat-note-vault-v1.ts": [
+        "apps/mobile/src/custody/wallet-session-v1.ts"
+      ],
+      "apps/mobile/src/custody/device-paged-note-vault-v3.ts": [
+        "apps/mobile/src/api/device-sepolia-defi-shares-api-v4.mjs",
+        "apps/mobile/src/custody/wallet-session-v1.ts"
+      ],
+      "apps/mobile/src/custody/wallet-session-v1.ts": [
+        "apps/mobile/src/custody/device-paged-note-vault-v3.ts"
+      ],
+      "packages/backend/src/accounts/authority/device-sepolia-defi-financial-http-v8.mjs": [
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs",
+        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs",
+        "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs": [
+        "packages/backend/src/chains/public-testnet/key-store-v1.mjs",
+        "packages/backend/src/defi/vaults/aave-sepolia-retained-v4.mjs",
+        "packages/backend/src/defi/vaults/morpho-v2-sepolia-retained-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs",
+        "packages/backend/src/providers/paged-public-sepolia-defi-capital-owner-v8.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-sepolia-defi-shares-http-v4.mjs": [
+        "packages/backend/src/accounts/authority/device-sepolia-defi-financial-http-v8.mjs",
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs"
+      ],
+      "packages/backend/src/accounts/authority/device-sepolia-uniswap-flat-authority-v4.mjs": [
+        "packages/backend/src/chains/public-testnet/key-store-v1.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-uniswap-private-output-observer-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs"
+      ],
+      "packages/backend/src/api/mobile/device-sepolia-uniswap-flat-http-v5.mjs": [
+        "packages/backend/src/accounts/authority/device-sepolia-uniswap-flat-authority-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/providers/paged-public-uniswap-context-owner-v5.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/aave-sepolia-faucet-v8.mjs": [
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/key-store-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs",
+        "packages/backend/src/chains/public-testnet/aave-sepolia-faucet-v8.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-defi-mixed-source-transaction-v8.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-defi-target-transaction-v8.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-uniswap-mixed-source-transaction-v4.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-uniswap-paged-delivery-command-v4.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-uniswap-target-transaction-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/providers/paged-public-sepolia-defi-capital-owner-v8.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-defi-mixed-source-transaction-v8.mjs": [
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-defi-target-transaction-v8.mjs": [
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-partial-bootstrap-inspector-v5.mjs": [
+        "packages/backend/src/chains/public-testnet/key-store-v1.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-receiver-runtime-v4.mjs": [
+        "packages/backend/src/chains/public-testnet/key-store-v1.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-uniswap-mixed-source-transaction-v4.mjs": [
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-uniswap-paged-delivery-command-v4.mjs": [
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/providers/paged-public-uniswap-context-owner-v5.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-uniswap-private-output-observer-v4.mjs": [
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs"
+      ],
+      "packages/backend/src/chains/public-testnet/sepolia-uniswap-target-transaction-v4.mjs": [
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs"
+      ],
+      "packages/backend/src/defi/vaults/aave-sepolia-retained-v4.mjs": [
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs"
+      ],
+      "packages/backend/src/defi/vaults/morpho-v2-sepolia-retained-v4.mjs": [
+        "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs"
+      ],
+      "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs": [
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs"
+      ],
+      "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs": [
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs"
+      ],
+      "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs": [
+        "packages/backend/src/operations/local/funded-graph-paged-source-journal-data-v4.mjs"
+      ],
+      "packages/backend/src/operations/local/funded-graph-paged-source-journal-data-v4.mjs": [
+        "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs",
+        "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs"
+      ],
+      "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs": [
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-source-journal-data-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs"
+      ],
+      "packages/backend/src/operations/local/sepolia-uniswap-flat-journal-data-v4.mjs": [
+        "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs"
+      ],
+      "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs": [
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-source-journal-data-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs"
+      ],
+      "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs": [
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-flat-journal-data-v4.mjs",
+        "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs"
+      ],
+      "packages/backend/src/operations/recovery/paged-public-pool-capacity-v5.mjs": [
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs"
+      ],
+      "packages/backend/src/operations/recovery/paged-public-pool-rollover-v5.mjs": [
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/paged-public-pool-capacity-v5.mjs"
+      ],
+      "packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs": [
+        "packages/backend/src/chains/public-testnet/key-store-v1.mjs"
+      ],
+      "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs": [
+        "packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs"
+      ],
+      "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs": [
+        "packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs",
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/providers/funded-paged-native-provider-v3.mjs",
+        "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs"
+      ],
+      "packages/backend/src/providers/paged-public-sepolia-defi-capital-owner-v8.mjs": [
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs"
+      ],
+      "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs": [
+        "packages/backend/src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs",
+        "packages/backend/src/accounts/authority/device-sepolia-uniswap-flat-authority-v4.mjs",
+        "packages/backend/src/chains/public-testnet/aave-sepolia-faucet-v8.mjs",
+        "packages/backend/src/chains/public-testnet/key-store-v1.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-partial-bootstrap-inspector-v5.mjs",
+        "packages/backend/src/chains/public-testnet/sepolia-uniswap-paged-delivery-command-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/aave-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs",
+        "packages/backend/src/operations/local/funded-graph-paged-public-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs",
+        "packages/backend/src/providers/paged-public-uniswap-context-v4.mjs"
+      ],
+      "packages/backend/src/providers/paged-public-uniswap-context-owner-v5.mjs": [
+        "packages/backend/src/chains/public-testnet/sepolia-uniswap-private-output-observer-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs",
+        "packages/backend/src/operations/local/sepolia-uniswap-target-kernel-v4.mjs",
+        "packages/backend/src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs"
+      ],
+      "packages/backend/src/providers/paged-public-uniswap-context-v4.mjs": [
+        "packages/backend/src/accounts/authority/device-sepolia-uniswap-flat-authority-v4.mjs",
+        "packages/backend/src/providers/paged-public-uniswap-context-owner-v5.mjs"
       ]
     },
     "reviewedImportRelocations": [
@@ -3420,6 +3648,16 @@
           "reason": "Existing SOURCE journal or EVM orchestration import moved into the closed lifecycle composition; private runtime state now belongs to an independent backend instance. Not a claim that the composition SCC was eliminated."
         }
       ]
+    },
+    "reviewedInheritedIntegrationsV10": {
+      "baselineCommit": "b9191f740fb1c84a93d6d4a0ff81a35cf8e5b7ec",
+      "inheritedCycleImportsPreviouslyUnrecorded": 144,
+      "scope": "Exact pre-existing paired-custody, protected Source/OWNER, provider and recovery imports. New V10 mobile TLS/Vault and Root/Sup7/Product dependency cycles were removed before this review. Package cycles remain forbidden.",
+      "additionalReadOnlyImport": {
+        "from": "packages/backend/src/operations/recovery/sepolia-defi-retention-v8.mjs",
+        "to": "packages/backend/src/providers/paged-public-testnet-runtimes-v1.mjs",
+        "reason": "Sup8 cold recovery reads the actual Original Native runtime Source journal through its existing K read API. No signing, callbacks, alternative runtime, DTO authority or additional issuance is exposed; avoids revalidating untrusted caller rows."
+      }
     }
   }
 }
