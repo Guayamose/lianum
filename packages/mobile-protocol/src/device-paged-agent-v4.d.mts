@@ -1,4 +1,5 @@
 import type {DevicePagedAutomationTermsV4} from './device-paged-automation-v4.mjs';
+import type {DevicePagedAutomationTermsAnyV5} from './device-paged-automation-v5.mjs';
 export const DEVICE_PAGED_AGENT_PROPOSAL_V4:'DEVICE_PAGED_AGENT_NATIVE_PROPOSAL_V4';
 export const DEVICE_PAGED_AGENT_READ_GRANT_V4:'DEVICE_PAGED_AGENT_OPERATION_READ_GRANT_V4';
 export const DEVICE_PAGED_AGENT_PROGRESS_V4:'DEVICE_PAGED_AGENT_OPERATION_PROGRESS_V4';
@@ -23,3 +24,8 @@ export function validateDevicePagedAgentReadChallengeFreshV4(raw:unknown):Device
 export function devicePagedAgentReadChallengeMessageV4(raw:unknown):Uint8Array;
 export function normalizeDevicePagedAgentProgressV4(raw:unknown):DevicePagedAgentProgressV4;
 export function validateDevicePagedAgentProgressFreshV4(raw:unknown):DevicePagedAgentProgressV4;
+
+export type DevicePagedAgentProgressAnyV5=Readonly<Omit<DevicePagedAgentProgressV4,'automation'>&{automation:null|Readonly<{terms:DevicePagedAutomationTermsAnyV5;commandsUsed:number;revoked:boolean}>}>;
+export function devicePagedAgentAutomationTermsSHA256AnyV5(raw:unknown):string;
+export function normalizeDevicePagedAgentProgressAnyV5(raw:unknown):DevicePagedAgentProgressAnyV5;
+export function validateDevicePagedAgentProgressFreshAnyV5(raw:unknown):DevicePagedAgentProgressAnyV5;

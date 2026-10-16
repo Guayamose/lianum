@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,readOriginalPrivateProofRecipientV1,closePrivateProofRecipientV1,openPrivateProofJobV1,sealPrivateProofJobV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
+import {normalizeDevicePagedExecutorPayoutPreparationV5} from '@lianum/mobile-protocol/device/paged-executor-payout-v5';
 const sha=value=>createHash('sha256').update(value).digest('hex');
 export function createDevicePagedNativePreparationChannelV3(rawDescriptor,preparePage){
  assert.equal(arguments.length,2);assert.equal(typeof preparePage,'function');const descriptor=P.normalizeDevicePagedDescriptorV3(rawDescriptor),recipients=new Map();let closed=false;
@@ -13,7 +14,7 @@ export function createDevicePagedNativePreparationChannelV3(rawDescriptor,prepar
   prepare(jobId){live();assert.equal(recipients.size,0);const mode=P.DEVICE_PAGED_MODES_V3.reserve,recipient=createPrivateProofRecipientV1({relation:mode.relation,role:mode.role,jobId});recipients.set(jobId,recipient);return readPrivateProofRecipientV1(recipient);},
   discardReady(jobId){const recipient=recipients.get(jobId);assert.ok(recipient);recipients.delete(jobId);closePrivateProofRecipientV1(recipient);},
   async submit(rawConsent,signature,ciphertext,rawContext){
-   live();const c=C.validateDevicePagedGraphConsentFreshV3(rawConsent);assert.equal(c.action,'PREPARE_NATIVE_PAGE');assert.deepEqual(c.descriptor,descriptor);
+   live();const c=C.validateDevicePagedGraphConsentFreshV3(rawConsent);assert.ok(['PREPARE_NATIVE_PAGE','PREPARE_EXECUTOR_PAYOUTS_V5','SIGN_EXECUTOR_PAYOUT_INVOICES_V5'].includes(c.action));assert.deepEqual(c.descriptor,descriptor);
    const recipient=recipients.get(c.jobId);assert.ok(recipient,'PAGED_NATIVE_PREPARATION_ORIGINAL_RECIPIENT');recipients.delete(c.jobId);
    let opened,reply;
    try{
@@ -21,6 +22,10 @@ export function createDevicePagedNativePreparationChannelV3(rawDescriptor,prepar
     const bound=readOriginalPrivateProofRecipientV1(opened),input=P.pagedOwnerExactV3(opened.inputs,['profile','consent','signature','command']);
     assert.equal(input.profile,C.DEVICE_PAGED_GRAPH_OWNER_V3);assert.deepEqual(input.consent,c);assert.equal(input.signature,signature);assert.equal(bound.jobId,c.jobId);assert.equal(bound.relation,c.recipient.relation);assert.equal(bound.role,c.recipient.role);assert.equal(opened.expectedPublicInputs,null);
     assert.equal(opened.authorization.kind,'ORIGINAL_CONSENT_V1');assert.equal(opened.authorization.consentSHA256,sha(C.devicePagedGraphPermissionMessageV3(c)));assert.equal(opened.authorization.witnessSHA256,c.commandSHA256);assert.equal(sha(JSON.stringify(input.command)),c.commandSHA256);
+    if(c.action==='SIGN_EXECUTOR_PAYOUT_INVOICES_V5'){const command=P.pagedOwnerExactV3(input.command,['profile','pageIndex','ids']);assert.equal(command.profile,'DEVICE_PAGED_EXECUTOR_PAYOUT_INVOICES_V5');P.pagedOwnerUintV3(command.pageIndex,true);assert.ok(Array.isArray(command.ids)&&command.ids.length>0&&command.ids.length<=64&&new Set(command.ids).size===command.ids.length);reply=P.pagedOwnerExactV3(await preparePage(command,rawContext.quoteScope),['pageIndex','invoices']);live();C.validateDevicePagedGraphConsentFreshV3(c);return sealPrivateProofJobV1({...c.recipient,recipientPublicKey:c.replyPublicKey},{inputs:{profile:C.DEVICE_PAGED_GRAPH_OWNER_V3,jobId:c.jobId,reply:{type:'executor-payout-invoices-v5',response:reply}},expectedPublicInputs:null,authorization:opened.authorization});}
+    if(c.action==='PREPARE_EXECUTOR_PAYOUTS_V5'){
+     const command=normalizeDevicePagedExecutorPayoutPreparationV5(input.command),context=P.pagedOwnerExactV3(rawContext,['pageIndex','firstNode','settleBefore','quoteScope']);assert.equal(command.pageIndex,context.pageIndex);command.nodes.forEach((node,index)=>assert.equal(node.ordinal,(BigInt(context.firstNode)+BigInt(index)).toString(),'PAGED_NATIVE_PREPARATION_ORIGINAL_ORDINAL'));C.validateDevicePagedGraphConsentFreshV3(c);reply=P.pagedOwnerExactV3(await preparePage(command,context.quoteScope),['preparationId','certificates']);live();C.validateDevicePagedGraphConsentFreshV3(c);assert.equal(reply.preparationId,command.preparationId);assert.equal(reply.certificates.length,command.nodes.length);return sealPrivateProofJobV1({...c.recipient,recipientPublicKey:c.replyPublicKey},{inputs:{profile:C.DEVICE_PAGED_GRAPH_OWNER_V3,jobId:c.jobId,reply:{type:'executor-payouts-prepared-v5',response:reply}},expectedPublicInputs:null,authorization:opened.authorization});
+    }
     const command=C.normalizeDevicePagedNativePageRequestV3(input.command),context=P.pagedOwnerExactV3(rawContext,['pageIndex','firstNode','settleBefore',...(Object.hasOwn(rawContext,'quoteScope')?['quoteScope']:[])]);
     assert.equal(command.preparation.pageIndex,context.pageIndex);assert.equal(command.settleBefore,context.settleBefore);P.pagedOwnerUintV3(context.firstNode,true);
     command.preparation.nodes.forEach((node,index)=>assert.equal(node.ordinal,(BigInt(context.firstNode)+BigInt(index)).toString(),'PAGED_NATIVE_PREPARATION_ORIGINAL_ORDINAL'));

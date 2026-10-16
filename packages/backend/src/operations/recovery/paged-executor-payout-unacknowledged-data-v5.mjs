@@ -1,0 +1,25 @@
+/** Recognition of one lost OWNER acknowledgement. This returns DATA only;
+ * consumers authenticate the physical Vault and reconstruct the real OWNER
+ * before any proof capability can be reissued. */
+import assert from 'node:assert/strict';import {createHash} from 'node:crypto';
+import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
+import * as A from '@lianum/mobile-protocol/device/paged-automation-v5';
+const sha=v=>createHash('sha256').update(v).digest('hex');
+export function pagedExecutorPayoutIntentCommandSHA256V5(command){return sha(JSON.stringify(P.pagedOwnerExactV3(command,['role','id','recipient','epoch','signature'])));}
+/** A marker alone cannot refund a command or discard an OWNER proof. Its
+ * exact before checkpoint and the same retained pending note remain intact. */
+export function assertPagedExecutorPayoutUnadvancedWorkDataV5(g,checkpoint,capsule){
+ assert.ok(g?.phase==='FULFILLED'&&g.work?.action==='AUTOMATION_STEP'&&!g.work.proofIntent&&g.pending===null&&g.job?.mode==='withdraw'&&g.job.stage==='PROVED'&&g.automation?.terms.profile===A.DEVICE_PAGED_AUTOMATION_V5);assert.deepEqual(checkpoint,g.work.ownerCheckpointBefore);assert.equal(capsule.phase,'FULFILLED');assert.deepEqual(capsule.public,g.public);assert.equal(capsule.proofIntent,undefined);assert.deepEqual(capsule.automation,Object.fromEntries(['consent','signature','terms','commandsUsed','revoked'].map(k=>[k,g.automation[k]])));assert.equal(g.automation.commandsUsed,g.work.commandsUsedBefore);const pending=capsule.pending;assert.ok(pending?.mode==='withdraw'&&pending.action==='PROVE_OUTPUT_W39');assert.equal(pending.jobId,g.job.jobId);assert.deepEqual(pending.proof,Object.fromEntries(['mode','publicInputs','proof','proofSHA256','health'].map(k=>[k,g.job[k]])));
+}
+export function readPagedExecutorPayoutUnacknowledgedIntentDataV5(g,checkpoint,capsule){
+ assert.ok(g?.phase==='FULFILLED'&&g.work?.action==='AUTOMATION_STEP'&&!g.work.proofIntent&&g.pending===null&&g.job?.mode==='withdraw'&&g.job.stage==='PROVED'&&g.job.transactionHash===null,'PAGED_EXECUTOR_PAYOUT_UNACKNOWLEDGED_SCOPE');
+ const before=g.work.ownerCheckpointBefore;assert.equal(checkpoint.revision,before.revision+1);assert.equal(checkpoint.descriptorSHA256,before.descriptorSHA256);for(const v of [before.public,checkpoint.public,capsule.public])assert.deepEqual(v,g.public);assert.equal(capsule.phase,'FULFILLED');assert.equal(capsule.pending,null);
+ const a=capsule.automation,prior=g.automation;assert.equal(a?.terms.profile,A.DEVICE_PAGED_AUTOMATION_V5);for(const k of ['consent','signature','terms','revoked'])assert.deepEqual(a[k],prior[k]);assert.equal(prior.commandsUsed,g.work.commandsUsedBefore);assert.equal(a.commandsUsed,g.work.commandsUsedBefore+1);assert.ok(a.commandsUsed<=a.terms.maxCommands);
+ const intent=capsule.proofIntent;assert.ok(intent&&intent.signature===null&&intent.c.action==='PROVE_OUTPUT_W39'&&intent.mode==='withdraw','PAGED_EXECUTOR_PAYOUT_UNACKNOWLEDGED_INTENT');assert.equal(intent.automationCounter,a.commandsUsed);assert.deepEqual(intent.public,g.public);assert.notEqual(intent.c.jobId,g.job.jobId);
+ const audit=capsule.executorPayoutEpochRetirementsV5?.at(-1);assert.ok(audit,'PAGED_EXECUTOR_PAYOUT_UNACKNOWLEDGED_AUDIT');assert.equal(audit.jobId,g.job.jobId);assert.equal(audit.proofSHA256,g.job.proofSHA256);assert.equal(audit.oldEpoch,g.job.publicInputs[16]);assert.equal(audit.commandsUsed,g.work.commandsUsedBefore);assert.equal(sha(Buffer.from(g.job.proof,'hex')),g.job.proofSHA256);
+ const plan=a.terms.executorPayouts,item=plan.payouts.find(p=>p.id===audit.id);assert.ok(item&&audit.nullifier===item.nullifier&&audit.amountAtomic===item.amountAtomic&&audit.beneficiary===plan.beneficiary);const inputs=P.normalizeDevicePagedPublicInputsV3('withdraw',intent.publicInputs);assert.equal(inputs[16],audit.newEpoch);assert.ok(BigInt(inputs[16])>BigInt(audit.oldEpoch));for(const p of [inputs,g.job.publicInputs]){assert.equal(P.devicePagedWordsHexV3(p,17),g.outputsCommitment);assert.equal(P.devicePagedWordsHexV3(p,25),item.nullifier);assert.equal(p[33],item.amountAtomic);assert.equal('0x'+P.devicePagedWordsHexV3(p,34,5),plan.beneficiary);}assert.equal(intent.command.role,'payout');assert.equal(intent.command.id,item.id);assert.equal(intent.command.recipient,plan.beneficiary);assert.equal(intent.command.epoch,inputs[16]);
+ return Object.freeze({metadata:structuredClone({profile:'DEVICE_PAGED_ORIGINAL_PROOF_INTENT_V4',jobId:intent.c.jobId,action:intent.c.action,mode:intent.mode,authorization:'START_AUTOMATION',commandSHA256:pagedExecutorPayoutIntentCommandSHA256V5(intent.command),automationCounter:intent.automationCounter,ownerProcess:intent.ownerProcess,facts:intent.facts,public:g.public}),checkpoint:structuredClone(checkpoint)});
+}
+export function assertPagedExecutorPayoutUnacknowledgedSourceDataV5(rows,g,accepted){
+ assert.ok(Array.isArray(rows));for(const row of rows)assert.ok(![g.job.jobId,accepted.metadata.jobId].includes(row.command?.jobId),'PAGED_EXECUTOR_PAYOUT_UNACKNOWLEDGED_SOURCE_ATTEMPT');
+}

@@ -33,6 +33,9 @@ export async function readOriginalDevicePagedOwnerEmptyBirthCheckpointV4(config,
  assert.equal(arguments.length,2);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);
  try{return await reader.readEmptyBirthCheckpoint();}finally{reader.close();}
 }
+export async function readOriginalDevicePagedOwnerEmptyReplacementCheckpointV9(config,descriptor){
+ assert.equal(arguments.length,2);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);try{return await reader.readEmptyReplacementCheckpointV9();}finally{reader.close();}
+}
 
 /** Validate the existing encrypted OWNER even after its service descriptor
  * expires. The reopened controller is strictly read-only and rechecks original
@@ -95,4 +98,9 @@ export async function sealOriginalDevicePagedOwnerTerminalOutputWithdrawalV5(pre
  * DATA only: the actual child must revalidate/reissue its original handle. */
 export async function readOriginalDevicePagedOwnerProofIntentCheckpointV4(config,descriptor,before,accepted){
  assert.equal(arguments.length,4);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);try{return await reader.readProofIntentCheckpointV4(before,accepted);}finally{reader.close();}
+}
+/** Existing private Vault only. DATA cannot reopen a financial owner: the
+ * actual graph client must reconstruct its signature-bound intent over IPC. */
+export async function readOriginalDevicePagedOwnerUnacknowledgedExecutorIntentV5(config,descriptor,graph){
+ assert.equal(arguments.length,3);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);try{return await reader.readExecutorPayoutUnacknowledgedIntentV5(graph);}finally{reader.close();}
 }

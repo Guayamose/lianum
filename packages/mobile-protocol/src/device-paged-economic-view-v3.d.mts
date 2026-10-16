@@ -19,3 +19,7 @@ export function normalizeDevicePagedEconomicSettlementRowV3(raw:unknown,descript
 /** SDK/OWNER must separately validate the graph status and require this ledger
  * head to equal that same original status. This normalizer creates no brand. */
 export function normalizeDevicePagedEconomicViewV3(raw:unknown,descriptor:unknown):DevicePagedEconomicViewV3;
+export type DevicePagedEconomicSettlementRowAnyV5=Readonly<Omit<DevicePagedEconomicSettlementRowV3,'quote'> & {quote?:DevicePagedProviderQuoteV4|import('./device-paged-provider-quote-v5.mjs').DevicePagedProviderQuoteV5|null}>;
+export type DevicePagedEconomicViewAnyV5=Readonly<Omit<DevicePagedEconomicViewV3,'rows'> & {rows:readonly DevicePagedEconomicSettlementRowAnyV5[]}>;
+export function normalizeDevicePagedEconomicSettlementRowAnyV5(raw:unknown,descriptor:unknown):DevicePagedEconomicSettlementRowAnyV5;
+export function normalizeDevicePagedEconomicViewAnyV5(raw:unknown,descriptor:unknown):DevicePagedEconomicViewAnyV5;

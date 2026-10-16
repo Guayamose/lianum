@@ -15,7 +15,11 @@ export function pagedOwnerHexV3(raw:unknown,zero?:boolean):string;
 export function pagedOwnerUintV3(raw:unknown,zero?:boolean):string;
 export function pagedOwnerWipeV3(value:unknown):void;
 
-export function devicePagedWordsHexV3(raw:readonly string[],offset:number):string;
+export function devicePagedWordsHexV3(raw:readonly string[],offset:number,length?:number):string;
+export const DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8:'PAGED_DEVICE_NOTE_EPOCH_REPROOF_REQUIRED';
+export const DEVICE_PAGED_NOTE_EPOCH_PROOF_V8:'DEVICE_PAGED_NOTE_EPOCH_PROOF_V8';
+export function devicePagedNoteEpochProofBasenameV8(mode:string,witnessSHA256:string):string;
+export function assertDevicePagedNoteEpochRetryTermsV8(previous:unknown,draft:unknown):any;
 
 /** Bounded detached DATA; this snapshot carries no original authority. */
 export function snapshotDevicePagedWitnessV3(input:unknown):any;

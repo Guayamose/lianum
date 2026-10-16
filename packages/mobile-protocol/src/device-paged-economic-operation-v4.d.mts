@@ -5,3 +5,7 @@ export type DevicePagedEconomicOperationViewV4=Readonly<{type:'economic-operatio
 export function normalizeDevicePagedEconomicOperationRequestV4(raw:unknown):Readonly<{ids:readonly string[]}>;
 export function normalizeDevicePagedEconomicOperationRowsV4(raw:unknown,scope:unknown):readonly DevicePagedEconomicOperationRowV4[];
 export function normalizeDevicePagedEconomicOperationViewV4(raw:unknown,descriptor:unknown):DevicePagedEconomicOperationViewV4;
+export type DevicePagedEconomicOperationRowAnyV5=Readonly<Omit<DevicePagedEconomicOperationRowV4,'quote'> & {quote:import('./device-paged-provider-quote-v4.mjs').DevicePagedProviderQuoteV4|import('./device-paged-provider-quote-v5.mjs').DevicePagedProviderQuoteV5|null}>;
+export type DevicePagedEconomicOperationViewAnyV5=Readonly<Omit<DevicePagedEconomicOperationViewV4,'rows'> & {rows:readonly DevicePagedEconomicOperationRowAnyV5[]}>;
+export function normalizeDevicePagedEconomicOperationRowsAnyV5(raw:unknown,scope:unknown):readonly DevicePagedEconomicOperationRowAnyV5[];
+export function normalizeDevicePagedEconomicOperationViewAnyV5(raw:unknown,descriptor:unknown):DevicePagedEconomicOperationViewAnyV5;

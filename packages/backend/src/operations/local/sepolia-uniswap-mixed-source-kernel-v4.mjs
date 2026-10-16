@@ -7,7 +7,7 @@ import {createHash,randomBytes} from 'node:crypto';
 import {buildPagedDeploymentKernelDataV4,freeze,staticData,normalizePagedDeploymentConfigurationDataV4} from './funded-graph-paged-kernel-data-v4.mjs';
 import {readOriginalFundedPagedGraphSepoliaDeploymentV4,assertOriginalFundedPagedGraphSepoliaWalletV4} from './funded-graph-paged-public-kernel-v4.mjs';
 import {assertOriginalSepoliaUniswapTargetSystemV4,assertOriginalSepoliaUniswapTargetReadyV4,readOriginalSepoliaUniswapTargetSourceBindingV4} from './sepolia-uniswap-target-kernel-v4.mjs';
-import {readOriginalPagedSepoliaSourceLaneV4,assertOriginalPagedSepoliaSourcePolicyBirthV5} from '../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
+import {readOriginalPagedSepoliaSourceLaneV4,readOriginalPagedSepoliaHistoricalBalanceV4,readOriginalPagedSepoliaSourceFinancialHistoryV5,assertOriginalPagedSepoliaSourcePolicyBirthV5} from '../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
 import {buildPagedSepoliaSourceJournalDataV4} from './funded-graph-paged-source-journal-data-v4.mjs';
 import {pagedOwnerExactV3} from '@lianum/mobile-protocol/device/paged-owner-v3';
 
@@ -77,7 +77,7 @@ export async function assertOriginalSepoliaUniswapMixedSourceReadyV4(runtime,sys
  assertOriginalSepoliaUniswapMixedSourceV4(runtime,system);const p=systems.get(system);await assertOriginalSepoliaUniswapTargetReadyV4(runtime,p.target);const head=await runtime.block('finalized');
  await Promise.all(system.deployments.map(async row=>{assert.ok(BigInt(row.receipt.blockNumber)<=BigInt(head.number),'PUBLIC_UNISWAP_MIXED_SOURCE_FINALITY_PENDING');const actual=await runtime.receipt(row.receipt.transactionHash);assert.deepEqual(actual,row.receipt,'PUBLIC_UNISWAP_MIXED_SOURCE_ORIGINAL_RECEIPT');await runtime.checkReceipt(actual);assert.equal(await runtime.code(row.address,head.number),row.expectedCode,'PUBLIC_UNISWAP_MIXED_SOURCE_CODE');}));await runtime.assertCanonical(head);assertOriginalSepoliaUniswapMixedSourceV4(runtime,system);return system;
 }
-const sourceJournal=buildPagedSepoliaSourceJournalDataV4(Object.freeze({assertOriginalSystem:(...args)=>assertOriginalSepoliaUniswapMixedSourceV4(...args),readOriginalSystem:(...args)=>readOriginalSepoliaUniswapMixedSourceDeploymentV4(...args),assertOriginalReceiverReady:(...args)=>assertOriginalSepoliaUniswapMixedSourceReadyV4(...args)}));
+const sourceJournal=buildPagedSepoliaSourceJournalDataV4(Object.freeze({readOriginalHistoricalBalance:readOriginalPagedSepoliaHistoricalBalanceV4,readOriginalFinancialHistory:readOriginalPagedSepoliaSourceFinancialHistoryV5,assertOriginalSystem:(...args)=>assertOriginalSepoliaUniswapMixedSourceV4(...args),readOriginalSystem:(...args)=>readOriginalSepoliaUniswapMixedSourceDeploymentV4(...args),assertOriginalReceiverReady:(...args)=>assertOriginalSepoliaUniswapMixedSourceReadyV4(...args)}));
 export async function createOriginalSepoliaUniswapMixedSourceJournalV4(runtime,system,input){
  assert.equal(arguments.length,3);assertOriginalSepoliaUniswapMixedSourceV4(runtime,system);pagedOwnerExactV3(input,['origin','devicePublicKey','journal']);pagedOwnerExactV3(input.journal,['path','password']);const data=structuredClone(input),configSHA256=hash(data),previous=journalBirths.get(system);if(previous){assert.ok(previous.runtime===runtime&&previous.configSHA256===configSHA256,'PUBLIC_UNISWAP_MIXED_SOURCE_JOURNAL_ALREADY_BORN');const bundle=await previous.work;return sourceJournal.assertBundle(runtime,system,bundle);}const lane=readOriginalPagedSepoliaSourceLaneV4(runtime),birth={runtime,configSHA256,work:null};journalBirths.set(system,birth);birth.work=sourceJournal.createIndependent(runtime,system,data,lane.policy.expiresAt-30*60000);return birth.work;
 }
@@ -115,3 +115,11 @@ export async function prepareOriginalSepoliaUniswapMixedSourceReopenV4(runtime,t
 
 /** Readonly metadata from the same live singleton; a clone never passes the
  * Original Source guard and this export issues no proof or financial token. */
+
+export const replaceOriginalSepoliaUniswapMixedEmptySourceJournalV9=(...args)=>sourceJournal.replaceEmpty(...args);
+export const readOriginalSepoliaUniswapMixedEmptyReplacementJournalV9=(...args)=>sourceJournal.readEmptyReplacement(...args);
+export const assertOriginalSepoliaUniswapMixedEmptyReplacementJournalV9=(...args)=>sourceJournal.assertEmptyReplacement(...args);
+export const assertOriginalSepoliaUniswapMixedSourceStorageJournalV9=(...args)=>sourceJournal.assertStorageBundle(...args);
+export const readOriginalSepoliaUniswapMixedEmptyCurrentLineageV9=(...args)=>sourceJournal.readCurrentEmptyLineage(...args);
+export const reopenOriginalSepoliaUniswapMixedEmptyPredecessorJournalV9=(...args)=>sourceJournal.reopenEmptyPredecessor(...args);
+export const isOriginalSepoliaUniswapMixedEmptyPredecessorJournalV9=(...args)=>sourceJournal.isEmptyReplacementPredecessor(...args);

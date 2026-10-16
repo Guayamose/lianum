@@ -1,0 +1,14 @@
+type DevicePagedDescriptorV3=ReturnType<typeof import('./device-paged-owner-v3.mjs').normalizeDevicePagedDescriptorV3>;
+export const DEVICE_PAGED_EXECUTOR_PAYOUT_CUSTODY_V5:'DEVICE_PAGED_EXECUTOR_PAYOUT_CUSTODY_V5';
+export const DEVICE_PAGED_EXECUTOR_PAYOUT_PLAN_V5:'DEVICE_PAGED_EXECUTOR_PAYOUT_PLAN_V5';
+export type DevicePagedExecutorPayoutOpeningV5=Readonly<{type:4;rho:string;x:string;y:string;value:string;secret:string}>;
+export type DevicePagedExecutorPayoutPreparationV5=Readonly<{preparationId:string;pageIndex:string;operationId:string;nodes:readonly Readonly<{id:string;ordinal:string;amount:string}>[];collectBy:number;maximumFeeAtomic:string}>;
+export type DevicePagedExecutorPayoutCustodyTermsV5=Readonly<{profile:typeof DEVICE_PAGED_EXECUTOR_PAYOUT_CUSTODY_V5;descriptor:DevicePagedDescriptorV3;providerIdentity:string;providerPublicKey:string;graphId:string;rootId:string;revision:number;operationId:string;preparationId:string;id:string;ordinal:string;beneficiary:string;opening:DevicePagedExecutorPayoutOpeningV5;randomness:string;commitment:string;nullifier:string;collectBy:number;maximumFeeAtomic:string}>;
+export type DevicePagedExecutorPayoutCustodyV5=Readonly<{terms:DevicePagedExecutorPayoutCustodyTermsV5;termsSHA256:string;signature:string;ownershipSignature:string}>;
+export type DevicePagedExecutorPayoutPlanV5=Readonly<{profile:typeof DEVICE_PAGED_EXECUTOR_PAYOUT_PLAN_V5;descriptorSHA256:string;providerIdentity:string;providerPublicKey:string;graphId:string;rootId:string;revision:number;authorizationRoot:string;beneficiary:string;quoteRoot:string;collectBy:number;maximumTotalFeeAtomic:string;payouts:readonly Readonly<{id:string;ordinal:string;commitment:string;nullifier:string;amountAtomic:string;certificateSHA256:string;maximumFeeAtomic:string}>[]}>;
+export function devicePagedExecutorPayoutHashV5(value:unknown):string;
+export function normalizeDevicePagedExecutorPayoutPreparationV5(raw:unknown):DevicePagedExecutorPayoutPreparationV5;
+export function normalizeDevicePagedExecutorPayoutCustodyTermsV5(raw:unknown):DevicePagedExecutorPayoutCustodyTermsV5;
+export function devicePagedExecutorPayoutCustodyFrameV5(termsSHA256:string):Uint8Array;
+export function normalizeDevicePagedExecutorPayoutCustodyV5(raw:unknown):DevicePagedExecutorPayoutCustodyV5;
+export function normalizeDevicePagedExecutorPayoutPlanV5(raw:unknown):DevicePagedExecutorPayoutPlanV5;

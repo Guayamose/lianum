@@ -85,7 +85,7 @@ export function createDevicePagedPlatformApplicationV3(context) {
       live(); return send(response, 200, result);
     } catch (error) {
       retainDevicePagedFailureMetadataV3(error, 'GRAPH_HTTP');
-      if (!response.headersSent && !response.destroyed) send(response, 403, { error: 'PAGED_GRAPH_OPERATION_REJECTED' });
+      if (!response.headersSent && !response.destroyed) send(response, 403, { error: error?.message==='PAGED_DEVICE_NOTE_EPOCH_CHANGED'?'PAGED_DEVICE_NOTE_EPOCH_CHANGED':'PAGED_GRAPH_OPERATION_REJECTED' });
     } finally {
       bytes?.fill(0); for (const chunk of chunks) chunk.fill(0);
     }

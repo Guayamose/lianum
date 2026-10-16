@@ -1,0 +1,12 @@
+import type {DevicePagedProviderQuoteTermsV4,DevicePagedProviderQuoteV4} from './device-paged-provider-quote-v4.mjs';
+export const DEVICE_PAGED_PROVIDER_QUOTE_V5:'DEVICE_PAGED_PROVIDER_QUOTE_V5';
+export type DevicePagedProviderQuoteTermsV5=Omit<DevicePagedProviderQuoteTermsV4,'profile'|'policy'> & Readonly<{profile:typeof DEVICE_PAGED_PROVIDER_QUOTE_V5;policy:Omit<DevicePagedProviderQuoteTermsV4['policy'],'full'> & {full:'ORIGINAL_FULFILL_THEN_PROVIDER_NOTE_WITHDRAWAL_V5'};executorPayout:Readonly<{profile:'DEVICE_PAGED_EXECUTOR_PAYOUT_QUOTE_V5';certificateSHA256:string;collectBy:number;maximumFeeAtomic:string}>}>;
+export type DevicePagedProviderQuoteV5=Readonly<{terms:Readonly<DevicePagedProviderQuoteTermsV5>;termsSHA256:string;actionCommitment:string;signature:string}>;
+export function normalizeDevicePagedProviderQuoteTermsV5(raw:unknown):Readonly<DevicePagedProviderQuoteTermsV5>;
+export function devicePagedProviderQuoteTermsHashV5(raw:unknown):string;
+export function devicePagedProviderQuoteDeliveryRiskV5(raw:unknown):string;
+export function normalizeDevicePagedProviderQuoteV5(raw:unknown):DevicePagedProviderQuoteV5;
+export function devicePagedProviderQuoteFrameV5(hash:string,action:string):Uint8Array;
+export function assertDevicePagedProviderQuoteActionV5(raw:unknown,action:unknown):DevicePagedProviderQuoteV5;
+export function assertDevicePagedProviderQuoteBindingV5(raw:unknown,expected:Parameters<typeof import('./device-paged-provider-quote-v4.mjs').assertDevicePagedProviderQuoteBindingV4>[1],now:string):DevicePagedProviderQuoteV5;
+export function devicePagedProviderQuotePolicyV5():DevicePagedProviderQuoteTermsV5['policy'];

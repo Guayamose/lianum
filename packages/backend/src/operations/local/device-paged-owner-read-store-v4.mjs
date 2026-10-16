@@ -8,6 +8,7 @@ import {Vault} from '@lianum/engine/crypto/vault';
 import {canonical} from '@lianum/engine/crypto/privacy';
 import {wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
+import {readPagedExecutorPayoutUnacknowledgedIntentDataV5} from '../recovery/paged-executor-payout-unacknowledged-data-v5.mjs';
 const PROFILE='DEVICE_PAGED_OWNER_DURABLE_CHECKPOINT_V3';
 const readRecoveryOpenings=new WeakMap();
 const hash=value=>createHash('sha256').update(canonical(value)).digest('hex');
@@ -46,6 +47,14 @@ export async function createDevicePagedOwnerRetentionV3(config,descriptor){
   async readEmptyBirthCheckpoint(){
    assert.ok(!closed);await physical(true);const current=await vault.read(password);
    try{const result=validate(current),c=current.data.controller;assert.equal(c.phase,'BUILDING','PAGED_REFILL_BIRTH_ALREADY_ACTIVE');assert.equal(c.pending,null);assert.equal(c.preparation,null);assert.equal(c.automation,null);assert.equal(c.public.sourceCommitment,null);assert.equal(c.public.authorizationRoot,null);assert.equal(c.public.progressCommitment,null);return result;}
+   finally{wipePrivateProofInputsV1(current.data.controller);}
+  },
+  async readExecutorPayoutUnacknowledgedIntentV5(graph){
+   assert.ok(!closed);await physical(true);const current=await vault.read(password);try{return readPagedExecutorPayoutUnacknowledgedIntentDataV5(graph,validate(current),current.data.controller);}finally{wipePrivateProofInputsV1(current.data.controller);}
+  },
+  async readEmptyReplacementCheckpointV9(){
+   assert.ok(!closed);await physical(true);const current=await vault.read(password);
+   try{const result=validate(current),c=P.pagedOwnerExactV3(current.data.controller,['profile','preparation','cfg','context','ids','pages','invoices','admissions','frontier','ownerAttached','phase','pending','lastConfirmed','lastReply','automation','public']);assert.equal(c.profile,'DEVICE_PAGED_PRIVATE_OWNER_RETENTION_V3');assert.equal(c.phase,'BUILDING');assert.equal(c.ownerAttached,false);for(const k of ['preparation','cfg','context','pending','lastConfirmed','lastReply','automation'])assert.equal(c[k],null,'PAGED_EMPTY_REPLACEMENT_OWNER_ACTIVE');for(const k of ['ids','pages','invoices','admissions','frontier'])assert.deepEqual(c[k],[],'PAGED_EMPTY_REPLACEMENT_OWNER_ACTIVE');assert.deepEqual(c.public,{authorizationRoot:null,reserveNullifier:null,progressCommitment:null,readyCommitment:null,sourceCommitment:null,sourceNullifier:null,pages:'0',nodes:'0',budget:null,settleBefore:null,phase:'BUILDING'},'PAGED_EMPTY_REPLACEMENT_OWNER_ACTIVE');return result;}
    finally{wipePrivateProofInputsV1(current.data.controller);}
   },
   restored(){assert.ok(!closed&&record);return structuredClone(record.data.controller);},

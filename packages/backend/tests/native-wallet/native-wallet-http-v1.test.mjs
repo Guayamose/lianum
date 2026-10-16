@@ -108,3 +108,21 @@ test('only a precise CREATE estimation cap exposes safe fallback metadata',async
  reply={code:-32000,message:'private upstream revert details'};
  await assert.rejects(rpc('eth_estimateGas'),error=>{assert.equal(error.rpcGasCap,undefined);assert.equal(error.message,'NATIVE_WALLET_RPC_FAILED');return true;});
 });
+
+
+// PROPOSED: no public RPC, keys or real payloads. Sentinel demonstrates that
+// neither provider messages nor ABI payloads outside the finite list escape.
+test('canonical allowlisted contract rejection survives as finite metadata and one safe origin event',async t=>{
+ const word=n=>BigInt(n).toString(16).padStart(64,'0'),abi=text=>{const b=Buffer.from(text);return '0x08c379a0'+word(32)+word(b.length)+b.toString('hex').padEnd(Math.ceil(b.length/32)*64,'0');},events=[];let calls=0,data=abi('STALE_EPOCH'),providerMessage='PRIVATE_RPC_MESSAGE_SENTINEL';
+ t.mock.method(console,'error',(...args)=>events.push(args));
+ t.mock.method(globalThis,'fetch',async(_url,options)=>{calls++;return Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,error:{code:3,message:providerMessage,data}});});
+ const rpc=nativeRpcV1('https://rpc.invalid');
+ const rejection={reportedBy:'RPC_PROVIDER',kind:'ERROR_STRING',reason:'STALE_EPOCH'};
+ await assert.rejects(rpc('eth_call',[{data:'PRIVATE_CALLDATA_SENTINEL'}]),error=>{assert.equal(error.message,'NATIVE_WALLET_RPC_FAILED');assert.deepEqual(error.rpcContractRejection,rejection);assert.equal(error.cause,undefined);const text=JSON.stringify(error);assert.ok(!text.includes('PRIVATE_'));assert.ok(!text.includes(data));return true;});
+ assert.equal(calls,1,'JSON-RPC contract rejections do not retry');assert.deepEqual(events,[['LIANUM_NATIVE_RPC_CONTRACT_REJECTION_V1',JSON.stringify({rpcMethod:'eth_call',...rejection})]]);
+ for(const method of ['eth_getCode','eth_sendRawTransaction'])await assert.rejects(rpc(method,['PRIVATE_WIRE_SENTINEL']),error=>{assert.equal(error.rpcContractRejection,undefined);return true;});assert.equal(events.length,1,'sends and unrelated reads cannot add a contract-revert diagnostic');
+ for(const bad of [abi('PRIVATE_ABI_SENTINEL'),abi('STALE_EPOCH')+'00','0x12345678',{data:abi('STALE_EPOCH')},'0x'+'ff'.repeat(1000)]){data=bad;await assert.rejects(rpc('eth_call'),error=>{assert.equal(error.rpcContractRejection,undefined);return true;});}assert.equal(events.length,1);
+ data=undefined;providerMessage='execution reverted: STALE_EPOCH';await assert.rejects(rpc('eth_call'),error=>{assert.equal(error.rpcContractRejection,undefined);return true;});assert.equal(events.length,1,'provider messages never become contract reasons');
+ data='0x4e487b71'+word(17);await assert.rejects(rpc('eth_estimateGas'),error=>{assert.deepEqual(error.rpcContractRejection,{reportedBy:'RPC_PROVIDER',kind:'PANIC',panicCode:'0x11'});return true;});assert.equal(events.length,2);
+ data='0x4e487b71'+word(99);await assert.rejects(rpc('eth_estimateGas'),error=>{assert.equal(error.rpcContractRejection,undefined);return true;});assert.equal(events.length,2);
+});

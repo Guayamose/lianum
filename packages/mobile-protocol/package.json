@@ -144,6 +144,22 @@
     "./device/paged-uniswap-public-v4": {
       "types": "./src/device-paged-uniswap-public-v4.d.mts",
       "default": "./src/device-paged-uniswap-public-v4.mjs"
+    },
+    "./device/paged-executor-payout-v5": {
+      "types": "./src/device-paged-executor-payout-v5.d.mts",
+      "default": "./src/device-paged-executor-payout-v5.mjs"
+    },
+    "./device/paged-automation-v5": {
+      "types": "./src/device-paged-automation-v5.d.mts",
+      "default": "./src/device-paged-automation-v5.mjs"
+    },
+    "./device/paged-provider-quote-v5": {
+      "types": "./src/device-paged-provider-quote-v5.d.mts",
+      "default": "./src/device-paged-provider-quote-v5.mjs"
+    },
+    "./device/paged-provider-quote-any-v5": {
+      "types": "./src/device-paged-provider-quote-any-v5.d.mts",
+      "default": "./src/device-paged-provider-quote-any-v5.mjs"
     }
   },
   "types": "./src/authorization.d.mts",

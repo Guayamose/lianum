@@ -2,6 +2,7 @@
  * here. Financial operation approval remains the original graph/START path. */
 import * as P from './device-paged-owner-v3.mjs';
 import {normalizeDevicePagedAutomationTermsV4} from './device-paged-automation-v4.mjs';
+import {normalizeDevicePagedAutomationTermsAnyV5} from './device-paged-automation-v5.mjs';
 import {boundedPermissionSha256V1} from './bounded-permission-sha256-v1.mjs';
 export const DEVICE_PAGED_AGENT_PROPOSAL_V4='DEVICE_PAGED_AGENT_NATIVE_PROPOSAL_V4';
 export const DEVICE_PAGED_AGENT_READ_GRANT_V4='DEVICE_PAGED_AGENT_OPERATION_READ_GRANT_V4';
@@ -18,6 +19,13 @@ function array(v,maximum){need(Array.isArray(v)&&Object.getPrototypeOf(v)===Arra
 function integer(v,max){need(Number.isSafeInteger(v)&&v>0&&v<=max);return v;}
 export function devicePagedAgentDescriptorSHA256V4(raw){return hash(JSON.stringify(P.normalizeDevicePagedDescriptorV3(raw)));}
 export function devicePagedAgentAutomationTermsSHA256V4(raw){return hash(JSON.stringify(normalizeDevicePagedAutomationTermsV4(raw)));}
+export function devicePagedAgentAutomationTermsSHA256AnyV5(raw){
+ const terms=normalizeDevicePagedAutomationTermsAnyV5(raw);if(terms.profile!=='DEVICE_PAGED_APPROVED_CONTINUATION_V5')return devicePagedAgentAutomationTermsSHA256V4(terms);
+ const {executorPayouts,...base}=terms,{payouts,...plan}=executorPayouts;
+ let root=hash('LIANUM/AGENT-AUTOMATION-TERMS-HEAD/5\n'+JSON.stringify([base,plan,payouts.length]));
+ for(let i=0;i<payouts.length;i++)root=hash('LIANUM/AGENT-AUTOMATION-PAYOUT/5\n'+JSON.stringify([root,i,payouts[i]]));
+ return root;
+}
 export function normalizeDevicePagedAgentProposalV4(raw){
  const p=exact(raw,['profile','descriptorSHA256','agentPublicKey','terms','nodes']);need(p.profile===DEVICE_PAGED_AGENT_PROPOSAL_V4);P.pagedOwnerHexV3(p.descriptorSHA256);point(p.agentPublicKey);
  const t=exact(p.terms,['budget','fundingNotBefore','fundingValidUntil','settleBefore']);for(const k of Object.keys(t))P.pagedOwnerUintV3(t[k],k!=='budget');need(BigInt(t.fundingNotBefore)<BigInt(t.fundingValidUntil)&&BigInt(t.fundingValidUntil)<=BigInt(t.settleBefore));
@@ -36,10 +44,16 @@ export function normalizeDevicePagedSignedAgentReadGrantV4(raw){const s=exact(ra
 export function normalizeDevicePagedAgentReadChallengeV4(raw){const c=exact(raw,['profile','descriptorSHA256','grantId','readerPublicKey','action','intentId','challengeId','nonce','issuedAt','expiresAt']);need(c.profile==='DEVICE_PAGED_AGENT_READ_CHALLENGE_V4');P.pagedOwnerHexV3(c.descriptorSHA256);P.pagedOwnerHexV3(c.grantId);point(c.readerPublicKey);need(['READ_PROGRESS','REVOKE_READ_ACCESS'].includes(c.action));for(const k of ['intentId','challengeId','nonce'])P.pagedOwnerHexV3(c[k]);integer(c.issuedAt,Number.MAX_SAFE_INTEGER);need(c.expiresAt===c.issuedAt+15000);return freeze(c);}
 export function validateDevicePagedAgentReadChallengeFreshV4(raw){const c=normalizeDevicePagedAgentReadChallengeV4(raw),now=P.devicePagedNowV3();need(now>=c.issuedAt&&now<c.expiresAt);P.assertDevicePagedFrameElapsedV3('agent:challenge:'+c.descriptorSHA256+':'+c.challengeId,c.expiresAt,P.devicePagedWallNowV3());return c;}
 export function devicePagedAgentReadChallengeMessageV4(raw){return new TextEncoder().encode('LIANUM/AGENT-READ-ONLY-POP/4\n'+JSON.stringify(normalizeDevicePagedAgentReadChallengeV4(raw)));}
-export function normalizeDevicePagedAgentProgressV4(raw){
+export function normalizeDevicePagedAgentProgressV4(raw){return normalizeProgress(raw,normalizeDevicePagedAutomationTermsV4);}
+/** Progress DATA keeps the V5 terms/profile and payout plan intact. Its read
+ * envelope is unchanged; the strict V4 financial/grant readers stay separate. */
+export function normalizeDevicePagedAgentProgressAnyV5(raw){return normalizeProgress(raw,normalizeDevicePagedAutomationTermsAnyV5);}
+function normalizeProgress(raw,termsNormalizer){
  const p=exact(raw,['profile','descriptorSHA256','graphId','rootId','revision','authorizationRoot','reserveNullifier','phase','pending','automation','execution','observed','current']);need(p.profile===DEVICE_PAGED_AGENT_PROGRESS_V4&&p.current===true);for(const k of ['descriptorSHA256','rootId','authorizationRoot','reserveNullifier'])P.pagedOwnerHexV3(p[k]);graph(p.graphId);integer(p.revision,Number.MAX_SAFE_INTEGER);need(['PREPARED','RESERVED','FULFILLED','RECOVERED'].includes(p.phase)&&typeof p.pending==='boolean');
- if(p.automation!==null){const a=exact(p.automation,['terms','commandsUsed','revoked']);a.terms=normalizeDevicePagedAutomationTermsV4(a.terms);need(Number.isSafeInteger(a.commandsUsed)&&a.commandsUsed>=0&&a.commandsUsed<=a.terms.maxCommands&&typeof a.revoked==='boolean');for(const k of ['descriptorSHA256','graphId','rootId','revision','authorizationRoot','reserveNullifier'])need(a.terms[k]===p[k]);p.automation=a;}
+ if(p.automation!==null){const a=exact(p.automation,['terms','commandsUsed','revoked']);a.terms=termsNormalizer(a.terms);need(Number.isSafeInteger(a.commandsUsed)&&a.commandsUsed>=0&&a.commandsUsed<=a.terms.maxCommands&&typeof a.revoked==='boolean');for(const k of ['descriptorSHA256','graphId','rootId','revision','authorizationRoot','reserveNullifier'])need(a.terms[k]===p[k]);p.automation=a;}
  if(p.execution!==null){const e=exact(p.execution,['completed','total','currentNodeId']);P.pagedOwnerUintV3(e.completed,true);P.pagedOwnerUintV3(e.total,true);need(BigInt(e.completed)<=BigInt(e.total)&&(p.automation===null||e.total===p.automation.terms.nodes));if(e.currentNodeId!==null)id(e.currentNodeId);p.execution=e;}
  const o=exact(p.observed,['blockHash','blockNumber','timestamp','issuedAt','expiresAt']);need(typeof o.blockHash==='string'&&/^0x[0-9a-f]{64}$/.test(o.blockHash));P.pagedOwnerUintV3(o.blockNumber,true);P.pagedOwnerUintV3(o.timestamp,true);integer(o.issuedAt,Number.MAX_SAFE_INTEGER);need(o.expiresAt>o.issuedAt&&o.expiresAt<=o.issuedAt+15000);return freeze(p);
 }
-export function validateDevicePagedAgentProgressFreshV4(raw){const p=normalizeDevicePagedAgentProgressV4(raw),now=P.devicePagedNowV3();need(now>=p.observed.issuedAt&&now<p.observed.expiresAt);P.assertDevicePagedFrameElapsedV3('agent:progress:'+p.descriptorSHA256+':'+p.graphId+':'+p.observed.issuedAt+':'+p.observed.blockHash,p.observed.expiresAt,P.devicePagedWallNowV3());return p;}
+export function validateDevicePagedAgentProgressFreshV4(raw){return progressFresh(normalizeDevicePagedAgentProgressV4(raw));}
+export function validateDevicePagedAgentProgressFreshAnyV5(raw){return progressFresh(normalizeDevicePagedAgentProgressAnyV5(raw));}
+function progressFresh(p){const now=P.devicePagedNowV3();need(now>=p.observed.issuedAt&&now<p.observed.expiresAt);P.assertDevicePagedFrameElapsedV3('agent:progress:'+p.descriptorSHA256+':'+p.graphId+':'+p.observed.issuedAt+':'+p.observed.blockHash,p.observed.expiresAt,P.devicePagedWallNowV3());return p;}

@@ -6,8 +6,8 @@ import {createHash} from 'node:crypto';
 import {createPrivateProofRecipientV1,readPrivateProofRecipientV1,readOriginalPrivateProofRecipientV1,closePrivateProofRecipientV1,openPrivateProofJobV1,sealPrivateProofJobV1,wipePrivateProofInputsV1} from '@lianum/engine/crypto/private-proof-transit-v1';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import * as C from '@lianum/mobile-protocol/device/paged-graph-v3';
-import {normalizeDevicePagedEconomicOperationRequestV4,normalizeDevicePagedEconomicOperationViewV4} from '@lianum/mobile-protocol/device/paged-economic-operation-v4';
-import {normalizeDevicePagedEconomicRequestV3,normalizeDevicePagedEconomicViewV3} from '@lianum/mobile-protocol/device/paged-economic-view-v3';
+import {normalizeDevicePagedEconomicOperationRequestV4,normalizeDevicePagedEconomicOperationViewAnyV5} from '@lianum/mobile-protocol/device/paged-economic-operation-v4';
+import {normalizeDevicePagedEconomicRequestV3,normalizeDevicePagedEconomicViewAnyV5} from '@lianum/mobile-protocol/device/paged-economic-view-v3';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
 
@@ -42,7 +42,7 @@ export function createDevicePagedNativeEconomicChannelV3(rawDescriptor,readSettl
     // Reader DATA may be frozen and retained by its original owner. Only the
     // bounded detached transport snapshot is wiped here.
     reply=P.snapshotDevicePagedWitnessV3(P.pagedOwnerExactV3(await (operation?readOperation(command.ids,consent):readSettlement(command.outputs,consent)),['view','status']));live();C.validateDevicePagedGraphConsentFreshV3(consent);
-    const status=C.validateDevicePagedGraphPublicFreshV3(reply.status),view=operation?normalizeDevicePagedEconomicOperationViewV4(reply.view,descriptor):normalizeDevicePagedEconomicViewV3(reply.view,descriptor);
+    const status=C.validateDevicePagedGraphPublicFreshV3(reply.status),view=operation?normalizeDevicePagedEconomicOperationViewAnyV5(reply.view,descriptor):normalizeDevicePagedEconomicViewAnyV5(reply.view,descriptor);
     assert.deepEqual(status.descriptor,descriptor,'PAGED_NATIVE_ECONOMIC_DESCRIPTOR');
     for(const key of ['graphId','rootId','revision','authorizationRoot'])assert.equal(status[key],consent[key],'PAGED_NATIVE_ECONOMIC_STATUS_SCOPE');
     assert.equal(view.ledger.blockHash,status.blockHash,'PAGED_NATIVE_ECONOMIC_LEDGER_HEAD');assert.equal(view.ledger.blockNumber,status.blockNumber,'PAGED_NATIVE_ECONOMIC_LEDGER_HEAD');

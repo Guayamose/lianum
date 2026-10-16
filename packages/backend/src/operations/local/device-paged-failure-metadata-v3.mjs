@@ -3,6 +3,7 @@ import {mkdirSync,writeFileSync} from 'node:fs';
 import {join,relative} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {projectRoot,resourceRoot} from '@lianum/environment';
+import {readNativeRpcContractRejectionDataV1} from '../../native-wallet/rpc-contract-rejection-data-v1.mjs';
 const stages=new Set(['GRAPH_RECIPIENT','GRAPH_HTTP']);
 export function retainDevicePagedFailureMetadataV3(error,stage){try{
  if(!stages.has(stage))return;
@@ -20,5 +21,5 @@ export function retainDevicePagedFailureMetadataV3(error,stage){try{
  const underlying=Object.getOwnPropertyDescriptor(error??{},'originalProofCode')?.value;
  const originalProofCode=typeof underlying==='string'&&/^PAEG_PAGED_[A-Z0-9_]{1,100}$/.test(underlying)?underlying:null;
  const directory=join(resourceRoot('engine'),'evidence/paeg-proof-attempts');mkdirSync(directory,{recursive:true,mode:0o700});
- writeFileSync(join(directory,'paged-graph-'+randomUUID()+'-failure.json'),JSON.stringify({format:'PAGED_GRAPH_PRIVATE_FAILURE_METADATA_V3',stage,code,originalProofCode,clockGapMs:code==='MOBILE_PAGED_CLOCK_FUTURE'&&Number.isSafeInteger(error?.clockGapMs)&&error.clockGapMs>=0&&error.clockGapMs<=3600000?error.clockGapMs:null,frames})+'\n',{mode:0o600,flag:'wx'});
+ writeFileSync(join(directory,'paged-graph-'+randomUUID()+'-failure.json'),JSON.stringify({format:'PAGED_GRAPH_PRIVATE_FAILURE_METADATA_V3',stage,code,originalProofCode,rpcContractRejection:readNativeRpcContractRejectionDataV1(error),clockGapMs:code==='MOBILE_PAGED_CLOCK_FUTURE'&&Number.isSafeInteger(error?.clockGapMs)&&error.clockGapMs>=0&&error.clockGapMs<=3600000?error.clockGapMs:null,frames})+'\n',{mode:0o600,flag:'wx'});
 }catch{}}
