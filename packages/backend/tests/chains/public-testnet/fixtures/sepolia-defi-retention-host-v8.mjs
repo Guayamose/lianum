@@ -37,6 +37,8 @@ try{
   owner=await R.createOriginalSepoliaDefiRetentionV8(runtime,uniswapTarget,input);await owner.capturePublishedInitialization();assert.deepEqual((await R.readOriginalSepoliaDefiRetentionModeV8(input)).targets,{});
  }else if(mode==='open-empty'){
   owner=await R.openOriginalSepoliaDefiRetentionV8(runtime,uniswapTarget,input);assert.deepEqual(owner.bindings(),{protocols:[],authorities:[]});await owner.complete();
+ }else if(mode==='overflow-empty'){
+  const {Vault}=await import('@lianum/engine/crypto/vault');owner=await R.openOriginalSepoliaDefiRetentionV8(runtime,uniswapTarget,input);const vault=new Vault(join(directory,'defi-supervisor.vault')),before=await vault.read(input.password),bytes=await readFile(join(directory,'defi-supervisor.vault'));await assert.rejects(owner.complete(),/GENERATION_OVERFLOW/);assert.deepEqual(await vault.read(input.password),before);assert.deepEqual(await readFile(join(directory,'defi-supervisor.vault')),bytes);
  }else if(mode==='root-read'){
   const {Vault}=await import('@lianum/engine/crypto/vault'),saved=await new Vault(join(directory,'defi-supervisor.vault')).read(input.password),expectedBinding=saved.data.binding,rootActor=saved.data.activationOwner;
   const selected=await R.readOriginalSepoliaDefiRetentionModeV8(input);assert.equal(selected.phase,'ACTIVE');assert.equal(selected.targets.AAVE_STATIC.ready,false);assert.equal(Object.hasOwn(selected.targets.AAVE_STATIC,'plan'),false);
