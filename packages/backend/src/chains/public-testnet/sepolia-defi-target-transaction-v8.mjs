@@ -4,12 +4,14 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {nativeRpcV1} from '../../native-wallet/http-v1.mjs';
 import {estimateOriginalPagedSepoliaCreateGasV6} from './sepolia-deployment-gas-v6.mjs';
-import {readOriginalPagedSepoliaRpcContextV4,readOriginalPagedSepoliaSourceLaneV4,assertOriginalPagedSepoliaSourcePolicyBirthV5} from './sepolia-receiver-rpc-v4.mjs';
+import {readOriginalPagedSepoliaRpcContextV4,readOriginalPagedSepoliaSourceLaneV4,readOriginalPagedSepoliaSourceFinancialHistoryV5,assertOriginalPagedSepoliaSourcePolicyBirthV5} from './sepolia-receiver-rpc-v4.mjs';
 import * as Aave from '../../operations/deployments/defi/aave-sepolia-target-v4.mjs';
 import * as Morpho from '../../operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs';
 function kernel(protocol){assert.ok(['AAVE_STATIC','MORPHO_V2'].includes(protocol),'SEPOLIA_DEFI_PROTOCOL');return protocol==='AAVE_STATIC'?{module:Aave,name:'Aave'}:{module:Morpho,name:'MorphoV2'};}
 export async function readOriginalSepoliaDefiTargetInitializationV8(runtime,token,protocol){const k=kernel(protocol);return k.module['readOriginal'+k.name+'SepoliaInitializationV4'](runtime,token);}
-async function consumeOriginalSepoliaDefiTargetInitializationV8(runtime,token,protocol){const k=kernel(protocol);return k.module['consumeOriginal'+k.name+'SepoliaInitializationV4'](runtime,token);}
+async function stagedInitialization(runtime,token,protocol){const k=kernel(protocol);return k.module['prepareOriginal'+k.name+'SepoliaInitializationDispatchV8'](runtime,token);}
+async function currentInitialization(runtime,token,protocol){const k=kernel(protocol);return k.module['readOriginal'+k.name+'SepoliaInitializationDispatchV8'](runtime,token);}
+async function consumeOriginalSepoliaDefiTargetInitializationV8(runtime,token,protocol){const k=kernel(protocol);return k.module['consumeOriginal'+k.name+'SepoliaInitializationDispatchV8'](runtime,token);}
 import {sepoliaReceiverCreationUnsignedV4,validateSepoliaReceiverCreationWireV4} from './sepolia-receiver-wire-v4.mjs';
 import {sepoliaSourceCallUnsignedV4,validateSepoliaSourceCallWireV4} from './sepolia-source-wire-v4.mjs';
 
@@ -20,7 +22,7 @@ function state(runtime,token,prepared){
  const s=preparations.get(prepared);assert.ok(s?.runtime===runtime&&s.token===token,'PUBLIC_DEFI_ORIGINAL_INITIALIZATION_PREPARATION');
  assert.ok(Date.now()<s.wall+TTL&&performance.now()<s.elapsed+TTL,'PUBLIC_DEFI_INITIALIZATION_PREPARATION_EXPIRED');
  const context=readOriginalPagedSepoliaRpcContextV4(runtime),lane=readOriginalPagedSepoliaSourceLaneV4(runtime);
- assert.equal(JSON.stringify(context),JSON.stringify(s.context));assertOriginalPagedSepoliaSourcePolicyBirthV5(runtime,s.grant.plan.policySHA256);return s;
+ assert.equal(JSON.stringify(context),JSON.stringify(s.context));assertOriginalPagedSepoliaSourcePolicyBirthV5(runtime,s.grant.plan.policySHA256);assert.equal(sha(JSON.stringify(lane.policy)),s.policySHA256,'PUBLIC_DEFI_INITIALIZATION_POLICY_CHANGED');assert.equal(readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId,s.epochId,'PUBLIC_DEFI_INITIALIZATION_EPOCH_CHANGED');return s;
 }
 function unsigned(grant,gas,maximum,tip,head){
  const common={chainId:'11155111',nonce:grant.request.nonce,gasLimit:gas.toString(),maxFeePerGas:maximum.toString(),maxPriorityFeePerGas:tip.toString()};
@@ -32,13 +34,13 @@ async function identify(runtime,rpc){
  assert.equal(chain,'0xaa36a7');assert.equal(genesis?.hash,GENESIS);readOriginalPagedSepoliaRpcContextV4(runtime);
 }
 async function check(runtime,token,prepared){
- const s=state(runtime,token,prepared);await identify(runtime,s.rpc);const grant=await readOriginalSepoliaDefiTargetInitializationV8(runtime,token,s.protocol);assert.deepEqual(grant,s.grant,'PUBLIC_DEFI_INITIALIZATION_CHANGED');
+ const s=state(runtime,token,prepared);await identify(runtime,s.rpc);const grant=await currentInitialization(runtime,token,s.protocol);assert.deepEqual(grant,s.grant,'PUBLIC_DEFI_INITIALIZATION_CHANGED');
  const [nonce,balance]=await Promise.all([s.rpc('eth_getTransactionCount',[s.context.account.address,'pending']),s.rpc('eth_getBalance',[s.context.account.address,'pending'])]);
  assert.equal(quantity(nonce).toString(),prepared.transaction.nonce,'PUBLIC_DEFI_INITIALIZATION_NONCE');assert.ok(quantity(balance)>=BigInt(prepared.maximumFeeAtomic),'PUBLIC_DEFI_INITIALIZATION_INSUFFICIENT_FUNDS');
  await runtime.assertCanonical(prepared.head);assert.deepEqual(await runtime.block(prepared.head.number),prepared.head,'PUBLIC_DEFI_INITIALIZATION_CANONICAL_FORK');if(grant.kind==='CREATE')assert.equal(prepared.transaction.profile,quantity(prepared.head.timestamp)>=GLAMSTERDAM?'ORIGINAL_PAGED_SEPOLIA_CREATE_V5':'ORIGINAL_PAGED_SEPOLIA_CREATE_V4','PUBLIC_DEFI_INITIALIZATION_CANONICAL_FORK');state(runtime,token,prepared);return s;
 }
 export async function prepareOriginalSepoliaDefiTargetInitializationV8(runtime,token,protocol){
- assert.equal(arguments.length,3);kernel(protocol);const wall=Date.now(),elapsed=performance.now(),context=readOriginalPagedSepoliaRpcContextV4(runtime),rpc=nativeRpcV1(context.endpoint),grant=await readOriginalSepoliaDefiTargetInitializationV8(runtime,token,protocol),lane=readOriginalPagedSepoliaSourceLaneV4(runtime);
+ assert.equal(arguments.length,3);kernel(protocol);const grant=await stagedInitialization(runtime,token,protocol),wall=Date.now(),elapsed=performance.now(),context=readOriginalPagedSepoliaRpcContextV4(runtime),rpc=nativeRpcV1(context.endpoint),lane=readOriginalPagedSepoliaSourceLaneV4(runtime),policySHA256=sha(JSON.stringify(lane.policy)),epochId=readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId;
  assert.equal(context.account.address,grant.plan.account);assert.equal(context.keysetId,grant.plan.keysetId);assertOriginalPagedSepoliaSourcePolicyBirthV5(runtime,grant.plan.policySHA256);await identify(runtime,rpc);
  const [head,nonce,priority,balance]=await Promise.all([runtime.block(),rpc('eth_getTransactionCount',[context.account.address,'pending']),rpc('eth_maxPriorityFeePerGas'),rpc('eth_getBalance',[context.account.address,'pending'])]);
  assert.equal(quantity(nonce).toString(),grant.request.nonce,'PUBLIC_DEFI_INITIALIZATION_NONCE');
@@ -49,7 +51,7 @@ export async function prepareOriginalSepoliaDefiTargetInitializationV8(runtime,t
  const transaction=unsigned(grant,gas,maximum,tip,head),framed=framing(grant,transaction),fee=BigInt(framed.maximumFeeAtomic);
  assert.ok(fee<=BigInt(lane.policy.maximumFeePerTransactionAtomic),'PUBLIC_DEFI_INITIALIZATION_TRANSACTION_CEILING');
  const prepared=freeze({profile:'ORIGINAL_PUBLIC_SEPOLIA_DEFI_INITIALIZATION_PREPARED_V8',grant,transaction,head,maximumFeeAtomic:fee.toString(),balanceAtomic:quantity(balance).toString(),funded:quantity(balance)>=fee,unsignedSHA256:sha(Buffer.from(framed.unsignedHex.slice(2),'hex')),signatureIssued:false,broadcasts:0});
- preparations.set(prepared,{runtime,token,protocol,context,grant,rpc,wall,elapsed,used:false});await runtime.assertCanonical(head);state(runtime,token,prepared);return prepared;
+ preparations.set(prepared,{runtime,token,protocol,context,grant,rpc,wall,elapsed,policySHA256,epochId,used:false});await runtime.assertCanonical(head);state(runtime,token,prepared);return prepared;
 }
 export async function readOriginalSepoliaDefiTargetInitializationPreparedV8(runtime,token,prepared){
  assert.equal(arguments.length,3);await check(runtime,token,prepared);return prepared;

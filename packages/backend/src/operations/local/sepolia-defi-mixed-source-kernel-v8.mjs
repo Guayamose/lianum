@@ -7,7 +7,7 @@ import {createHash,randomBytes} from 'node:crypto';
 import {buildPagedDeploymentKernelDataV4,freeze,staticData,normalizePagedDeploymentConfigurationDataV4} from './funded-graph-paged-kernel-data-v4.mjs';
 import {readOriginalFundedPagedGraphSepoliaDeploymentV4,assertOriginalFundedPagedGraphSepoliaWalletV4} from './funded-graph-paged-public-kernel-v4.mjs';
 import {assertOriginalSepoliaUniswapTargetSystemV4,assertOriginalSepoliaUniswapTargetReadyV4,readOriginalSepoliaUniswapTargetSourceBindingV4} from './sepolia-uniswap-target-kernel-v4.mjs';
-import {readOriginalPagedSepoliaSourceLaneV4,assertOriginalPagedSepoliaSourcePolicyBirthV5} from '../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
+import {readOriginalPagedSepoliaSourceLaneV4,readOriginalPagedSepoliaSourceFinancialHistoryV5,assertOriginalPagedSepoliaSourcePolicyBirthV5} from '../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
 import {buildPagedSepoliaSourceJournalDataV4} from './funded-graph-paged-source-journal-data-v4.mjs';
 import {pagedOwnerExactV3} from '@lianum/mobile-protocol/device/paged-owner-v3';
 import * as Aave from '../deployments/defi/aave-sepolia-target-v4.mjs';
@@ -64,7 +64,22 @@ export function consumeOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token
 /** Fixed constructor preparation revalidates the actual original Target and
  * parent after RPC awaits; a copied constructor never reaches this reader. */
 export async function readOriginalSepoliaDefiMixedSourceInitializationV8(runtime,token){
- const data=readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),g=constructors.get(token),p=state(runtime,g.plan);await targetReady(runtime,p.target,p.aaveTarget,p.morphoTarget);assert.deepEqual(readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);return data;
+ const data=readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),g=constructors.get(token),p=state(runtime,g.plan);await targetReady(runtime,p.target,p.aaveTarget,p.morphoTarget);assert.deepEqual(readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);const head=await runtime.block();await runtime.assertCanonical(head);assert.deepEqual(readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);g.validation={head:freeze(structuredClone(head)),wall:Date.now(),elapsed:performance.now(),policySHA256:hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),epochId:readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId};return data;
+}
+/** Full target/code validation precedes fee observation. These ports retain
+ * only a private checkpoint of that same pending Original constructor. */
+export async function prepareOriginalSepoliaDefiMixedSourceInitializationDispatchV8(runtime,token){
+ assert.equal(arguments.length,2);const g=constructors.get(token);assert.ok(g?.runtime===runtime&&g.active,'PUBLIC_DEFI_ORIGINAL_MIXED_SOURCE_CONSTRUCTOR');
+ if(!g.validation||Date.now()>=g.validation.wall+30000||performance.now()>=g.validation.elapsed+30000)await readOriginalSepoliaDefiMixedSourceInitializationV8(runtime,token);
+ return readOriginalSepoliaDefiMixedSourceInitializationDispatchV8(runtime,token);
+}
+export async function readOriginalSepoliaDefiMixedSourceInitializationDispatchV8(runtime,token){
+ assert.equal(arguments.length,2);const g=constructors.get(token);assert.ok(g?.runtime===runtime&&g.active,'PUBLIC_DEFI_ORIGINAL_MIXED_SOURCE_CONSTRUCTOR');
+ const current=()=>{const p=plans.get(g.plan),v=g.validation;assert.ok(p?.runtime===runtime&&!p.closed,'PUBLIC_DEFI_ORIGINAL_MIXED_SOURCE_PLAN');assert.ok(v&&Date.now()<v.wall+30000&&performance.now()<v.elapsed+30000,'PUBLIC_DEFI_MIXED_INITIALIZATION_VALIDATION_EXPIRED');assert.strictEqual(p.pending?.token,token);assert.ok(p.pending.delivered&&g.active);assert.equal(g.index,p.receipts.size,'PUBLIC_DEFI_MIXED_RECEIPT_ORDER');assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,p.parent);assertOriginalSepoliaUniswapTargetSystemV4(runtime,p.target);assert.strictEqual(readOriginalSepoliaUniswapTargetSourceBindingV4(runtime,p.target).parent,p.parent);for(const [owner,system,name]of [[Aave,p.aaveTarget,'Aave'],[Morpho,p.morphoTarget,'MorphoV2']]){const b=owner['readOriginal'+name+'SepoliaTargetBindingV4'](runtime,system);assert.strictEqual(b.parent,p.parent);assert.strictEqual(b.uniswapTarget,p.target);assert.equal(system.keysetId,runtime.metadata.keysetId);assert.equal(system.account,runtime.accounts[0]);}assertOriginalPagedSepoliaSourcePolicyBirthV5(runtime,p.policySHA256);assert.equal(hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),v.policySHA256,'PUBLIC_DEFI_MIXED_INITIALIZATION_POLICY_CHANGED');assert.equal(readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId,v.epochId,'PUBLIC_DEFI_MIXED_INITIALIZATION_EPOCH_CHANGED');assert.equal(p.data.keysetId,runtime.metadata.keysetId);assert.equal(g.data.sender,runtime.accounts[0]);return p;};
+ let p=current();await runtime.assertCanonical(g.validation.head);p=current();return freeze({profile:'ORIGINAL_PUBLIC_SEPOLIA_DEFI_MIXED_SOURCE_CONSTRUCTOR_V8',plan:p.data,constructor:g.data});
+}
+export async function consumeOriginalSepoliaDefiMixedSourceInitializationDispatchV8(runtime,token){
+ assert.equal(arguments.length,2);const data=await readOriginalSepoliaDefiMixedSourceInitializationDispatchV8(runtime,token),g=constructors.get(token);assert.ok(!g.signConsumed&&!g.observationOnly,'PUBLIC_DEFI_MIXED_SIGN_ALREADY_CONSUMED');g.signConsumed=true;return data;
 }
 export async function consumeOriginalSepoliaDefiMixedSourceInitializationV8(runtime,token){
  const data=await readOriginalSepoliaDefiMixedSourceInitializationV8(runtime,token);assert.deepEqual(consumeOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);return data;

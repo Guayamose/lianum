@@ -12,7 +12,7 @@ import {readFixedAaveSepoliaPrimaryDataV4} from './aave-sepolia-primary-v4.mjs';
 import {loadFlatVerifierArtifacts} from '../system/deployment-artifacts.mjs';
 import {assertOriginalSepoliaUniswapTargetReadyV4,readOriginalSepoliaUniswapTargetSourceBindingV4} from '../../local/sepolia-uniswap-target-kernel-v4.mjs';
 import {assertOriginalFundedPagedGraphSepoliaWalletV4} from '../../local/funded-graph-paged-public-kernel-v4.mjs';
-import {readOriginalPagedSepoliaSourceLaneV4,assertOriginalPagedSepoliaSourcePolicyBirthV5} from '../../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
+import {readOriginalPagedSepoliaSourceLaneV4,readOriginalPagedSepoliaSourceFinancialHistoryV5,assertOriginalPagedSepoliaSourcePolicyBirthV5} from '../../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
 import {assertOriginalAaveSepoliaVenueV4,readOriginalAaveSepoliaVenueV4} from '../../../chains/evm/vault/aave-sepolia-original-v4.mjs';
 import {deriveNativeRuntimeCode,predictNativeCreateAddress,nativeStaticArguments} from '../../../execution/native/dispatch/native-deployment.mjs';
 import {derivePrivateAssetIdentity} from '@lianum/engine/notes/private-asset-runtime';
@@ -61,7 +61,22 @@ export function issueOriginalAaveSepoliaInitializationV4(runtime,plan,index){
  assert.equal(arguments.length,3);const p=original(runtime,plan);request(p,index);assert.equal(index,p.receipts.size,'AAVE_SEPOLIA_INITIALIZATION_ORDER');if(p.issued.has(index))return p.issued.get(index);const token=Object.freeze(Object.create(null));tokens.set(token,{runtime,plan,index,consumed:false,observationOnly:p.reopening!==null&&(!p.resumeInitialization||index<p.reopening.receipts.length)});p.issued.set(index,token);return token;
 }
 export async function readOriginalAaveSepoliaInitializationV4(runtime,token){
- assert.equal(arguments.length,2);const g=tokens.get(token);assert.ok(g?.runtime===runtime,'AAVE_SEPOLIA_ORIGINAL_INITIALIZATION');const p=original(runtime,g.plan);assert.equal(g.index,p.receipts.size,'AAVE_SEPOLIA_INITIALIZATION_ORDER');await assertOriginalSepoliaUniswapTargetReadyV4(runtime,p.uniswapTarget);await readOriginalAaveSepoliaVenueV4(p.venue,'latest');original(runtime,g.plan);assert.equal(g.index,p.receipts.size);return freeze({profile:'ORIGINAL_AAVE_SEPOLIA_INITIALIZATION_V4',plan:p.data,index:g.index,...request(p,g.index)});
+ assert.equal(arguments.length,2);const g=tokens.get(token);assert.ok(g?.runtime===runtime,'AAVE_SEPOLIA_ORIGINAL_INITIALIZATION');const p=original(runtime,g.plan);assert.equal(g.index,p.receipts.size,'AAVE_SEPOLIA_INITIALIZATION_ORDER');await assertOriginalSepoliaUniswapTargetReadyV4(runtime,p.uniswapTarget);const view=await readOriginalAaveSepoliaVenueV4(p.venue,'latest');original(runtime,g.plan);assert.equal(g.index,p.receipts.size);g.validation={head:freeze(structuredClone(view.head)),wall:Date.now(),elapsed:performance.now(),policySHA256:sha(JSON.stringify(readOriginalPagedSepoliaSourceLaneV4(runtime).policy)),epochId:readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId};return freeze({profile:'ORIGINAL_AAVE_SEPOLIA_INITIALIZATION_V4',plan:p.data,index:g.index,...request(p,g.index)});
+}
+/** Only the full Original reader above can mint this private, bounded
+ * validation checkpoint. Dispatch never refreshes it or accepts caller DATA. */
+export async function prepareOriginalAaveSepoliaInitializationDispatchV8(runtime,token){
+ assert.equal(arguments.length,2);const g=tokens.get(token);assert.ok(g?.runtime===runtime,'AAVE_SEPOLIA_ORIGINAL_INITIALIZATION');
+ if(!g.validation||Date.now()>=g.validation.wall+30000||performance.now()>=g.validation.elapsed+30000)await readOriginalAaveSepoliaInitializationV4(runtime,token);
+ return readOriginalAaveSepoliaInitializationDispatchV8(runtime,token);
+}
+export async function readOriginalAaveSepoliaInitializationDispatchV8(runtime,token){
+ assert.equal(arguments.length,2);const g=tokens.get(token);assert.ok(g?.runtime===runtime,'AAVE_SEPOLIA_ORIGINAL_INITIALIZATION');
+ const current=()=>{const p=original(runtime,g.plan),v=g.validation;assert.ok(v&&Date.now()<v.wall+30000&&performance.now()<v.elapsed+30000,'AAVE_SEPOLIA_INITIALIZATION_VALIDATION_EXPIRED');assert.equal(g.index,p.receipts.size,'AAVE_SEPOLIA_INITIALIZATION_ORDER');assert.equal(p.data.keysetId,runtime.metadata.keysetId,'AAVE_SEPOLIA_INITIALIZATION_KEYSET');assert.equal(p.data.account,runtime.accounts[0],'AAVE_SEPOLIA_INITIALIZATION_ACCOUNT');assert.strictEqual(readOriginalSepoliaUniswapTargetSourceBindingV4(runtime,p.uniswapTarget).parent,p.parent);assert.equal(sha(JSON.stringify(readOriginalPagedSepoliaSourceLaneV4(runtime).policy)),v.policySHA256,'AAVE_SEPOLIA_INITIALIZATION_POLICY_CHANGED');assert.equal(readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId,v.epochId,'AAVE_SEPOLIA_INITIALIZATION_EPOCH_CHANGED');return p;};
+ let p=current();await runtime.assertCanonical(g.validation.head);p=current();return freeze({profile:'ORIGINAL_AAVE_SEPOLIA_INITIALIZATION_V4',plan:p.data,index:g.index,...request(p,g.index)});
+}
+export async function consumeOriginalAaveSepoliaInitializationDispatchV8(runtime,token){
+ assert.equal(arguments.length,2);const g=tokens.get(token);assert.ok(g?.runtime===runtime&&!g.consumed&&!g.observationOnly,'AAVE_SEPOLIA_INITIALIZATION_ONE_USE');const data=await readOriginalAaveSepoliaInitializationDispatchV8(runtime,token);assert.ok(!g.consumed,'AAVE_SEPOLIA_INITIALIZATION_ONE_USE');g.consumed=true;original(runtime,g.plan).signed.add(g.index);return data;
 }
 export async function consumeOriginalAaveSepoliaInitializationV4(runtime,token){
  assert.equal(arguments.length,2);const g=tokens.get(token);assert.ok(g?.runtime===runtime&&!g.consumed&&!g.observationOnly,'AAVE_SEPOLIA_INITIALIZATION_ONE_USE');const data=await readOriginalAaveSepoliaInitializationV4(runtime,token);assert.ok(!g.consumed,'AAVE_SEPOLIA_INITIALIZATION_ONE_USE');g.consumed=true;original(runtime,g.plan).signed.add(g.index);return data;
