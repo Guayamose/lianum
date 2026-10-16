@@ -1,6 +1,7 @@
 /** Explicit finite operator review and EMPTY Source4/7 replacement through the
  * same live Original composition. No Native-only recovery or synthetic state. */
 import assert from 'node:assert/strict';
+import {publicErrorDataV9} from './public-error-data-v9.mjs';
 import {createHash} from 'node:crypto';
 import {join,resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -46,7 +47,7 @@ try{
  await publishCapturedPublicSepoliaDefiV8(root,configuration,phoneKey,connections);
  const receipt={profile:periodOnly?'ORIGINAL_PUBLIC_OPERATOR_PERIOD_RENEWAL_RECEIPT_V9':'ORIGINAL_PUBLIC_EMPTY_SOURCE_RENEWAL_RECEIPT_V9',intentId:intent.intentId,expiresAt:after.effectivePolicy.expiresAt,roles:renewal?.renewedSources.map(s=>s.role).sort()??[],sourceRows:sourceAfter.operations.length,sourceRowsSHA256:sha(sourceAfter.operations),financialTransactions:0,rootAndPhonePreserved:true};await createSamePrivateJSON((periodOnly?'empty-source-period-ack-':'empty-source-renewal-ack-')+intent.intentId+'.json',receipt);emit({stage:periodOnly?'OPERATOR_PERIOD_RENEWED_AND_CAPTURED':'EMPTY_SOURCES_RENEWED_AND_CAPTURED',...receipt});
 }catch(error){
- process.exitCode=1;const first=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';emit({stage:'EMPTY_SOURCE_RENEWAL_FAILED',reason:/^[A-Z][A-Z0-9_]{1,120}$/.test(first)?first:'ORIGINAL_RENEWAL_REJECTED',errorClass:['TypeError','ReferenceError','AssertionError','RangeError','SyntaxError','AggregateError','Error'].includes(error?.name)?error.name:null,locations:String(error?.stack??'').split('\n').filter(line=>/^\s+at /.test(line)).slice(0,8).map(line=>line.match(/([a-z0-9-]+\.mjs:\d+:\d+)\)?$/i)?.[1]).filter(Boolean),automaticRetry:false});
+ process.exitCode=1;emit({stage:'EMPTY_SOURCE_RENEWAL_FAILED',...publicErrorDataV9(error),automaticRetry:false});
 }finally{
  try{await product?.close();}catch{process.exitCode=1;emit({stage:'EMPTY_SOURCE_CAPTURE_UNCONFIRMED',automaticRetry:false});}
  if(ingress)(await load('packages/backend/src/api/mobile/paged-remote-ingress-binding-v4.mjs')).closeOriginalPagedRemoteIngressBindingV4(ingress);
