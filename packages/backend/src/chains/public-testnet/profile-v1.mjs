@@ -9,7 +9,7 @@ import {nativeAdmissionChainDomain,nativeAdmissionRuleCommitment} from '@lianum/
 
 export const PUBLIC_PAGED_TESTNET_PROFILE_V1='PAGED_PUBLIC_TESTNET_RPC_PROVIDER_V1';
 export const PUBLIC_PAGED_TESTNET_DEFAULTS_V1=Object.freeze({networks:Object.freeze([
- Object.freeze({id:'ethereum-sepolia',endpoint:'https://sepolia.drpc.org'}),
+ Object.freeze({id:'ethereum-sepolia',endpoint:'https://gateway.tenderly.co/public/sepolia'}),
  Object.freeze({id:'bitcoin-testnet',endpoint:'https://mempool.space/testnet/api',feeProvider:'MEMPOOL'}),
  Object.freeze({id:'solana-devnet',endpoint:'https://api.devnet.solana.com'}),
 ])});
