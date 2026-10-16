@@ -64,6 +64,15 @@ BODY
   out,err=self.fixture("""const c=await openOriginalPublicFinancialEpochControlV5(product,()=>{throw Error('HOST_CALLBACK_MUST_NOT_RUN');});process.emit('SIGUSR1');await c.refresh();await saveReview(review,0o644);process.emit('SIGUSR1');await c.refresh();await saveReview({...review,privateKey:'HOST_FORBIDDEN'});process.emit('SIGUSR1');await c.refresh();assert.equal(counts.signed,0);assert.equal(counts.calls,0);await c.close();""")
   self.assertNotIn('FINANCIAL_EPOCH_AUTHORIZED',out);self.assertNotIn('HOST_FORBIDDEN',err);self.assertEqual(err.count('FINANCIAL_EPOCH_REVIEW_FAILED'),3)
 
+ def test_optional_mixed_quota_reaches_original_issuer_and_replay_without_defaulting_legacy(self):
+  for value in ['1','2','16']:
+   with self.subTest(value=value):
+    out,err=self.fixture("""review.limits.maximumTotalMixedSources=VALUE;const c=await openOriginalPublicFinancialEpochControlV5(product,()=>{});await saveReview();process.emit('SIGUSR1');await c.refresh();process.emit('SIGUSR1');await c.refresh();assert.equal(counts.calls,2);assert.equal(counts.signed,1);const state=JSON.parse(await readFile(directory+'/financial-epoch-state-v5.json','utf8'));assert.deepEqual(state.limits,review.limits);assert.equal(state.limits.maximumTotalMixedSources,VALUE);assert.equal(Object.hasOwn(state.effectivePolicy,'maximumTotalMixedSources'),false);await c.close();""".replace('VALUE',json.dumps(value)))
+    self.assertEqual(err,'');self.assertEqual(out.count('FINANCIAL_EPOCH_AUTHORIZED'),2)
+ def test_mixed_quota_bounds_types_unknown_fields_and_required_legacy_fields_are_rejected_before_issuer(self):
+  out,err=self.fixture("""const c=await openOriginalPublicFinancialEpochControlV5(product,()=>{});const base={...review.limits};const invalid=['0','17','-1','02','1.5','1e1',null,true,2,''];for(const value of invalid){await saveReview({...review,limits:{...base,maximumTotalMixedSources:value}});process.emit('SIGUSR1');await c.refresh();}await saveReview({...review,limits:{...base,maximumTotalMixedSources:'2',unexpectedQuota:'1'}});process.emit('SIGUSR1');await c.refresh();await saveReview({...review,limits:{maximumTotalMixedSources:'2',maximumTotalSuccessorPools:'2'}});process.emit('SIGUSR1');await c.refresh();assert.equal(counts.calls,0);assert.equal(counts.signed,0);await assert.rejects(ack);await c.close();""")
+  self.assertNotIn('FINANCIAL_EPOCH_AUTHORIZED',out);self.assertEqual(err.count('FINANCIAL_EPOCH_REVIEW_FAILED'),12)
+
 class CapturedControl(unittest.TestCase):
  fixture=PrivateEpochControl.fixture
  def test_cold_authorized_and_lost_ack_replay_preserve_fixed_review(self):

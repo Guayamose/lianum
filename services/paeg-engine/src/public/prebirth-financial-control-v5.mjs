@@ -40,7 +40,7 @@ export async function readPendingPrebirthFinancialReviewV5(){
   const review=JSON.parse(bytes.toString('utf8'));exact(review,['intentId','expectedCheckpoint','expectedEpochId','policy','limits']);
   assert.ok(hex(review.intentId)&&(review.expectedEpochId===null||hex(review.expectedEpochId)),'PAEG_PREBIRTH_REVIEW_ID');assert.ok(review.expectedCheckpoint&&typeof review.expectedCheckpoint==='object'&&!Array.isArray(review.expectedCheckpoint));
   const data=await original('packages/backend/src/chains/public-testnet/sepolia-source-financial-epoch-data-v5.mjs');data.normalizeSourceFinancialPolicyDataV5(review.policy);
-  exact(review.limits,['maximumTotalSuccessorPools','maximumSourcesPerWallet']);for(const value of Object.values(review.limits))assert.ok(typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=16n,'PAEG_PREBIRTH_REVIEW_QUOTA');
+  exact(review.limits,['maximumTotalSuccessorPools','maximumSourcesPerWallet',...(Object.hasOwn(review.limits??{},'maximumTotalMixedSources')?['maximumTotalMixedSources']:[])]);for(const value of Object.values(review.limits))assert.ok(typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=16n,'PAEG_PREBIRTH_REVIEW_QUOTA');
   return review;
  }finally{bytes?.fill(0);}
 }

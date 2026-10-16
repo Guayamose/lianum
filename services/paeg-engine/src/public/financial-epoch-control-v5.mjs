@@ -15,7 +15,7 @@ const exact=(x,fields)=>{assert.ok(x&&typeof x==='object'&&!Array.isArray(x),'PA
 function reviewData(raw,normalizePolicy){
  exact(raw,['intentId','expectedCheckpoint','expectedEpochId','policy','limits']);assert.ok(hex(raw.intentId)&& (raw.expectedEpochId===null||hex(raw.expectedEpochId)),'PAEG_FINANCIAL_REVIEW_ID');
  assert.ok(raw.expectedCheckpoint&&typeof raw.expectedCheckpoint==='object'&&!Array.isArray(raw.expectedCheckpoint),'PAEG_FINANCIAL_REVIEW_CHECKPOINT');
- normalizePolicy(raw.policy);exact(raw.limits,['maximumTotalSuccessorPools','maximumSourcesPerWallet']);for(const value of Object.values(raw.limits))assert.ok(typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=16n,'PAEG_FINANCIAL_REVIEW_QUOTA');return raw;
+ normalizePolicy(raw.policy);exact(raw.limits,['maximumTotalSuccessorPools','maximumSourcesPerWallet',...(Object.hasOwn(raw.limits??{},'maximumTotalMixedSources')?['maximumTotalMixedSources']:[])]);for(const value of Object.values(raw.limits))assert.ok(typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=16n,'PAEG_FINANCIAL_REVIEW_QUOTA');return raw;
 }
 async function replacePrivateState(name,bytes){
  assert.ok(name===FINANCIAL_EPOCH_STATE_FILE_V5&&Buffer.isBuffer(bytes)&&bytes.length>0&&bytes.length<=65536,'PAEG_FINANCIAL_STATE_BYTES');await assertPrivateOperatorDirectoryV4(PUBLIC_OPERATOR_STATE_V4);
