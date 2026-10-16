@@ -4,7 +4,7 @@ Actualizado el 16 de octubre de 2026. La cartera pública y el recorrido privado
 PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
 
-## Actualización operativa del 16 de octubre, 05:39 UTC
+## Actualización operativa del 16 de octubre, 05:52 UTC
 
 **El punto 3 sigue abierto.** La API tiene instalada la versión
 `613cb7956a2a34c356330ee8378fa1d9d48cb600060f9984e41bd938b124fa76` y su
@@ -38,9 +38,17 @@ copia DATA como sistema Original. El proceso está parado, no ha emitido `READY`
 La corrección está en el commit `ca121848`; la regresión nueva reproduce el
 rechazo anterior y pasa junto a otras siete comprobaciones en 13 segundos.
 La generación corregida está preparada; todavía no está instalada.
-La lectura autenticada posterior al fallo conserva Native y Uniswap en
-`CAPTURED`, DeFi en `OPENING`, las dos cuentas y el presupuesto común retenidos.
-Hay que reanudar ese mismo estado con el código corregido, capturarlo e instalar
+La recuperación con esa corrección encontró otro rechazo: el contador de
+reaperturas del supervisor no permitía pasar de 15 a 16. El commit `538b71a0`
+corrige los contadores Root, Uniswap y DeFi, validando incrementos antes de
+escribir y sin modificar permisos, presupuestos ni plazos. Las regresiones
+cruzan 15→16→17 y 1023→1024, y comprueban que overflow no altera los archivos.
+La generación preparada ahora es
+`3742854cf5aa68b078a97f35e31b617b1942a5dff770a6d5df8f1b38030ca830`.
+La lectura autenticada posterior conserva Native, Uniswap y DeFi en `OPENING`,
+las dos cuentas y el presupuesto común retenidos. Las siete cuentas inspeccionadas
+no tienen trabajos financieros pendientes ni automatizaciones que se despierten.
+Hay que reanudar ese mismo estado con ambas correcciones, capturarlo e instalar
 la versión nueva. La disponibilidad de `/health` sólo acredita la API.
 
 Se corrigieron el orden de activación previo a abrir HTTP, la reapertura con
