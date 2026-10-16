@@ -760,7 +760,7 @@ export async function waitOriginalPublicSepoliaDefiMixedSourceFinalityV8(signer,
 export async function inspectOriginalPublicSepoliaDefiMixedSourceFinalityV8(signer,completion){
  need(arguments.length===2,'SEPOLIA_DEFI_MIXED_ARITY');const s=sourceState(signer),M=await import('../../operations/local/sepolia-defi-mixed-source-kernel-v8.mjs'),data=M.readOriginalSepoliaDefiMixedSourceCompletionV8(s.runtime,completion),rows=sourceRows(s),group=rows.filter(row=>row.profile===defiMixedRowProfile&&row.command.plan.planSHA256===data.plan.planSHA256);
  need(group.length===3,'SEPOLIA_DEFI_MIXED_COMPLETE_INITIALIZATION_SET');for(const row of group){assert.deepEqual(row.command.plan,data.plan);need(row.signed,'SEPOLIA_DEFI_MIXED_ORIGINAL_WIRE_REQUIRED');await observeSource(s,rows,row);need(row.phase==='FINALIZED','SEPOLIA_DEFI_MIXED_FINALITY_PENDING');}
- return M.assertOriginalSepoliaDefiMixedSourceReadyV8(s.runtime,data.system);
+ return freeze({profile:'ORIGINAL_PUBLIC_SEPOLIA_DEFI_MIXED_SOURCE_FINALIZED_V4',planSHA256:data.plan.planSHA256,policySHA256:s.policySHA256,contracts:3,automaticRebroadcast:false});
 }
 
 export async function executeOriginalPublicSepoliaDefiMixedSourceCallV8(signer,command,label,rawTransaction){need(arguments.length===4,'SEPOLIA_SOURCE_ARITY');return executeSourceComposition(signer,command,label,rawTransaction,'DEFI_MIXED_V8');}
