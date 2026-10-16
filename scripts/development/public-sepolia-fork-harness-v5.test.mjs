@@ -12,6 +12,14 @@ import {linuxRuntimePins} from '../../packages/engine/src/chains/shared/linux-ru
 import {publicPagedAccountFromKeyV1} from '../../packages/backend/src/chains/public-testnet/wire-v1.mjs';
 import * as H from './public-sepolia-fork-harness-v5.mjs';
 
+test('owned fork captures both explicit product RPC routes and rejects lookalikes',()=>{
+ for(const endpoint of ['https://sepolia.drpc.org','https://gateway.tenderly.co/public/sepolia']){
+  assert.equal(H.isPublicSepoliaForkProductEndpointV5(endpoint),true);assert.equal(H.isPublicSepoliaForkProductEndpointV5(endpoint+'/'),true);
+  for(const suffix of ['?key=anything','/private','.invalid'])assert.equal(H.isPublicSepoliaForkProductEndpointV5(endpoint+suffix),false);
+ }
+ for(const value of [null,{},'https://user:password@sepolia.drpc.org','https://gateway.tenderly.co/public/ethereum'])assert.equal(H.isPublicSepoliaForkProductEndpointV5(value),false);
+});
+
 test('owned Sepolia fork executes the same signed creation wire and actual bytecode; upstream remains read-only',{timeout:180000},async()=>{
  let fork;const key=randomBytes(32);
  try{

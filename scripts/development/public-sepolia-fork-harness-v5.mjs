@@ -10,8 +10,16 @@ import {join,resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {pinnedBinary,unusedLoopbackPort,startOwnProcess,stopOwnProcess,sleep} from '../../packages/engine/src/chains/shared/runtime-harness.mjs';
 import {linuxRuntimePins} from '../../packages/engine/src/chains/shared/linux-runtime-pins.mjs';
+import {PUBLIC_SEPOLIA_RPC_ROUTE_V1} from '../../packages/backend/src/native-wallet/public-testnet-rpc-route-v1.mjs';
+import {waitPublicSepoliaReadTurnV1} from '../../packages/backend/src/native-wallet/public-read-rpc-scheduler-v1.mjs';
 
-const fetchOriginal=globalThis.fetch,owners=new WeakMap(),UPSTREAM='https://sepolia.drpc.org';
+const fetchOriginal=globalThis.fetch,owners=new WeakMap(),UPSTREAM=PUBLIC_SEPOLIA_RPC_ROUTE_V1.effectiveEndpoint;
+/** Match only the two explicit product routes, so owned acceptance wires never
+ * escape to the public RPC after the retained endpoint is resolved. */
+export function isPublicSepoliaForkProductEndpointV5(endpoint){
+ if(typeof endpoint!=='string')return false;
+ return [PUBLIC_SEPOLIA_RPC_ROUTE_V1.retainedEndpoint,PUBLIC_SEPOLIA_RPC_ROUTE_V1.effectiveEndpoint].some(value=>endpoint===value||endpoint===value+'/');
+}
 const GENESIS='0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9';
 const upstreamMethods=new Set(['eth_chainId','net_version','web3_clientVersion','eth_blockNumber','eth_getBlockByNumber','eth_getBlockByHash','eth_getCode','eth_getBalance','eth_getStorageAt','eth_getProof','eth_getTransactionCount','eth_getTransactionByHash','eth_getTransactionReceipt','eth_getLogs','eth_call','eth_getBlockReceipts','eth_getBlockAccessList']);
 const productMethods=new Set([...upstreamMethods,'eth_estimateGas','eth_maxPriorityFeePerGas','eth_gasPrice','eth_sendRawTransaction']);
@@ -19,7 +27,7 @@ const readMethods=new Set([...upstreamMethods,'eth_maxPriorityFeePerGas','eth_ga
 function packet(value){assert.ok(value&&Object.getPrototypeOf(value)===Object.prototype);assert.equal(value.jsonrpc,'2.0');assert.ok(typeof value.method==='string'&&(!Object.hasOwn(value,'params')||Array.isArray(value.params)));assert.ok(Object.keys(value).every(key=>['jsonrpc','id','method','params'].includes(key)));return value;}
 async function jsonBody(req){const parts=[];let size=0;for await(const part of req){size+=part.length;assert.ok(size<=4*1024*1024,'FORK_REQUEST_LIMIT');parts.push(part);}return JSON.parse(Buffer.concat(parts));}
 function reply(res,value,status=200){const bytes=Buffer.from(JSON.stringify(value));assert.ok(bytes.length<=8*1024*1024);res.writeHead(status,{'Content-Type':'application/json','Content-Length':bytes.length});res.end(bytes);}
-async function remote(body){const response=await fetchOriginal(UPSTREAM,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(30000)});assert.equal(response.status,200,'FORK_UPSTREAM_HTTP');const text=await response.text();assert.ok(Buffer.byteLength(text)<=8*1024*1024);return JSON.parse(text);}
+async function remote(body){const signal=AbortSignal.timeout(30000);await waitPublicSepoliaReadTurnV1(UPSTREAM,signal);const response=await fetchOriginal(UPSTREAM,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),redirect:'error',signal});assert.equal(response.status,200,'FORK_UPSTREAM_HTTP');const text=await response.text();assert.ok(Buffer.byteLength(text)<=8*1024*1024);return JSON.parse(text);}
 function live(handle){const s=owners.get(handle);assert.ok(s&&!s.closed,'FORK_ORIGINAL_OWNED_PROCESS');assert.ok(!s.miningFailure,'FORK_WALLCLOCK_MINING_FAILED');s.process.assertAlive();return s;}
 
 async function savedState(path){
