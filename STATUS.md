@@ -1,10 +1,63 @@
 # Estado actual
 
-Actualizado el 16 de octubre de 2026. La cartera pública y el recorrido privado
-PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
+Actualizado el 16 de octubre de 2026. La API pública, el motor de ejecución remoto y la app móvil
+tienen instalaciones y evidencias distintas. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
 
-## Actualización operativa del 16 de octubre, 05:52 UTC
+## Revisión del 16 de octubre, 14:17 UTC — cierre en curso
+
+**El motor remoto sigue sin estar disponible.** La API conserva la versión
+`613cb7956a2a34c356330ee8378fa1d9d48cb600060f9984e41bd938b124fa76` y dos
+conexiones publicadas. El motor conserva instalada `5de34ba4…`; su servicio
+normal está parado mientras se recupera la composición Original completa.
+
+El código revisado está preparado en el paquete
+`f26df0dc6f4fa11dfe749749f0f335b4aa76ed24f3f6c96ca3974e02a992b620`,
+generación `1964e3cce78426c00bdecf120d8e3d5aacd2c552d1345ceb1b94a6b3241f3c58`.
+Contratos y recursos ZK son idénticos a los instalados. No está instalado todavía.
+
+Cambios que sí están implementados y comprobados:
+
+- Cobro automático del ejecutor dentro de los términos previamente autorizados,
+  con beneficiario, límite y plazo fijados; conserva un solo envío ante pérdida de ACK.
+- Retirada autorizada de notas de Source4/7 caducadas, recuperación del mismo
+  trabajo tras reapertura y separación de los permisos de lectura y retirada.
+- Recuperación de Root, Uniswap y DeFi mediante sus propietarios Originales,
+  con captura conjunta y conservación de los historiales y permisos anteriores.
+- Custodia móvil por sesión: la nueva recuperación reutiliza la custodia abierta
+  y evita otra escritura de ROOT que Android volvería a proteger con huella.
+- Lecturas de Sepolia escalonadas: comprobación desde la VM con 16 consultas,
+  16 respuestas HTTP 200 y ningún envío financiero.
+- Corrección de la publicación de metadatos de cuentas históricas y retiradas
+  terminadas. El caso con pruebas ZK reales confirmó dos ingresos y encontró
+  `s.storageDescriptor is not a function` al reabrir; la corrección está en
+  `68115cc6` y el caso real se está repitiendo. No equivale a identificar la
+  causa del fallo intermitente antiguo atribuido provisionalmente a `STALE_EPOCH`.
+
+`./dev check` pasa: 491 comprobaciones rápidas, imports, tipos y límites de
+módulos. No se ha repetido la batería completa ni los pagos públicos ya aceptados.
+La composición completa con cadena HOST pasó en 353 segundos; esto no sustituye
+la comprobación de esta instalación pública ni la de Android.
+
+El periodo firmado actual es el 4 y vence a las 15:00 UTC. Se prepara una nueva
+revisión finita de nueve horas, manteniendo los límites monetarios y las reservas;
+las cuentas vacías usarán la cuota explícita de tres generaciones por wallet.
+Los permisos personales anteriores conservan sus plazos. El arranque en frío
+está siendo lento por las comprobaciones contra los RPC públicos.
+
+Falta terminar la captura, firmar esa revisión mediante los controles Originales,
+reabrir las cuentas vacías, instalar el paquete revisado, arrancar el motor,
+publicar cinco conexiones y comprobar las rutas públicas con su certificado fijado.
+La instalación queda bloqueada hasta que pase el caso histórico con pruebas reales.
+El APK preparado tiene SHA256
+`589eb6aa7f6206ba2459f7ed2b392eeb25d17b7f4753b4051e853228f0ddd8c4`;
+aún no está instalado ni comprobado en el teléfono. MoonPay, el agente y el diseño
+final de la app siguen fuera de este cierre.
+
+Los apartados siguientes son registros históricos; no describen la situación
+operativa de este corte.
+
+## Registro operativo del 16 de octubre, 05:52 UTC
 
 **El punto 3 sigue abierto.** La API tiene instalada la versión
 `613cb7956a2a34c356330ee8378fa1d9d48cb600060f9984e41bd938b124fa76` y su
