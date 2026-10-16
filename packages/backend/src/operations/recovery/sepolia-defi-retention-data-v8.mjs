@@ -12,6 +12,18 @@ const CHUNK=384*1024,MAX_BYTES=32*1024*1024,copy=structuredClone,sha=v=>createHa
 const freeze=v=>{if(v&&typeof v==='object'&&!Object.isFrozen(v)){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};
 function exact(v,keys){assert.ok(v&&Object.getPrototypeOf(v)===Object.prototype,'SEPOLIA_DEFI_RETENTION_OBJECT');assert.deepEqual(Reflect.ownKeys(v).sort(),[...keys].sort(),'SEPOLIA_DEFI_RETENTION_FIELDS');for(const k of keys)assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(v,k),'value'),'SEPOLIA_DEFI_RETENTION_ACCESSOR');return v;}
 function hex(v){assert.match(v,/^[0-9a-f]{64}$/);assert.notEqual(v,'0'.repeat(64));return v;}
+/** Durable binding emitted only by the protected interrupted-opening sealer.
+ * It records two actual dead actors; it neither impersonates either actor nor
+ * grants a runtime, financial lane, new deadline or component token. */
+export function validateSepoliaDefiInterruptedStorageCaptureV10(data,rootActor=null){
+ const marker=exact(data.interruptedStorageV10,['profile','rootActorSHA256','childActorSHA256']);
+ assert.equal(marker.profile,'ORIGINAL_SEPOLIA_DEFI_INTERRUPTED_STORAGE_CAPTURE_V10');
+ assert.ok(['OPENING','CAPTURED'].includes(data.phase),'SEPOLIA_DEFI_INTERRUPTED_STORAGE_PHASE');
+ hex(marker.rootActorSHA256);hex(marker.childActorSHA256);
+ assert.equal(marker.childActorSHA256,sha(data.activationOwner),'SEPOLIA_DEFI_INTERRUPTED_STORAGE_CHILD_ACTOR');
+ if(rootActor!==null)assert.equal(marker.rootActorSHA256,sha(rootActor),'SEPOLIA_DEFI_INTERRUPTED_STORAGE_ROOT_ACTOR');
+ return marker;
+}
 function protocol(v){assert.ok(['AAVE_STATIC','MORPHO_V2'].includes(v),'SEPOLIA_DEFI_RETENTION_PROTOCOL');return v;}
 async function physical(path){const s=await lstat(path);assert.ok(s.isFile()&&!s.isSymbolicLink()&&s.nlink===1&&s.uid===process.getuid()&&(s.mode&0o777)===0o600&&s.size>0&&s.size<=2*1024*1024,'SEPOLIA_DEFI_RETENTION_PRIVATE_FILE');assert.equal(await realpath(path),path);}
 function snapshot(value,binding){

@@ -7,7 +7,7 @@ import {join,resolve} from 'node:path';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {canonical} from '@lianum/engine/crypto/privacy';
 import {claimOriginalPagedProcessFenceV4,assertOriginalPagedDeadProcessIdentityV4} from './paged-original-process-fence-v4.mjs';
-import {PROFILE,exact,physical,load} from './sepolia-defi-retention-data-v8.mjs';
+import {PROFILE,exact,physical,load,validateSepoliaDefiInterruptedStorageCaptureV10} from './sepolia-defi-retention-data-v8.mjs';
 const copy=structuredClone,sha=v=>createHash('sha256').update(typeof v==='string'||Buffer.isBuffer(v)?v:canonical(v)).digest('hex');
 const freeze=v=>{if(v&&typeof v==='object'&&!Object.isFrozen(v)){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};
 export async function readOriginalSepoliaDefiPrivateCurrentV8(raw){
@@ -16,8 +16,10 @@ export async function readOriginalSepoliaDefiPrivateCurrentV8(raw){
   // retains its previous activation owner until complete(), so an interrupted
   // opening can have a different dead owner. Authenticate the same binding,
   // snapshot and current prefixes, and independently fence that dead child.
-  // ACTIVE/CAPTURED still require the same published process as the Root.
+  // Published activations still require the same process as the Root. An
+  // interrupted storage capture carries its Original sealer binding instead.
   if(d.phase==='OPENING')assert.equal(typeof d.activeRecoveryV8,'boolean','SEPOLIA_DEFI_PRIVATE_CURRENT_ORIGINAL_OPENING');
+  else if(d.interruptedStorageV10)validateSepoliaDefiInterruptedStorageCaptureV10(d,raw.rootActor);
   else for(const key of ['pid','bootId','startTicks'])assert.equal(d.activationOwner[key],raw.rootActor[key],'SEPOLIA_DEFI_PRIVATE_CURRENT_SAME_DEAD_ACTOR');
   await assertOriginalPagedDeadProcessIdentityV4(fence,d.activationOwner);const retained=await load(raw.directory,raw.password,d.snapshot,d.binding),authorities=[];
   for(const anchor of retained.authorities){const protocolDirectory=anchor.protocol==='AAVE_STATIC'?'aave':'morpho-v2',root=join(resolve(raw.directory,'..'),'accounts'),expectedPath=join(root,protocolDirectory,'authority','journal.vault');assert.equal(anchor.journalPath,expectedPath,'SEPOLIA_DEFI_PRIVATE_CURRENT_FIXED_JOURNAL');await physical(expectedPath);const password=sha('LIANUM/PUBLIC/SEPOLIA/DEFI/AUTHORITY/V8\0'+raw.password+'\0'+anchor.protocol+'\0'+anchor.descriptor.devicePublicKey),currentRecord=await new Vault(expectedPath).read(password);const {validateSepoliaDefiAuthorityPrefixDataV8,validateSepoliaDefiActionsPrefixDataV8}=await import('./sepolia-defi-current-prefix-v8.mjs');validateSepoliaDefiAuthorityPrefixDataV8(anchor.journalRecord,currentRecord);const adapterPath=join(root,protocolDirectory,'authority','defi-actions-'+anchor.descriptor.pairingId,anchor.protocol==='AAVE_STATIC'?'aave-operations.aead':'morpho-v2-operations.aead');assert.equal(adapterPath,anchor.adapterCheckpoint.path);await physical(adapterPath);const adapterPassword=sha('LIANUM/SEPOLIA/DEFI/ACTIONS/4\0'+password+'\0'+anchor.descriptor.pairingId),currentAdapterRecord=await new Vault(adapterPath).read(adapterPassword);validateSepoliaDefiActionsPrefixDataV8(anchor.adapterRecord,currentAdapterRecord);authorities.push({retained:copy(anchor),currentRecord,currentAdapterRecord});}

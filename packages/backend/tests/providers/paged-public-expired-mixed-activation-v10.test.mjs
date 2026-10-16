@@ -29,5 +29,11 @@ test('V10 resumes the actual dead expired mixed parent without issuing new finan
   assert.equal(sup.expiredMixedWithdrawalBindingsV10().length,1);
   for(const[path,data]of before)assert.deepEqual(await readFile(path),data,'old financial/OWNER bytes remain identical: '+path);
   assert.equal(forbidden,0);
+  await sup.close();sup=null;
+  const sealed=await M.sealOriginalPagedPublicUniswapMixedDeadStorageV8(input);
+  assert.equal(sealed.phase,'CAPTURED');assert.equal(sealed.parent.phase,'CAPTURED');assert.equal(sealed.transactionsBroadcast,0);assert.equal(sealed.financialSourcePermissionIssued,false);
+  assert.equal((await new Vault(rootFile).read(saved.supervisorInput.password)).data.phase,'CAPTURED');
+  for(const[path,data]of before)assert.deepEqual(await readFile(path),data,'sealing the interrupted opening preserves financial bytes: '+path);
+  assert.equal(forbidden,0);
  }finally{await sup?.close();if(child&&child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit');child.kill('SIGKILL');await exited;}await rm(directory,{recursive:true,force:true});}
 });
