@@ -147,6 +147,27 @@ export async function writeWalletSessionSecret(key:string,value:string,options:S
  }finally{root?.fill(0);aad?.fill(0);value='';rootWrites.delete(scope.scope);}
 }
 
+/** Copy an already unlocked ROOT into a new custody scope as AEAD ciphertext.
+ * The original authenticated ROOT remains in its source scope. No plaintext
+ * duplicate or second per-operation Android Keystore write is created. */
+export async function copyWalletSessionSecretV10(sourceKey:string,sourceOptions:Store.SecureStoreOptions,targetKey:string,targetOptions:Store.SecureStoreOptions):Promise<void>{
+ const own=live(),source=rootScope(sourceKey,sourceOptions),target=rootScope(targetKey,targetOptions);need(source.scope!==target.scope,'MOBILE_WALLET_SESSION_SECRET_SCOPE');
+ const sourceVersion=versions.get(source.scope)??0;let value:string|null=await readWalletSessionSecret(sourceKey,sourceOptions),root:Uint8Array|undefined,aad:Uint8Array|undefined;
+ const sourceCurrent=()=>{current(own);need((versions.get(source.scope)??0)===sourceVersion&&!rootWrites.has(source.scope),'MOBILE_WALLET_SESSION_SECRET_CHANGED');};
+ try{
+  sourceCurrent();need(value!==null,'MOBILE_WALLET_SESSION_SECRET_BINDING');const prior=await Store.getItemAsync(target.name,target.sealedOptions);sourceCurrent();
+  if(prior!==null){need(await readWalletSessionSecret(targetKey,targetOptions)===value,'MOBILE_WALLET_SESSION_SECRET_BINDING');sourceCurrent();return;}
+  need(!rootWrites.has(target.scope)&&!rootWork.has(target.scope),'MOBILE_WALLET_SESSION_SECRET_CHANGED');need(await Store.getItemAsync(targetKey,targetOptions)===null,'MOBILE_WALLET_SESSION_SECRET_BINDING');sourceCurrent();
+  rootWrites.add(target.scope);let targetVersion=versions.get(target.scope)??0;
+  const check=()=>{sourceCurrent();need((versions.get(target.scope)??0)===targetVersion,'MOBILE_WALLET_SESSION_SECRET_CHANGED');};
+  try{
+   await invalidateWalletSessionSecret(targetKey,targetOptions);sourceCurrent();targetVersion=versions.get(target.scope)??0;check();root=Uint8Array.from(value!.match(/../g)!,pair=>parseInt(pair,16));
+   const envelope={format:FORMAT,devicePublicKey:own.publicKey,scopeSHA256:target.scope,legacyRootSHA256:hash(root),sealed:''};aad=associated(envelope);const wrap=await Crypto.AESEncryptionKey.import(own.wrap);check();const sealed=await Crypto.aesEncryptAsync(root,wrap,{nonce:{length:12},tagLength:16,additionalData:aad});check();envelope.sealed=await sealed.combined('base64');check();
+   need(await Store.getItemAsync(target.name,target.sealedOptions)===null,'MOBILE_WALLET_SESSION_SECRET_CHANGED');check();const raw=JSON.stringify(envelope);await Store.setItemAsync(target.name,raw,target.sealedOptions);check();need(await Store.getItemAsync(target.name,target.sealedOptions)===raw,'MOBILE_WALLET_SESSION_SECRET_CHANGED');check();own.roots.set(target.scope,{bytes:new Uint8Array(root),envelope:raw});
+  }finally{rootWrites.delete(target.scope);}
+ }finally{root?.fill(0);aad?.fill(0);value=null;}
+}
+
 /** A password-authenticated joint copy may repair this same locked identity.
  * This one-use capability is never accepted by any signer or ROOT accessor. */
 type JointIdentityRecovery={devicePublicKey:string;identitySHA256:string;packageSHA256:string;signal:AbortSignal;stamp:number;birth:number;used:boolean;closed:boolean;abort:()=>void;timer:ReturnType<typeof setTimeout>};

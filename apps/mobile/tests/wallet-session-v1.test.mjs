@@ -99,12 +99,25 @@ test('one login read, sealed original ROOTs, scoped approvals and fail-closed lo
  await assert.rejects(()=>historicalApi.challenge({...historicalEffect,proofSHA256:sha('other proof')}).then(noteSign),/BINDING/);
  const noteWithdraw=await historicalApi.challenge(historicalEffect);assert.match(await noteSign(noteWithdraw),/^[0-9a-f]{128}$/);await assert.rejects(()=>noteSign(noteWithdraw),/AUTHORIZATION_USED/);assert.equal(bios,noteBio+1);W.closeWalletSessionAuthorizationV1(noteApproval);
 
+ // A derived custody scope stores only session-encrypted bytes; its original
+ // authenticated source remains unchanged. Copies cannot cross invalidation.
+ const aliasName='lianum.device.paged.v3.'+sha('session-derived custody')+'.root',aliasOptions={...options,keychainService:aliasName.slice(0,-5)};
+ await W.copyWalletSessionSecretV10(rootName,options,aliasName,aliasOptions);assert.equal(storage.has(aliasName),false,'no additional per-operation Android authenticated ROOT write');assert.equal(await W.readWalletSessionSecret(aliasName,aliasOptions),replacement);assert.equal(storage.get(rootName),replacement);
+ const aliasStorage=JSON.stringify([...storage]);await W.copyWalletSessionSecretV10(rootName,options,aliasName,aliasOptions);assert.equal(JSON.stringify([...storage]),aliasStorage,'same encrypted copy is idempotent');
+ await assert.rejects(W.copyWalletSessionSecretV10(rootName,options,rootName,options),/SECRET_SCOPE/);await assert.rejects(W.copyWalletSessionSecretV10(rootName,options,aliasName,{...aliasOptions,keychainService:'foreign'}),/SECRET_SCOPE/);
+ const raceAlias='lianum.device.paged.v3.'+sha('interrupted derived custody')+'.root',raceAliasOptions={...options,keychainService:raceAlias.slice(0,-5)},nativeCrypto=await import('expo-crypto');let copyBegin,copyResume;
+ const copyStarted=new Promise(resolve=>copyBegin=resolve),copyGate=new Promise(resolve=>copyResume=resolve),originalImport=nativeCrypto.AESEncryptionKey.import;
+ const intercepted=t.mock.method(nativeCrypto.AESEncryptionKey,'import',async function(...args){copyBegin();await copyGate;return originalImport.apply(this,args);});
+ try{const pendingCopy=W.copyWalletSessionSecretV10(rootName,options,raceAlias,raceAliasOptions);await copyStarted;await W.invalidateWalletSessionSecret(rootName,options);copyResume();await assert.rejects(pendingCopy,/SECRET_CHANGED/);assert.equal(storage.has(raceAlias),false);}finally{copyResume();intercepted.mock.restore();}
+ assert.equal(await W.readWalletSessionSecret(rootName,options),replacement);
+
  // A pending migration cannot commit old ROOT bytes across invalidation.
  const racedName='lianum.device.paged.graph.v3.'+sha('raced namespace')+'.root',raceOptions={...options,keychainService:racedName.slice(0,-5)};storage.set(racedName,'56'.repeat(32));let begin,finish;const started=new Promise(resolve=>begin=resolve),gate=new Promise(resolve=>finish=resolve);releaseRoot={key:racedName,started:begin,gate};const pending=W.readWalletSessionSecret(racedName,raceOptions);await started;await W.invalidateWalletSessionSecret(racedName,raceOptions);storage.set(racedName,'78'.repeat(32));finish();await assert.rejects(()=>pending,/SECRET_CHANGED/);releaseRoot=null;
  assert.equal(await W.readWalletSessionSecret(racedName,raceOptions),'78'.repeat(32));
 
  const readsBeforeLock=count(privateSlot),rootReadsBeforeLock=count(rootName),bioBeforeLock=bios;W.lockWalletSessionV1();assert.equal(W.walletSessionStatusV1().managed,true);assert.equal(W.walletSessionStatusV1().active,false);
  await assert.rejects(()=>W.readWalletSessionSecret(rootName,options),/LOCKED/);await assert.rejects(async()=>vault.summary(),/LOCKED/);await assert.rejects(()=>W.signWalletSessionPagedOwnerV1(consent,descriptor.origin,descriptor.pairingId),/LOCKED/);assert.equal(count(privateSlot),readsBeforeLock);assert.equal(count(rootName),rootReadsBeforeLock);assert.equal(bios,bioBeforeLock,'lock never silently reopens native authentication');
+ await assert.rejects(()=>W.copyWalletSessionSecretV10(rootName,options,aliasName,aliasOptions),/LOCKED/);
  await W.openWalletSessionV1();assert.equal(count(privateSlot),2);assert.equal(await W.readWalletSessionSecret(rootName,options),replacement);assert.equal(count(rootName),rootReadsBeforeLock,'subsequent logins decrypt the preserved sealed ROOT');
  app.currentState='background';for(const callback of appListeners)callback('background');assert.equal(W.walletSessionStatusV1().active,false);await assert.rejects(()=>W.openWalletSessionV1(),/LOCKED/);assert.equal(count(privateSlot),2);app.currentState='active';
  await W.openWalletSessionV1();assert.equal(count(privateSlot),3);await W.readWalletSessionSecret(rootName,options);t.mock.timers.tick(15*60*1000);assert.equal(W.walletSessionStatusV1().active,false,'normal ROOT reads do not renew the idle timer');await assert.rejects(()=>W.readWalletSessionSecret(rootName,options),/LOCKED/);assert.equal(count(privateSlot),3);
