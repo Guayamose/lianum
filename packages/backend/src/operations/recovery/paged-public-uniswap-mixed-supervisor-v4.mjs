@@ -120,16 +120,19 @@ export async function readOriginalPagedPublicUniswapMixedRecoveryModeV6(raw){
 
 // Separate read capabilities never enter the component/send token registry.
 const sourceReadTokensV6=new WeakMap(),sourceReadReadersV6=new WeakMap();
+const flatReadTokensV8=new WeakMap(),flatReadReadersV8=new WeakMap();
 export async function openOriginalPagedPublicUniswapReadRecoverySupervisorV6(raw){
  assert.equal(arguments.length,1);exact(raw,['directory','password']);path(raw.directory);
  const ds=await lstat(raw.directory);assert.ok(ds.isDirectory()&&!ds.isSymbolicLink()&&ds.uid===process.getuid()&&(ds.mode&0o777)===0o700&&await realpath(raw.directory)===raw.directory);
  const fence=await claimOriginalPagedProcessFenceV4({directory:raw.directory,purpose:'PAGED_PUBLIC_MIXED_SUPERVISOR'}),file=join(raw.directory,'mixed-supervisor.vault'),vault=new Vault(file);
  let password=raw.password,parentPassword,parent,record,retained,closed=false;
- const issued=new Set(),readers=new Set(),pairings=new Set();
+ const issued=new Set(),readers=new Set(),pairings=new Set(),flatIssued=new Set(),flatReaders=new Set(),flatPairings=new Set();
  async function close(){
   if(closed)return;closed=true;
   for(const token of issued)sourceReadTokensV6.delete(token);
   for(const reader of readers)sourceReadReadersV6.delete(reader);
+  for(const token of flatIssued)flatReadTokensV8.delete(token);
+  for(const reader of flatReaders)flatReadReadersV8.delete(reader);
   try{await parent?.close();}finally{password=null;parentPassword=null;record=null;retained=null;await fence.close();}
  }
  try{
@@ -149,6 +152,15 @@ export async function openOriginalPagedPublicUniswapReadRecoverySupervisorV6(raw
   return Object.freeze({
    parent,
    async sourceDescriptors(){assert.equal(arguments.length,0);await current();return freeze(retained.authority.entries.map(entry=>clone(entry.authority.descriptor)));},
+   async flatDescriptors(){assert.equal(arguments.length,0);await current();return freeze(retained.flatAuthority.entries.map(entry=>clone(entry.descriptor)));},
+   async issueFlat(pairingId){
+    assert.equal(arguments.length,1);await current();assert.ok(!flatPairings.has(pairingId),'MIXED_FLAT_READ_ALREADY_ISSUED');
+    const index=retained.flatAuthority.entries.findIndex(entry=>entry.descriptor.pairingId===pairingId);assert.ok(index>=0,'MIXED_FLAT_READ_NOT_CAPTURED');
+    const flat=retained.flatAuthority.entries[index],entry=retained.authority.entries[index],source=Object.freeze(Object.create(null));
+    const sourceState={current,data:freeze({profile:'ORIGINAL_PAGED_SUPERVISOR_SOURCE_READ_RECOVERY_V4',authority:clone(entry.authority),supervisor:checkpoint(),selection:{systemIndex:entry.sourceIndex},composition:'PUBLIC_SEPOLIA_UNISWAP_MIXED_V6'}),binding:freeze({deployment:clone(retained.deployment),native:clone(retained.native),sourceLocation:{journalPath:entry.journalPath},uniswap:{target:clone(retained.target),source:clone(retained.mixedSource.entries[index].source)}}),location:{supervisorDirectory:raw.directory,journalPath:entry.journalPath},readers};
+    sourceReadReadersV6.set(source,sourceState);readers.add(source);
+    const token=Object.freeze(Object.create(null));flatReadTokensV8.set(token,{current,source,data:freeze({profile:'ORIGINAL_PUBLIC_UNISWAP_FLAT_READ_CAPTURE_V8',authority:clone(flat),target:clone(retained.target),native:clone(retained.native),supervisor:checkpoint()}),readers:flatReaders});flatIssued.add(token);flatPairings.add(pairingId);return token;
+   },
    async issueSource(pairingId){
     assert.equal(arguments.length,1);await current();assert.ok(!pairings.has(pairingId),'MIXED_SOURCE_READ_ALREADY_ISSUED');
     const entry=retained.authority.entries.find(entry=>entry.authority.descriptor.pairingId===pairingId);assert.ok(entry,'MIXED_SOURCE_READ_NOT_CAPTURED');
@@ -170,3 +182,13 @@ export async function readOriginalPagedPublicUniswapSourceReadV6(reader){assert.
 export async function readOriginalPagedPublicUniswapSourceReadBindingV6(reader){assert.equal(arguments.length,1);return readSourceV6(reader,'binding');}
 export async function readOriginalPagedPublicUniswapSourceReadLocationV6(reader){assert.equal(arguments.length,1);return readSourceV6(reader,'location');}
 export function closeOriginalPagedPublicUniswapSourceReadV6(reader){assert.equal(arguments.length,1);sourceReadReadersV6.delete(reader);}
+
+/** Separate captured output-note read capability. A clone or financial token
+ * cannot enter either map. Its subordinate Source reader only corroborates the
+ * same authenticated retained contracts and never grants an initialization. */
+export async function consumeOriginalPagedPublicUniswapFlatReadV8(token){
+ assert.equal(arguments.length,1);const state=flatReadTokensV8.get(token);assert.ok(state,'MIXED_FLAT_READ_ORIGINAL_TOKEN');await state.current();assert.strictEqual(flatReadTokensV8.get(token),state,'MIXED_FLAT_READ_CONSUMED');flatReadTokensV8.delete(token);const reader=Object.freeze(Object.create(null));flatReadReadersV8.set(reader,state);state.readers.add(reader);return reader;
+}
+export async function readOriginalPagedPublicUniswapFlatReadV8(reader){assert.equal(arguments.length,1);const state=flatReadReadersV8.get(reader);assert.ok(state,'MIXED_FLAT_READ_ORIGINAL_READER');await state.current();assert.strictEqual(flatReadReadersV8.get(reader),state,'MIXED_FLAT_READ_CLOSED');return freeze(clone(state.data));}
+export async function readOriginalPagedPublicUniswapFlatValidationReaderV8(reader){assert.equal(arguments.length,1);await readOriginalPagedPublicUniswapFlatReadV8(reader);return flatReadReadersV8.get(reader).source;}
+export function closeOriginalPagedPublicUniswapFlatReadV8(reader){assert.equal(arguments.length,1);const state=flatReadReadersV8.get(reader);if(state)sourceReadReadersV6.delete(state.source);flatReadReadersV8.delete(reader);}

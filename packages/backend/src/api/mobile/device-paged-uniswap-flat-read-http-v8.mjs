@@ -1,0 +1,17 @@
+/** Only the captured Original output-note issuer serves these readonly routes.
+ * The dispatcher accepts no authority factory, RPC/signing callback or DTO grant. */
+import assert from 'node:assert/strict';
+import {readOriginalPagedUniswapFlatReadDescriptorV8,dispatchOriginalPagedUniswapFlatReadV8} from '../../operations/recovery/paged-uniswap-flat-read-recovery-v8.mjs';
+const routes=Object.freeze({'/v1/mobile/external-flat-share/challenges':'challenge','/v1/mobile/external-flat-share/status':'status'}),MAX_BODY=8192,MAX_REPLY=65536;
+export function createOriginalDevicePagedUniswapFlatReadHttpV8(issuer){
+ assert.equal(arguments.length,1);const descriptor=readOriginalPagedUniswapFlatReadDescriptorV8(issuer),host=new URL(descriptor.origin).host;let closed=false;const active=new Set();
+ function send(response,status,data){if(response.destroyed||response.writableEnded)return;const bytes=Buffer.from(JSON.stringify(data));assert.ok(bytes.length<=MAX_REPLY,'UNISWAP_FLAT_READ_HTTP_REPLY_BOUND');response.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':bytes.length,'cache-control':'no-store','x-content-type-options':'nosniff'});response.end(bytes);}
+ async function handle(request,response){const chunks=[];let bytes,timer;
+  try{assert.ok(!closed,'UNISWAP_FLAT_READ_HTTP_CLOSED');readOriginalPagedUniswapFlatReadDescriptorV8(issuer);assert.ok(request.headers.host===host,'UNISWAP_FLAT_READ_HTTP_HOST');assert.ok(request.headers.origin===undefined||request.headers.origin===descriptor.origin,'UNISWAP_FLAT_READ_HTTP_ORIGIN');if(request.method!=='POST'||!Object.hasOwn(routes,request.url))return send(response,404,{error:'UNISWAP_FLAT_READ_ROUTE_NOT_FOUND'});
+   if(request.headers['x-lianum-flat-pairing-id']!==undefined)assert.equal(request.headers['x-lianum-flat-pairing-id'],descriptor.pairingId,'UNISWAP_FLAT_READ_HTTP_PAIRING');assert.ok(/^application\/json(?:;\s*charset=utf-8)?$/i.test(request.headers['content-type']??''),'UNISWAP_FLAT_READ_HTTP_CONTENT_TYPE');assert.equal(request.headers['content-encoding'],undefined);assert.equal(request.headers['transfer-encoding'],undefined);const length=request.headers['content-length'];assert.ok(typeof length==='string'&&/^[1-9][0-9]{0,4}$/.test(length)&&Number(length)<=MAX_BODY,'UNISWAP_FLAT_READ_HTTP_BODY_BOUND');
+   timer=setTimeout(()=>request.destroy(),15000);timer.unref?.();let size=0;for await(const chunk of request){size+=chunk.length;assert.ok(size<=MAX_BODY&&size<=Number(length),'UNISWAP_FLAT_READ_HTTP_BODY_BOUND');chunks.push(chunk);}clearTimeout(timer);timer=null;assert.equal(size,Number(length));assert.ok(!closed&&!request.aborted);bytes=Buffer.concat(chunks);const body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));bytes.fill(0);bytes=null;
+   const result=await dispatchOriginalPagedUniswapFlatReadV8(issuer,routes[request.url],body);assert.ok(!closed&&!response.destroyed);return send(response,200,result);
+  }catch{if(!response.headersSent&&!response.destroyed)send(response,403,{error:'UNISWAP_FLAT_READ_RECOVERY_REJECTED'});}finally{clearTimeout(timer);bytes?.fill(0);for(const chunk of chunks)chunk.fill(0);}}
+ const handler=(request,response)=>{const task=handle(request,response);active.add(task);task.finally(()=>active.delete(task)).catch(()=>{});return task;};
+ return Object.freeze({profile:'ORIGINAL_DEVICE_UNISWAP_FLAT_READ_RECOVERY_HTTP_V8',handler,async close(){closed=true;await Promise.allSettled([...active]);}});
+}

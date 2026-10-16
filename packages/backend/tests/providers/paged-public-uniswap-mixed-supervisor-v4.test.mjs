@@ -36,6 +36,16 @@ test('captured Mixed read capabilities preserve both supervisors and cannot beco
   const saved=fixture();sup=await M.createOriginalPagedPublicUniswapMixedSupervisorV4(input,descriptor);await sup.capture(saved);await sup.close();
   const before=await M.readOriginalPagedPublicUniswapMixedRecoveryModeV6(input);readSup=await M.openOriginalPagedPublicUniswapReadRecoverySupervisorV6(input);
   assert.deepEqual(await readSup.sourceDescriptors(),[saved.authority.entries[0].authority.descriptor]);assert.deepEqual(await readSup.parent.sourceDescriptors(),[descriptor]);
+  assert.deepEqual(await readSup.flatDescriptors(),[saved.flatAuthority.entries[0].descriptor]);
+  await assert.rejects(readSup.issueFlat('f'.repeat(64)),/NOT_CAPTURED/);
+  const flatToken=await readSup.issueFlat(saved.flatAuthority.entries[0].descriptor.pairingId);
+  await assert.rejects(M.consumeOriginalPagedPublicUniswapFlatReadV8({...flatToken}),/ORIGINAL_TOKEN/);
+  assert.throws(()=>M.consumeOriginalPagedPublicUniswapMixedComponentV4(flatToken,'flatAuthority'),/ORIGINAL_TOKEN/);
+  assert.throws(()=>consumeOriginalPagedComponentRecoveryV3(flatToken,'native'),/ORIGINAL_OPEN_TOKEN/);
+  const flatReader=await M.consumeOriginalPagedPublicUniswapFlatReadV8(flatToken);await assert.rejects(M.consumeOriginalPagedPublicUniswapFlatReadV8(flatToken),/ORIGINAL_TOKEN/);
+  const flatCapture=await M.readOriginalPagedPublicUniswapFlatReadV8(flatReader);assert.deepEqual(flatCapture.authority,saved.flatAuthority.entries[0]);assert.deepEqual(flatCapture.target,saved.target);
+  const flatSource=await M.readOriginalPagedPublicUniswapFlatValidationReaderV8(flatReader);assert.equal(M.isOriginalPagedPublicUniswapSourceReadReaderV6(flatSource),true);
+  await assert.rejects(readSup.issueFlat(saved.flatAuthority.entries[0].descriptor.pairingId),/ALREADY_ISSUED/);
   const token=await readSup.issueSource(saved.authority.entries[0].authority.descriptor.pairingId);
   await assert.rejects(M.consumeOriginalPagedPublicUniswapSourceReadV6({...token}),/ORIGINAL_TOKEN/);
   assert.throws(()=>M.consumeOriginalPagedPublicUniswapMixedComponentV4(token,'target'),/ORIGINAL_TOKEN/);
@@ -43,7 +53,7 @@ test('captured Mixed read capabilities preserve both supervisors and cannot beco
   const reader=await M.consumeOriginalPagedPublicUniswapSourceReadV6(token);await assert.rejects(M.consumeOriginalPagedPublicUniswapSourceReadV6(token),/ORIGINAL_TOKEN/);
   const scope=await M.readOriginalPagedPublicUniswapSourceReadV6(reader);assert.equal(scope.composition,'PUBLIC_SEPOLIA_UNISWAP_MIXED_V6');assert.equal(scope.supervisor.phase,'CAPTURED');
   assert.deepEqual((await M.readOriginalPagedPublicUniswapSourceReadBindingV6(reader)).uniswap.source,saved.mixedSource.entries[0].source);
-  await readSup.close();await assert.rejects(M.readOriginalPagedPublicUniswapSourceReadV6(reader),/ORIGINAL_READER/);
+  await readSup.close();await assert.rejects(M.readOriginalPagedPublicUniswapSourceReadV6(reader),/ORIGINAL_READER/);await assert.rejects(M.readOriginalPagedPublicUniswapFlatReadV8(flatReader),/ORIGINAL_READER/);assert.equal(M.isOriginalPagedPublicUniswapSourceReadReaderV6(flatSource),false);
   assert.deepEqual(await M.readOriginalPagedPublicUniswapMixedRecoveryModeV6(input),before);
  }finally{await readSup?.close();await sup?.close();await rm(directory,{recursive:true,force:true});}
 });
