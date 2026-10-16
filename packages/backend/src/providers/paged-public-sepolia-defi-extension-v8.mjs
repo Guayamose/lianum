@@ -42,7 +42,10 @@ async function open(raw,reopening){
    if(savedProvider)await openSourceScope(await retention.issueMixedProvider(),await retention.issueMixedAuthority());
    await retention.complete();if(Object.keys(targets).length)await retention.publishActivation(components());
   }
-  if(!reopening)for(const protocol of protocols)await Native.initializeOriginalPagedPublicSepoliaDefiTargetV8(runtime,uniswapTarget,venues[protocol],protocol,retention);
+  // A captured empty birth has no retained target plans. Initialize only the
+  // missing protocols together; retained plans were already reopened/resumed
+  // above and must never receive a replacement initialization.
+  for(const protocol of protocols)if(!targets[protocol])await Native.initializeOriginalPagedPublicSepoliaDefiTargetV8(runtime,uniswapTarget,venues[protocol],protocol,retention);
   for(const protocol of protocols){if(!targets[protocol]){targets[protocol]=await Native.runOriginalPagedPublicSepoliaDefiTargetV8(runtime,uniswapTarget,venues[protocol],protocol,retention);await retention.publishActivation(components());}if(!accounts[protocol])await createAccount(protocol);}
   await Native.claimOriginalPagedPublicAaveTestLiquidityV8(runtime,retention,targets.AAVE_STATIC);
   if(!state.mixedSource){state.mixedSource=await Native.runOriginalPagedPublicSepoliaDefiMixedSourceV8(runtime,uniswapTarget,targets.AAVE_STATIC,targets.MORPHO_V2,retention);await retention.publishActivation(components());}
