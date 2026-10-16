@@ -1,0 +1,2 @@
+import type {DevicePagedExecutorPayoutCustodyV5} from '@lianum/mobile-protocol/device/paged-executor-payout-v5';
+export function validateDevicePagedExecutorPayoutCertificateV5(raw:unknown,expected:{descriptor:unknown;graphId:string;rootId:string;revision:number;operationId:string;preparationId:string;id:string;ordinal:string;collectBy:number;maximumFeeAtomic:string;amount:string}):DevicePagedExecutorPayoutCustodyV5;

@@ -1,0 +1,4 @@
+import type {DevicePagedSignedAgentProposalV4} from '@lianum/mobile-protocol/device/paged-agent-v4';
+export type DevicePagedAgentPreparationV5=Readonly<{profile:'DEVICE_PAGED_AGENT_PREPARATION_V5';descriptorSHA256:string;proposalSHA256:string;proposal:DevicePagedSignedAgentProposalV4;source:Readonly<{rootId:string;revision:number}>;graphId:string|null;maximumReads:number;readUntilMs:number|null}>;
+export function normalizeDevicePagedAgentPreparationV5(raw:unknown,descriptor:unknown):DevicePagedAgentPreparationV5;
+export function createDevicePagedAgentPreparationStoreV5(descriptor:unknown,storage:{get(key:string):Promise<string|null>;set(key:string,value:string):Promise<void>;digest(text:string):Promise<string>}):Readonly<{read():Promise<DevicePagedAgentPreparationV5|null>;save(raw:unknown):Promise<DevicePagedAgentPreparationV5|null>}>;

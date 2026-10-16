@@ -26,6 +26,7 @@
     "packages/engine",
     "packages/protocol",
     "packages/mobile-protocol",
-    "packages/environment"
+    "packages/environment",
+    "packages/sdk"
   ]
 }

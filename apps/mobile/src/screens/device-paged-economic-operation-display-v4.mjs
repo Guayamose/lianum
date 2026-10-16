@@ -1,6 +1,6 @@
 /** Presentation DATA only. A retained native attempt is not current finality,
  * spendable balance, a withdrawal or a signer capability. */
-import {normalizeDevicePagedEconomicOperationViewV4} from '../../../../packages/mobile-protocol/src/device-paged-economic-operation-v4.mjs';
+import {normalizeDevicePagedEconomicOperationViewAnyV5 as normalizeDevicePagedEconomicOperationViewV4} from '../../../../packages/mobile-protocol/src/device-paged-economic-operation-v4.mjs';
 
 /** Presentation DATA only. Family, an address prefix and a testnet offer
  * classification do not identify the network. Use the original configured

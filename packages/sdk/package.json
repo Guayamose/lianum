@@ -1,0 +1,37 @@
+{
+  "name": "@lianum/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "External proposal and finite read SDK for the existing paired product; no wallet custody or financial issuer",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.mts",
+      "default": "./src/index.mjs"
+    },
+    "./agent": {
+      "types": "./src/agent/device-paged-agent-api-v4.d.mts",
+      "default": "./src/agent/device-paged-agent-api-v4.mjs"
+    },
+    "./agent/operation": {
+      "types": "./src/agent/device-paged-agent-public-operation-v4.d.mts",
+      "default": "./src/agent/device-paged-agent-public-operation-v4.mjs"
+    },
+    "./agent/preparation": {
+      "types": "./src/agent/device-paged-agent-preparation-v5.d.mts",
+      "default": "./src/agent/device-paged-agent-preparation-v5.mjs"
+    },
+    "./contracts": {
+      "types": "./src/product-contracts.d.mts",
+      "default": "./src/product-contracts.mjs"
+    }
+  },
+  "dependencies": {
+    "@lianum/mobile-protocol": "file:../mobile-protocol",
+    "@lianum/crypto": "file:../crypto",
+    "@noble/curves": "2.4.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}

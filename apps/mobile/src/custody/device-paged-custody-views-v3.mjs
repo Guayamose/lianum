@@ -1,12 +1,13 @@
+import {normalizeDevicePagedExecutorPayoutPlanV5} from '@lianum/mobile-protocol/device/paged-executor-payout-v5';
 /** Inferior read capabilities. An issuer requires the actual custody ROOT
  * preimage and an original SDK graph observation; it retains no key bytes.
  * Each issued view is additionally revoked by its owning Vault callback. */
 import {sha256} from '@noble/hashes/sha2.js';
 import {normalizeDevicePagedAutomationTopologyV4,devicePagedAutomationCommandQuotaV4} from '@lianum/mobile-protocol/device/paged-automation-quota-v4';
 import {normalizeDevicePagedPublicFundingMetadataDataV4} from '@lianum/mobile-protocol/device/paged-budget-asset-v4';
-import {devicePagedAutomationQuoteRootV4,normalizeDevicePagedAutomationRequestV4} from '../../../../packages/mobile-protocol/src/device-paged-automation-v4.mjs';
+import {devicePagedAutomationQuoteRootV4,normalizeDevicePagedAutomationRequestV4} from '../../../../packages/mobile-protocol/src/device-paged-automation-v5.mjs';
 import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
-import {normalizeDevicePagedEconomicViewV3} from '../../../../packages/mobile-protocol/src/device-paged-economic-view-v3.mjs';
+import {normalizeDevicePagedEconomicViewAnyV5 as normalizeDevicePagedEconomicViewV3} from '../../../../packages/mobile-protocol/src/device-paged-economic-view-v3.mjs';
 import {normalizeDevicePagedPayoutSettlementV3} from '../../../../packages/mobile-protocol/src/device-paged-payout-settlement-v3.mjs';
 import {readDevicePagedGraphReplyV3,readDevicePagedGraphReplyConsentV3,readDevicePagedGraphStatusV3} from '../api/device-paged-graph-api-v3.mjs';
 const automationReviews=new WeakMap(),cutoffRecoveryReviews=new WeakMap();
@@ -24,6 +25,7 @@ export function createDevicePagedCustodyViewIssuerV3(rootBytes,rawDescriptor,cur
    need(same(value.descriptor,descriptor)&&value.rootId===rootId&&value.graphId===status.graphId&&value.authorizationRoot===status.authorizationRoot&&value.reserveNullifier===status.reserveNullifier&&value.budget===status.budget&&value.settleBefore===status.settleBefore&&['SIGNING','PREPARED','RESERVED'].includes(status.phase),'MOBILE_PAGED_EXECUTION_REVIEW');
    need(Number.isSafeInteger(value.expiresAt)&&value.expiresAt>P.devicePagedNowV3()&&value.expiresAt<=Math.min(P.devicePagedNowV3()+60000,descriptor.deadlineMs)&&Array.isArray(value.steps)&&String(value.steps.length)===status.nodes,'MOBILE_PAGED_EXECUTION_REVIEW');
    if(value.automationTopology!==undefined){value.automationTopology=normalizeDevicePagedAutomationTopologyV4(value.automationTopology);need(String(value.automationTopology.nodes.length)===status.nodes&&value.automationTopology.pages===status.pages&&value.automationTopology.nodes.every((node,index)=>node.id===value.steps[index].id),'MOBILE_PAGED_EXECUTION_REVIEW');}
+   if(value.executorPayouts!==undefined){value.executorPayouts=normalizeDevicePagedExecutorPayoutPlanV5(value.executorPayouts);const p=value.executorPayouts;need(p.descriptorSHA256===hex(sha256(new TextEncoder().encode(JSON.stringify(descriptor))))&&p.graphId===status.graphId&&p.rootId===rootId&&p.revision===revision&&p.authorizationRoot===status.authorizationRoot&&p.payouts.length===value.steps.length&&p.payouts.every((n,index)=>n.id===value.steps[index].id&&n.amountAtomic===value.steps[index].reserve)&&p.collectBy<=descriptor.deadlineMs&&BigInt(p.collectBy)>=BigInt(status.settleBefore)*1000n,'MOBILE_PAGED_EXECUTION_REVIEW');}
    delete value.budgetAsset;delete value.fundingOrigin;const metadata=value.steps.map(step=>step.quote?.terms).filter(terms=>terms?.budgetAsset!==undefined);if(metadata.length){need(metadata.length===value.steps.length,'MOBILE_PAGED_EXECUTION_REVIEW');const m=normalizeDevicePagedPublicFundingMetadataDataV4({budgetAsset:metadata[0].budgetAsset,fundingOrigin:metadata[0].fundingOrigin},descriptor);need(metadata.every(terms=>same(terms.budgetAsset,m.budgetAsset)&&terms.fundingOrigin===m.fundingOrigin&&terms.budget===value.budget&&terms.graphId===value.graphId&&terms.rootId===rootId),'MOBILE_PAGED_EXECUTION_REVIEW');value.budgetAsset=m.budgetAsset;value.fundingOrigin=m.fundingOrigin;}
    const issued=freeze(value);reviews.set(issued,{value:issued,current,issuer});return issued;
   },
@@ -64,7 +66,7 @@ function readReviewRefresh(map,reader,approvedRaw,freshRaw,fields,code){
  need(replacement&&approved.issuer===replacement.issuer&&fields.every(field=>same(approved.value[field],fresh[field])),code);
  return fresh;
 }
-export function readDevicePagedExecutionReviewRefreshV3(approvedRaw,freshRaw){return readReviewRefresh(reviews,readDevicePagedExecutionReviewV3,approvedRaw,freshRaw,['descriptor','rootId','graphId','authorizationRoot','reserveNullifier','budget','settleBefore','steps','budgetAsset','fundingOrigin','automationTopology'],'MOBILE_PAGED_EXECUTION_REVIEW');}
+export function readDevicePagedExecutionReviewRefreshV3(approvedRaw,freshRaw){return readReviewRefresh(reviews,readDevicePagedExecutionReviewV3,approvedRaw,freshRaw,['descriptor','rootId','graphId','authorizationRoot','reserveNullifier','budget','settleBefore','steps','budgetAsset','fundingOrigin','automationTopology','executorPayouts'],'MOBILE_PAGED_EXECUTION_REVIEW');}
 export function readDevicePagedEconomicReviewRefreshV3(approvedRaw,freshRaw){return readReviewRefresh(economicReviews,readDevicePagedEconomicReviewV3,approvedRaw,freshRaw,['plan','rootId','revision','providerIdentity','signerIdentity','changeConfirmed','eligible','blockedReason','paid'],'MOBILE_PAGED_ECONOMIC_REVIEW');}
 
 /** A server-continuation review can only be derived from the same live original
@@ -76,9 +78,9 @@ export function createDevicePagedAutomationReviewV4(rawExecution){
  // until the original graph, offers and source permit. Never add time to an
  // existing grant or infer a deadline from a local duration/default.
  const millis=seconds=>{P.pagedOwnerUintV3(seconds);const value=BigInt(seconds)*1000n;need(value<=BigInt(Number.MAX_SAFE_INTEGER),'MOBILE_PAGED_AUTOMATION_REVIEW');return Number(value);};
- const expiresAt=Math.min(millis(execution.settleBefore),execution.descriptor.deadlineMs,...execution.steps.map(step=>millis(step.quote.terms.expiresAt)));
+ const expiresAt=execution.executorPayouts?.collectBy??Math.min(millis(execution.settleBefore),execution.descriptor.deadlineMs,...execution.steps.map(step=>millis(step.quote.terms.expiresAt)));
  need(expiresAt>P.devicePagedNowV3(),'MOBILE_PAGED_AUTOMATION_REVIEW');
- const request=normalizeDevicePagedAutomationRequestV4({quoteRoot:devicePagedAutomationQuoteRootV4(execution.steps.map(step=>step.quote)),maxCommands:execution.automationTopology===undefined?128:devicePagedAutomationCommandQuotaV4(execution.automationTopology).maxCommands,expiresAt});
+ const request=normalizeDevicePagedAutomationRequestV4({quoteRoot:devicePagedAutomationQuoteRootV4(execution.steps.map(step=>step.quote)),maxCommands:(execution.automationTopology===undefined?128:devicePagedAutomationCommandQuotaV4(execution.automationTopology).maxCommands)+(execution.executorPayouts?4*execution.executorPayouts.payouts.length:0),expiresAt,...(execution.executorPayouts?{profile:'DEVICE_PAGED_APPROVED_CONTINUATION_REQUEST_V5',executorPayouts:execution.executorPayouts}:{})});
  const value=freeze({execution,request});automationReviews.set(value,{executionRaw:rawExecution,value});return value;
 }
 /** A narrower explicitly reviewed command count from the SAME original
