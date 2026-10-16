@@ -1,8 +1,58 @@
 # Estado actual
 
-Actualizado el 15 de octubre de 2026. La cartera pública y el recorrido privado
+Actualizado el 16 de octubre de 2026. La cartera pública y el recorrido privado
 PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
+
+## Punto 3 en curso: DeFi ya formaba parte de este cierre (16 de octubre)
+
+- Está instalada en el motor la versión
+  `9fbac3d83bf261a28125de5bdaf76527a9001ad315e8d29cf9088f03bf3b6172`,
+  generación de fuentes
+  `f1b7bf1e3cd9773ee7bba169c6e7519437c32f43aed7e877913d5f2ba4bf2704`.
+  La instalación preservó todos los archivos privados y los mismos contratos
+  y recursos ZK del paquete anterior. Evidencia en la VM:
+  `/var/lib/lianum-maintenance/20261016-defi-bounded-read/installation.json`.
+- El permiso financiero vigente es el epoch 2: vence el 16 de octubre a las
+  **07:00 UTC**; su captura preventiva es a las **06:30 UTC, 08:30 de Madrid**.
+  Mantiene los límites y las comisiones reservadas; no reinicia el presupuesto.
+  Esta ventana sustituye a la del registro histórico del 15 de octubre.
+- La actualización de Uniswap conserva las dos identidades y sus cuentas
+  Native3; añade su conexión a la identidad móvil existente. Su activación
+  remota está en curso: **todavía no se da por operativa ni se publica como
+  conexión activa de la app**. El motor está detenido durante esa activación.
+  Los cinco intentos previos se detuvieron antes de enviar nuevas transacciones;
+  el padre quedó capturado y no se hicieron ingresos ni pagos de usuarios.
+- La activación actual ya tiene confirmados sus cinco contratos Target y las
+  dos llamadas de registro. Espera su finalización en Sepolia antes de desplegar
+  los tres contratos de la nueva conexión. El registro de Source contiene diez
+  filas: tres anteriores finalizadas y siete nuevas confirmadas. No se debe
+  iniciar una activación nueva: las recuperaciones deben consultar los mismos
+  planes, nonces y transacciones guardados.
+- Se corrigieron los archivos Solidity y módulos que faltaban en el paquete,
+  los reintentos de consultas RPC interrumpidas y la consulta de un registro
+  que contiene contratos de Uniswap. Los envíos firmados siguen teniendo un
+  único intento. El paquete aislado compila los cinco contratos de los tres
+  compiladores públicos DeFi sin red, claves ni pruebas privadas.
+- La comprobación con contratos compilados pasa: conserva ambas cuentas,
+  consulta la conexión Mixed desde `CAPTURED`, rechaza permisos de lectura
+  copiados, reutilizados o empleados como autorización financiera y reabre el
+  conjunto sin nuevos envíos. Es una cadena HOST explícita; no constituye una
+  nueva aceptación financiera en redes públicas. También pasan 11 casos de
+  transporte, 3 del supervisor, 8 del arranque y 2 del cierre de dependencias.
+- Se confirmó `ETIMEDOUT` durante la lectura del código del padre. La consulta
+  ahora limita su concurrencia a ocho y contrasta una respuesta alternativa
+  únicamente contra la misma red, génesis y bloque canónico. Nueve casos
+  dirigidos pasan, además de los nueve de estimación de gas y la comprobación
+  compilada de tres CREATEs con recuperación de una respuesta perdida.
+- **Aave y Morpho mantienen sus validaciones anteriores.** Su ejecución
+  financiera y su ciclo completo de recuperación no están montados en este
+  servicio público: incluir sus compiladores no equivale a integrarlos.
+- **El punto 3 permanece abierto.** Faltan terminar y publicar la conexión
+  remota de Uniswap, comprobar su reapertura real en la instalación y completar
+  los servicios remotos de Aave/Morpho con la app y la API. El APK de conexión
+  remota está preparado; esta actualización no se ha instalado ni probado en
+  Android. Los puntos 4 y 5, el agente, MoonPay y el diseño final siguen separados.
 
 ## Motor en Google Cloud (15 de octubre, despliegue y reapertura comprobados)
 
