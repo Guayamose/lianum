@@ -152,3 +152,6 @@ export async function assertOriginalPagedSepoliaRecoveredRefillJournalV16(runtim
 export async function reopenOriginalPagedSepoliaRefillStorageHistoricalJournalV16(runtime,system,input,token,archive){assert.equal(arguments.length,5);assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);return originalSourceJournal.reopenRefillStorageHistorical(runtime,system,input,token,archive);}
 export async function reopenOriginalPagedSepoliaRefillStorageTipJournalV16(runtime,system,input,token,archive){assert.equal(arguments.length,5);assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);return originalSourceJournal.reopenRefillStorageTip(runtime,system,input,token,archive);}
 export async function reopenOriginalPagedSepoliaRefillStorageTerminalWithdrawalJournalV16(runtime,system,input,token,issuer){assert.equal(arguments.length,5);assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);return originalSourceJournal.reopenRefillStorageTerminalWithdrawal(runtime,system,input,token,issuer);}
+
+/** Metadata/retention binding only; financial journal checks remain separate. */
+export function assertOriginalPagedSepoliaSourceStorageJournalV8(runtime,system,bundle){assert.equal(arguments.length,3);return originalSourceJournal.assertStorageBundle(runtime,system,bundle);}

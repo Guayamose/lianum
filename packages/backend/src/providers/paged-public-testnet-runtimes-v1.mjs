@@ -1,3 +1,4 @@
+import * as sourceAnchorDataV8 from '../operations/recovery/paged-source-immutable-rows-anchor-v8.mjs';
 /** Separate public-testnet execution. No local runtime brand or public READY adoption. */
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -96,7 +97,7 @@ export function releaseOriginalPagedPublicProviderIdentityV4(runtime,claim){asse
 const receiverOwners=new WeakMap();
 function originalReceiver(receiver){const r=receiverOwners.get(receiver);need(r&&!r.closed,'SEPOLIA_RECEIVER_CLOSED');current(r.s);return r;}
 export async function createOriginalPagedPublicSepoliaReceiverV4(runtime){assert.equal(arguments.length,1);need(!current(owners.get(runtime)).refillRecoveryStorage,'PUBLIC_REFILL_RECOVERY_STORAGE_ONLY');return createOriginalSepoliaReceiver(runtime,false);}
-async function createOriginalSepoliaReceiver(runtime,reopening){const s=current(owners.get(runtime));need(s.receiverBootstrap===null&&s.originalPorts===null&&!s.providerBinding&&s.active.size===0,'PUBLIC_RECEIVER_BOOTSTRAP_BIRTH');if(!reopening)need(validateRecords(s).every(row=>row.observation?.status==='OBSERVED'||row.observation?.status==='ADVERSE'),'PUBLIC_RECEIVER_NATIVE_SOURCE_PENDING');const request=Object.freeze(Object.create(null));s.receiverBootstrap=request;let rpc,signer,lifecycle;try{const created=await createOriginalPagedSepoliaRpcV4({endpoint:s.configs[0].endpoint,account:s.keyset.accounts[0],keysetId:s.keyset.keysetId});rpc=created.runtime;lifecycle=created.lifecycle;const K=await import('../chains/public-testnet/key-store-v1.mjs');signer=await K.openOriginalPublicCompiledReceiverSignerV4(s.keys,rpc);const r={s,native:runtime,request,receiver:rpc,signer,sourceSigner:null,sourceControl:new AbortController(),lifecycle,closed:false,finalized:false,rootSystem:null,poolKernel:null,poolSystems:new WeakSet(),successorSystems:new Map()};receiverOwners.set(rpc,r);s.receivers.add(rpc);s.sourceControls.add(r.sourceControl);r.sourcePump=pumpOriginalSepoliaSourceRequestsV4(r);r.sourcePump.catch(()=>{});lifecycle.closed.then(async()=>{try{r.sourceControl.abort();await s.queue;if(r.sourceSigner)await K.closeOriginalPublicPagedSourceSignerV4(r.sourceSigner);await K.closeOriginalPublicCompiledReceiverSignerV4(signer);}finally{r.closed=true;s.receivers.delete(rpc);s.sourceControls.delete(r.sourceControl);if(s.receiverBootstrap===request)s.receiverBootstrap=null;lifecycle.acknowledge();}});return rpc;}catch(error){if(signer){const K=await import('../chains/public-testnet/key-store-v1.mjs');await K.closeOriginalPublicCompiledReceiverSignerV4(signer);}if(rpc){lifecycle.acknowledge();await rpc.close();}if(s.receiverBootstrap===request)s.receiverBootstrap=null;throw error;}}
+async function createOriginalSepoliaReceiver(runtime,reopening){const s=current(owners.get(runtime));need(s.receiverBootstrap===null&&s.originalPorts===null&&!s.providerBinding&&s.active.size===0,'PUBLIC_RECEIVER_BOOTSTRAP_BIRTH');if(!reopening)need(validateRecords(s).every(row=>row.observation?.status==='OBSERVED'||row.observation?.status==='ADVERSE'),'PUBLIC_RECEIVER_NATIVE_SOURCE_PENDING');const request=Object.freeze(Object.create(null));s.receiverBootstrap=request;let rpc,signer,lifecycle;try{const created=await createOriginalPagedSepoliaRpcV4({endpoint:s.configs[0].endpoint,account:s.keyset.accounts[0],keysetId:s.keyset.keysetId});rpc=created.runtime;lifecycle=created.lifecycle;const K=await import('../chains/public-testnet/key-store-v1.mjs');signer=await K.openOriginalPublicCompiledReceiverSignerV4(s.keys,rpc);const r={s,native:runtime,request,receiver:rpc,signer,sourceSigner:null,defiRecoveryLocator:s.retainedSource?.defiRetentionV8??null,sourceControl:new AbortController(),lifecycle,closed:false,finalized:false,rootSystem:null,poolKernel:null,poolSystems:new WeakSet(),successorSystems:new Map()};receiverOwners.set(rpc,r);s.receivers.add(rpc);s.sourceControls.add(r.sourceControl);r.sourcePump=pumpOriginalSepoliaSourceRequestsV4(r);r.sourcePump.catch(()=>{});lifecycle.closed.then(async()=>{try{r.sourceControl.abort();await s.queue;if(r.sourceSigner)await K.closeOriginalPublicPagedSourceSignerV4(r.sourceSigner);await K.closeOriginalPublicCompiledReceiverSignerV4(signer);}finally{r.closed=true;s.receivers.delete(rpc);s.sourceControls.delete(r.sourceControl);if(s.receiverBootstrap===request)s.receiverBootstrap=null;lifecycle.acknowledge();}});return rpc;}catch(error){if(signer){const K=await import('../chains/public-testnet/key-store-v1.mjs');await K.closeOriginalPublicCompiledReceiverSignerV4(signer);}if(rpc){lifecycle.acknowledge();await rpc.close();}if(s.receiverBootstrap===request)s.receiverBootstrap=null;throw error;}}
 export async function dispatchOriginalPagedPublicSepoliaBootstrapV4(receiver,method,args){assert.equal(arguments.length,3);need(['PREFLIGHT','EXECUTE','FINALIZE','START_NONCE'].includes(method)&&Array.isArray(args),'SEPOLIA_RECEIVER_FIXED_BOOTSTRAP_METHOD');const r=originalReceiver(receiver);need(!r.finalized&&r.s.receiverBootstrap===r.request,'SEPOLIA_RECEIVER_BOOTSTRAP_RELEASED');return serialized(r.s,async()=>{originalReceiver(receiver);const K=await import('../chains/public-testnet/key-store-v1.mjs');if(method==='PREFLIGHT'){need(args.length===1,'SEPOLIA_RECEIVER_ARITY');return K.preflightOriginalPublicCompiledReceiverV4(r.signer,args[0]);}if(method==='EXECUTE'){need(args.length===2,'SEPOLIA_RECEIVER_ARITY');return K.executeOriginalPublicCompiledReceiverV4(r.signer,args[0],args[1]);}if(method==='START_NONCE'){need(args.length===0,'SEPOLIA_RECEIVER_ARITY');return K.readOriginalPublicCompiledReceiverStartNonceV4(r.signer);}need(args.length===1,'SEPOLIA_RECEIVER_ARITY');const result=await K.finalizeOriginalPublicCompiledReceiverV4(r.signer,args[0]);await K.closeOriginalPublicCompiledReceiverSignerV4(r.signer);r.finalized=true;r.s.receiverBootstrap=null;return result;});}
 export async function runOriginalPagedPublicSepoliaPlanV4(receiver,input,limits=null){assert.ok(arguments.length===2||arguments.length===3);const r=originalReceiver(receiver);need(!r.finalized&&r.s.receiverBootstrap===r.request,'SEPOLIA_RECEIVER_BOOTSTRAP_RELEASED');return serialized(r.s,async()=>{const K=await import('../chains/public-testnet/key-store-v1.mjs'),P=await import('../operations/local/funded-graph-paged-public-kernel-v4.mjs'),start=await K.readOriginalPublicCompiledReceiverStartNonceV4(r.signer),plan=await P.prepareOriginalFundedPagedGraphSepoliaPlanV4(receiver,input,start);let complete=false;try{for(;;){current(r.s);const next=await P.readOriginalPagedSepoliaPlanStepV4(receiver,plan);if(next.kind==='READY'){need(limits!==null,'SEPOLIA_PREFLIGHT_NO_CONSTRUCTOR');await K.waitOriginalPublicCompiledReceiverFinalityV4(r.signer,next.completion);await K.closeOriginalPublicCompiledReceiverSignerV4(r.signer);r.finalized=true;r.rootSystem=next.system;r.poolSystems.add(next.system);r.s.receiverBootstrap=null;complete=true;return next.system;}if(limits===null)return await K.preflightOriginalPublicCompiledReceiverV4(r.signer,next.token);let receipt;try{receipt=await K.executeOriginalPublicCompiledReceiverV4(r.signer,next.token,limits);}catch(error){if(error.message!=='SEPOLIA_RECEIVER_ORIGINAL_DEPLOYMENT_PENDING')throw error;receipt=await K.waitOriginalPublicCompiledReceiverConstructorV4(r.signer,next.token);}await P.advanceOriginalPagedSepoliaPlanV4(receiver,plan,next.token,receipt);}}finally{if(!complete)await P.closeOriginalPagedSepoliaPlanV4(receiver,plan);}});}
 
@@ -105,12 +106,12 @@ export function beginOriginalPagedPublicProviderBindV4(runtime,claim){assert.equ
 
 /** RPC requests enter the same serialized ETH queue as constructors and native
  * deliveries. Source financial authority remains the Kernel-issued command. */
-async function pumpOriginalSepoliaSourceRequestsV4(r){for(;;){const request=await r.lifecycle.readSourceRequest();if(request===null)return;let receipt=null,error=null;try{receipt=await serialized(r.s,async()=>{originalReceiver(r.receiver);need(r.finalized&&r.s.receiverBootstrap===null&&r.sourceSigner,'SEPOLIA_SOURCE_LANE_NOT_CONFIGURED');need(validateRecords(r.s).filter(row=>row.prepared.networkId==='ethereum-sepolia').every(row=>['OBSERVED','ADVERSE'].includes(row.observation?.status)),'PUBLIC_RUNTIME_SOURCE_PENDING');const data=r.lifecycle.readSourceRequestData(request),K=await import('../chains/public-testnet/key-store-v1.mjs'),M=await import('../operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs');return M.isOriginalSepoliaUniswapMixedSourceCommandV4(data.command)?K.executeOriginalPublicUniswapMixedSourceCallV4(r.sourceSigner,data.command,data.label,data.transaction):K.executeOriginalPublicPagedSourceV4(r.sourceSigner,data.command,data.label,data.transaction);});}catch(e){error=e instanceof Error?e:Error('SEPOLIA_SOURCE_SEND_FAILED');}await r.lifecycle.finishSourceRequest(request,receipt,error);}}
+async function pumpOriginalSepoliaSourceRequestsV4(r){for(;;){const request=await r.lifecycle.readSourceRequest();if(request===null)return;let receipt=null,error=null;try{receipt=await serialized(r.s,async()=>{originalReceiver(r.receiver);need(r.finalized&&r.s.receiverBootstrap===null&&r.sourceSigner,'SEPOLIA_SOURCE_LANE_NOT_CONFIGURED');need(validateRecords(r.s).filter(row=>row.prepared.networkId==='ethereum-sepolia').every(row=>['OBSERVED','ADVERSE'].includes(row.observation?.status)),'PUBLIC_RUNTIME_SOURCE_PENDING');const data=r.lifecycle.readSourceRequestData(request),K=await import('../chains/public-testnet/key-store-v1.mjs'),M=await import('../operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs'),D=await import('../operations/local/sepolia-defi-mixed-source-kernel-v8.mjs');return D.isOriginalSepoliaDefiMixedSourceCommandV8(data.command)?K.executeOriginalPublicSepoliaDefiMixedSourceCallV8(r.sourceSigner,data.command,data.label,data.transaction):M.isOriginalSepoliaUniswapMixedSourceCommandV4(data.command)?K.executeOriginalPublicUniswapMixedSourceCallV4(r.sourceSigner,data.command,data.label,data.transaction):K.executeOriginalPublicPagedSourceV4(r.sourceSigner,data.command,data.label,data.transaction);});}catch(e){error=e instanceof Error?e:Error('SEPOLIA_SOURCE_SEND_FAILED');}await r.lifecycle.finishSourceRequest(request,receipt,error);}}
 // Canonical re-observation may advance only the protected journal revision.
 // Every operation byte, identity, keyset, policy and epoch remains anchored to
 // the authenticated retention; changed or rolled-back histories stay fenced.
 function assertOriginalRetainedJournalCheckpointV5(actual,retained,label){
- const {revision:currentRevision,...current}=actual,{revision:retainedRevision,...previous}=retained;need(Number.isSafeInteger(currentRevision)&&Number.isSafeInteger(retainedRevision)&&currentRevision>=0&&retainedRevision>=0&&!Object.is(currentRevision,-0)&&!Object.is(retainedRevision,-0)&&currentRevision>=retainedRevision,label+'_REVISION');assert.deepEqual(current,previous,label);
+ const {revision:currentRevision,...current}=actual,{revision:retainedRevision,...previous}=retained;need(Number.isSafeInteger(currentRevision)&&Number.isSafeInteger(retainedRevision)&&currentRevision>=0&&retainedRevision>=0&&!Object.is(currentRevision,-0)&&!Object.is(retainedRevision,-0)&&currentRevision>=retainedRevision,label+'_REVISION');const {assertSourceCheckpointAnchorCompatibilityDataV8}=sourceAnchorDataV8;assertSourceCheckpointAnchorCompatibilityDataV8(current,previous,label);
 }
 export async function configureOriginalPagedPublicSepoliaSourceV4(receiver,policy){assert.equal(arguments.length,2);const r=originalReceiver(receiver);return serialized(r.s,async()=>{originalReceiver(receiver);need(r.finalized&&r.s.receiverBootstrap===null&&!r.sourceSigner,'SEPOLIA_SOURCE_BOOTSTRAP_NOT_RELEASED');const K=await import('../chains/public-testnet/key-store-v1.mjs');if(r.s.retainedSource)assert.deepEqual(policy,r.s.retainedSource.configuration.policy,'SEPOLIA_SOURCE_REOPEN_POLICY');r.sourceSigner=await K.openOriginalPublicPagedSourceSignerV4(r.s.keys,receiver,policy,r.sourceControl.signal);if(r.s.retainedSource)assertOriginalRetainedJournalCheckpointV5(K.readOriginalPublicPagedSourceCheckpointV4(r.sourceSigner),r.s.retainedSource.checkpoint,'SEPOLIA_SOURCE_REOPEN_CHECKPOINT');const data=await K.observeOriginalPublicPagedSourceV4(r.sourceSigner);return freeze({profile:'ORIGINAL_PAGED_SEPOLIA_SOURCE_CONFIGURATION_V4',keysetId:r.s.keyset.keysetId,account:r.s.keyset.accounts[0].address,policySHA256:data.policySHA256,sponsorship:data.sponsorship,automaticRebroadcast:false});});}
 /** New explicit server review; never refreshes wallet/START terms. */
@@ -181,7 +182,7 @@ export async function activateOriginalPagedPublicRefillRecoveredSourceV16(receiv
  * or bootstrap checkpoint. The Supervisor performs its separate snapshot CAS. */
 export async function captureOriginalPagedPublicFinancialReviewV5(receiver){
  assert.equal(arguments.length,1);const r=originalReceiver(receiver);need(r.financialReview&&r.sourceSigner,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_REQUIRED');const saved=await exclusiveFinancialReview(r.s,async()=>{
-  originalReceiver(receiver);const K=await import('../chains/public-testnet/key-store-v1.mjs');await K.assertOriginalPublicPagedSourceFinancialReviewCompletionV5(r.sourceSigner,r.financialReview.review,r.financialReview.previousNative.source);const checkpoint=r.native.checkpoint(),source=K.readOriginalPublicPagedSourceActivationBaseV4(r.sourceSigner),bootstrap=await K.readOriginalPublicCompiledReceiverCheckpointV4(r.s.keys);originalReceiver(receiver);assert.deepEqual(checkpoint,r.financialReview.previousNative.checkpoint,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_NATIVE_CHANGED');assert.deepEqual(bootstrap,r.financialReview.previousNative.source.bootstrap,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_BOOTSTRAP_CHANGED');const actual=freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:r.s.directory,keysetId:r.s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:r.s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(r.native.publicConfiguration)},checkpoint,source:{...source,bootstrap}});r.s.capturing=true;return actual;
+  originalReceiver(receiver);const K=await import('../chains/public-testnet/key-store-v1.mjs');await K.assertOriginalPublicPagedSourceFinancialReviewCompletionV5(r.sourceSigner,r.financialReview.review,r.financialReview.previousNative.source);const checkpoint=r.native.checkpoint(),source=K.readOriginalPublicPagedSourceActivationBaseV4(r.sourceSigner),bootstrap=await K.readOriginalPublicCompiledReceiverCheckpointV4(r.s.keys);originalReceiver(receiver);assert.deepEqual(checkpoint,r.financialReview.previousNative.checkpoint,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_NATIVE_CHANGED');assert.deepEqual(bootstrap,r.financialReview.previousNative.source.bootstrap,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_BOOTSTRAP_CHANGED');const actual=freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:r.s.directory,keysetId:r.s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:r.s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(r.native.publicConfiguration)},checkpoint,source:{...source,bootstrap,...(r.defiRecoveryLocator?{defiRetentionV8:clone(r.defiRecoveryLocator)}:{})}});r.s.capturing=true;return actual;
  });await receiver.close();await r.native.close();return saved;
 }
 
@@ -189,7 +190,7 @@ export async function captureOriginalPagedPublicFinancialReviewV5(receiver){
  * Original observer can corroborate the same physical histories and checkpoint. */
 export async function closeOriginalPagedPublicFinancialReviewWithoutEpochV5(receiver){
  assert.equal(arguments.length,1);const r=originalReceiver(receiver);need(r.financialReview&&r.sourceSigner,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_REQUIRED');const saved=await exclusiveFinancialReview(r.s,async()=>{
-  originalReceiver(receiver);const K=await import('../chains/public-testnet/key-store-v1.mjs');await K.assertOriginalPublicPagedSourceNoFinancialEpochV5(r.sourceSigner,r.financialReview.review,r.financialReview.previousNative.source);const checkpoint=r.native.checkpoint(),source=K.readOriginalPublicPagedSourceActivationBaseV4(r.sourceSigner),bootstrap=await K.readOriginalPublicCompiledReceiverCheckpointV4(r.s.keys);originalReceiver(receiver);const actual=freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:r.s.directory,keysetId:r.s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:r.s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(r.native.publicConfiguration)},checkpoint,source:{...source,bootstrap}});assert.deepEqual(actual,r.financialReview.previousNative,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_NO_EPOCH_NATIVE_CHANGED');r.s.capturing=true;return actual;
+  originalReceiver(receiver);const K=await import('../chains/public-testnet/key-store-v1.mjs');await K.assertOriginalPublicPagedSourceNoFinancialEpochV5(r.sourceSigner,r.financialReview.review,r.financialReview.previousNative.source);const checkpoint=r.native.checkpoint(),source=K.readOriginalPublicPagedSourceActivationBaseV4(r.sourceSigner),bootstrap=await K.readOriginalPublicCompiledReceiverCheckpointV4(r.s.keys);originalReceiver(receiver);const actual=freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:r.s.directory,keysetId:r.s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:r.s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(r.native.publicConfiguration)},checkpoint,source:{...source,bootstrap,...(r.defiRecoveryLocator?{defiRetentionV8:clone(r.defiRecoveryLocator)}:{})}});assert.deepEqual(actual,r.financialReview.previousNative,'SEPOLIA_SOURCE_FINANCIAL_REVIEW_NO_EPOCH_NATIVE_CHANGED');r.s.capturing=true;return actual;
  });await receiver.close();await r.native.close();return saved;
 }
 
@@ -202,14 +203,14 @@ export async function reopenOriginalPagedPublicSepoliaSourceObserverV4(receiver,
 /** A private activation base is taken from the SAME original native/signer
  * handles before publication. It never closes, observes, commits or signs. */
 export async function readOriginalPagedPublicRuntimeActivationBaseV4(runtime){
- assert.equal(arguments.length,1);const s=current(owners.get(runtime));need(!s.capturing&&s.receiverBootstrap===null&&s.receivers.size===1&&s.active.size===0,'PUBLIC_RUNTIME_ACTIVATION_QUIESCENT');await s.queue;current(s);need(s.active.size===0,'PUBLIC_RUNTIME_ACTIVATION_QUIESCENT');const receiver=[...s.receivers][0],r=receiverOwners.get(receiver);need(r?.finalized&&r.sourceSigner&&!r.closed,'PUBLIC_RUNTIME_ACTIVATION_SOURCE_REQUIRED');const before=runtime.checkpoint(),K=await import('../chains/public-testnet/key-store-v1.mjs'),source=K.readOriginalPublicPagedSourceActivationBaseV4(r.sourceSigner),bootstrap=await K.readOriginalPublicCompiledReceiverCheckpointV4(s.keys);current(s);need(s.active.size===0,'PUBLIC_RUNTIME_ACTIVATION_QUIESCENT');assert.deepEqual(runtime.checkpoint(),before,'PUBLIC_RUNTIME_ACTIVATION_HIGHWATER');assert.deepEqual(K.readOriginalPublicPagedSourceCheckpointV4(r.sourceSigner),source.checkpoint,'PUBLIC_RUNTIME_ACTIVATION_SOURCE_HIGHWATER');return freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:s.directory,keysetId:s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(runtime.publicConfiguration)},checkpoint:before,source:{...source,bootstrap}});
+ assert.equal(arguments.length,1);const s=current(owners.get(runtime));need(!s.capturing&&s.receiverBootstrap===null&&s.receivers.size===1&&s.active.size===0,'PUBLIC_RUNTIME_ACTIVATION_QUIESCENT');await s.queue;current(s);need(s.active.size===0,'PUBLIC_RUNTIME_ACTIVATION_QUIESCENT');const receiver=[...s.receivers][0],r=receiverOwners.get(receiver);need(r?.finalized&&r.sourceSigner&&!r.closed,'PUBLIC_RUNTIME_ACTIVATION_SOURCE_REQUIRED');const before=runtime.checkpoint(),K=await import('../chains/public-testnet/key-store-v1.mjs'),source=K.readOriginalPublicPagedSourceActivationBaseV4(r.sourceSigner),bootstrap=await K.readOriginalPublicCompiledReceiverCheckpointV4(s.keys);current(s);need(s.active.size===0,'PUBLIC_RUNTIME_ACTIVATION_QUIESCENT');assert.deepEqual(runtime.checkpoint(),before,'PUBLIC_RUNTIME_ACTIVATION_HIGHWATER');assert.deepEqual(K.readOriginalPublicPagedSourceCheckpointV4(r.sourceSigner),source.checkpoint,'PUBLIC_RUNTIME_ACTIVATION_SOURCE_HIGHWATER');return freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:s.directory,keysetId:s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(runtime.publicConfiguration)},checkpoint:before,source:{...source,bootstrap,...(r.defiRecoveryLocator?{defiRetentionV8:clone(r.defiRecoveryLocator)}:{})}});
 }
 export async function captureOriginalPagedPublicTestnetRuntimesV4(runtime){
  assert.equal(arguments.length,1);const s=current(owners.get(runtime));need(!s.capturing&&s.receiverBootstrap===null&&s.receivers.size===1,'PUBLIC_RUNTIME_CAPTURE_SOURCE_REQUIRED');s.capturing=true;
  try{
   await Promise.allSettled([...s.active]);await s.queue;current(s);const receiver=[...s.receivers][0],r=receiverOwners.get(receiver);need(r?.finalized&&r.sourceSigner&&!r.closed,'PUBLIC_RUNTIME_CAPTURE_SOURCE_REQUIRED');
   const K=await import('../chains/public-testnet/key-store-v1.mjs'),source=await K.captureOriginalPublicPagedSourceV4(r.sourceSigner),bootstrap=await K.readOriginalPublicCompiledReceiverCheckpointV4(s.keys);await commit(s,validateRecords(s));
-  const saved=freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:s.directory,keysetId:s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(runtime.publicConfiguration)},checkpoint:runtime.checkpoint(),source:{...source,bootstrap}});await runtime.close();return saved;
+  const saved=freeze({profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4',directory:s.directory,keysetId:s.keyset.keysetId,configuration:{profile:'ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4',networks:s.configs.map(c=>({id:c.network.id,endpoint:c.endpoint,feeProvider:c.feeProvider})),publicConfiguration:clone(runtime.publicConfiguration)},checkpoint:runtime.checkpoint(),source:{...source,bootstrap,...(r.defiRecoveryLocator?{defiRetentionV8:clone(r.defiRecoveryLocator)}:{})}});await runtime.close();return saved;
  }catch(error){s.capturing=false;throw error;}
 }
 export async function reopenOriginalPagedPublicTestnetRuntimesV4(input,token){
@@ -301,6 +302,134 @@ export async function runOriginalPagedPublicSepoliaUniswapTargetV4(receiver,pare
    if(index<5)await T.advanceOriginalSepoliaUniswapTargetConstructorV4(receiver,plan,token,actual.transactionHash);else await T.advanceOriginalSepoliaUniswapTargetRegistrationV4(receiver,plan,token,actual.transactionHash);
   }
   const system=await K.waitOriginalPublicUniswapTargetFinalityV4(r.sourceSigner,plan);originalReceiver(receiver);r.uniswapTargetSystem=system;return system;
+ });
+}
+
+/** DeFi uses the same protected ETH queue and sponsor high-water as Native3
+ * and Uniswap. It does not expose a generic server signer to HTTP handlers. */
+export async function executeOriginalPagedPublicSepoliaDefiCommandV8(receiver,command){
+ assert.equal(arguments.length,2);const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner,'SEPOLIA_DEFI_SOURCE_REQUIRED');
+ return serialized(r.s,async()=>{current(r.s);const K=await import('../chains/public-testnet/key-store-v1.mjs');return K.executeOriginalPublicSepoliaDefiCommandV8(r.sourceSigner,command);});
+}
+export async function observeOriginalPagedPublicSepoliaDefiCommandV8(receiver,account,jobId,kind){
+ assert.equal(arguments.length,4);const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner,'SEPOLIA_DEFI_SOURCE_REQUIRED');
+ return serialized(r.s,async()=>{
+  current(r.s);const K=await import('../chains/public-testnet/key-store-v1.mjs'),A=await import('../accounts/authority/device-sepolia-defi-shares-authority-v4.mjs'),status=await K.observeOriginalPublicSepoliaDefiCommandV8(r.sourceSigner,account,jobId,kind);
+  if(status.transactionHash){const evidence=await K.issueOriginalPublicSepoliaDefiSubmissionEvidenceV8(r.sourceSigner,account,jobId,kind);await A.restoreOriginalDeviceSepoliaDefiRetainedSubmissionV8(account,evidence);}
+  if(status.canonical){if(kind==='REDEEM')await A.observeOriginalDeviceSepoliaDefiRedemptionV8(account,jobId);else await A.observeOriginalDeviceSepoliaDefiSharesJobV4(account,jobId);}
+  return status;
+ });
+}
+/** Canonical delivery evidence is issued only from the Original account,
+ * protected signed wire, immutable capital grant and observed private output. */
+export async function readOriginalPagedPublicSepoliaDefiDeliveryV8(native,account,jobId){
+ assert.equal(arguments.length,3);const s=current(owners.get(native));return serialized(s,async()=>{
+  const A=await import('../accounts/authority/device-sepolia-defi-shares-authority-v4.mjs'),K=await import('../chains/public-testnet/key-store-v1.mjs'),binding=await A.readOriginalDeviceSepoliaDefiSharesAuthorityBindingV8(account),r=originalReceiver(binding.runtime);
+  need(r.s===s&&r.finalized&&r.sourceSigner,'SEPOLIA_DEFI_ORIGINAL_SOURCE');
+  const row=await K.readOriginalPublicSepoliaDefiDeliveryDataV8(r.sourceSigner,account,jobId),base={profile:'ORIGINAL_PUBLIC_PAGED_SEPOLIA_DEFI_DELIVERY_V8',protocol:row.protocol,jobId:row.jobId,reference:row.reference,nativeId:row.signed?.nativeId??null};
+  if(row.phase!=='FINALIZED'||row.receipt?.status!=='0x1'||!row.signed)return freeze({...base,status:'UNKNOWN',finalized:false});
+  const retained=await K.issueOriginalPublicSepoliaDefiSubmissionEvidenceV8(r.sourceSigner,account,jobId,'INVEST');await A.restoreOriginalDeviceSepoliaDefiRetainedSubmissionV8(account,retained);await A.observeOriginalDeviceSepoliaDefiSharesJobV4(account,jobId);
+  const delivery=await A.readOriginalDeviceSepoliaDefiDeliveryEvidenceV8(account,jobId),capital=row.capital;
+  need(delivery.protocol===row.protocol&&delivery.jobId===jobId&&delivery.reference===row.reference&&delivery.transactionHash===row.signed.nativeId,'SEPOLIA_DEFI_DELIVERY_ORIGINAL_WIRE');
+  need(delivery.descriptor===capital.delivery.encodedDescriptor&&delivery.receiptCommitment===row.grant.review.receiptCommitment&&delivery.shareAmount===row.grant.review.shares,'SEPOLIA_DEFI_DELIVERY_ORIGINAL_OUTPUT');
+  need(BigInt(delivery.inputSpent)>0n&&BigInt(delivery.inputSpent)<=BigInt(capital.inputCeiling.amountAtomic),'SEPOLIA_DEFI_DELIVERY_INPUT_CEILING');
+  const fee=(BigInt(row.receipt.gasUsed)*BigInt(row.receipt.effectiveGasPrice)).toString();need(BigInt(fee)<=BigInt(capital.feeCeiling.amountAtomic),'SEPOLIA_DEFI_DELIVERY_FEE_CEILING');
+  const facts=freeze({...base,status:'OBSERVED',finalized:true,nativeWire:row.signed.nativeWire,transactionSHA256:row.signed.transactionSHA256,feeAtomic:fee,blockId:row.receipt.blockHash.slice(2),blockHeight:BigInt(row.receipt.blockNumber).toString(),confirmations:(BigInt(row.finalizedHead.number)-BigInt(row.receipt.blockNumber)+1n).toString(),descriptor:clone(capital.delivery),receiptCommitment:delivery.receiptCommitment,shareAmount:delivery.shareAmount,inputSpent:delivery.inputSpent,underlyingAssetIdentity:delivery.underlyingAssetIdentity,shareAssetIdentity:delivery.shareAssetIdentity});
+  issuedFacts.set(facts,{runtime:native,actionCommitment:capital.dispatch.actionCommitment,wireSHA256:row.signed.transactionSHA256});return facts;
+ });
+}
+export async function readOriginalPagedPublicSepoliaSourceRecoveryRowsV8(receiver){
+ assert.equal(arguments.length,1);const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner,'SEPOLIA_SOURCE_READ_REQUIRED');const K=await import('../chains/public-testnet/key-store-v1.mjs');originalReceiver(receiver);return K.readOriginalPublicPagedSourceRecoveryRowsV8(r.sourceSigner,receiver);
+}
+async function defiTargetKernelV8(protocol){
+ need(['AAVE_STATIC','MORPHO_V2'].includes(protocol),'SEPOLIA_DEFI_PROTOCOL');
+ return protocol==='AAVE_STATIC'?{module:await import('../operations/deployments/defi/aave-sepolia-target-v4.mjs'),name:'Aave'}:{module:await import('../operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs'),name:'MorphoV2'};
+}
+/** Explicit administrative faucet preparation; no automatic user funding.
+ * Existing source rows are observed before asking for another one-use grant. */
+export async function claimOriginalPagedPublicAaveTestLiquidityV8(receiver,retention,target){
+ assert.equal(arguments.length,3);const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner,'AAVE_FAUCET_SOURCE_REQUIRED');return serialized(r.s,async()=>{
+  const A=await import('../operations/deployments/defi/aave-sepolia-target-v4.mjs'),R=await import('../operations/recovery/sepolia-defi-retention-v8.mjs'),K=await import('../chains/public-testnet/key-store-v1.mjs');A.assertOriginalAaveSepoliaTargetV4(receiver,target);const binding=await R.readOriginalSepoliaDefiRetentionBindingV8(retention);need(binding.runtime===receiver&&binding.uniswapTarget===r.uniswapTargetSystem&&A.readOriginalAaveSepoliaTargetBindingV4(receiver,target).uniswapTarget===binding.uniswapTarget,'AAVE_FAUCET_ORIGINAL_PARENT');
+  const existing=await K.observeOriginalPublicAaveTestLiquidityV8(r.sourceSigner,target.planSHA256);if(existing){need(existing.confirmed,'AAVE_FAUCET_ORIGINAL_SEND_PENDING');return existing;}
+  const balance=BigInt(await receiver.call({to:target.target.pools[0].asset,data:'0x70a08231'+target.account.slice(2).padStart(64,'0')}));if(balance>=2000000n)return freeze({profile:'ORIGINAL_AAVE_TEST_LIQUIDITY_STATUS_V8',targetPlanSHA256:target.planSHA256,phase:'FUNDED',confirmed:true,transactionHash:null,amountAtomic:'0',balanceAtomic:balance.toString(),automaticRebroadcast:false});
+  const F=await import('../chains/public-testnet/aave-sepolia-faucet-v8.mjs'),token=await F.prepareOriginalAaveSepoliaFaucetV8(receiver,retention,target),status=await K.executeOriginalPublicAaveTestLiquidityV8(r.sourceSigner,token);need(status.confirmed,'AAVE_FAUCET_ORIGINAL_SEND_PENDING');return status;
+ });
+}
+/** Initialize both independent venue targets before waiting for finality.
+ * This returns routing DATA only; no finalized Target/system capability. */
+export async function initializeOriginalPagedPublicSepoliaDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention){
+ assert.equal(arguments.length,5);return originalDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention,null,'create',true);
+}
+export async function runOriginalPagedPublicSepoliaDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention){
+ assert.equal(arguments.length,5);return originalDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention,null,'create');
+}
+/** Only a live Original retention owner can register the locator subsequently
+ * authenticated in the Native activation/capture. No password is serialized. */
+export async function bindOriginalPagedPublicSepoliaDefiRecoveryV8(receiver,retention){
+ assert.equal(arguments.length,2);const r=originalReceiver(receiver),R=await import('../operations/recovery/sepolia-defi-retention-v8.mjs'),owned=await R.readOriginalSepoliaDefiRetentionBindingV8(retention);
+ need(owned.runtime===receiver&&owned.uniswapTarget===r.uniswapTargetSystem&&owned.directory===resolve(owned.directory),'SEPOLIA_DEFI_ORIGINAL_RETENTION');
+ const target=owned.uniswapTarget,T=await import('../operations/local/sepolia-uniswap-target-kernel-v4.mjs'),actual=T.readOriginalSepoliaUniswapTargetSourceBindingV4(receiver,target),locator=freeze({directory:owned.directory,credential:'ROOT_DOMAIN_PASSWORD_V8',binding:{chainId:'11155111',keysetId:r.s.keyset.keysetId,account:r.s.keyset.accounts[0].address,uniswapTargetPlanSHA256:target.planSHA256,parentPool:actual.parent.pool}});
+ if(r.defiRecoveryLocator)assert.deepEqual(r.defiRecoveryLocator,locator,'SEPOLIA_DEFI_RETENTION_LOCATOR_CHANGED');r.defiRecoveryLocator=locator;return locator;
+}
+export async function reopenOriginalPagedPublicSepoliaDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention,token){
+ assert.equal(arguments.length,6);return originalDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention,token,'reopen');
+}
+export async function resumeOriginalPagedPublicSepoliaDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention,token){
+ assert.equal(arguments.length,6);return originalDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention,token,'resume');
+}
+export async function runOriginalPagedPublicSepoliaDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget,retention){
+ assert.equal(arguments.length,5);return originalDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget,retention,null,'create');
+}
+export async function reopenOriginalPagedPublicSepoliaDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget,retention,token){
+ assert.equal(arguments.length,6);return originalDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget,retention,token,'reopen');
+}
+export async function resumeOriginalPagedPublicSepoliaDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget,retention,token){
+ assert.equal(arguments.length,6);return originalDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget,retention,token,'resume');
+}
+async function originalDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget,retention,token,mode){
+ const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner&&r.uniswapTargetSystem===uniswapTarget&&r.defiTargets?.get('AAVE_STATIC')===aaveTarget&&r.defiTargets?.get('MORPHO_V2')===morphoTarget,'SEPOLIA_DEFI_MIXED_SAME_TARGETS');
+ return serialized(r.s,async()=>{
+  const R=await import('../operations/recovery/sepolia-defi-retention-v8.mjs'),owner=await R.readOriginalSepoliaDefiRetentionBindingV8(retention);need(owner.runtime===receiver&&owner.uniswapTarget===uniswapTarget,'SEPOLIA_DEFI_ORIGINAL_RETENTION');
+  const M=await import('../operations/local/sepolia-defi-mixed-source-kernel-v8.mjs'),K=await import('../chains/public-testnet/key-store-v1.mjs');
+  if(r.defiMixedSystem)return M.assertOriginalSepoliaDefiMixedSourceReadyV8(receiver,r.defiMixedSystem);
+  let attempt=r.defiMixedAttempt;
+  if(!attempt){const plan=mode==='create'?await M.prepareOriginalSepoliaDefiMixedSourceV8(receiver,uniswapTarget,aaveTarget,morphoTarget):await M[mode==='reopen'?'prepareOriginalSepoliaDefiMixedSourceReopenV8':'prepareOriginalSepoliaDefiMixedSourceResumeV8'](receiver,uniswapTarget,aaveTarget,morphoTarget,token);attempt={plan,step:null,next:0,retained:mode==='create'?0:M.readOriginalSepoliaDefiMixedSourceRetainedReceiptsV8(receiver,plan).length};r.defiMixedAttempt=attempt;}
+  for(;;){
+   current(r.s);const step=attempt.step??await M.readOriginalSepoliaDefiMixedSourceStepV8(receiver,attempt.plan);attempt.step=step;
+   if(step.kind==='READY'){
+    await(mode==='reopen'?K.inspectOriginalPublicSepoliaDefiMixedSourceFinalityV8:K.waitOriginalPublicSepoliaDefiMixedSourceFinalityV8)(r.sourceSigner,step.completion);await M.assertOriginalSepoliaDefiMixedSourceReadyV8(receiver,step.system);r.defiMixedSystem=step.system;return step.system;
+   }
+   if(mode==='create')await retention.publishMixedInitialization(attempt.plan);
+   let receipt;
+   if(mode==='reopen'||attempt.next<attempt.retained)receipt=await K.observeOriginalPublicSepoliaDefiMixedSourceInitializationV8(r.sourceSigner,step.token);
+   else{try{receipt=await K.executeOriginalPublicSepoliaDefiMixedSourceInitializationV8(r.sourceSigner,step.token);}catch(error){if(error.message!=='SEPOLIA_DEFI_MIXED_ORIGINAL_SEND_PENDING')throw error;receipt=await K.waitOriginalPublicSepoliaDefiMixedSourceInitializationV8(r.sourceSigner,step.token);}}
+   await M.advanceOriginalSepoliaDefiMixedSourceV8(receiver,attempt.plan,step.token,receipt);attempt.step=null;attempt.next++;
+   if(mode==='create')await retention.publishMixedInitialization(attempt.plan);
+  }
+ });
+}
+async function originalDefiTargetV8(receiver,uniswapTarget,venue,protocol,retention,token,mode,initializationOnly=false){
+ const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner&&r.uniswapTargetSystem===uniswapTarget,'SEPOLIA_DEFI_SAME_UNISWAP_TARGET');
+ return serialized(r.s,async()=>{
+  const R=await import('../operations/recovery/sepolia-defi-retention-v8.mjs'),owner=await R.readOriginalSepoliaDefiRetentionBindingV8(retention);need(owner.runtime===receiver&&owner.uniswapTarget===uniswapTarget,'SEPOLIA_DEFI_ORIGINAL_RETENTION');
+  const K=await import('../chains/public-testnet/key-store-v1.mjs'),k=await defiTargetKernelV8(protocol),T=k.module,n=k.name;
+  r.defiTargets??=new Map();r.defiAttempts??=new Map();if(r.defiTargets.has(protocol)){const system=r.defiTargets.get(protocol);T['assertOriginal'+n+'SepoliaTargetV4'](receiver,system);return system;}
+  let attempt=r.defiAttempts.get(protocol);
+  if(!attempt){
+   const plan=mode==='create'?await T['prepareOriginal'+n+'SepoliaTargetV4'](receiver,uniswapTarget,venue,await receiver.nonce(receiver.accounts[0],'pending')):await T['prepareOriginal'+n+'SepoliaTarget'+(mode==='reopen'?'Reopen':'Resume')+'V8'](receiver,uniswapTarget,venue,token);
+   const data=T['readOriginal'+n+'SepoliaTargetPlanV4'](receiver,plan);if(mode!=='create')K.assertOriginalPublicSepoliaDefiRetainedPlanV8(r.sourceSigner,data);
+   attempt={plan,next:0,retained:mode==='create'?0:T['readOriginal'+n+'SepoliaTargetRetainedReceiptsV8'](receiver,plan).length,mode};r.defiAttempts.set(protocol,attempt);
+   if(mode==='create')await retention.publishInitialization(protocol,plan);
+  }
+  for(let index=attempt.next;index<7;index++){
+   current(r.s);const permit=T['issueOriginal'+n+'SepoliaInitializationV4'](receiver,attempt.plan,index);let receipt;
+   if(mode==='reopen'||index<attempt.retained)receipt=await K.observeOriginalPublicSepoliaDefiTargetInitializationV8(r.sourceSigner,permit,protocol);
+   else{try{receipt=await K.executeOriginalPublicSepoliaDefiTargetInitializationV8(r.sourceSigner,permit,protocol);}catch(error){if(error.message!=='SEPOLIA_DEFI_TARGET_ORIGINAL_SEND_PENDING')throw error;receipt=await K.waitOriginalPublicSepoliaDefiTargetInitializationV8(r.sourceSigner,permit,protocol);}}
+   await T['advanceOriginal'+n+'SepoliaInitializationV4'](receiver,attempt.plan,permit,receipt.transactionHash);attempt.next=index+1;
+   if(mode==='create')await retention.publishInitialization(protocol,attempt.plan);
+  }
+  if(initializationOnly)return freeze({profile:'ORIGINAL_SEPOLIA_DEFI_TARGET_INITIALIZED_V8',protocol,planSHA256:T['readOriginal'+n+'SepoliaTargetPlanV4'](receiver,attempt.plan).planSHA256,financialAcceptance:false});
+  const system=await(mode==='reopen'?K.inspectOriginalPublicSepoliaDefiTargetFinalityV8:K.waitOriginalPublicSepoliaDefiTargetFinalityV8)(r.sourceSigner,attempt.plan,protocol);current(r.s);r.defiTargets.set(protocol,system);return system;
  });
 }
 

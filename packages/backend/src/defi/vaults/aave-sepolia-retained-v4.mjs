@@ -96,3 +96,10 @@ async function originalShareWithdrawal(s,nativeId,shares){
  const topic=await s.runtime.keccak('0x'+Buffer.from('Withdrawal(address,uint64,bytes32)').toString('hex')),rows=events(receipt,pool.address,topic);assert.equal(rows.length,1,'AAVE_ORIGINAL_W39_EVENT');const log=rows[0];assert.equal(log.removed,false);assert.equal(log.transactionHash,nativeId);assert.equal(log.blockHash,receipt.blockHash);assert.equal(log.blockNumber,receipt.blockNumber);assert.deepEqual(log.topics,[topic,'0x'+s.target.account.slice(2).padStart(64,'0')]);assert.match(log.data,/^0x[0-9a-f]{128}$/);assert.equal(BigInt('0x'+log.data.slice(2,66)),BigInt(shares),'AAVE_ORIGINAL_W39_AMOUNT');assert.notEqual(log.data.slice(66),'0'.repeat(64),'AAVE_ORIGINAL_W39_NULLIFIER');
  const block=await s.runtime.block(receipt.blockNumber),finalized=await s.runtime.block('finalized');assert.equal(block.hash,receipt.blockHash);assert.ok(Array.isArray(block.transactions)&&block.transactions.includes(nativeId));assert.ok(BigInt(finalized.number)>=BigInt(block.number),'AAVE_ORIGINAL_W39_FINALITY_PENDING');await s.runtime.assertCanonical(block);await s.runtime.assertCanonical(finalized);
 }
+
+/** Private checkpoint DATA. It cannot create an adapter or spend authority. */
+export async function readOriginalAaveSepoliaRetainedCheckpointV8(adapter){assert.equal(arguments.length,1);const s=state(adapter);return serial(s,()=>freeze({profile:'ORIGINAL_SEPOLIA_DEFI_ACTIONS_CHECKPOINT_V8',path:s.path,revision:s.record.revision,dataSHA256:sha(JSON.stringify(s.record.data))}));}
+
+/** Full private record for the authenticated DeFi retention owner. Returned
+ * DATA is not accepted as an adapter or command by any Original producer. */
+export async function readOriginalAaveSepoliaRetainedRecordV8(adapter){assert.equal(arguments.length,1);const s=state(adapter);return serial(s,()=>freeze(copy(s.record)));}

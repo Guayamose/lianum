@@ -4,7 +4,7 @@
 export const NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 = Object.freeze({
   "packageLockSHA256": "fc10614ab6a747a72c9aebf16956c6f418f53df54ec0d8135e333dff079a85b3",
   "mobilePackageSHA256": "a9ebe72015f962b24d698c50b08bb509325b415db8a877a7e20b7cc14369b792",
-  "localProtocolPackageSHA256": "0612d2f2e5ad09dc5656a26cfb92f48fe440d9fd567e3f3556ef58f5f8e4f86a",
+  "localProtocolPackageSHA256": "5d95b7989fb9b28e3785c7de67ace4f3d8ff41df31cb94539264a2e45b91248e",
   "packages": [
     {
       "version": "2.4.0",
@@ -206,4 +206,4 @@ export const NATIVE_VALUE_DEV_MOBILE_PACKAGE_PINS_V5 = Object.freeze({
     }
   ]
 });
-export const NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 = '696ec149baf423dab247baf9fa5e531934ba434a5738c61ee3d4440a1aa1b438';
+export const NATIVE_VALUE_DEV_MOBILE_PACKAGES_SHA256_V5 = '02ab14a1fdcf0aa8f6e1b332807938507b488f338fd4aba73352e1c9bb75d3ec';
