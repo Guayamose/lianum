@@ -9,7 +9,7 @@ test('cloud connection discovery uses the unlocked session and rejects wrong wal
  const key=new Uint8Array(32).fill(1),publicKey=hex.encode(secp256k1.getPublicKey(key,false)),origin='https://api.lianum.oryontechnology.com';let active=true,signed=0,mode='valid';
  t.mock.module('react-native',{exports:{AppState:{currentState:'active'}}});
  t.mock.module('expo-crypto',{exports:{}});
- t.mock.module('../src/custody/wallet-session-v1.ts',{exports:{walletSessionStatusV1:()=>({active,publicKey}),signWalletSessionNativeRequestV1:(challenge,expected)=>{signed++;return hex.encode(secp256k1.sign(nativeWalletAuthMessageV1(challenge,{...expected,devicePublicKey:publicKey}),key,{prehash:true,lowS:true}));}}});
+ t.mock.module('../src/custody/wallet-session-v1.ts',{exports:{copyWalletSessionSecretV10:async()=>{throw Error('HOST_NO_MANAGED_ROOT');},walletSessionStatusV1:()=>({active,publicKey}),signWalletSessionNativeRequestV1:(challenge,expected)=>{signed++;return hex.encode(secp256k1.sign(nativeWalletAuthMessageV1(challenge,{...expected,devicePublicKey:publicKey}),key,{prehash:true,lowS:true}));}}});
  const descriptor={profile:'LIANUM_DEVICE_PAGED_OWNER_V3',graphProfile:'LIANUM_PAEG_FUNDED_PAGED_V3',sparseEncoding:'BN254_POSEIDON2_SPARSE_V3',origin,pairingId:'cloud-wallet-source',devicePublicKey:publicKey,deadlineMs:Date.now()+3600000,chainId:'11155111'};
  for(const name of ['genesis','scope','policy','assetIdentity','domain','hubDomain','registryCommitment','manifestSHA256','consumerSHA256','poolCodeHash','stateCodeHash','nativeCodeHash','mathCodeHash'])descriptor[name]='1'.repeat(64);
  for(const [i,name]of ['pool','state','native','math'].entries())descriptor[name]='0x'+String(i+1).repeat(40);
