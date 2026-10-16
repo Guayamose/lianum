@@ -593,12 +593,34 @@ async function originalDefiFinancialGrantV8(s,token){
  validateSepoliaDefiFinancialDataV8(grant,s.account.address,plan);need(plan.keysetId===s.keysetId&&sourceRows(s).filter(row=>row.profile===DEFI_TARGET_ROW_V8&&row.command.plan.planSHA256===plan.planSHA256&&row.phase==='FINALIZED').length===7,'SEPOLIA_DEFI_FINALIZED_TARGET_REQUIRED');
  return{A,grant,target,plan};
 }
+const defiFinancialPreparationsV8=new WeakMap();
+const defiFinancialEpochV8=s=>s.epochState?.epochs.at(-1)?.epoch.epochId??null;
+/** A fee observation stays private to this Source owner and this exact frozen
+ * transaction. Refreshing another permission cannot renew its original clock. */
+function currentDefiFinancialPreparationV8(s,transaction){
+ const prepared=defiFinancialPreparationsV8.get(transaction);need(prepared?.source===s,'SEPOLIA_DEFI_ORIGINAL_FINANCIAL_PREPARATION');
+ need(sourceState(s.signer)===s&&!s.observationOnly,'SEPOLIA_SOURCE_OBSERVER_CANNOT_SIGN');need(Date.now()<prepared.wall+30000&&performance.now()<prepared.elapsed+30000,'SEPOLIA_DEFI_FINANCIAL_PREPARATION_EXPIRED');need(s.policySHA256===prepared.policySHA256&&defiFinancialEpochV8(s)===prepared.epochId,'SEPOLIA_DEFI_FINANCIAL_PREPARATION_EPOCH_CHANGED');need(s.keysetId===prepared.keysetId&&s.account.address===prepared.account,'SEPOLIA_DEFI_FINANCIAL_PREPARATION_ACCOUNT');return prepared;
+}
+async function assertDefiFinancialPreparationV8(s,transaction){
+ const prepared=currentDefiFinancialPreparationV8(s,transaction);await sourceIdentify(s);
+ const [nonce,balance]=await Promise.all([s.rpc('eth_getTransactionCount',[s.account.address,'pending']),s.rpc('eth_getBalance',[s.account.address,'pending'])]);
+ need(receiverQuantity(nonce).toString()===transaction.nonce,'SEPOLIA_DEFI_NONCE');need(receiverQuantity(balance)>=sourceFee(transaction)+sourceValue(transaction),'SEPOLIA_DEFI_INSUFFICIENT_GAS_FUNDS');
+ await s.runtime.assertCanonical(prepared.head);assert.deepEqual(await s.runtime.block(prepared.head.number),prepared.head,'SEPOLIA_DEFI_FINANCIAL_PREPARATION_CANONICAL_FORK');currentDefiFinancialPreparationV8(s,transaction);
+}
+/** Capital rechecks the same Original READY/reservation and authorization after
+ * the fee RPCs. The final synchronous guard cannot refresh either clock. */
+async function assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,grant,consumed=false){
+ await assertDefiFinancialPreparationV8(s,transaction);
+ const A=await import('../../accounts/authority/device-sepolia-defi-shares-authority-v4.mjs');sameSepoliaDefiCommandTermsV8(grant,await A[consumed?'readOriginalDeviceSepoliaDefiFinancialDispatchV8':'readOriginalDeviceSepoliaDefiFinancialCommandV4'](s.runtime,token));
+ if(capital){const C=await import('../../providers/paged-public-sepolia-defi-capital-owner-v8.mjs');assert.deepEqual(await C.readOriginalPagedPublicSepoliaDefiCapitalCommandV8(s.runtime,token),capital,'SEPOLIA_DEFI_ORIGINAL_CAPITAL_CHANGED');}
+ currentDefiFinancialPreparationV8(s,transaction);
+}
 async function prepareDefiFinancialTransactionV8(s,grant){
- await sourceIdentify(s);const [head,nonce,priority,balance]=await Promise.all([s.runtime.block(),s.rpc('eth_getTransactionCount',[s.account.address,'pending']),s.rpc('eth_maxPriorityFeePerGas'),s.rpc('eth_getBalance',[s.account.address,'pending'])]);
+ await sourceIdentify(s);const wall=Date.now(),elapsed=performance.now(),policySHA256=s.policySHA256,epochId=defiFinancialEpochV8(s),[head,nonce,priority,balance]=await Promise.all([s.runtime.block(),s.rpc('eth_getTransactionCount',[s.account.address,'pending']),s.rpc('eth_maxPriorityFeePerGas'),s.rpc('eth_getBalance',[s.account.address,'pending'])]);
  const estimated=receiverQuantity(await s.rpc('eth_estimateGas',[{from:s.account.address,to:grant.to,data:grant.data,value:'0x0',gasPrice:'0x0'}])),gas=(estimated*120n+99n)/100n,tip=receiverQuantity(priority),maximum=receiverQuantity(head.baseFeePerGas)*2n+tip;
  need(gas>21000n&&gas<=receiverQuantity(head.gasLimit)&&gas<=30000000n&&maximum>0n&&tip<=maximum,'SEPOLIA_DEFI_TRANSACTION_GAS_BOUND');await s.runtime.assertCanonical(head);
  const transaction=freeze({profile:'ORIGINAL_PAGED_SEPOLIA_SOURCE_CALL_V4',chainId:'11155111',nonce:receiverQuantity(nonce).toString(),to:grant.to,value:'0',calldata:grant.data,gasLimit:gas.toString(),maxFeePerGas:maximum.toString(),maxPriorityFeePerGas:tip.toString()});
- need(receiverQuantity(balance)>=sourceFee(transaction),'SEPOLIA_DEFI_INSUFFICIENT_GAS_FUNDS');return transaction;
+ need(receiverQuantity(balance)>=sourceFee(transaction),'SEPOLIA_DEFI_INSUFFICIENT_GAS_FUNDS');defiFinancialPreparationsV8.set(transaction,{source:s,head:freeze(receiverCopy(head)),wall,elapsed,policySHA256,epochId,keysetId:s.keysetId,account:s.account.address});await assertDefiFinancialPreparationV8(s,transaction);return transaction;
 }
 async function ensureOriginalDefiInvestmentApprovalV8(s,token,grant,plan,capital){
  const call=sepoliaDefiApprovalCallV8(grant,plan),amount=BigInt(grant.review.maximumInputAtomic),account=s.account.address.slice(2).padStart(64,'0'),spender=plan.delivery.address.slice(2).padStart(64,'0');
@@ -609,10 +631,10 @@ async function ensureOriginalDefiInvestmentApprovalV8(s,token,grant,plan,capital
  if(BigInt(allowance)>=amount)return;
  need(rows.every(row=>['CONFIRMED','FINALIZED','REVERTED'].includes(row.phase)),'SEPOLIA_SOURCE_PRIOR_SEND_PENDING');const transaction=await prepareDefiFinancialTransactionV8(s,call);sourceLimits(s,rows,transaction);
  row={profile:DEFI_APPROVAL_ROW_V8,id,command:{grant:receiverCopy(grant),targetPlanSHA256:plan.planSHA256,capital:receiverCopy(capital)},policySHA256:s.policySHA256,transaction:receiverCopy(transaction),phase:'KEY_PENDING',signed:null,receipt:null};rows.push(row);await sourceCommit(s,rows);
- const A=await import('../../accounts/authority/device-sepolia-defi-shares-authority-v4.mjs');sameSepoliaDefiCommandTermsV8(grant,await A.readOriginalDeviceSepoliaDefiFinancialCommandV4(s.runtime,token));await sourceIdentify(s);need(receiverQuantity(await s.rpc('eth_getTransactionCount',[s.account.address,'pending'])).toString()===transaction.nonce,'SEPOLIA_DEFI_NONCE');sourceLimits(s,rows.filter(r=>r!==row),transaction);
+ const A=await import('../../accounts/authority/device-sepolia-defi-shares-authority-v4.mjs');sameSepoliaDefiCommandTermsV8(grant,await A.readOriginalDeviceSepoliaDefiFinancialCommandV4(s.runtime,token));await assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,grant);sourceLimits(s,rows.filter(r=>r!==row),transaction);
  const key=identity(own.get(s.handle)).keys[0];need(key.account.address===s.account.address,'SEPOLIA_DEFI_KEYSET');row.signed=receiverCopy(validateSepoliaSourceCallWireV4(transaction,s.account.address,signSepoliaSourceCallWireV4(transaction,key.key)));row.phase='SIGNED';await sourceCommit(s,rows);
- await sourceIdentify(s);sameSepoliaDefiCommandTermsV8(grant,await A.readOriginalDeviceSepoliaDefiFinancialCommandV4(s.runtime,token));sourceLimits(s,rows.filter(r=>r!==row),transaction);row.phase='SUBMITTING';await sourceCommit(s,rows);
- await sourceIdentify(s);sameSepoliaDefiCommandTermsV8(grant,await A.readOriginalDeviceSepoliaDefiFinancialCommandV4(s.runtime,token));sourceLimits(s,rows.filter(r=>r!==row),transaction);try{need(await s.rpc('eth_sendRawTransaction',[row.signed.nativeWire])===row.signed.nativeId,'SEPOLIA_DEFI_APPROVAL_BROADCAST_ID');}catch{}row.phase='UNKNOWN';await sourceCommit(s,rows);
+ sameSepoliaDefiCommandTermsV8(grant,await A.readOriginalDeviceSepoliaDefiFinancialCommandV4(s.runtime,token));await assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,grant);sourceLimits(s,rows.filter(r=>r!==row),transaction);row.phase='SUBMITTING';await sourceCommit(s,rows);
+ sameSepoliaDefiCommandTermsV8(grant,await A.readOriginalDeviceSepoliaDefiFinancialCommandV4(s.runtime,token));await assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,grant);sourceLimits(s,rows.filter(r=>r!==row),transaction);try{need(await s.rpc('eth_sendRawTransaction',[row.signed.nativeWire])===row.signed.nativeId,'SEPOLIA_DEFI_APPROVAL_BROADCAST_ID');}catch{}row.phase='UNKNOWN';await sourceCommit(s,rows);
  // Continue only after observing the same approval and its actual allowance.
  // A lost response never retries the wire or creates another nonce slot.
  for(let attempt=0;attempt<15;attempt++){const actual=await observeSource(s,rows,row);if(actual){need(actual.status==='0x1','SEPOLIA_DEFI_APPROVAL_REVERTED');need(BigInt(await s.runtime.call({to:call.to,data:'0xdd62ed3e'+account+spender}))>=amount,'SEPOLIA_DEFI_APPROVAL_NOT_EFFECTIVE');return;}await new Promise(resolve=>setTimeout(resolve,1000));}
@@ -633,17 +655,17 @@ export async function executeOriginalPublicSepoliaDefiCommandV8(signer,token){
  const Capital=await import('../../providers/paged-public-sepolia-defi-capital-owner-v8.mjs');if(grant.kind==='INVEST')capital=await Capital.readOriginalPagedPublicSepoliaDefiCapitalCommandV8(s.runtime,token);
  const transaction=await prepareDefiFinancialTransactionV8(s,grant);sourceLimits(s,rows,transaction);
  const row={profile:DEFI_COMMAND_ROW_V8,id,command:{grant:receiverCopy(grant),targetPlanSHA256:plan.planSHA256,...(capital?{capital:receiverCopy(capital)}:{})},policySHA256:s.policySHA256,transaction:receiverCopy(transaction),phase:'KEY_PENDING',signed:null,receipt:null};rows.push(row);await sourceCommit(s,rows);
- await sourceIdentify(s);need(receiverQuantity(await s.rpc('eth_getTransactionCount',[s.account.address,'pending'])).toString()===transaction.nonce,'SEPOLIA_DEFI_NONCE');
+ await assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,grant);
  const authorityConsumed=await A.consumeOriginalDeviceSepoliaDefiFinancialCommandV4(s.runtime,token);sameSepoliaDefiCommandTermsV8(grant,authorityConsumed);
  if(grant.kind==='INVEST')await Capital.consumeOriginalPagedPublicSepoliaDefiCapitalCommandV8(s.runtime,token);
- const consumed=await A.readOriginalDeviceSepoliaDefiFinancialDispatchV8(s.runtime,token);sameSepoliaDefiCommandTermsV8(grant,consumed);row.command.grant=receiverCopy(consumed);await sourceCommit(s,rows);sourceState(signer);sourceLimits(s,rows.filter(r=>r!==row),transaction);
+ const consumed=await A.readOriginalDeviceSepoliaDefiFinancialDispatchV8(s.runtime,token);sameSepoliaDefiCommandTermsV8(grant,consumed);row.command.grant=receiverCopy(consumed);await sourceCommit(s,rows);await assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,consumed,true);sourceLimits(s,rows.filter(r=>r!==row),transaction);
  const key=identity(own.get(s.handle)).keys[0];need(key.account.address===s.account.address&&key.account.networkId==='ethereum-sepolia','SEPOLIA_DEFI_KEYSET');
  row.signed=receiverCopy(validateSepoliaSourceCallWireV4(transaction,s.account.address,signSepoliaSourceCallWireV4(transaction,key.key)));row.phase='SIGNED';await sourceCommit(s,rows);
  await A.retainOriginalDeviceSepoliaDefiSubmissionV4(s.runtime,token,row.signed.nativeId);
  for(const phase of ['SUBMITTING','UNKNOWN']){
   if(phase==='SUBMITTING'){
-   await sourceIdentify(s);need(receiverQuantity(await s.rpc('eth_getTransactionCount',[s.account.address,'pending'])).toString()===transaction.nonce,'SEPOLIA_DEFI_NONCE');sameSepoliaDefiCommandTermsV8(consumed,await A.readOriginalDeviceSepoliaDefiFinancialDispatchV8(s.runtime,token));sourceLimits(s,rows.filter(r=>r!==row),transaction);row.phase=phase;await sourceCommit(s,rows);
-   await sourceIdentify(s);sameSepoliaDefiCommandTermsV8(consumed,await A.readOriginalDeviceSepoliaDefiFinancialDispatchV8(s.runtime,token));sourceLimits(s,rows.filter(r=>r!==row),transaction);
+   sameSepoliaDefiCommandTermsV8(consumed,await A.readOriginalDeviceSepoliaDefiFinancialDispatchV8(s.runtime,token));await assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,consumed,true);sourceLimits(s,rows.filter(r=>r!==row),transaction);row.phase=phase;await sourceCommit(s,rows);
+   sameSepoliaDefiCommandTermsV8(consumed,await A.readOriginalDeviceSepoliaDefiFinancialDispatchV8(s.runtime,token));await assertDefiFinancialCapitalPreparationV8(s,transaction,token,capital,consumed,true);sourceLimits(s,rows.filter(r=>r!==row),transaction);
    try{need(await s.rpc('eth_sendRawTransaction',[row.signed.nativeWire])===row.signed.nativeId,'SEPOLIA_DEFI_BROADCAST_ID');}catch{}
   }else{row.phase=phase;await sourceCommit(s,rows);}
  }
@@ -669,8 +691,8 @@ export async function executeOriginalPublicAaveTestLiquidityV8(signer,token){
  if(existing){assert.deepEqual(existing.command,command,'AAVE_FAUCET_ORIGINAL_INTENT');if(existing.signed)await observeSource(s,rows,existing);return aaveFaucetStatusV8(existing);}
  need(command.from===s.account.address&&command.policySHA256===s.policySHA256&&rows.filter(row=>row.profile===DEFI_TARGET_ROW_V8&&row.command.plan.planSHA256===command.targetPlanSHA256&&row.phase==='FINALIZED').length===7,'AAVE_FAUCET_ORIGINAL_FINALIZED_TARGET');need(!rows.some(row=>row.profile===aaveFaucetRowProfile),'AAVE_FAUCET_ONCE_ONLY');need(rows.every(row=>['CONFIRMED','FINALIZED','REVERTED'].includes(row.phase)),'SEPOLIA_SOURCE_PRIOR_SEND_PENDING');
  const transaction=await prepareDefiFinancialTransactionV8(s,{to:command.to,data:command.calldata});sourceLimits(s,rows,transaction);const row={profile:aaveFaucetRowProfile,id,command:receiverCopy(command),policySHA256:s.policySHA256,transaction:receiverCopy(transaction),phase:'KEY_PENDING',signed:null,receipt:null};rows.push(row);await sourceCommit(s,rows);
- assert.deepEqual(await F.consumeOriginalAaveSepoliaFaucetV8(s.runtime,token),command,'AAVE_FAUCET_ORIGINAL_PERMISSION');await sourceIdentify(s);need(receiverQuantity(await s.rpc('eth_getTransactionCount',[s.account.address,'pending'])).toString()===transaction.nonce,'AAVE_FAUCET_NONCE');sourceLimits(s,rows.filter(r=>r!==row),transaction);const key=identity(own.get(s.handle)).keys[0];need(key.account.address===s.account.address,'AAVE_FAUCET_KEYSET');row.signed=receiverCopy(validateSepoliaSourceCallWireV4(transaction,s.account.address,signSepoliaSourceCallWireV4(transaction,key.key)));row.phase='SIGNED';await sourceCommit(s,rows);
- for(const phase of ['SUBMITTING','UNKNOWN']){if(phase==='SUBMITTING'){await sourceIdentify(s);assert.deepEqual(await F.readOriginalAaveSepoliaFaucetV8(s.runtime,token),command,'AAVE_FAUCET_PERMISSION_CHANGED');sourceLimits(s,rows.filter(r=>r!==row),transaction);row.phase=phase;await sourceCommit(s,rows);await sourceIdentify(s);assert.deepEqual(await F.readOriginalAaveSepoliaFaucetV8(s.runtime,token),command,'AAVE_FAUCET_PERMISSION_CHANGED');sourceLimits(s,rows.filter(r=>r!==row),transaction);try{need(await s.rpc('eth_sendRawTransaction',[row.signed.nativeWire])===row.signed.nativeId,'AAVE_FAUCET_BROADCAST_ID');}catch{}}else{row.phase=phase;await sourceCommit(s,rows);}}
+ assert.deepEqual(await F.consumeOriginalAaveSepoliaFaucetV8(s.runtime,token),command,'AAVE_FAUCET_ORIGINAL_PERMISSION');await assertDefiFinancialPreparationV8(s,transaction);sourceLimits(s,rows.filter(r=>r!==row),transaction);const key=identity(own.get(s.handle)).keys[0];need(key.account.address===s.account.address,'AAVE_FAUCET_KEYSET');row.signed=receiverCopy(validateSepoliaSourceCallWireV4(transaction,s.account.address,signSepoliaSourceCallWireV4(transaction,key.key)));row.phase='SIGNED';await sourceCommit(s,rows);
+ for(const phase of ['SUBMITTING','UNKNOWN']){if(phase==='SUBMITTING'){assert.deepEqual(await F.readOriginalAaveSepoliaFaucetV8(s.runtime,token),command,'AAVE_FAUCET_PERMISSION_CHANGED');await assertDefiFinancialPreparationV8(s,transaction);sourceLimits(s,rows.filter(r=>r!==row),transaction);row.phase=phase;await sourceCommit(s,rows);assert.deepEqual(await F.readOriginalAaveSepoliaFaucetV8(s.runtime,token),command,'AAVE_FAUCET_PERMISSION_CHANGED');await assertDefiFinancialPreparationV8(s,transaction);sourceLimits(s,rows.filter(r=>r!==row),transaction);try{need(await s.rpc('eth_sendRawTransaction',[row.signed.nativeWire])===row.signed.nativeId,'AAVE_FAUCET_BROADCAST_ID');}catch{}}else{row.phase=phase;await sourceCommit(s,rows);}}
  for(let attempt=0;attempt<15;attempt++){const actual=await observeSource(s,rows,row);if(actual)return aaveFaucetStatusV8(row);await originalDeploymentPause(s,originalDeploymentWaitBudget(s.policy.expiresAt),'AAVE_FAUCET_ORIGINAL_SEND_PENDING',1000);}return aaveFaucetStatusV8(row);
 }
 export async function readOriginalPublicSepoliaDefiDeliveryDataV8(signer,account,jobId){
