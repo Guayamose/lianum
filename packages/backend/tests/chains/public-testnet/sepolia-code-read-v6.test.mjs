@@ -50,3 +50,23 @@ test('a large contract set keeps at most eight concurrent reads',async t=>{
   assert.equal(maximum,8);
  }finally{if(opened){opened.lifecycle.acknowledge();await opened.runtime.close();}key.fill(0);}
 });
+
+// Other Original consumers fan out receipts/getters directly rather than via
+// the code-set helper. Their shared runtime must enforce the same bound.
+test('direct Original receipt/code/call reads share an eight-request network bound and drain after errors',async t=>{
+ const key=randomBytes(32);let opened,active=0,maximum=0;
+ try{
+  const account=publicProviderAccountFromKeyV1('ethereum-sepolia',key);
+  t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{
+   const q=JSON.parse(options.body);active++;maximum=Math.max(maximum,active);
+   try{if(q.method==='eth_chainId')return Response.json({jsonrpc:'2.0',id:q.id,result:'0xaa36a7'});if(q.method==='eth_getBlockByNumber')return Response.json({jsonrpc:'2.0',id:q.id,result:{hash:genesis}});await new Promise(resolve=>setTimeout(resolve,2));
+    assert.ok(['eth_getCode','eth_call','eth_getTransactionReceipt'].includes(q.method));
+    return Response.json({jsonrpc:'2.0',id:q.id,...(q.method==='eth_call'?{error:{code:3,message:'HOST_REVERT'}}:{result:q.method==='eth_getCode'?'0x6001':null})});
+   }finally{active--;}
+  });
+  opened=await createOriginalPagedSepoliaRpcV4({endpoint:'https://primary.invalid',account,keysetId:'ab'.repeat(32)});
+  const results=await Promise.allSettled(Array.from({length:57},(_,i)=>i%3===0?opened.runtime.code('0x'+(i+1).toString(16).padStart(40,'0')):i%3===1?opened.runtime.call({to:account.address,data:'0x'}):opened.runtime.receipt('0x'+(i+1).toString(16).padStart(64,'0'))));
+  assert.equal(maximum,8);assert.equal(results.filter(r=>r.status==='rejected').length,19);assert.equal(active,0);
+  assert.equal(await opened.runtime.code(account.address),'0x6001');
+ }finally{if(opened){opened.lifecycle.acknowledge();await opened.runtime.close();}key.fill(0);}
+});
