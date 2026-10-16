@@ -4,7 +4,7 @@ Actualizado el 16 de octubre de 2026. La cartera pública y el recorrido privado
 PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
 
-## Actualización operativa del 16 de octubre, 05:21 UTC
+## Actualización operativa del 16 de octubre, 05:39 UTC
 
 **El punto 3 sigue abierto.** La API tiene instalada la versión
 `613cb7956a2a34c356330ee8378fa1d9d48cb600060f9984e41bd938b124fa76` y su
@@ -32,8 +32,16 @@ Evidencia en la VM:
 `/var/lib/lianum-maintenance/20261016-defi-v8-resume-after-faucet/preflight.json`.
 La captura completa original quedó autenticada con el hash
 `17200c09cca30f0f85f01fe4f8dd9f3a7ac4ae465bc4fa4f79afdcbb11297429`.
-La actualización terminó a las 05:19:54 UTC y el servicio normal está arrancando;
-todavía no ha emitido `READY`. La disponibilidad de `/health` sólo acredita la API.
+La actualización terminó a las 05:19:54 UTC. El arranque normal falló después
+con `PUBLIC_DEFI_ORIGINAL_MIXED_SOURCE`: el inspector de finalidad trataba una
+copia DATA como sistema Original. El proceso está parado, no ha emitido `READY`.
+La corrección está en el commit `ca121848`; la regresión nueva reproduce el
+rechazo anterior y pasa junto a otras siete comprobaciones en 13 segundos.
+La generación corregida está preparada; todavía no está instalada.
+La lectura autenticada posterior al fallo conserva Native y Uniswap en
+`CAPTURED`, DeFi en `OPENING`, las dos cuentas y el presupuesto común retenidos.
+Hay que reanudar ese mismo estado con el código corregido, capturarlo e instalar
+la versión nueva. La disponibilidad de `/health` sólo acredita la API.
 
 Se corrigieron el orden de activación previo a abrir HTTP, la reapertura con
 el localizador DeFi retenido y el vencimiento de la preparación de despliegue:
@@ -51,7 +59,7 @@ compilado; esta composición final no está instalada ni aceptada en Android.
 Se conservan las aceptaciones anteriores de las tres redes y DeFi, con sus
 versiones y límites; no equivalen a aceptar esta composición remota nueva.
 
-Falta que el motor normal termine de arrancar, publicar las cinco
+Falta recuperar esa reapertura, instalar la corrección, arrancar el motor y publicar las cinco
 conexiones y comprobar las rutas públicas. Los saldos de USDC de Circle y Aave
 eran cero en la lectura de las 03:47 UTC; Circle continúa en cero a las 05:09 UTC
 y la acuñación de dos USDC de prueba de Aave ya está confirmada.
