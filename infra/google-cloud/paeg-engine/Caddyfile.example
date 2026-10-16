@@ -11,7 +11,17 @@ api.lianum.oryontechnology.com {
 		respond `{"error":"PAGED_PAIRING_REQUIRED"}` 403
 	}
 
-	@engine path /v1/mobile/paged-owner/* /v1/mobile/external-flat-share/*
+	@missingDefiPairing {
+		path /v1/mobile/sepolia-defi-shares/*
+		not header X-Lianum-Defi-Pairing-Id *
+	}
+	handle @missingDefiPairing {
+		header Content-Type application/json
+		header Cache-Control no-store
+		respond `{"error":"SEPOLIA_DEFI_PAIRING_REQUIRED"}` 403
+	}
+
+	@engine path /v1/mobile/paged-owner/* /v1/mobile/external-flat-share/* /v1/mobile/sepolia-defi-shares/*
 	handle @engine {
 		request_body {
 			max_size 4194304
