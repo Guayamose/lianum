@@ -29,6 +29,11 @@ ADDITIONAL = ['packages/proofs/src/jobs/worker.mjs',
 # locator, rather than an import reachable from PUBLIC_ENTRY.
 PUBLIC_RUNTIME_ROOTS = [
     'packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs',
+    'packages/backend/src/operations/recovery/paged-uniswap-flat-read-recovery-v8.mjs',
+    'packages/backend/src/api/mobile/device-paged-uniswap-flat-read-http-v8.mjs',
+    'packages/backend/src/providers/paged-public-sepolia-defi-extension-v8.mjs',
+    'packages/backend/src/operations/recovery/paged-captured-sepolia-defi-read-v8.mjs',
+    'packages/backend/src/api/mobile/device-paged-sepolia-defi-read-http-v8.mjs',
     'packages/backend/src/operations/recovery/paged-source-read-recovery-issuer-v4.mjs',
     'packages/backend/src/api/mobile/device-paged-source-read-recovery-http-v4.mjs',
     'packages/backend/src/operations/deployments/defi/aave-sepolia-compilation-v4.mjs',

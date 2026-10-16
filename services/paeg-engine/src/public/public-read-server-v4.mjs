@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {PUBLIC_OPERATOR_STATE_V4,readPrivateOperatorFileV4,publishOriginalPublicConnectionFileV4} from './public-operator-state-v4.mjs';
 
-export async function openCapturedPublicReadServerV4(root,configuration,ingress,uniswapInput=null){
+export async function openCapturedPublicReadServerV4(root,configuration,ingress,uniswapInput=null,defiMode=null){
  const load=path=>import(pathToFileURL(join(root,path)).href);
  const [R,I,H,T]=await Promise.all([
   load('packages/backend/src/operations/recovery/paged-runtime-recovery-authority-v3.mjs'),
@@ -14,8 +14,8 @@ export async function openCapturedPublicReadServerV4(root,configuration,ingress,
   load('packages/backend/src/api/mobile/paged-remote-ingress-binding-v4.mjs')]);
  const transport=T.readOriginalPagedRemoteIngressBindingV4(ingress);
  let supervisor,mixedSupervisor,server,closed=false,closing;
- const issuers=[],flatIssuers=[],dispatchers=[],routes=new Map(),flatRoutes=new Map(),sockets=new Set();
- let flatModule;
+ const issuers=[],flatIssuers=[],defiIssuers=[],dispatchers=[],routes=new Map(),flatRoutes=new Map(),defiRoutes=new Map(),sockets=new Set();
+ let flatModule,defiModule;
  async function close(){return closing??=(async()=>{
   closed=true;
   const stopped=server?new Promise(resolve=>server.close(resolve)):Promise.resolve();
@@ -25,6 +25,7 @@ export async function openCapturedPublicReadServerV4(root,configuration,ingress,
   const failures=[];
   for(const issuer of issuers)try{await I.closeOriginalPagedSourceReadRecoveryIssuerV4(issuer);}catch(error){failures.push(error);}
   for(const issuer of flatIssuers)try{await flatModule.closeOriginalPagedUniswapFlatReadV8(issuer);}catch(error){failures.push(error);}
+  for(const issuer of defiIssuers)try{await defiModule.closeOriginalPagedCapturedSepoliaDefiReadV8(issuer);}catch(error){failures.push(error);}
   try{await (mixedSupervisor??supervisor)?.close();}catch(error){failures.push(error);}
   if(failures.length)throw new AggregateError(failures,'PAEG_PUBLIC_READ_CAPTURE_CLOSE_FAILED');
  })();}
@@ -74,11 +75,17 @@ export async function openCapturedPublicReadServerV4(root,configuration,ingress,
     if(flatDescriptors.length===1){const bytes=Buffer.from(JSON.stringify({format:'DEVICE_EXTERNAL_FLAT_CONNECTION_V1',descriptor,transport:{type:'ANDROID_PINNED_TLS_V1',certificatePEM:transport.publicCertificatePEM,certificateSHA256:transport.publicCertificateSHA256}})+'\n');try{await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,bytes,'paired-uniswap-flat-connection.json');}finally{bytes.fill(0);}}
    }
   }
+  if(defiMode){
+   assert.ok(mixedSupervisor,'PAEG_DEFI_READ_ORIGINAL_PARENT_REQUIRED');defiModule=await load('packages/backend/src/operations/recovery/paged-captured-sepolia-defi-read-v8.mjs');const defiHttp=await load('packages/backend/src/api/mobile/device-paged-sepolia-defi-read-http-v8.mjs');
+   const issuer=await defiModule.openOriginalPagedCapturedSepoliaDefiReadV8(await mixedSupervisor.issueDefiRead(),{rootPassword:configuration.journal.password});defiIssuers.push(issuer);const accounts=defiModule.readOriginalPagedCapturedSepoliaDefiAccountsV8(issuer);assert.equal(accounts.length,2,'PAEG_DEFI_READ_BOTH_ACCOUNTS');
+   for(const {protocol,descriptor}of accounts){assert.ok(['AAVE_STATIC','MORPHO_V2'].includes(protocol));assert.equal(descriptor.origin,transport.origin);assert.equal(descriptor.devicePublicKey,phoneKey,'PAEG_DEFI_READ_ORIGINAL_PHONE');assert.deepEqual(descriptor,defiMode.state.authorities.find(row=>row.protocol===protocol)?.descriptor,'PAEG_DEFI_READ_ORIGINAL_DESCRIPTOR');assert.ok(!defiRoutes.has(descriptor.pairingId));const dispatcher=defiHttp.createOriginalDevicePagedSepoliaDefiReadHttpV8(issuer,descriptor.pairingId);dispatchers.push(dispatcher);defiRoutes.set(descriptor.pairingId,dispatcher);}
+  }
+  if(defiIssuers.length){const child=await defiModule.issueOriginalPagedCapturedSepoliaDefiSourceReadV8(defiIssuers[0]);if(child){const {createHash}=await import('node:crypto'),sup8Password=createHash('sha256').update('LIANUM/PUBLIC/SEPOLIA/DEFI/8\0'+configuration.journal.password).digest('hex'),journalPassword=createHash('sha256').update('LIANUM/PUBLIC/SEPOLIA/DEFI/SOURCE7/AUTHORITY/V8\0'+sup8Password+'\0'+child.descriptor.devicePublicKey).digest('hex');assert.deepEqual(child.descriptor,defiMode.state.mixedAuthority.descriptor,'PAEG_DEFI_SOURCE7_ORIGINAL_READ_DESCRIPTOR');assert.ok(!routes.has(child.descriptor.pairingId));const issuer=await I.openOriginalPagedSourceReadRecoveryIssuerV4(child.token,{journalPassword});issuers.push(issuer);assert.deepEqual(I.readOriginalPagedSourceReadRecoveryIssuerDescriptorV4(issuer),child.descriptor);const dispatcher=H.createOriginalDevicePagedSourceReadRecoveryHttpV4(issuer);dispatchers.push(dispatcher);routes.set(child.descriptor.pairingId,dispatcher);}}
   server=createServer({...transport.privateTLS,minVersion:'TLSv1.3',maxVersion:'TLSv1.3'},(request,response)=>{
    try{
     assert.ok(!closed,'PAEG_PUBLIC_READ_SERVER_CLOSED');T.readOriginalPagedRemoteIngressBindingV4(ingress);
-    const flat=request.url?.startsWith('/v1/mobile/external-flat-share/'),flatPairing=request.headers['x-lianum-flat-pairing-id'];
-    const dispatcher=flat?(flatPairing===undefined&&flatRoutes.size===1?flatRoutes.values().next().value:flatRoutes.get(flatPairing)):routes.get(request.headers['x-lianum-paged-pairing-id']);
+    const defi=request.url?.startsWith('/v1/mobile/sepolia-defi-shares/'),flat=request.url?.startsWith('/v1/mobile/external-flat-share/'),flatPairing=request.headers['x-lianum-flat-pairing-id'];
+    const dispatcher=defi?defiRoutes.get(request.headers['x-lianum-defi-pairing-id']):flat?(flatPairing===undefined&&flatRoutes.size===1?flatRoutes.values().next().value:flatRoutes.get(flatPairing)):routes.get(request.headers['x-lianum-paged-pairing-id']);
     if(!dispatcher){response.writeHead(403,{'content-type':'application/json','cache-control':'no-store'});response.end('{"error":"PAGED_SOURCE_READ_RECOVERY_REJECTED"}');return;}
     void dispatcher.handler(request,response).catch(()=>response.destroy());
    }catch{response.destroy();}
@@ -87,6 +94,6 @@ export async function openCapturedPublicReadServerV4(root,configuration,ingress,
   server.requestTimeout=20000;server.headersTimeout=15000;server.maxHeadersCount=32;
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(transport.port,transport.host,resolve);});
   assert.equal(server.address().port,transport.port);
-  return Object.freeze({profile:'ORIGINAL_PUBLIC_CAPTURED_READ_SERVER_V4',sources:routes.size,flatAccounts:flatRoutes.size,financialPermissionsReopened:false,close});
+  return Object.freeze({profile:'ORIGINAL_PUBLIC_CAPTURED_READ_SERVER_V4',sources:routes.size,flatAccounts:flatRoutes.size,defiAccounts:defiRoutes.size,financialPermissionsReopened:false,close});
  }catch(error){try{await close();}catch{}throw error;}
 }

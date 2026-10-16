@@ -37,7 +37,7 @@ export async function writePrivateOperatorFileV4(directory,name,bytes){
 /** Only public connection data may be republished from a recovered Original
  * product. Private configuration and startup-attempt files stay exclusive. */
 export async function publishOriginalPublicConnectionFileV4(directory,bytes,name='paired-connection.json'){
- assert.ok(['paired-connection.json','paired-phone-connection.json','paired-uniswap-connection.json','paired-uniswap-flat-connection.json'].includes(name),'PAEG_PUBLIC_CONNECTION_NAME');
+ assert.ok(['paired-connection.json','paired-phone-connection.json','paired-uniswap-connection.json','paired-uniswap-flat-connection.json','paired-aave-connection.json','paired-morpho-connection.json','defi-active-v8.json'].includes(name),'PAEG_PUBLIC_CONNECTION_NAME');
  await assertPrivateOperatorDirectoryV4(directory);
  const target=join(directory,name);
  try{const state=await lstat(target);assert.ok(state.isFile()&&!state.isSymbolicLink()&&state.nlink===1&&state.uid===process.getuid()&&(state.mode&0o777)===0o600&&state.size<=65536,'PAEG_PUBLIC_CONNECTION_FILE');}catch(error){if(error.code!=='ENOENT')throw error;}

@@ -10,6 +10,7 @@ import {readCapturedOriginalPublicFinancialWindowV5} from './read-public-financi
 import {readPendingPrebirthFinancialReviewV5,acknowledgeOriginalPrebirthFinancialReviewV5} from './prebirth-financial-control-v5.mjs';
 import {continueCapturedOriginalPublicFinancialReviewV5} from './captured-financial-epoch-control-v5.mjs';
 import {readPublicUniswapModeV6} from './public-uniswap-mode-v6.mjs';
+import {readPublicSepoliaDefiModeV8,assertPublicSepoliaDefiConnectionsV8,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8} from './public-sepolia-defi-mode-v8.mjs';
 
 assert.equal(process.argv.length,2);assert.equal(process.platform,'linux');assert.equal(process.arch,'x64');assert.ok(process.getuid()>0);
 assert.deepEqual(process.execArgv,['--max-old-space-size=1024']);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
@@ -19,7 +20,7 @@ const backend=await original('packages/backend/src/operations/local/funded-paged
 const transport=await original('packages/backend/src/api/mobile/paged-remote-ingress-binding-v4.mjs');
 const recovery=await original('packages/backend/src/operations/recovery/paged-runtime-recovery-authority-v3.mjs');
 const acquisitionControl=new AbortController();
-let configuration,ingress,acquisition,phoneAcquisition,product,closing,captureTimer,readOpening,readServer,transition,financialControl,financialDeadline,uniswapMode=null,stopping=false;
+let configuration,ingress,acquisition,phoneAcquisition,product,closing,captureTimer,readOpening,readServer,transition,financialControl,financialDeadline,uniswapMode=null,defiMode=null,stopping=false;
 const ignoreFinancialSignalBeforeReady=()=>{};process.on('SIGUSR1',ignoreFinancialSignalBeforeReady);
 const emit=record=>process.stdout.write(JSON.stringify(record)+'\n');
 const diagnosticRPCMethods=new Set(['eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getBlockByHash','eth_getBalance','eth_getCode','eth_getTransactionCount','eth_getTransactionReceipt','eth_getTransactionByHash','eth_getLogs','eth_call','eth_estimateGas','eth_gasPrice','eth_maxPriorityFeePerGas','eth_feeHistory']);
@@ -44,9 +45,9 @@ async function close(){
 function stop(){void close().catch(error=>{process.exitCode=1;failure('CAPTURE',error);});}
 async function beginReadOnly(){
  const bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,'operator.json');let input;
- try{input={...JSON.parse(bytes.toString('utf8')),providerDirectory:configuration.providerDirectory};if(!stopping){readOpening=openCapturedPublicReadServerV4(root,input,ingress,uniswapMode?.input??null);readServer=await readOpening;}}
+ try{input={...JSON.parse(bytes.toString('utf8')),providerDirectory:configuration.providerDirectory};if(!stopping){readOpening=openCapturedPublicReadServerV4(root,input,ingress,uniswapMode?.input??null,defiMode);readServer=await readOpening;}}
  finally{bytes.fill(0);if(input)input.journal.password=null;}
- if(!stopping&&readServer)emit({stage:'READY',profile:readServer.profile,origin:configuration.origin??'https://api.lianum.oryontechnology.com',sources:readServer.sources,financialPermissionsReopened:false,automaticRebroadcast:false});
+ if(!stopping&&readServer)emit({stage:'READY',profile:readServer.profile,origin:configuration.origin??'https://api.lianum.oryontechnology.com',sources:readServer.sources,financialPermissionsReopened:false,...(defiMode?{defi:['UNISWAP','AAVE_STATIC','MORPHO_V2'],defiAccounts:readServer.defiAccounts,defiFinancialReady:false}:{}),automaticRebroadcast:false});
 }
 function captureToReadOnly(){
  transition??=(async()=>{
@@ -92,6 +93,7 @@ try{
     try{const review=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PARTIAL_BOOTSTRAP_REVIEW_FILE_V5);try{normalizePartialBootstrapReviewDataV5(JSON.parse(review.toString('utf8')));}finally{review.fill(0);}configuration={...configuration,providerDirectory:join(PUBLIC_OPERATOR_STATE_V4,'provider-replacement-v5')};}catch(error){if(error.code!=='ENOENT')throw error;}
 
    uniswapMode=await readPublicUniswapModeV6(root,configuration);if(uniswapMode)assert.equal(uniswapMode.state.phase,'CAPTURED','PAEG_UNISWAP_CAPTURE_REQUIRED');
+   defiMode=await readPublicSepoliaDefiModeV8(root,configuration,uniswapMode);
    const selection=await recovery.readOriginalPagedPublicRecoveryModeV4({directory:configuration.supervisorDirectory,password:configuration.journal.password});
    assert.equal(selection.profile,'ORIGINAL_PAGED_PUBLIC_RECOVERY_MODE_V4','PAEG_PUBLIC_ORIGINAL_RECOVERY_MODE');
    assert.ok(['CAPTURED','CAPTURED_FINANCIAL_REVIEW_V5','ACTIVE_DEAD_ANCHORED'].includes(selection.mode),'PAEG_PUBLIC_RECOVERY_FENCED');
@@ -111,9 +113,15 @@ try{
   const input=partialReview??(reopening?Object.fromEntries(['nativeDirectory','providerDirectory','supervisorDirectory','journal','devicePublicKey'].map(name=>[name,configuration[name]])):configuration);
   const openOriginal=partialReview?(recoveryMode==='RETAINED_PARTIAL_BOOTSTRAP_V5'?backend.reopenOriginalPagedPublicPartialNativeOperatorV5:backend.startOriginalPagedPublicPartialNativeOperatorV5):!reopening?backend.startOriginalPagedPublicNativeOperatorV4:recoveryMode==='CAPTURED'?backend.reopenOriginalPagedPublicNativeOperatorV4:backend.recoverOriginalPagedPublicNativeOperatorV4;
   const initialFinancialReview=await readPendingPrebirthFinancialReviewV5();
-  if(uniswapMode){assert.equal(recoveryMode,'CAPTURED','PAEG_UNISWAP_ORIGINAL_CAPTURE_REQUIRED');acquisition=backend.reopenOriginalPagedPublicUniswapMixedOperatorV5(uniswapMode.input,ingress,acquisitionControl.signal);}
+  if(uniswapMode){assert.equal(recoveryMode,'CAPTURED','PAEG_UNISWAP_ORIGINAL_CAPTURE_REQUIRED');acquisition=defiMode?backend.reopenOriginalPagedPublicUniswapMixedWithDefiOperatorV8(uniswapMode.input,ingress,defiMode.input,acquisitionControl.signal):backend.reopenOriginalPagedPublicUniswapMixedOperatorV5(uniswapMode.input,ingress,acquisitionControl.signal);}
   else if(partialReview&&initialFinancialReview){const openWithReview=recoveryMode==='RETAINED_PARTIAL_BOOTSTRAP_V5'?backend.reopenOriginalPagedPublicPartialNativeOperatorWithFinancialReviewV5:backend.startOriginalPagedPublicPartialNativeOperatorWithFinancialReviewV5;assert.equal(typeof openWithReview,'function','PAEG_PREBIRTH_ORIGINAL_OPENER_REQUIRED');acquisition=openWithReview(input,initialFinancialReview,ingress,acquisitionControl.signal);}else acquisition=openOriginal(input,ingress,acquisitionControl.signal);
   product=await acquisition;
+  if(defiMode){
+   assert.ok(uniswapMode,'PAEG_DEFI_ORIGINAL_UNISWAP_REQUIRED');assert.equal(defiMode.input.devicePublicKey,uniswapMode.input.mixed.devicePublicKey,'PAEG_DEFI_SAME_PHONE_REQUIRED');
+   defiMode.input.password=null;
+   const connections=assertPublicSepoliaDefiConnectionsV8(await backend.readOriginalPagedPublicSepoliaDefiConnectionsV8(product),defiMode.state,defiMode.input.devicePublicKey,defiMode.mode);
+   for(const connection of connections){const bytes=Buffer.from(JSON.stringify(connection)+'\n');try{await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,bytes,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8[connection.protocol]);}finally{bytes.fill(0);}}
+  }
   if(initialFinancialReview){const ack=await acknowledgeOriginalPrebirthFinancialReviewV5(product,initialFinancialReview);emit({stage:'INITIAL_SOURCE_FINANCIAL_EPOCH_CONFIRMED',...ack});}
   // Capture while the stored financial permission is still valid. Restarting
   // retains its deadline; it cannot silently grant another nine hours.
@@ -136,11 +144,11 @@ try{
    if(phone&&!stopping&&!transition)await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(phone)+'\n'),'paired-phone-connection.json');
    if(uniswapMode&&!stopping&&!transition){const mixed=backend.readOriginalPagedPublicUniswapMixedConnectionV5(product),flat=backend.readOriginalPagedPublicUniswapFlatConnectionV5(product);assert.equal(mixed.descriptor.devicePublicKey,phone.descriptor.devicePublicKey,'PAEG_UNISWAP_PHONE_BINDING');await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(mixed)+'\n'),'paired-uniswap-connection.json');await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(flat)+'\n'),'paired-uniswap-flat-connection.json');}
    if(!stopping&&!transition)financialControl=await openOriginalPublicFinancialEpochControlV5(product,async expiresAt=>{assert.ok(!stopping&&!transition,'PAEG_FINANCIAL_CAPTURE_ALREADY_STARTED');assert.ok(Number.isSafeInteger(expiresAt)&&expiresAt>0,'PAEG_FINANCIAL_CAPTURE_WINDOW');clearTimeout(captureTimer);financialDeadline=expiresAt;captureTimer=setTimeout(captureToReadOnly,Math.max(0,financialDeadline-30*60*1000-Date.now()));captureTimer.unref();});
-   if(stopping)await close();else if(transition)await transition;else if(financialDeadline-30*60*1000<=Date.now())captureToReadOnly();else emit({stage:'READY',profile:product.profile,origin:product.origin,reopenedOriginalState:product.reopenedOriginalState,sources:(phone?2:1)+(uniswapMode?1:0),...(uniswapMode?{defi:['UNISWAP'],wallets:2}:{}),publicConnectionPath:join(PUBLIC_OPERATOR_STATE_V4,'paired-connection.json'),phoneConnectionPath:phone?join(PUBLIC_OPERATOR_STATE_V4,'paired-phone-connection.json'):null,publicReceiver:product.publicReceiver,automaticFunding:false,automaticRebroadcast:false});
+   if(stopping)await close();else if(transition)await transition;else if(financialDeadline-30*60*1000<=Date.now())captureToReadOnly();else emit({stage:'READY',profile:product.profile,origin:product.origin,reopenedOriginalState:product.reopenedOriginalState,rootWalletAccess:product.descriptor.deadlineMs>Date.now()?'AUTHORIZED':'READ_ONLY',sources:(phone?2:1)+(uniswapMode?1:0)+(defiMode?1:0),...(uniswapMode?{defi:['UNISWAP'],wallets:2}:{}),...(defiMode?{preparedDefi:['AAVE_STATIC','MORPHO_V2'],defiFinancialReady:false}:{}),publicConnectionPath:join(PUBLIC_OPERATOR_STATE_V4,'paired-connection.json'),phoneConnectionPath:phone?join(PUBLIC_OPERATOR_STATE_V4,'paired-phone-connection.json'):null,publicReceiver:product.publicReceiver,automaticFunding:false,automaticRebroadcast:false});
   }
   }
   }
  }
 }catch(error){
  process.exitCode=1;failure('STARTUP',error);try{await close();}catch(captureError){failure('CAPTURE',captureError);}
-}finally{if(configuration)configuration.journal.password=null;}
+}finally{if(configuration)configuration.journal.password=null;if(defiMode?.input)defiMode.input.password=null;}
