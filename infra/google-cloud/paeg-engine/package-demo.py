@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tarfile
 
@@ -70,6 +71,11 @@ def delivery_module_bytes(source):
     text = raw.decode()
     text = re.sub(r"(from\s+)(['\"])[^'\"]*services/paeg-engine/src/public/([A-Za-z0-9_-]+\.mjs)\2",
                   lambda match: match[1] + match[2] + './' + match[3] + match[2], text)
+    # The service helpers live beside candidate/, outside its node_modules
+    # lookup tree. Resolve this public DATA export to the same candidate file
+    # rather than creating another package or permitting new release symlinks.
+    text = re.sub(r"(from\s+)(['\"])@lianum/mobile-protocol/device/sepolia-defi-connection-v7\2",
+                  lambda match: match[1] + match[2] + '../candidate/packages/mobile-protocol/src/device-sepolia-defi-connection-v7.mjs' + match[2], text)
     return text.encode()
 
 
@@ -108,8 +114,15 @@ def prepare(output, profile='local'):
                 target.chmod(0o755 if source.suffix in {'.sh', '.py'} else 0o644)
         runtime = ROOT / 'services/paeg-engine/src'
         for source in sorted((runtime / 'public').glob('*.mjs')):
-            shutil.copyfile(source, infra / source.name)
+            (infra / source.name).write_bytes(delivery_module_bytes(source))
             (infra / source.name).chmod(0o644)
+        if profile == 'public-testnet':
+            # Exercise the delivered lookup tree, not the checkout's workspace
+            # aliases. This module only defines public routing/DATA functions.
+            subprocess.run([str((candidate / 'resources/tools/node').resolve()),
+                            '--input-type=module', '-e',
+                            "await import('./infra/public-sepolia-defi-mode-v8.mjs')"],
+                           cwd=output, env={'PATH': '/usr/bin:/bin'}, check=True)
         shutil.copyfile(runtime / 'local/run-operator.mjs', infra / 'run-operator.mjs')
         write_new(output / 'public-resources.json', resources)
         write_new(output / 'deployment-readiness.json', {
