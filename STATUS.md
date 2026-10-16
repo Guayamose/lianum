@@ -4,6 +4,36 @@ Actualizado el 16 de octubre de 2026. La cartera pública y el recorrido privado
 PAEG tienen despliegues y evidencias distintos. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
 
+## Actualización operativa del 16 de octubre, 03:00 UTC
+
+El punto 3 sigue abierto. La API tiene instalada la versión
+`613cb7956a2a34c356330ee8378fa1d9d48cb600060f9984e41bd938b124fa76` y su
+puerta HTTPS incluye las rutas DeFi autenticadas. Aave y Morpho todavía no
+están publicados en el directorio de conexiones del servidor.
+
+El código de inversión autorizada, presupuesto PAEG, recuperación persistente
+y consulta después de vencer los permisos está implementado y guardado en
+commits. El APK está compilado, pero no instalado ni comprobado contra la
+instalación final. Se conservan las aceptaciones anteriores de las tres redes
+y DeFi; no constituyen una aceptación de esta composición remota nueva.
+
+El motor está en recuperación administrativa. El último arranque falló al
+restaurar la cuenta del teléfono con permisos vencidos. La corrección
+`c8f64905` pasa la regresión con las dos cuentas vencidas. El paquete corregido
+`097be6bd254ab1efed84f4e887dbb82b9431694085a1a2b5dc129df18aa70291`
+está verificado en un directorio aislado del servidor: reanuda los registros
+originales antes de instalarlo. No se han repetido pagos ni ingresos. Siguen
+existiendo las mismas 13 operaciones de infraestructura finalizadas en Sepolia.
+
+Falta completar esa recuperación, desplegar los contratos de Aave/Morpho y
+su cuenta de presupuesto común, publicar sus conexiones y comprobar el
+arranque de la composición instalada. Los USDC de Circle solicitados todavía
+no habían llegado en la última lectura. El control de dependencias detecta
+134 aristas cíclicas nuevas entre módulos; no se ha alterado su referencia
+para ocultarlas. Los puntos 4 y 5, MoonPay y el agente siguen separados.
+
+Los apartados siguientes conservan los registros de sus instalaciones previas.
+
 ## Punto 3 en curso: DeFi ya formaba parte de este cierre (16 de octubre)
 
 - Está instalada en el motor la versión
