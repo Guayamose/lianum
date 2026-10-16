@@ -76,6 +76,10 @@ def delivery_module_bytes(source):
     # lookup tree. Resolve this public DATA export to the same candidate file
     # rather than creating another package or permitting new release symlinks.
     candidate_imports = {
+        '@lianum/engine/crypto/vault':
+            'packages/engine/src/crypto/vault.mjs',
+        '@lianum/engine/crypto/privacy':
+            'packages/engine/src/crypto/privacy.mjs',
         '@lianum/mobile-protocol/device/sepolia-defi-connection-v7':
             'packages/mobile-protocol/src/device-sepolia-defi-connection-v7.mjs',
         '@lianum/mobile-protocol/device/paged-owner-v3':
@@ -87,6 +91,8 @@ def delivery_module_bytes(source):
         text = re.sub(r"(from\s+)(['\"])" + re.escape(original) + r"\2",
                       lambda match, path=candidate_path:
                           match[1] + match[2] + '../candidate/' + path + match[2], text)
+    if re.search(r"(?:from\s*|import\s*\()['\"]@lianum/", text):
+        raise ValueError('Packaged infra helper has an unresolved workspace import: ' + str(source))
     return text.encode()
 
 
