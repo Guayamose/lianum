@@ -73,5 +73,13 @@ export async function authorizeOriginalPagedPublicNativeFinancialEpochV5(p,revie
   for mode in ['dispatch-jump','dispatch-row','dispatch-identity','dispatch-extra']:
    with self.subTest(mode=mode):
     result,counts,review,ack,state=self.fixture(mode=mode);self.assertEqual(result.returncode,1);self.assertEqual(counts['authorize'],1);self.assertEqual(counts['close'],1);self.assertTrue(counts['ackBeforeClose']);self.assertNotIn('EXISTING_UNISWAP_CAPTURED_READY_FOR_REOPEN',result.stdout);self.assertIn('PAEG_UNISWAP_RECOVERY_DISPATCH_CAPTURE_REVISION' if mode=='dispatch-jump' else 'PAEG_UNISWAP_RECOVERY_FINANCIAL_CHANGED',result.stdout)
+ def test_actual_keyless_journal_capture_commit_changes_only_revision(self):
+  # Exact producer used by Native.capture: validateRecords(empty) -> commit([]).
+  # This test uses the real private journal, not the Product HOST seam above.
+  with tempfile.TemporaryDirectory(prefix='lianum-native-capture-journal-') as temporary:
+   script="""import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {openNativeWalletJournalV1} from __JOURNAL_MODULE__;
+const directory=DIRECTORY,journal=await openNativeWalletJournalV1(directory,'c'.repeat(64));try{await journal.commit([]);const firstBytes=await readFile(directory+'/native-wallet.json'),first=JSON.parse(firstBytes);await journal.commit(journal.read().operations);const nextBytes=await readFile(directory+'/native-wallet.json'),next=JSON.parse(nextBytes);assert.notDeepEqual(firstBytes,nextBytes);assert.equal(next.revision,first.revision+1);assert.deepEqual(Object.keys(next),['profile','configurationSHA256','revision','operations']);assert.equal(next.profile,'NATIVE_WALLET_KEYLESS_JOURNAL_V1');assert.equal(next.configurationSHA256,'c'.repeat(64));assert.equal(JSON.stringify({...next,revision:first.revision}),JSON.stringify(first));assert.deepEqual(next.operations,[]);}finally{await journal.close();}
+""".replace('__JOURNAL_MODULE__',json.dumps((ROOT/'packages/backend/src/native-wallet/journal-v1.mjs').as_uri())).replace('DIRECTORY',json.dumps(temporary))
+   result=subprocess.run([str(NODE),'--input-type=module','-e',script],capture_output=True,text=True,timeout=10);self.assertEqual(result.returncode,0,result.stderr+result.stdout)
 
 if __name__=='__main__':unittest.main()
