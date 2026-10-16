@@ -128,3 +128,18 @@ export async function prepareOriginalAaveSepoliaTargetResumeV8(runtime,uniswapTa
 export function closeOriginalAaveSepoliaTargetPlanV8(runtime,plan){assert.equal(arguments.length,2);const p=plans.get(plan);assert.ok(p?.runtime===runtime,'AAVE_SEPOLIA_ORIGINAL_TARGET_PLAN');if(p.closed)return;p.closed=true;if(attempts.get(p.uniswapTarget)===p)attempts.delete(p.uniswapTarget);}
 
 export function readOriginalAaveSepoliaInitializationAttemptV8(runtime,token){assert.equal(arguments.length,2);const g=tokens.get(token);assert.ok(g?.runtime===runtime,'AAVE_SEPOLIA_ORIGINAL_INITIALIZATION');original(runtime,g.plan);return Object.freeze({consumed:g.consumed,observationOnly:g.observationOnly});}
+
+/** Financial warmup only. The private checkpoint cannot issue a constructor,
+ * proof slot or spend command, and callers cannot recreate it from its DATA. */
+const financialCheckpointsV8=new WeakMap();
+export async function warmOriginalAaveSepoliaTargetFinancialCheckpointV8(runtime,system){
+ assert.equal(arguments.length,2);assertOriginalAaveSepoliaTargetV4(runtime,system);const p=systems.get(system),lane=readOriginalPagedSepoliaSourceLaneV4(runtime),epochId=readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId;
+ const old=p.financialCheckpointV8,v=old&&financialCheckpointsV8.get(old);if(v&&Date.now()<v.wall+10000&&performance.now()<v.elapsed+10000&&v.epochId===epochId&&v.policySHA256===sha(JSON.stringify(lane.policy))){await readOriginalAaveSepoliaTargetFinancialCheckpointV8(runtime,system,old);return old;}
+ if(p.financialWarmV8)return p.financialWarmV8;
+ return p.financialWarmV8=(async()=>{await finalizeOriginalAaveSepoliaTargetV4(runtime,p.plan);const head=await runtime.block();await runtime.assertCanonical(head);assertOriginalAaveSepoliaTargetV4(runtime,system);const current=readOriginalPagedSepoliaSourceLaneV4(runtime);assert.equal(sha(JSON.stringify(current.policy)),sha(JSON.stringify(lane.policy)),'AAVE_SEPOLIA_FINANCIAL_POLICY_CHANGED');assert.equal(readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId,epochId,'AAVE_SEPOLIA_FINANCIAL_EPOCH_CHANGED');const token=Object.freeze(Object.create(null));financialCheckpointsV8.set(token,{runtime,system,p,head:freeze(structuredClone(head)),wall:Date.now(),elapsed:performance.now(),policySHA256:sha(JSON.stringify(current.policy)),epochId:readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId});p.financialCheckpointV8=token;return token;})().finally(()=>{p.financialWarmV8=null;});
+}
+export async function readOriginalAaveSepoliaTargetFinancialCheckpointV8(runtime,system,checkpoint){
+ assert.equal(arguments.length,3);const v=financialCheckpointsV8.get(checkpoint);assert.ok(v?.runtime===runtime&&v.system===system,'AAVE_SEPOLIA_ORIGINAL_FINANCIAL_CHECKPOINT');
+ const current=()=>{assertOriginalAaveSepoliaTargetV4(runtime,system);assert.strictEqual(systems.get(system),v.p);assert.equal(v.p.data.keysetId,runtime.metadata.keysetId);assert.equal(v.p.data.account,runtime.accounts[0]);assert.strictEqual(readOriginalSepoliaUniswapTargetSourceBindingV4(runtime,v.p.uniswapTarget).parent,v.p.parent);assert.ok(Date.now()<v.wall+30000&&performance.now()<v.elapsed+30000,'AAVE_SEPOLIA_FINANCIAL_CHECKPOINT_EXPIRED');assert.equal(sha(JSON.stringify(readOriginalPagedSepoliaSourceLaneV4(runtime).policy)),v.policySHA256,'AAVE_SEPOLIA_FINANCIAL_POLICY_CHANGED');assert.equal(readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId,v.epochId,'AAVE_SEPOLIA_FINANCIAL_EPOCH_CHANGED');};
+ current();await runtime.assertCanonical(v.head);current();return freeze({head:structuredClone(v.head),wall:v.wall,elapsed:v.elapsed,policySHA256:v.policySHA256,epochId:v.epochId});
+}

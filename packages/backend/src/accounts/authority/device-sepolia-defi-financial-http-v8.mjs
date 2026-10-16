@@ -80,7 +80,7 @@ export function createOriginalDeviceSepoliaDefiFinancialHttpV8(runtime,account){
  }
  function background(){if(workerRunning||closed)return;workerRunning=true;runApprovedPending().catch(()=>{}).finally(()=>{workerRunning=false;});}
  function scheduleApprovedWork(){if(kick||closed)return;kick=setImmediate(()=>{kick=null;background();});kick.unref?.();}
- const dispatcher=Object.freeze({descriptor,dispatch,runExclusive:serial,runApprovedPending,assertPaegSource:requireSource,
+ const dispatcher=Object.freeze({descriptor,dispatch,runExclusive:serial,runApprovedPending,assertPaegSource:requireSource,async warmAfterProof(){requireSource();await source.Core.warmOriginalPagedPublicNativeSepoliaDefiDispatchV8(source.provider);await A.assertOriginalDeviceSepoliaDefiFinancialAccountV8(account);},
   startApprovedWorker(){assert.equal(arguments.length,0);current();if(!source.provider)return;requireSource();if(!timer){timer=setInterval(background,5000);timer.unref?.();}scheduleApprovedWork();},
   async close(){if(closing)return closing;closed=true;clearInterval(timer);clearImmediate(kick);timer=null;kick=null;return closing=(async()=>{await work;})();},
  });originals.set(dispatcher,{runtime,account,binding,current,source,assertIdle(){assert.equal(queued,0,'SEPOLIA_DEFI_FINANCIAL_MOUNT_BUSY');}});return dispatcher;

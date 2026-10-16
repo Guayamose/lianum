@@ -35,7 +35,7 @@ function createHandler(runtime,target,account){
    assert.ok(!state.closed,'SEPOLIA_DEFI_HTTP_CLOSED');assert.equal(pairingId,d.pairingId,'SEPOLIA_DEFI_HTTP_PAIRING');assert.ok(typeof path==='string'&&!path.includes('?')&&!path.includes('#'));assert.ok(Buffer.byteLength(JSON.stringify(payload))<=(path.endsWith('/private-operations')?16384:8192));assert.ok(path.startsWith(prefix),'SEPOLIA_DEFI_HTTP_ROUTE');
    if(state.financial&&(path===prefix+'reviews'&&payload?.draft?.action?.startsWith('PROVE_')||[prefix+'private-operations',prefix+'operations'].includes(path)&&payload?.consent?.action?.startsWith('PROVE_')))state.financial.assertPaegSource();
    if(isDeviceSepoliaDefiFinancialHttpRouteV8(path)){assert.ok(state.financial,'SEPOLIA_DEFI_NATIVE_MOUNT_PENDING');if(reference!==null)assert.equal(reference,payload.reference,'SEPOLIA_DEFI_HTTP_REVIEW_REFERENCE');return state.financial.dispatch(path,payload);}
-   return state.financial?state.financial.runExclusive(()=>dispatchOrdinary(path,payload,reference)):dispatchOrdinary(path,payload,reference);
+   const ordinary=async()=>{const result=await dispatchOrdinary(path,payload,reference);if(state.financial&&[prefix+'private-operations',prefix+'operations'].includes(path)&&payload?.consent?.action?.startsWith('PROVE_')&&result?.stage==='PROVED')await state.financial.warmAfterProof();return result;};return state.financial?state.financial.runExclusive(ordinary):ordinary();
   },
   async close(){state.closed=true;await state.financial?.close();await account.close();},
  });handlers.set(handler,state);return handler;
@@ -50,7 +50,7 @@ export function mountOriginalDeviceSepoliaDefiSharesFinancialHttpV8(handler){ass
 export function startOriginalDeviceSepoliaDefiSharesApprovedWorkerV8(handler){assert.equal(arguments.length,1);const state=original(handler);assert.ok(state.financial&&!state.closed,'SEPOLIA_DEFI_NATIVE_MOUNT_PENDING');state.financial.startApprovedWorker();}
 export async function runOriginalDeviceSepoliaDefiSharesApprovedPendingV8(handler){assert.equal(arguments.length,1);const state=original(handler);assert.ok(state.financial&&!state.closed,'SEPOLIA_DEFI_NATIVE_MOUNT_PENDING');return state.financial.runApprovedPending();}
 /** Drain transport and its approved worker before retaining the SAME account. */
-export async function quiesceOriginalDeviceSepoliaDefiSharesHttpV8(handler){assert.equal(arguments.length,1);const state=original(handler);state.closed=true;await state.financial?.close();}
+export async function quiesceOriginalDeviceSepoliaDefiSharesHttpV8(handler){assert.equal(arguments.length,1);const state=original(handler);state.closed=true;await state.financial?.close();await A.quiesceOriginalDeviceSepoliaDefiFinancialWarmupV8(state.account);}
 
 /** Bind the real seven-rule Source after retained targets/accounts exist. */
 export async function mountOriginalDeviceSepoliaDefiPaegFinancialHttpV8(handler,provider){assert.equal(arguments.length,2);const state=original(handler);assert.ok(!state.closed,'SEPOLIA_DEFI_HTTP_CLOSED');mountOriginalDeviceSepoliaDefiSharesFinancialHttpV8(handler);await mountOriginalDeviceSepoliaDefiFinancialSourceV8(state.financial,provider);return handler;}

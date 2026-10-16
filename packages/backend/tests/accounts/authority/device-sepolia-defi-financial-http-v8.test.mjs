@@ -3,7 +3,7 @@
 import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture} from '../../providers/fixtures/paged-mixed-host-v7.mjs';
-const descriptor=fixture().flatAuthority.entries[0].descriptor,account=Object.freeze({descriptor,reviewNote(payload,reference){calls.reviewNote.push({payload,reference});return {consent:{reference}};},async close(){}}),runtime=Object.freeze({async block(){return {number:'0x1',timestamp:'1000'};},async assertCanonical(){}}),target=Object.freeze({}),bindings={protocol:'AAVE_STATIC',target,uniswapTarget:Object.freeze({})};
+const descriptor=fixture().flatAuthority.entries[0].descriptor,account=Object.freeze({descriptor,reviewNote(payload,reference){calls.reviewNote.push({payload,reference});return {consent:{reference}};},async operation(){return {stage:'PROVED',jobId:hex(900)};},async close(){}}),runtime=Object.freeze({async block(){return {number:'0x1',timestamp:'1000'};},async assertCanonical(){}}),target=Object.freeze({}),bindings={protocol:'AAVE_STATIC',target,uniswapTarget:Object.freeze({})};
 const scopes=new Map(),slots=new WeakMap(),commands=new WeakMap(),accesses=new Set(),calls={execute:[],observe:[],reviewNote:[]};let sequence=0;
 const hex=n=>n.toString(16).padStart(64,'0');
 function original(value){assert.strictEqual(value,account,'HOST_ORIGINAL_ACCOUNT');}
@@ -12,6 +12,8 @@ function grant(jobId){return {access:{challengeId:String(++sequence)},signature:
 function proofSlot(value,jobId){original(value);const token=Object.freeze(Object.create(null));slots.set(token,data(jobId));return token;}
 function command(slot,kind){const data=slots.get(slot);assert.ok(data,'HOST_ORIGINAL_SLOT');const token=Object.freeze(Object.create(null));commands.set(token,{data,kind});return token;}
 const Authority={
+ async quiesceOriginalDeviceSepoliaDefiFinancialWarmupV8(a){original(a);},
+ async assertOriginalDeviceSepoliaDefiFinancialAccountV8(a){original(a);},
  readOriginalDeviceSepoliaDefiSharesBindingV8(r,a){assert.strictEqual(r,runtime);original(a);return bindings;},
  async createOriginalDeviceSepoliaDefiSharesAuthorityV4(){return account;},
  async authorizeOriginalDeviceSepoliaDefiFinancialAccessV8(a,q){original(a);assert.equal(q.signature,'HOST_NOTE_ACCESS');assert.ok(!accesses.has(q.access.challengeId),'HOST_ACCESS_REPLAY');accesses.add(q.access.challengeId);const row=data(q.jobId);assert.equal(q.reference,row.review.reference,'HOST_REVIEW_BINDING');return structuredClone(row);},
@@ -30,8 +32,8 @@ const Native={
 function status(row,kind,phase){return {jobId:row.job.jobId,reference:row.review.reference,phase,transactionHash:(kind==='REDEEM'?row.financial.redemption:row.financial.submission)?.transactionHash??null,canonical:phase==='CONFIRMED',protocol:row.protocol,kind};}
 mock.module(new URL('../../../src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs',import.meta.url).href,{exports:Authority});
 mock.module(new URL('../../../src/providers/paged-public-testnet-runtimes-v1.mjs',import.meta.url).href,{exports:Native});
-const sourceProvider=Object.freeze({}),providerBindings=[];
-mock.module(new URL('../../../src/providers/funded-paged-native-provider-v3.mjs',import.meta.url).href,{exports:{readOriginalPagedPublicNativeSepoliaDefiScopeV8(provider){assert.strictEqual(provider,sourceProvider,'HOST_ORIGINAL_SOURCE7_PROVIDER');return {runtime,aaveAccount:account,morphoAccount:Object.freeze({})};},async bindOriginalPagedPublicNativeSepoliaDefiPreparationV8(provider,slot,{id}){assert.strictEqual(provider,sourceProvider);assert.ok(slots.has(slot),'HOST_ORIGINAL_D27_SLOT');providerBindings.push({id,jobId:slots.get(slot).job.jobId});}}});
+const sourceProvider=Object.freeze({}),providerBindings=[];let warming=null,warmCalls=0;
+mock.module(new URL('../../../src/providers/funded-paged-native-provider-v3.mjs',import.meta.url).href,{exports:{readOriginalPagedPublicNativeSepoliaDefiScopeV8(provider){assert.strictEqual(provider,sourceProvider,'HOST_ORIGINAL_SOURCE7_PROVIDER');return {runtime,aaveAccount:account,morphoAccount:Object.freeze({})};},async warmOriginalPagedPublicNativeSepoliaDefiDispatchV8(provider){assert.strictEqual(provider,sourceProvider);warmCalls++;await warming;},async bindOriginalPagedPublicNativeSepoliaDefiPreparationV8(provider,slot,{id}){assert.strictEqual(provider,sourceProvider);assert.ok(slots.has(slot),'HOST_ORIGINAL_D27_SLOT');providerBindings.push({id,jobId:slots.get(slot).job.jobId});}}});
 const F=await import('../../../src/accounts/authority/device-sepolia-defi-financial-http-v8.mjs');
 function job(mode,index){const id=hex(index),row={descriptor,protocol:'AAVE_STATIC',review:{reference:hex(100+index),action:mode==='deposit_intent'?'INVEST':'REDEEM',validFrom:'900',validUntil:'1100'},job:{jobId:id,mode,stage:'PROVED',reviewReference:hex(100+index)},financial:{kind:mode==='deposit_intent'?'INVEST':'WITHDRAW',submission:null,redemption:null}};scopes.set(id,row);return row;}
 const path=name=>'/v1/mobile/sepolia-defi-shares/'+name;
@@ -67,4 +69,11 @@ test('mounted Original Source7 registers a durable D27 intent without issuing an
  const invest=job('deposit_intent',3),handler=F.createOriginalDeviceSepoliaDefiFinancialHttpV8(runtime,account),beforeExecutions=calls.execute.length;
  try{await assert.rejects(F.mountOriginalDeviceSepoliaDefiFinancialSourceV8(handler,{...sourceProvider}),/HOST_ORIGINAL_SOURCE7_PROVIDER/);await F.mountOriginalDeviceSepoliaDefiFinancialSourceV8(handler,sourceProvider);const prepared=await handler.dispatch(path('financial-submit'),{...grant(invest.job.jobId),capitalNodeId:'investment-random-node-3'});assert.equal(prepared.phase,'PREPARED');assert.equal(invest.job.financialRequested,true);assert.deepEqual(providerBindings.at(-1),{id:'investment-random-node-3',jobId:invest.job.jobId});await assert.rejects(handler.dispatch(path('financial-submit'),{...grant(invest.job.jobId),capitalNodeId:'rebound-node'}),/CAPITAL_NODE_REBOUND/);await handler.runApprovedPending();assert.equal(calls.execute.length,beforeExecutions,'no direct INVEST without reserved Source7 READY');invest.financial.submission={dispatchLatched:true,transactionHash:'0x'+hex(200)};invest.job.stage='DELIVERY_UNKNOWN';await handler.runApprovedPending();assert.equal(calls.execute.length,beforeExecutions);assert.ok(calls.observe.includes('INVEST'));const withdraw=job('withdraw_balance',4);withdraw.job.stage='CONFIRMED';withdraw.financial.submission={dispatchLatched:true,transactionHash:'0x'+hex(300)};const continued=await handler.runApprovedPending();assert.equal(continued.redemptionsStarted,1);assert.deepEqual(calls.execute.slice(beforeExecutions),['REDEEM']);
  }finally{await handler.close();}
+});
+
+
+test('PROVED response waits for the genuine mounted Source7 warmup without issuing any financial command',async()=>{
+ const H=await import('../../../src/accounts/authority/device-sepolia-defi-shares-http-v4.mjs'),handler=H.createOriginalDeviceSepoliaDefiSharesRetainedHttpV8(runtime,account);let release,settled=false;const before=calls.execute.length;
+ try{await H.mountOriginalDeviceSepoliaDefiPaegFinancialHttpV8(handler,sourceProvider);warming=new Promise(resolve=>{release=resolve;});const beforeWarm=warmCalls,pending=handler.dispatch(path('private-operations'),{consent:{action:'PROVE_D27'}},descriptor.pairingId).then(row=>{settled=true;return row;});await new Promise(resolve=>setImmediate(resolve));assert.equal(settled,false);assert.equal(warmCalls,beforeWarm+1);release();assert.equal((await pending).stage,'PROVED');assert.equal(calls.execute.length,before,'preflight cannot execute INVEST or mint a chain permission');await H.quiesceOriginalDeviceSepoliaDefiSharesHttpV8(handler);
+ }finally{release?.();warming=null;await handler.close();}
 });
