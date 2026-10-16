@@ -89,11 +89,9 @@ export function readOriginalDevicePagedSourceRenewalTransportCoreV4(handle:objec
 
 const expiredWithdrawalTransportsV10=new WeakMap<object,{sourceToken:object;transport:Transport;closed:boolean}>();
 export async function createDevicePagedExpiredWithdrawalTransportCoreV10(profile:{descriptor:any;transport:Pin},sourceToken:object,signal?:AbortSignal):Promise<Readonly<{close:()=>Promise<void>}>>{
- const Vault=await import('../custody/device-paged-note-vault-v3.ts');const scope=await Vault.readDevicePagedSourceRecoveryScopeV4(sourceToken);
- if(JSON.stringify(scope.descriptor)!==JSON.stringify(profile.descriptor))fail('MOBILE_PAGED_EXPIRED_WITHDRAWAL_TRANSPORT');
  const transport=await createDevicePagedPinnedTransportCoreV3('PAGED_EXPIRED_WITHDRAWAL_V10',profile.descriptor.origin,Date.now()+60000,profile.transport,signal,profile.descriptor.pairingId);
  const held={sourceToken,transport,closed:false},handle=Object.freeze({async close(){held.closed=true;expiredWithdrawalTransportsV10.delete(handle);await transport.close();}});
- try{await Vault.assertDevicePagedSourceRecoveryTokenV4(sourceToken);expiredWithdrawalTransportsV10.set(handle,held);return handle;}catch(error){await transport.close();throw error;}
+ expiredWithdrawalTransportsV10.set(handle,held);return handle;
 }
 export function readOriginalDevicePagedExpiredWithdrawalTransportCoreV10(handle:object,sourceToken:object):Transport{
  const own=expiredWithdrawalTransportsV10.get(handle);if(!own||own.sourceToken!==sourceToken||own.closed)fail('MOBILE_PAGED_EXPIRED_WITHDRAWAL_TRANSPORT');return own.transport;

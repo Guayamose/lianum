@@ -567,7 +567,7 @@ async function createVault(rawDescriptor:unknown,signal:AbortSignal|undefined,gr
   }finally{P.pagedOwnerWipeV3(local?.events);wipeCustodyCopy(r.value);}
  }),
  prepareExpiredWithdrawalCustodyV10:(sourceToken:object,rawTargets:unknown,rawConnection:unknown)=>serialRead(async()=>{
-  const SDK=await import('../api/device-paged-expired-withdrawal-api-v10.mjs'),targets:any=await SDK.readDevicePagedExpiredWithdrawalReplyV10(rawTargets,sourceToken),reply:any=await SDK.readDevicePagedExpiredWithdrawalReplyV10(rawConnection,sourceToken),target=targets.targets?.[0],connection=reply.connection,scope=connection?.withdrawalScope;
+  const SDK=await import('../api/device-paged-expired-withdrawal-wire-v10.mjs'),targets:any=await SDK.readDevicePagedExpiredWithdrawalReplyV10(rawTargets,sourceToken),reply:any=await SDK.readDevicePagedExpiredWithdrawalReplyV10(rawConnection,sourceToken),target=targets.targets?.[0],connection=reply.connection,scope=connection?.withdrawalScope;
   need(target&&scope&&same(targets.sourceDescriptor,descriptor)&&same(reply.sourceDescriptor,descriptor)&&scope.targetRootId===rootId&&scope.targetRevision===noteRevision,'MOBILE_PAGED_SOURCE_CONTINUATION_BINDING');
   for(const [key,field]of [['targetCommitment','commitment'],['targetNullifier','nullifier'],['maximumAmountAtomic','amountAtomic']])need(scope[key]===target[field],'MOBILE_PAGED_SOURCE_CONTINUATION_BINDING');
   need(same(scope.graphOutput,target.graphOutput)&&!target.graphOutput?.sparseOutput,'MOBILE_PAGED_SOURCE_CONTINUATION_BINDING');const r=await read();let local:any=null,note:any;

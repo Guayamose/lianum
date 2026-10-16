@@ -79,7 +79,7 @@ export async function signWalletSessionPagedSourceRenewalV4(rawChallenge:unknown
 /** Prepares one bounded withdrawal channel; moving funds still needs the
  * separate reviewed W39 approval below. Only an Original pinned SDK frame signs. */
 export async function signWalletSessionPagedExpiredWithdrawalV10(raw:unknown):Promise<string>{
- const own=live(),SDK=await import('../api/device-paged-expired-withdrawal-api-v10.mjs'),EW=await import('@lianum/mobile-protocol/device/paged-expired-withdrawal-v10');
+ const own=live(),SDK=await import('../api/device-paged-expired-withdrawal-wire-v10.mjs'),EW=await import('@lianum/mobile-protocol/device/paged-expired-withdrawal-v10');
  const consent=await SDK.readDevicePagedExpiredWithdrawalConsentV10(raw);current(own);need(consent.sourceDescriptor.devicePublicKey===own.publicKey,'MOBILE_WALLET_SESSION_BINDING');
  const frame=EW.devicePagedExpiredWithdrawalPermissionMessageV10(consent);try{const signature=signDeviceMessage(own.key,frame);await SDK.readDevicePagedExpiredWithdrawalConsentV10(raw);current(own);return signature;}finally{frame.fill(0);}
 }
