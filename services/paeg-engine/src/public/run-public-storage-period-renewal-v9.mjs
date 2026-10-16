@@ -1,0 +1,43 @@
+/** Repair only a stopped retained installation and its explicit operator period.
+ * Actual storage owners seal dead writers; actual protected keys review the
+ * finite epoch. No wallet permission, deployment or transaction is renewed. */
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {join,resolve} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {readFile} from 'node:fs/promises';
+import {PUBLIC_OPERATOR_STATE_V4,PUBLIC_NATIVE_DIRECTORY_V4,readPrivateOperatorFileV4,writePrivateOperatorFileV4} from './public-operator-state-v4.mjs';
+import {readPublicUniswapModeV6} from './public-uniswap-mode-v6.mjs';
+import {publicSepoliaDefiConfigurationV8} from './public-sepolia-defi-mode-v8.mjs';
+import {normalizeEmptySourceRenewalIntentDataV9,prepareEmptySourceFinancialReviewDataV9} from './empty-source-financial-review-v9.mjs';
+import {publishPrivateFinancialStateDataV5} from './financial-epoch-control-v5.mjs';
+import {publicErrorDataV9} from './public-error-data-v9.mjs';
+
+assert.equal(process.argv.length,2);assert.equal(process.platform,'linux');assert.equal(process.arch,'x64');assert.ok(process.getuid()>0);assert.deepEqual(process.execArgv,['--max-old-space-size=1024']);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
+const root=resolve(fileURLToPath(new URL('../candidate/',import.meta.url))),load=p=>import(pathToFileURL(join(root,p)).href),sha=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex'),emit=value=>process.stdout.write(JSON.stringify(value)+'\n');
+let configuration,defiInput,supervisor,reader;
+async function json(name){const bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,name);try{return JSON.parse(bytes.toString('utf8'));}finally{bytes.fill(0);}}
+async function samePrivateJSON(name,value){const bytes=Buffer.from(JSON.stringify(value)+'\n');try{await writePrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,name,bytes);}catch(error){if(error.code!=='EEXIST')throw error;assert.deepEqual(await json(name),value,'STORAGE_PERIOD_RETAINED_INTENT_CHANGED');}finally{bytes.fill(0);}}
+async function financialState(){
+ const R=await load('packages/backend/src/operations/recovery/paged-runtime-recovery-authority-v3.mjs'),W=await load('packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs');
+ try{
+  supervisor=await R.openOriginalPagedSourceReadRecoverySupervisorV4({directory:configuration.supervisorDirectory,password:configuration.journal.password});const descriptors=await supervisor.sourceDescriptors(),pairings=await supervisor.currentWalletPairings(),matches=pairings.filter(row=>row.devicePublicKey===configuration.devicePublicKey);assert.equal(matches.length,1,'STORAGE_PERIOD_ROOT_PRINCIPAL');const descriptor=descriptors.find(row=>row.pairingId===matches[0].currentPairingId);assert.ok(descriptor,'STORAGE_PERIOD_ROOT_PRINCIPAL');reader=await R.consumeOriginalPagedSourceReadRecoveryV4(await supervisor.issueSource(descriptor.pairingId));return await W.readOriginalPagedPublicCapturedFinancialStateV5(reader);
+ }finally{if(reader){R.closeOriginalPagedSourceReadRecoveryV4(reader);reader=null;}if(supervisor){await supervisor.close();supervisor=null;}}
+}
+try{
+ configuration=await json('operator.json');assert.equal(configuration.nativeDirectory,PUBLIC_NATIVE_DIRECTORY_V4);assert.equal(configuration.supervisorDirectory,join(PUBLIC_OPERATOR_STATE_V4,'supervisor'));assert.equal(configuration.journal.path,join(PUBLIC_OPERATOR_STATE_V4,'authority','journal.vault'));
+ const intentName='empty-source-renewal-intent-v9.json',intent=normalizeEmptySourceRenewalIntentDataV9(await json(intentName)),phone=await json('paired-phone-connection.json');assert.ok(intent.expiresAt>Date.now(),'STORAGE_PERIOD_INTENT_EXPIRED');
+ const sourceFiles=await load('packages/backend/src/operations/recovery/paged-source-read-files-v4.mjs'),sourcePath=join(PUBLIC_NATIVE_DIRECTORY_V4,'source-operations','native-wallet.json'),sourceBefore=(await sourceFiles.readPagedSourcePrivateJSONV4(sourcePath,33554432)).data,dispatchPath=join(PUBLIC_NATIVE_DIRECTORY_V4,'dispatch-journal','native-wallet.json'),dispatchBefore=JSON.parse(await readFile(dispatchPath,'utf8'));
+ assert.equal(sourceBefore.operations.length,31,'STORAGE_PERIOD_FIXED_INSTALLATION');assert.ok(sourceBefore.operations.every(row=>row.phase==='FINALIZED'),'STORAGE_PERIOD_PENDING_SOURCE');assert.equal(sha(sourceBefore.operations),intent.sourceRowsSHA256,'STORAGE_PERIOD_SOURCE_CHANGED');assert.deepEqual(dispatchBefore.operations,[],'STORAGE_PERIOD_PENDING_DISPATCH');
+ const names=['paired-connection.json','paired-phone-connection.json','paired-uniswap-connection.json','paired-uniswap-flat-connection.json','paired-aave-connection.json','paired-morpho-connection.json'],connections=await Promise.all(names.map(json));
+ const uniswap=await readPublicUniswapModeV6(root,configuration);assert.ok(uniswap,'STORAGE_PERIOD_MIXED_REQUIRED');assert.ok(['ACTIVE','CAPTURED'].includes(uniswap.state.phase),'STORAGE_PERIOD_MIXED_PHASE');defiInput=publicSepoliaDefiConfigurationV8(configuration,phone.descriptor.devicePublicKey,'CAPTURED');
+ const input={mixed:{directory:uniswap.input.parent.supervisorDirectory,password:configuration.journal.password,mixedJournalPassword:uniswap.input.mixed.journal.password,flatJournalPassword:uniswap.input.mixed.flatJournal.password},defi:{directory:join(defiInput.directory,'retention'),password:defiInput.password,parentSupervisorDirectory:configuration.supervisorDirectory,parentPassword:configuration.journal.password}},C=await load('packages/backend/src/operations/recovery/paged-public-full-storage-financial-review-v9.mjs');
+ emit({stage:'FULL_ORIGINAL_DEAD_STORAGE_SEALING',sourceRows:31,transactionsBroadcast:0});await C.sealOriginalPagedPublicFullStorageV9(input);emit({stage:'FULL_ORIGINAL_STORAGE_CAPTURED',transactionsBroadcast:0});
+ const before=await financialState(),reviewName='empty-source-financial-review-'+intent.intentId+'.json';let retained=null;try{retained=await json(reviewName);}catch(error){if(error.code!=='ENOENT')throw error;}
+ const review=prepareEmptySourceFinancialReviewDataV9(before,intent,retained);await samePrivateJSON(reviewName,review);assert.deepEqual(await json(intentName),intent,'STORAGE_PERIOD_INTENT_CHANGED');
+ const result=await C.sealAndReviewOriginalPagedPublicFullStorageV9({...input,nativeDirectory:PUBLIC_NATIVE_DIRECTORY_V4},review);assert.equal(result.transactionsBroadcast,0);const after=await financialState();assert.equal(after.epoch?.nonce,intent.intentId,'STORAGE_PERIOD_ORIGINAL_EPOCH');assert.deepEqual(after.effectivePolicy,review.policy);assert.deepEqual(after.limits,review.limits);assert.deepEqual(after.reserved,before.reserved,'STORAGE_PERIOD_RESERVATIONS_CHANGED');
+ assert.deepEqual((await sourceFiles.readPagedSourcePrivateJSONV4(sourcePath,33554432)).data,sourceBefore,'STORAGE_PERIOD_SOURCE_CHANGED');assert.deepEqual(JSON.parse(await readFile(dispatchPath,'utf8')),dispatchBefore,'STORAGE_PERIOD_DISPATCH_CHANGED');for(let i=0;i<names.length;i++)assert.deepEqual(await json(names[i]),connections[i],'STORAGE_PERIOD_USER_CONNECTION_CHANGED');
+ const ack={profile:'ORIGINAL_PUBLIC_FINANCIAL_EPOCH_ACK_V5',intentId:review.intentId,epochId:after.epoch.epochId,epoch:after.epoch.epoch,expiresAt:after.effectivePolicy.expiresAt,financialStepsStarted:false};await samePrivateJSON('financial-epoch-ack-'+review.intentId+'.json',ack);await publishPrivateFinancialStateDataV5(after);
+ const receipt={profile:'ORIGINAL_PUBLIC_STORAGE_PERIOD_RENEWAL_RECEIPT_V9',intentId:intent.intentId,expiresAt:after.effectivePolicy.expiresAt,epoch:after.epoch.epoch,sourceRows:31,sourceRowsSHA256:sha(sourceBefore.operations),financialTransactions:0,userConnectionsPreserved:true};await samePrivateJSON('storage-period-renewal-ack-'+intent.intentId+'.json',receipt);emit({stage:'FULL_ORIGINAL_STORAGE_PERIOD_RENEWED',...receipt});
+}catch(error){process.exitCode=1;emit({stage:'FULL_STORAGE_PERIOD_RENEWAL_FAILED',...publicErrorDataV9(error),automaticRetry:false});}
+finally{if(configuration)configuration.journal.password=null;if(defiInput)defiInput.password=null;}

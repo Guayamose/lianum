@@ -29,6 +29,7 @@ ADDITIONAL = ['packages/proofs/src/jobs/worker.mjs',
 # These are loaded by the delivered service helpers through a fixed candidate
 # locator, rather than an import reachable from PUBLIC_ENTRY.
 PUBLIC_RUNTIME_ROOTS = [
+    'packages/backend/src/operations/recovery/paged-public-full-storage-financial-review-v9.mjs',
     'packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs',
     'packages/backend/src/operations/recovery/paged-uniswap-flat-read-recovery-v8.mjs',
     'packages/backend/src/api/mobile/device-paged-uniswap-flat-read-http-v8.mjs',
