@@ -7,28 +7,54 @@ conservan sus fechas, generaciones y límites históricos.
 ## Punto 3 en curso: DeFi ya formaba parte de este cierre (16 de octubre)
 
 - Está instalada en el motor la versión
-  `9fbac3d83bf261a28125de5bdaf76527a9001ad315e8d29cf9088f03bf3b6172`,
+  `e006a5c96fac3b0b3374dde5164baaee27b28fe78a16feefac8506f1cfc082e9`,
   generación de fuentes
-  `f1b7bf1e3cd9773ee7bba169c6e7519437c32f43aed7e877913d5f2ba4bf2704`.
+  `64044e378fdd124f0c108745bc003cea0c13d85287045a2c914b948dd9bce3a0`.
   La instalación preservó todos los archivos privados y los mismos contratos
   y recursos ZK del paquete anterior. Evidencia en la VM:
-  `/var/lib/lianum-maintenance/20261016-defi-bounded-read/installation.json`.
+  `/var/lib/lianum-maintenance/20261016-defi-publication/installation.json`.
 - El permiso financiero vigente es el epoch 2: vence el 16 de octubre a las
   **07:00 UTC**; su captura preventiva es a las **06:30 UTC, 08:30 de Madrid**.
   Mantiene los límites y las comisiones reservadas; no reinicia el presupuesto.
   Esta ventana sustituye a la del registro histórico del 15 de octubre.
 - La actualización de Uniswap conserva las dos identidades y sus cuentas
   Native3; añade su conexión a la identidad móvil existente. Su activación
-  remota está en curso: **todavía no se da por operativa ni se publica como
-  conexión activa de la app**. El motor está detenido durante esa activación.
+  remota ya ha reabierto el estado capturado. El servicio marca `READY` con
+  tres conexiones y dos identidades. La API ya publica su conexión móvil
+  de Uniswap manteniendo la identidad y la conexión Native3 anterior.
   Los cinco intentos previos se detuvieron antes de enviar nuevas transacciones;
   el padre quedó capturado y no se hicieron ingresos ni pagos de usuarios.
-- La activación actual ya tiene confirmados sus cinco contratos Target y las
-  dos llamadas de registro. Espera su finalización en Sepolia antes de desplegar
-  los tres contratos de la nueva conexión. El registro de Source contiene diez
-  filas: tres anteriores finalizadas y siete nuevas confirmadas. No se debe
-  iniciar una activación nueva: las recuperaciones deben consultar los mismos
-  planes, nonces y transacciones guardados.
+- Los ocho contratos nuevos y las dos llamadas de registro ya están
+  **finalizados en Sepolia**: 68 contratos en total y 13 filas de Source
+  finalizadas, incluidas las tres anteriores. La activación se interrumpió
+  después por consultas RPC fallidas al capturar el conjunto. El estado de
+  activación autenticado de ambos supervisores quedó guardado; se recuperan
+  esos mismos contratos y transacciones. No se inicia otro despliegue.
+- La corrección `ae33eb03` limita a ocho las consultas del runtime y permite
+  recuperar la activación de un proceso muerto desde los mismos registros
+  cifrados. La herramienta administrativa `06163850` exige las 13 filas
+  finalizadas y ausencia de pagos; exige operaciones idénticas, un único
+  checkpoint de Source y el registro de pagos intacto antes de publicar. Pasan 18 comprobaciones
+  dirigidas, incluidas interrupción real del proceso, permisos originales y
+  concurrencia; el control de dependencias no añade ciclos de módulos ni
+  ciclos entre paquetes. La comprobación nativa se repitió tras el ajuste final
+  y sus tres casos pasan.
+- La recuperación real terminó con ambos supervisores capturados y las mismas
+  13 operaciones. El contador de Source aumentó de 88 a 89 porque la captura
+  original hace un checkpoint; el contenido de todas las operaciones conserva
+  exactamente su hash. Se corrigió la comprobación administrativa para permitir
+  sólo ese incremento de uno, manteniendo idénticos todos los demás campos.
+  Sus seis casos pasan, incluidos cambios indebidos en firmas, cantidad de
+  operaciones, configuración y estado. Commit `5fd0c93e`.
+- La versión corregida está instalada desde las 01:02:48 UTC. Su instalación
+  comprobó que todos los archivos privados permanecieran idénticos después
+  de publicar explícitamente la configuración del servicio; contratos y
+  recursos ZK también permanecen idénticos. El arranque normal ya marca `READY`:
+  tres conexiones, dos identidades y preparación pública de Uniswap. Una
+  lectura por HTTPS comprueba Ethereum Sepolia, Bitcoin testnet y Solana devnet
+  en ambas identidades, Uniswap en la móvil y el certificado público fijado.
+  Los selectores de conexión ausentes o desconocidos se rechazan. No hubo
+  ingresos, pagos, nuevas firmas de envíos ni nuevos contratos en la recuperación.
 - Se corrigieron los archivos Solidity y módulos que faltaban en el paquete,
   los reintentos de consultas RPC interrumpidas y la consulta de un registro
   que contiene contratos de Uniswap. Los envíos firmados siguen teniendo un
@@ -48,11 +74,20 @@ conservan sus fechas, generaciones y límites históricos.
 - **Aave y Morpho mantienen sus validaciones anteriores.** Su ejecución
   financiera y su ciclo completo de recuperación no están montados en este
   servicio público: incluir sus compiladores no equivale a integrarlos.
-- **El punto 3 permanece abierto.** Faltan terminar y publicar la conexión
-  remota de Uniswap, comprobar su reapertura real en la instalación y completar
-  los servicios remotos de Aave/Morpho con la app y la API. El APK de conexión
-  remota está preparado; esta actualización no se ha instalado ni probado en
-  Android. Los puntos 4 y 5, el agente, MoonPay y el diseño final siguen separados.
+- La API publicó la conexión móvil a las **01:10:58 UTC**, manteniendo las
+  mismas identidades y el perfil anterior. El directorio público tiene hash
+  `eb98a9c76b9eeb09b95844e7ddf35c69a7d3cf9979d3e2746d9c4231d82ded69`.
+  Evidencia en la VM de la API:
+  `/var/lib/lianum-maintenance/20261016-defi-api/promotion.json`.
+  La comprobación pública posterior también pasa; evidencia local en
+  `.local/maintenance/20261016-defi-public-routing-final.json`. Fueron lecturas
+  de instalación y metadatos, sin repetir pagos ni pruebas financieras.
+- **El punto 3 permanece abierto.** Faltan los servicios remotos de Aave/Morpho
+  con la app y la API y la consulta y recuperación del saldo de tokens cuando
+  el servicio pasa a sólo lectura. La conexión remota de Uniswap está publicada
+  y su reapertura real se ha comprobado. El APK de conexión remota está
+  preparado; esta actualización no se ha instalado ni probado en Android.
+  Los puntos 4 y 5, el agente, MoonPay y el diseño final siguen separados.
 
 ## Motor en Google Cloud (15 de octubre, despliegue y reapertura comprobados)
 
