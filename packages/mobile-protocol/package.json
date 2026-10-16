@@ -33,6 +33,14 @@
     "./wallet/values": "./src/wallet/client/validation/values.mjs",
     "./wallet/native-identity": "./src/wallet/client/validation/native-identity.mjs",
     "./device/source-note-v1": "./src/device-external-flat-note-v1.mjs",
+    "./device/sepolia-defi-connection-v7": {
+      "types": "./src/device-sepolia-defi-connection-v7.d.mts",
+      "default": "./src/device-sepolia-defi-connection-v7.mjs"
+    },
+    "./device/sepolia-defi-financial-status-v7": {
+      "types": "./src/device-sepolia-defi-financial-status-v7.d.mts",
+      "default": "./src/device-sepolia-defi-financial-status-v7.mjs"
+    },
     "./device/source-graph-v1": "./src/device-external-flat-graph-v1.mjs",
     "./device/native-claim-v1": "./src/native-claim-device-v1.mjs",
     "./device/native-deposit-v2": "./src/device-native-private-deposit-v2.mjs",
@@ -128,6 +136,10 @@
     "./device/sepolia-morpho-batch-review-v5": {
       "types": "./src/device-sepolia-morpho-batch-review-v5.d.mts",
       "default": "./src/device-sepolia-morpho-batch-review-v5.mjs"
+    },
+    "./device/paged-defi-public-v8": {
+      "types": "./src/device-paged-defi-public-v8.d.mts",
+      "default": "./src/device-paged-defi-public-v8.mjs"
     },
     "./device/paged-uniswap-public-v4": {
       "types": "./src/device-paged-uniswap-public-v4.d.mts",

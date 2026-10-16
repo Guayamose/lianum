@@ -1,0 +1,3 @@
+import type {DevicePagedDescriptorV3} from './device-paged-owner-v3.mjs';
+export type DevicePagedPublicDefiPreparationV8=Readonly<{profile:'DEVICE_PAGED_PUBLIC_DEFI_PREPARATION_V8';classification:'PUBLIC_TESTNET_FIXED_PROVIDER_OFFER_NOT_MARKET_PRICE';fundingOrigin:'OPERATOR_TESTNET';networks:readonly Readonly<{protocol:'AAVE_STATIC'|'MORPHO_V2';family:'EVM';label:string;networkId:'ethereum-sepolia';chainDomain:string;evidencePolicy:string;assetSymbol:'stataUSDC'|'mvUSDC';decimals:6|18;destinations:readonly never[]}>[];targetDescriptors:Readonly<Record<'AAVE_STATIC'|'MORPHO_V2',unknown>>}>;
+export function normalizeDevicePagedPublicDefiPreparationV8(raw:unknown,source:DevicePagedDescriptorV3):DevicePagedPublicDefiPreparationV8;

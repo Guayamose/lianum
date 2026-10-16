@@ -1,0 +1,11 @@
+/** Public Source7 routing DATA. This parser cannot reserve a private budget,
+ * issue a proof slot or turn either target descriptor into financial authority. */
+import * as P from './device-paged-owner-v3.mjs';
+import {normalizeExternalFlatDescriptorV1} from './device-external-flat-note-v1.mjs';
+const need=ok=>{if(!ok)throw Error('DEVICE_PAGED_PUBLIC_DEFI_PREPARATION_DATA');};
+const freeze=v=>{if(v&&typeof v==='object'){Object.values(v).forEach(freeze);Object.freeze(v);}return v;};
+export function normalizeDevicePagedPublicDefiPreparationV8(raw,rawSource){
+ const source=P.normalizeDevicePagedDescriptorV3(rawSource),v=P.pagedOwnerExactV3(raw,['profile','classification','fundingOrigin','networks','targetDescriptors']);need(source.chainId==='11155111'&&v.profile==='DEVICE_PAGED_PUBLIC_DEFI_PREPARATION_V8'&&v.classification==='PUBLIC_TESTNET_FIXED_PROVIDER_OFFER_NOT_MARKET_PRICE'&&v.fundingOrigin==='OPERATOR_TESTNET');need(Array.isArray(v.networks)&&v.networks.length===2);const targets=P.pagedOwnerExactV3(v.targetDescriptors,['AAVE_STATIC','MORPHO_V2']),domains=new Set();
+ v.networks=v.networks.map((raw,index)=>{const n=P.pagedOwnerExactV3(raw,['protocol','family','label','networkId','chainDomain','evidencePolicy','assetSymbol','decimals','destinations']),protocol=index===0?'AAVE_STATIC':'MORPHO_V2',symbol=index===0?'stataUSDC':'mvUSDC',decimals=index===0?6:18;need(n.protocol===protocol&&n.family==='EVM'&&n.networkId==='ethereum-sepolia'&&n.assetSymbol===symbol&&n.decimals===decimals);need(typeof n.label==='string'&&n.label.length>0&&n.label.length<=80);P.pagedOwnerHexV3(n.chainDomain);P.pagedOwnerHexV3(n.evidencePolicy);need(!domains.has(n.chainDomain));domains.add(n.chainDomain);need(Array.isArray(n.destinations)&&n.destinations.length===0);const d=normalizeExternalFlatDescriptorV1(targets[protocol]);need(d.profile==='LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1'&&d.origin===source.origin&&d.devicePublicKey===source.devicePublicKey&&d.poolTerms.genesis===source.genesis&&d.assetMetadata.kind==='ERC20'&&d.assetMetadata.symbol===symbol&&d.assetMetadata.decimals===decimals);targets[protocol]=d;return n;});
+ need(targets.AAVE_STATIC.pairingId!==targets.MORPHO_V2.pairingId&&targets.AAVE_STATIC.poolTerms.assetIdentity!==targets.MORPHO_V2.poolTerms.assetIdentity);v.targetDescriptors=targets;return freeze(v);
+}
