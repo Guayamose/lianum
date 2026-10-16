@@ -42,7 +42,8 @@
     "./encoding/flat-words": "./src/execution/encoding/flat-words.mjs",
     "./transport/platform-diagnostics": "./src/api/transport/platform-diagnostics.mjs",
     "./transport/gateway-pairing": "./src/api/transport/gateway-pairing.mjs",
-    "./public-wallet/http-service": "./src/public-wallet/http-service-v1.mjs"
+    "./public-wallet/http-service": "./src/public-wallet/http-service-v1.mjs",
+    "./operations/recovery/paged-empty-source-replacement-data-v9": "./src/operations/recovery/paged-empty-source-replacement-data-v9.mjs"
   },
   "lianum": {
     "status": "active"

@@ -80,7 +80,7 @@ def delivery_module_bytes(source):
             'packages/mobile-protocol/src/device-sepolia-defi-connection-v7.mjs',
         '@lianum/mobile-protocol/device/paged-owner-v3':
             'packages/mobile-protocol/src/device-paged-owner-v3.mjs',
-        '../../../../packages/backend/src/operations/recovery/paged-empty-source-replacement-data-v9.mjs':
+        '@lianum/backend/operations/recovery/paged-empty-source-replacement-data-v9':
             'packages/backend/src/operations/recovery/paged-empty-source-replacement-data-v9.mjs',
     }
     for original, candidate_path in candidate_imports.items():

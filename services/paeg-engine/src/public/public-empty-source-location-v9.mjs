@@ -2,7 +2,7 @@
  * reopening remain mandatory; this parser grants no financial permission. */
 import assert from 'node:assert/strict';
 import {normalizeDevicePagedDescriptorV3} from '@lianum/mobile-protocol/device/paged-owner-v3';
-import {normalizePagedEmptySourceReplacementDataV9,pagedEmptySourceReplacementPathV9} from '../../../../packages/backend/src/operations/recovery/paged-empty-source-replacement-data-v9.mjs';
+import {normalizePagedEmptySourceReplacementDataV9,pagedEmptySourceReplacementPathV9} from '@lianum/backend/operations/recovery/paged-empty-source-replacement-data-v9';
 export function assertPublicEmptySourceLocationDataV9(raw,rootJournalPath,devicePublicKey){
  const descriptor=normalizeDevicePagedDescriptorV3(raw.descriptor??raw.authority?.descriptor);assert.equal(descriptor.devicePublicKey,devicePublicKey,'PAEG_EMPTY_REPLACEMENT_SAME_PRINCIPAL');
  if(!Object.hasOwn(raw,'emptyReplacementV9')){assert.equal(raw.journalPath,rootJournalPath,'PAEG_EMPTY_REPLACEMENT_FIXED_BIRTH');return raw;}

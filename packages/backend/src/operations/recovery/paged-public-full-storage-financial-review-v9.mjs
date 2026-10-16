@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import * as P from '@lianum/mobile-protocol/device/paged-owner-v3';
 import {openOriginalPagedPublicDeadStorageSealV8,closeOriginalPagedPublicDeadStorageSealV8,readOriginalPagedPublicRecoveryModeV4} from './paged-runtime-recovery-authority-v3.mjs';
-import {sealOriginalPagedPublicUniswapMixedDeadStorageV8,sealOriginalPagedPublicMixedAndDefiDeadStorageV10,readOriginalPagedPublicUniswapMixedRecoveryModeV6,reconcileOriginalPagedPublicUniswapMixedCapturedFinancialReviewV9} from './paged-public-uniswap-mixed-supervisor-v4.mjs';
+import {sealOriginalPagedPublicUniswapMixedDeadStorageV8,openOriginalPagedPublicMixedDeadStorageSequenceV10,readOriginalPagedPublicUniswapMixedRecoveryModeV6,reconcileOriginalPagedPublicUniswapMixedCapturedFinancialReviewV9} from './paged-public-uniswap-mixed-supervisor-v4.mjs';
 import {readOriginalSepoliaDefiRetentionModeV8,sealOriginalSepoliaDefiDeadStorageV9} from './sepolia-defi-retention-v8.mjs';
 import {authorizeOriginalPagedCapturedNativeFinancialEpochV5} from './paged-captured-native-financial-epoch-v5.mjs';
 
@@ -14,7 +14,7 @@ export async function sealOriginalPagedPublicFullStorageV9(raw){
  const initialRoot=await readOriginalPagedPublicRecoveryModeV4(rootInput),initialMixed=await readOriginalPagedPublicUniswapMixedRecoveryModeV6({directory:raw.mixed.directory,password:raw.mixed.password}),initialDefi=await readOriginalSepoliaDefiRetentionModeV8({directory:raw.defi.directory,password:raw.defi.password});assert.ok(['ACTIVE_DEAD_EXPIRED_FENCED','CAPTURED','CAPTURED_FINANCIAL_REVIEW_V5'].includes(initialRoot.mode),'PUBLIC_STORAGE_REVIEW_ROOT_PHASE');assert.ok(['ACTIVE','CAPTURED'].includes(initialMixed.phase)&&['ACTIVE','CAPTURED'].includes(initialDefi.phase),'PUBLIC_STORAGE_REVIEW_CHILD_PHASE');
  try{
   if(initialRoot.mode==='ACTIVE_DEAD_EXPIRED_FENCED'||initialMixed.phase==='ACTIVE'||initialDefi.phase==='ACTIVE'){
-   assert.notEqual(initialRoot.mode,'CAPTURED_FINANCIAL_REVIEW_V5','PUBLIC_STORAGE_REVIEW_CHILD_CAPTURE_REQUIRED');await sealOriginalPagedPublicMixedAndDefiDeadStorageV10(raw.mixed,raw.defi);
+   assert.notEqual(initialRoot.mode,'CAPTURED_FINANCIAL_REVIEW_V5','PUBLIC_STORAGE_REVIEW_CHILD_CAPTURE_REQUIRED');const sequence=openOriginalPagedPublicMixedDeadStorageSequenceV10(raw.mixed);try{const opened=await sequence.next();assert.equal(opened.done,false);await sealOriginalSepoliaDefiDeadStorageV9(raw.defi,opened.value);const completed=await sequence.next();assert.equal(completed.done,true);}finally{await sequence.return();}
   }
  }finally{if(rootSeal)await closeOriginalPagedPublicDeadStorageSealV8(rootSeal);}
  const capturedRoot=await readOriginalPagedPublicRecoveryModeV4(rootInput),capturedMixed=await readOriginalPagedPublicUniswapMixedRecoveryModeV6({directory:raw.mixed.directory,password:raw.mixed.password}),capturedDefi=await readOriginalSepoliaDefiRetentionModeV8({directory:raw.defi.directory,password:raw.defi.password});assert.ok(['CAPTURED','CAPTURED_FINANCIAL_REVIEW_V5'].includes(capturedRoot.mode));assert.equal(capturedMixed.phase,'CAPTURED');assert.equal(capturedDefi.phase,'CAPTURED');return Object.freeze({profile:'ORIGINAL_PAGED_PUBLIC_FULL_STORAGE_SEALED_V9',rootPhase:'CAPTURED',mixedPhase:'CAPTURED',defiPhase:'CAPTURED',financialSourcePermissionIssued:false,transactionsBroadcast:0});
