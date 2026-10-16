@@ -1,0 +1,15 @@
+export const DEVICE_PAGED_EXPIRED_WITHDRAWAL_V10:'DEVICE_PAGED_EXPIRED_WITHDRAWAL_V10';
+export const DEVICE_PAGED_EXPIRED_WITHDRAWAL_SCOPE_V10:'DEVICE_PAGED_EXPIRED_WITHDRAWAL_SCOPE_V10';
+export type DevicePagedExpiredWithdrawalSelectionV10=Readonly<{rootId:string|null;revision:number|null;output:Readonly<{role:'change'|'recovery'|'payout';id:string|null}>|null}>;
+export type DevicePagedExpiredWithdrawalRequestV10=DevicePagedExpiredWithdrawalSelectionV10&Readonly<{action:'READ_TARGETS'|'OPEN_WITHDRAWAL';recipient:string|null;intentId:string}>;
+export type DevicePagedExpiredWithdrawalConsentV10=Readonly<{profile:typeof DEVICE_PAGED_EXPIRED_WITHDRAWAL_V10;sourceDescriptor:any;request:DevicePagedExpiredWithdrawalRequestV10;challengeId:string;nonce:string;issuedAt:number;expiresAt:number}>;
+export type DevicePagedExpiredWithdrawalTargetV10=Readonly<{rootId:string;revision:number;commitment:string;nullifier:string;amountAtomic:string;phase:'NOTE'|'FULFILLED'|'RECOVERED';graphId:string|null;authorizationRoot:string|null;output:DevicePagedExpiredWithdrawalSelectionV10['output'];path:Readonly<{root:string;index:string;siblings:readonly string[]}>|null;graphOutput:any|null}>;
+export type DevicePagedExpiredWithdrawalScopeV10=Readonly<{profile:typeof DEVICE_PAGED_EXPIRED_WITHDRAWAL_SCOPE_V10;brokerId:string;sourceDescriptor:any;sourceIdentity:string;sourceJournalRevision:number;sourceJournalDataSHA256:string;sourceOwnerCheckpointSHA256:string;epochId:string;policySHA256:string;sponsorExpiresAtMs:number;maximumDeadlineMs:number;targetRootId:string;targetRevision:number;targetCommitment:string;targetNullifier:string;maximumAmountAtomic:string;recipient:string;graphOutput:any|null}>;
+export type DevicePagedExpiredWithdrawalReplyV10=Readonly<{profile:'DEVICE_PAGED_EXPIRED_WITHDRAWAL_TARGETS_V10';sourceDescriptor:any;targets:readonly DevicePagedExpiredWithdrawalTargetV10[];issuedAt:number;expiresAt:number;blockHash:string;blockNumber:string}>;
+export function normalizeDevicePagedExpiredWithdrawalRequestV10(raw:unknown):DevicePagedExpiredWithdrawalRequestV10;
+export function normalizeDevicePagedExpiredWithdrawalConsentV10(raw:unknown):DevicePagedExpiredWithdrawalConsentV10;
+export function validateDevicePagedExpiredWithdrawalConsentFreshV10(raw:unknown,now?:number):DevicePagedExpiredWithdrawalConsentV10;
+export function devicePagedExpiredWithdrawalPermissionMessageV10(raw:unknown):Uint8Array;
+export function normalizeDevicePagedExpiredWithdrawalTargetV10(raw:unknown):DevicePagedExpiredWithdrawalTargetV10;
+export function normalizeDevicePagedExpiredWithdrawalScopeV10(raw:unknown):DevicePagedExpiredWithdrawalScopeV10;
+export function normalizeDevicePagedExpiredWithdrawalReplyV10(raw:unknown):DevicePagedExpiredWithdrawalReplyV10;

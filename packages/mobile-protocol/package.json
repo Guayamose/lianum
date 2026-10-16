@@ -32,6 +32,10 @@
     "./wallet/session": "./src/wallet/client/session.mjs",
     "./wallet/values": "./src/wallet/client/validation/values.mjs",
     "./wallet/native-identity": "./src/wallet/client/validation/native-identity.mjs",
+    "./device/paged-expired-withdrawal-v10": {
+      "types": "./src/device-paged-expired-withdrawal-v10.d.mts",
+      "default": "./src/device-paged-expired-withdrawal-v10.mjs"
+    },
     "./device/source-note-v1": "./src/device-external-flat-note-v1.mjs",
     "./device/sepolia-defi-connection-v7": {
       "types": "./src/device-sepolia-defi-connection-v7.d.mts",
@@ -160,7 +164,8 @@
     "./device/paged-provider-quote-any-v5": {
       "types": "./src/device-paged-provider-quote-any-v5.d.mts",
       "default": "./src/device-paged-provider-quote-any-v5.mjs"
-    }
+    },
+    "./device/paged-expired-withdrawal-connection-v10": "./src/device-paged-expired-withdrawal-connection-v10.mjs"
   },
   "types": "./src/authorization.d.mts",
   "dependencies": {}

@@ -123,3 +123,14 @@ export const assertOriginalSepoliaUniswapMixedSourceStorageJournalV9=(...args)=>
 export const readOriginalSepoliaUniswapMixedEmptyCurrentLineageV9=(...args)=>sourceJournal.readCurrentEmptyLineage(...args);
 export const reopenOriginalSepoliaUniswapMixedEmptyPredecessorJournalV9=(...args)=>sourceJournal.reopenEmptyPredecessor(...args);
 export const isOriginalSepoliaUniswapMixedEmptyPredecessorJournalV9=(...args)=>sourceJournal.isEmptyReplacementPredecessor(...args);
+
+/** Only actual expired Source bundles can prepare a fresh bounded exit. */
+export const prepareOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.prepareExpiredWithdrawalV10(...args);
+export const readPreparationOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.readExpiredPreparationV10(...args);
+export const assertPreparationOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.assertExpiredPreparationV10(...args);
+export const closePreparationOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.closeExpiredPreparationV10(...args);
+export const createOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.createExpiredWithdrawalV10(...args);
+export const readOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.readExpiredWithdrawalV10(...args);
+export const publishOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.publishExpiredWithdrawalV10(...args);
+export async function reopenOriginalSepoliaUniswapMixedExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,token){assert.equal(arguments.length,5);assertOriginalSepoliaUniswapMixedSourceV4(runtime,system);const S=await import('../recovery/paged-public-uniswap-mixed-supervisor-v4.mjs'),saved=await S.consumeOriginalPagedPublicUniswapExpiredMixedWithdrawalV10(runtime,system,token);return sourceJournal.reopenExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,saved);}
+export const openOutputOwnerOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.openExpiredWithdrawalOutputOwnerV10(...args);

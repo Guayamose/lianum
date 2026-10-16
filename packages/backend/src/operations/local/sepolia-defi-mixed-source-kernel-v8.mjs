@@ -180,3 +180,14 @@ export const assertOriginalSepoliaDefiMixedSourceStorageJournalV9=(...args)=>sou
 export const readOriginalSepoliaDefiMixedEmptyCurrentLineageV9=(...args)=>sourceJournal.readCurrentEmptyLineage(...args);
 export const reopenOriginalSepoliaDefiMixedEmptyPredecessorJournalV9=(...args)=>sourceJournal.reopenEmptyPredecessor(...args);
 export const isOriginalSepoliaDefiMixedEmptyPredecessorJournalV9=(...args)=>sourceJournal.isEmptyReplacementPredecessor(...args);
+
+/** Only actual expired Source bundles can prepare a fresh bounded exit. */
+export const prepareOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.prepareExpiredWithdrawalV10(...args);
+export const readPreparationOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.readExpiredPreparationV10(...args);
+export const assertPreparationOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.assertExpiredPreparationV10(...args);
+export const closePreparationOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.closeExpiredPreparationV10(...args);
+export const createOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.createExpiredWithdrawalV10(...args);
+export const readOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.readExpiredWithdrawalV10(...args);
+export const publishOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.publishExpiredWithdrawalV10(...args);
+export async function reopenOriginalSepoliaDefiMixedExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,token){assert.equal(arguments.length,5);assertOriginalSepoliaDefiMixedSourceV8(runtime,system);const S=await import('../recovery/sepolia-defi-retention-v8.mjs'),saved=await S.consumeOriginalSepoliaDefiExpiredMixedWithdrawalV10(runtime,system,token);return sourceJournal.reopenExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,saved);}
+export const openOutputOwnerOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.openExpiredWithdrawalOutputOwnerV10(...args);

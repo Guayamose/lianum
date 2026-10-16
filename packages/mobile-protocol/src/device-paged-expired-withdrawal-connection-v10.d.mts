@@ -1,0 +1,5 @@
+import type {DevicePagedExpiredWithdrawalScopeV10,DevicePagedExpiredWithdrawalRequestV10} from './device-paged-expired-withdrawal-v10.mjs';
+export type DevicePagedExpiredWithdrawalConnectionV10=Readonly<{format:'DEVICE_PAGED_EXPIRED_WITHDRAWAL_CONNECTION_V10';descriptor:any;withdrawalScope:DevicePagedExpiredWithdrawalScopeV10;transport:Readonly<{type:'ANDROID_PINNED_TLS_V1';certificatePEM:string;certificateSHA256:string}>}>;
+export type DevicePagedExpiredWithdrawalConnectionReplyV10=Readonly<{profile:'DEVICE_PAGED_EXPIRED_WITHDRAWAL_CONNECTION_REPLY_V10';sourceDescriptor:any;request:DevicePagedExpiredWithdrawalRequestV10;connection:DevicePagedExpiredWithdrawalConnectionV10}>;
+export function normalizeDevicePagedExpiredWithdrawalConnectionV10(raw:unknown):DevicePagedExpiredWithdrawalConnectionV10;
+export function normalizeDevicePagedExpiredWithdrawalConnectionReplyV10(raw:unknown):DevicePagedExpiredWithdrawalConnectionReplyV10;
