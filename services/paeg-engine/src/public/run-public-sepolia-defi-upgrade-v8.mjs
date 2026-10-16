@@ -55,7 +55,7 @@ try{
  const published=await publishCapturedPublicSepoliaDefiV8(root,configuration,phoneKey,connections);
  emit({stage:'SEPOLIA_DEFI_CAPTURED_PREPARATION_PUBLISHED',...preservation,plans:published.targetPlanSHA256,originalWalletsPreserved:2,newWalletIdentity:false,financialReady:false,remaining:'PUBLIC_LIQUIDITY_AND_APP_ACCEPTANCE',automaticRebroadcast:false});
 }catch(error){
- process.exitCode=1;const first=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';emit({stage:'SEPOLIA_DEFI_PREPARATION_FAILED',reason:/^[A-Z][A-Z0-9_]{1,120}$/.test(first)?first:'ORIGINAL_PREPARATION_REJECTED',automaticRetry:false,financialReady:false});
+ process.exitCode=1;const first=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';emit({stage:'SEPOLIA_DEFI_PREPARATION_FAILED',reason:/^[A-Z][A-Z0-9_]{1,120}$/.test(first)?first:'ORIGINAL_PREPARATION_REJECTED',errorClass:['TypeError','ReferenceError','AssertionError','RangeError','SyntaxError','AggregateError','Error'].includes(error?.name)?error.name:null,locations:String(error?.stack??'').split('\n').filter(line=>/^\s+at /.test(line)).slice(0,8).map(line=>line.match(/([a-z0-9-]+\.mjs:\d+:\d+)\)?$/i)?.[1]).filter(Boolean),automaticRetry:false,financialReady:false});
 }finally{
  try{await product?.close();}catch{process.exitCode=1;emit({stage:'SEPOLIA_DEFI_CAPTURE_UNCONFIRMED',automaticRetry:false});}
  if(ingress)(await load('packages/backend/src/api/mobile/paged-remote-ingress-binding-v4.mjs')).closeOriginalPagedRemoteIngressBindingV4(ingress);
