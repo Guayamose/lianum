@@ -90,6 +90,15 @@ test('one login read, sealed original ROOTs, scoped approvals and fail-closed lo
  const historicalWithdraw=await historicalApi.challenge(historicalEffect);assert.match(await hsign(historicalWithdraw),/^[0-9a-f]{128}$/);await assert.rejects(()=>hsign(historicalWithdraw),/AUTHORIZATION_USED/);assert.equal(bios,historicalBio+1,'one fresh approval covers note signature, exact proof and its bound effect');
  custodyActive=false;assert.throws(()=>W.bindWalletSessionPagedHistoricalWithdrawalProofV16(historicalApproval,historicalObserved),/HOST_CUSTODY_CLOSED/);W.closeWalletSessionAuthorizationV1(historicalApproval);
 
+ const noteBio=bios,noteApproval=await W.approveWalletSessionPagedNoteWithdrawalV10(broker,historicalDraft);assert.equal(bios,noteBio+1);
+ const noteSign=c=>W.signWalletSessionPagedOwnerV1(c,broker.origin,broker.pairingId,undefined,noteApproval);
+ for(const [index,value]of [[25,'1'],[33,'24'],[34,'1']]){const changed=[...withdrawalInputs];changed[index]=value;await assert.rejects(()=>historicalApi.challenge({...historicalDraft,publicInputs:changed}).then(noteSign),/BINDING/);}
+ await assert.rejects(()=>historicalApi.challenge(historicalEffect).then(noteSign),/BINDING/);
+ const noteProve=await historicalApi.challenge(historicalDraft);assert.match(await noteSign(noteProve),/^[0-9a-f]{128}$/);await assert.rejects(()=>noteSign(noteProve),/AUTHORIZATION_USED/);
+ assert.throws(()=>W.bindWalletSessionPagedNoteWithdrawalV10(noteApproval,structuredClone(historicalObserved)),/ORIGINAL_SDK/);W.bindWalletSessionPagedNoteWithdrawalV10(noteApproval,historicalObserved);
+ await assert.rejects(()=>historicalApi.challenge({...historicalEffect,proofSHA256:sha('other proof')}).then(noteSign),/BINDING/);
+ const noteWithdraw=await historicalApi.challenge(historicalEffect);assert.match(await noteSign(noteWithdraw),/^[0-9a-f]{128}$/);await assert.rejects(()=>noteSign(noteWithdraw),/AUTHORIZATION_USED/);assert.equal(bios,noteBio+1);W.closeWalletSessionAuthorizationV1(noteApproval);
+
  // A pending migration cannot commit old ROOT bytes across invalidation.
  const racedName='lianum.device.paged.graph.v3.'+sha('raced namespace')+'.root',raceOptions={...options,keychainService:racedName.slice(0,-5)};storage.set(racedName,'56'.repeat(32));let begin,finish;const started=new Promise(resolve=>begin=resolve),gate=new Promise(resolve=>finish=resolve);releaseRoot={key:racedName,started:begin,gate};const pending=W.readWalletSessionSecret(racedName,raceOptions);await started;await W.invalidateWalletSessionSecret(racedName,raceOptions);storage.set(racedName,'78'.repeat(32));finish();await assert.rejects(()=>pending,/SECRET_CHANGED/);releaseRoot=null;
  assert.equal(await W.readWalletSessionSecret(racedName,raceOptions),'78'.repeat(32));

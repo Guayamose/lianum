@@ -3,11 +3,12 @@ import bridge from '../native-specs/NativeLianumPagedPinnedTls.ts';
 function fail(code:string):never{throw Error(code);}
 export type Transport={fetchImpl:typeof fetch;close:()=>Promise<void>};
 type Pin={certificatePEM:string;certificateSHA256:string};
-export type Group='PAGED'|'PAGED_SOURCE_RENEWAL_V4'|'EXTERNAL_FLAT'|'POSITIONS'|'SEPOLIA_DEFI_V7';
+export type Group='PAGED'|'PAGED_SOURCE_RENEWAL_V4'|'PAGED_EXPIRED_WITHDRAWAL_V10'|'EXTERNAL_FLAT'|'POSITIONS'|'SEPOLIA_DEFI_V7';
 function routes(group:Group):Map<string,number>{
  const result=new Map<string,number>();
  if(group==='PAGED')for(const path of ['/v1/mobile/paged-owner/challenges','/v1/mobile/paged-owner/operations','/v1/mobile/paged-owner/graph/pairing','/v1/mobile/paged-owner/graph/challenges','/v1/mobile/paged-owner/graph/operations'])result.set(path,4*1024*1024);
  else if(group==='PAGED_SOURCE_RENEWAL_V4')for(const route of ['challenges','renewals'])result.set('/v1/mobile/paged-owner/source-renewal/'+route,8192);
+ else if(group==='PAGED_EXPIRED_WITHDRAWAL_V10')for(const route of ['challenges','requests'])result.set('/v1/mobile/paged-owner/expired-withdrawal/'+route,8192);
  else if(group==='POSITIONS')for(const path of ['challenges','reviews','observations'])result.set('/v1/mobile/defi-positions/'+path,8192);
  else if(group==='SEPOLIA_DEFI_V7')for(const route of ['challenges','defi-proposals','defi-reviews','defi-read-review','defi-authorizations','reviews','private-operations','operations','status','financial-submit','financial-observe','withdrawal-review','withdrawal-arm','redeem-submit'])result.set('/v1/mobile/sepolia-defi-shares/'+route,route==='private-operations'?16384:8192);
  else{
@@ -50,7 +51,7 @@ export async function createDevicePagedPinnedTransportCoreV3(group:Group,origin:
   if(closed||Date.now()>=deadlineMs)fail('MOBILE_PAGED_TLS_CLOSED');
   if(typeof input!=='string'||!init||init.method!=='POST'||typeof init.body!=='string')fail('MOBILE_PAGED_TLS_REQUEST');
   const url=new URL(input);if(url.origin!==origin||url.search||url.hash||url.username||url.password||!allowed.has(url.pathname)||input!==origin+url.pathname||new TextEncoder().encode(init.body).length>allowed.get(url.pathname)!)fail('MOBILE_PAGED_TLS_REQUEST');
-  const actualHeaders=new Headers(init.headers),expectedHeaders:Record<string,string>=(group==='PAGED'||group==='PAGED_SOURCE_RENEWAL_V4')?{'Content-Type':'application/json','x-lianum-paged-pairing-id':pairingId}:{Accept:'application/json',Origin:origin,'Content-Type':'application/json'};
+  const actualHeaders=new Headers(init.headers),expectedHeaders:Record<string,string>=(group==='PAGED'||group==='PAGED_SOURCE_RENEWAL_V4'||group==='PAGED_EXPIRED_WITHDRAWAL_V10')?{'Content-Type':'application/json','x-lianum-paged-pairing-id':pairingId}:{Accept:'application/json',Origin:origin,'Content-Type':'application/json'};
   if(group==='SEPOLIA_DEFI_V7'){
    expectedHeaders['x-lianum-defi-pairing-id']=pairingId;
    if(url.pathname==='/v1/mobile/sepolia-defi-shares/reviews'){
@@ -84,4 +85,16 @@ export async function createDevicePagedSourceRenewalPinnedTransportCoreV4(profil
 }
 export function readOriginalDevicePagedSourceRenewalTransportCoreV4(handle:object,sourceToken:object):Transport{
  if(arguments.length!==2)fail('MOBILE_PAGED_SOURCE_RECOVERY_TRANSPORT');const own=sourceRenewalTransportsV4.get(handle);if(!own||own.sourceToken!==sourceToken||own.closed)fail('MOBILE_PAGED_SOURCE_RECOVERY_TRANSPORT');return own.transport;
+}
+
+const expiredWithdrawalTransportsV10=new WeakMap<object,{sourceToken:object;transport:Transport;closed:boolean}>();
+export async function createDevicePagedExpiredWithdrawalTransportCoreV10(profile:{descriptor:any;transport:Pin},sourceToken:object,signal?:AbortSignal):Promise<Readonly<{close:()=>Promise<void>}>>{
+ const Vault=await import('../custody/device-paged-note-vault-v3.ts');const scope=await Vault.readDevicePagedSourceRecoveryScopeV4(sourceToken);
+ if(JSON.stringify(scope.descriptor)!==JSON.stringify(profile.descriptor))fail('MOBILE_PAGED_EXPIRED_WITHDRAWAL_TRANSPORT');
+ const transport=await createDevicePagedPinnedTransportCoreV3('PAGED_EXPIRED_WITHDRAWAL_V10',profile.descriptor.origin,Date.now()+60000,profile.transport,signal,profile.descriptor.pairingId);
+ const held={sourceToken,transport,closed:false},handle=Object.freeze({async close(){held.closed=true;expiredWithdrawalTransportsV10.delete(handle);await transport.close();}});
+ try{await Vault.assertDevicePagedSourceRecoveryTokenV4(sourceToken);expiredWithdrawalTransportsV10.set(handle,held);return handle;}catch(error){await transport.close();throw error;}
+}
+export function readOriginalDevicePagedExpiredWithdrawalTransportCoreV10(handle:object,sourceToken:object):Transport{
+ const own=expiredWithdrawalTransportsV10.get(handle);if(!own||own.sourceToken!==sourceToken||own.closed)fail('MOBILE_PAGED_EXPIRED_WITHDRAWAL_TRANSPORT');return own.transport;
 }

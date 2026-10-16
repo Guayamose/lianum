@@ -59,6 +59,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
   private fun routeLimits(group: String): Map<String, Int> = when (group) {
     "PAGED" -> listOf("/v1/mobile/paged-owner/challenges", "/v1/mobile/paged-owner/operations", "/v1/mobile/paged-owner/graph/pairing", "/v1/mobile/paged-owner/graph/challenges", "/v1/mobile/paged-owner/graph/operations").associateWith { limit }
     "PAGED_SOURCE_RENEWAL_V4" -> listOf("/v1/mobile/paged-owner/source-renewal/challenges", "/v1/mobile/paged-owner/source-renewal/renewals").associateWith { 8192 }
+    "PAGED_EXPIRED_WITHDRAWAL_V10" -> listOf("challenges", "requests").associate { "/v1/mobile/paged-owner/expired-withdrawal/$it" to 8192 }
     "POSITIONS" -> listOf("/v1/mobile/defi-positions/challenges", "/v1/mobile/defi-positions/reviews", "/v1/mobile/defi-positions/observations").associateWith { 8192 }
     "SEPOLIA_DEFI_V7" -> listOf("challenges", "defi-proposals", "defi-reviews", "defi-read-review", "defi-authorizations", "reviews", "private-operations", "operations", "status", "financial-submit", "financial-observe", "withdrawal-review", "withdrawal-arm", "redeem-submit").associate { "/v1/mobile/sepolia-defi-shares/$it" to if (it == "private-operations") 16384 else 8192 }
     "EXTERNAL_FLAT" -> buildMap {
@@ -99,14 +100,14 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
   override fun open(group: String, origin: String, certificatePEM: String, certificateSHA256: String, deadlineMs: Double, pairingId: String, promise: Promise) {
     try {
       require(sessions.isEmpty() && certificatePEM.length <= 32768)
-      require(if (group == "PAGED" || group == "PAGED_SOURCE_RENEWAL_V4") pairingId.matches(Regex("[a-z0-9-]{8,100}")) else if (group == "SEPOLIA_DEFI_V7") pairingId.matches(Regex("[0-9a-f]{64}")) else pairingId.isEmpty())
+      require(if (group == "PAGED" || group == "PAGED_SOURCE_RENEWAL_V4" || group == "PAGED_EXPIRED_WITHDRAWAL_V10") pairingId.matches(Regex("[a-z0-9-]{8,100}")) else if (group == "SEPOLIA_DEFI_V7") pairingId.matches(Regex("[0-9a-f]{64}")) else pairingId.isEmpty())
       val uri = URI(origin)
       require(uri.scheme == "https" && uri.host != null && (uri.port == -1 || uri.port in 1..65535) && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null && uri.rawUserInfo == null)
       require(certificateSHA256.matches(Regex("[a-f0-9]{64}")))
       val now = System.currentTimeMillis()
       require(deadlineMs.isFinite() && deadlineMs == deadlineMs.toLong().toDouble())
       val deadline = deadlineMs.toLong()
-      require(deadline > now && deadline - now <= if (group == "PAGED_SOURCE_RENEWAL_V4") 60000L else 9L * 60 * 60 * 1000)
+      require(deadline > now && deadline - now <= if (group == "PAGED_SOURCE_RENEWAL_V4" || group == "PAGED_EXPIRED_WITHDRAWAL_V10") 60000L else 9L * 60 * 60 * 1000)
       val certificates = CertificateFactory.getInstance("X.509").generateCertificates(ByteArrayInputStream(certificatePEM.toByteArray(Charsets.UTF_8)))
       require(certificates.size == 1)
       val certificate = certificates.single() as X509Certificate
@@ -161,7 +162,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
         .header("Content-Type", "application/json").header("Accept", "application/json")
         .header("Connection", "close")
         .header("Cache-Control", "no-store").apply {
-          if (session.group == "PAGED" || session.group == "PAGED_SOURCE_RENEWAL_V4") header("x-lianum-paged-pairing-id", session.pairingId) else header("Origin", session.origin)
+          if (session.group == "PAGED" || session.group == "PAGED_SOURCE_RENEWAL_V4" || session.group == "PAGED_EXPIRED_WITHDRAWAL_V10") header("x-lianum-paged-pairing-id", session.pairingId) else header("Origin", session.origin)
           if (session.group == "SEPOLIA_DEFI_V7") {
             header("x-lianum-defi-pairing-id", session.pairingId)
             if (path == "/v1/mobile/sepolia-defi-shares/reviews") {

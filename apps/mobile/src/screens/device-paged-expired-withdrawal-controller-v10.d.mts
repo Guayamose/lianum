@@ -1,0 +1,2 @@
+export function readDevicePagedExpiredWithdrawalChoicesV10(rawProfile:string,signal:AbortSignal):Promise<{choices:any[];withdrawals:any[];pending:boolean}>;
+export function runDevicePagedExpiredWithdrawalV10(raw:{rawProfile:string;selection?:any;recipient?:string|null;brokerId?:string|null;signal:AbortSignal;onProgress?:(message:string)=>void}):Promise<{state:'PENDING'|'CONFIRMED';recipient:string;amount:string;brokerId:string}>;
