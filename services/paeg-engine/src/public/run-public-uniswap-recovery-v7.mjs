@@ -7,6 +7,7 @@ import {readFile,lstat} from 'node:fs/promises';
 import {PUBLIC_OPERATOR_STATE_V4,PUBLIC_TRANSPORT_DIRECTORY_V4,readPrivateOperatorFileV4,writePrivateOperatorFileV4,publishOriginalPublicConnectionFileV4} from './public-operator-state-v4.mjs';
 import {publicUniswapConfigurationV6,PUBLIC_UNISWAP_MODE_FILE_V6} from './public-uniswap-mode-v6.mjs';
 import {createHash} from 'node:crypto';
+import {assertPreservedSourceCaptureV7} from './assert-source-capture-v7.mjs';
 
 
 assert.equal(process.argv.length,2);assert.equal(process.platform,'linux');assert.ok(process.getuid()>0);assert.deepEqual(process.execArgv,['--max-old-space-size=1024']);assert.equal(process.env.NODE_OPTIONS,undefined);assert.equal(process.env.NODE_PATH,undefined);
@@ -20,7 +21,7 @@ try{
  const sourceFile=join(configuration.nativeDirectory,'source-operations','native-wallet.json'),dispatchFile=join(configuration.nativeDirectory,'dispatch-journal','native-wallet.json');
  const sourceBefore=await readFile(sourceFile),dispatchBefore=await readFile(dispatchFile),source=JSON.parse(sourceBefore.toString('utf8'));
  assert.equal(source.operations.length,13,'PAEG_UNISWAP_RECOVERY_SOURCE_COUNT');assert.ok(source.operations.every(row=>row.phase==='FINALIZED'),'PAEG_UNISWAP_RECOVERY_REQUIRES_FINALITY');assert.equal(source.operations.filter(row=>row.profile.includes('UNISWAP')).length,10,'PAEG_UNISWAP_RECOVERY_ORIGINAL_PLANS');assert.equal(JSON.parse(dispatchBefore.toString('utf8')).operations.length,0,'PAEG_UNISWAP_RECOVERY_NO_FINANCIAL_ACTIONS');
- const sourceSHA=createHash('sha256').update(sourceBefore).digest('hex'),dispatchSHA=createHash('sha256').update(dispatchBefore).digest('hex');sourceBefore.fill(0);dispatchBefore.fill(0);
+ const dispatchSHA=createHash('sha256').update(dispatchBefore).digest('hex');sourceBefore.fill(0);dispatchBefore.fill(0);
  const phoneBytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,'paired-phone-connection.json'),rootBytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,'paired-connection.json');let phone,previousRoot;try{phone=JSON.parse(phoneBytes.toString('utf8'));previousRoot=JSON.parse(rootBytes.toString('utf8'));}finally{phoneBytes.fill(0);rootBytes.fill(0);}
  const [key,cert,publicCert]=await Promise.all(['server-key.pem','server-certificate.pem','public-api-certificate.pem'].map(name=>readPrivateOperatorFileV4(PUBLIC_TRANSPORT_DIRECTORY_V4,name)));
  try{ingress=T.createOriginalPagedRemoteIngressBindingV4({origin:'https://api.lianum.oryontechnology.com',host:'10.71.0.3',port:9445,privateTLS:{key:key.toString('utf8'),cert:cert.toString('utf8')},publicCertificatePEM:publicCert.toString('utf8')});}finally{key.fill(0);cert.fill(0);publicCert.fill(0);}
@@ -28,7 +29,7 @@ try{
  product=await (mode.phase==='ACTIVE'?B.recoverOriginalPagedPublicUniswapActiveOperatorV7:mode.phase==='OPENING'?B.resumeOriginalPagedPublicUniswapMixedOpeningOperatorV5:B.reopenOriginalPagedPublicUniswapMixedOperatorV5)(input,ingress);assert.deepEqual(B.readOriginalPagedPublicNativeConnectionV4(product),previousRoot);assert.deepEqual(B.readOriginalPagedPublicNativePhoneConnectionV4(product),phone);
  const mixed=B.readOriginalPagedPublicUniswapMixedConnectionV5(product),flat=B.readOriginalPagedPublicUniswapFlatConnectionV5(product);assert.equal(mixed.descriptor.devicePublicKey,phone.descriptor.devicePublicKey);assert.equal(flat.descriptor.devicePublicKey,phone.descriptor.devicePublicKey);
  const captured=await product.close();assert.ok(captured.retainedOriginalState&&captured.ownedServicesClosed,'PAEG_UNISWAP_CAPTURE_UNCONFIRMED');
- assert.equal(createHash('sha256').update(await readFile(sourceFile)).digest('hex'),sourceSHA,'PAEG_UNISWAP_RECOVERY_SOURCE_CHANGED');assert.equal(createHash('sha256').update(await readFile(dispatchFile)).digest('hex'),dispatchSHA,'PAEG_UNISWAP_RECOVERY_FINANCIAL_CHANGED');
+ assertPreservedSourceCaptureV7(source,JSON.parse(await readFile(sourceFile)));assert.equal(createHash('sha256').update(await readFile(dispatchFile)).digest('hex'),dispatchSHA,'PAEG_UNISWAP_RECOVERY_FINANCIAL_CHANGED');
  await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(mixed)+'\n'),'paired-uniswap-connection.json');await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(flat)+'\n'),'paired-uniswap-flat-connection.json');
  await writePrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_UNISWAP_MODE_FILE_V6,Buffer.from(JSON.stringify({profile:'ORIGINAL_PUBLIC_UNISWAP_ACTIVE_CONFIGURATION_V6',supervisorDirectory:input.parent.supervisorDirectory,devicePublicKey:phone.descriptor.devicePublicKey})+'\n'));
  emit({stage:'UNISWAP_CAPTURED_READY_FOR_REOPEN',existingWalletsPreserved:2,sameProviderKeys:true,financialPayments:false,newWalletIdentity:false,automaticRebroadcast:false});
