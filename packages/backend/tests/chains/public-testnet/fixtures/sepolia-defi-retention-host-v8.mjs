@@ -3,7 +3,7 @@
  * Aave/Morpho target tests. No chain, signature, proof or spending acceptance. */
 import {mock} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdir,readFile,readdir} from 'node:fs/promises';
+import {mkdir,readFile,readdir,writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 const [mode,directory]=process.argv.slice(2),hex=n=>n.toString(16).padStart(2,'0').repeat(32);
 const runtime=Object.freeze({metadata:{keysetId:hex(1)}}),uniswapTarget=Object.freeze({keysetId:hex(1),account:'0x'+'02'.repeat(20),planSHA256:hex(3)}),parent=Object.freeze({pool:'0x'+'04'.repeat(20)});
@@ -39,6 +39,17 @@ try{
   owner=await R.openOriginalSepoliaDefiRetentionV8(runtime,uniswapTarget,input);assert.deepEqual(owner.bindings(),{protocols:[],authorities:[]});await owner.complete();
  }else if(mode==='overflow-empty'){
   const {Vault}=await import('@lianum/engine/crypto/vault');owner=await R.openOriginalSepoliaDefiRetentionV8(runtime,uniswapTarget,input);const vault=new Vault(join(directory,'defi-supervisor.vault')),before=await vault.read(input.password),bytes=await readFile(join(directory,'defi-supervisor.vault'));await assert.rejects(owner.complete(),/GENERATION_OVERFLOW/);assert.deepEqual(await vault.read(input.password),before);assert.deepEqual(await readFile(join(directory,'defi-supervisor.vault')),bytes);
+ }else if(mode==='begin-opening'){
+  owner=await R.recoverOriginalSepoliaDefiRetentionV8(runtime,uniswapTarget,input);assert.equal(owner.checkpoint().phase,'OPENING');
+  const F=await import('../../../../src/operations/recovery/paged-original-process-fence-v4.mjs'),rootDirectory=join(directory,'HOST-root');await mkdir(rootDirectory,{mode:0o700});const fence=await F.claimOriginalPagedProcessFenceV4({directory:rootDirectory,purpose:'PAGED_SUPERVISOR'});
+  try{const actor=await F.readOriginalPagedProcessFenceIdentityV4(fence);await writeFile(join(directory,'HOST-root-actor.json'),JSON.stringify(actor),{mode:0o600});}finally{await fence.close();}
+ }else if(mode==='root-read-opening'){
+  const {Vault}=await import('@lianum/engine/crypto/vault'),vault=new Vault(join(directory,'defi-supervisor.vault')),before=await vault.read(input.password),rootActor=JSON.parse(await readFile(join(directory,'HOST-root-actor.json'),'utf8'));
+  assert.equal(before.data.phase,'OPENING');assert.notEqual(before.data.activationOwner.pid,rootActor.pid);
+  const F=await import('../../../../src/operations/recovery/paged-original-process-fence-v4.mjs'),fence=await F.claimOriginalPagedProcessFenceV4({directory:rootActor.directory,purpose:'PAGED_SUPERVISOR'});try{await F.assertOriginalPagedDeadProcessIdentityV4(fence,rootActor);}finally{await fence.close();}
+  const expectedBinding=before.data.binding;await assert.rejects(R.readOriginalSepoliaDefiPrivateCurrentV8({...input,expectedBinding:{...expectedBinding,keysetId:hex(99)},rootActor}),/ROOT_BINDING/);
+  const data=await R.readOriginalSepoliaDefiPrivateCurrentV8({...input,expectedBinding,rootActor});assert.equal(data.checkpoint.phase,'OPENING');assert.deepEqual(data.targets.AAVE_STATIC.plan,plan);assert.deepEqual(await vault.read(input.password),before);assert.equal(Object.values(data).some(value=>typeof value==='function'),false);
+  process.stdout.write(JSON.stringify({readOnly:true,phase:data.checkpoint.phase,distinctDeadActors:true,financialPermissionIssued:false}));
  }else if(mode==='root-read'){
   const {Vault}=await import('@lianum/engine/crypto/vault'),saved=await new Vault(join(directory,'defi-supervisor.vault')).read(input.password),expectedBinding=saved.data.binding,rootActor=saved.data.activationOwner;
   const selected=await R.readOriginalSepoliaDefiRetentionModeV8(input);assert.equal(selected.phase,'ACTIVE');assert.equal(selected.targets.AAVE_STATIC.ready,false);assert.equal(Object.hasOwn(selected.targets.AAVE_STATIC,'plan'),false);

@@ -23,3 +23,9 @@ test('Sup8 completes 1023→1024 and rejects overflow before changing the retain
  const {Vault}=await import('@lianum/engine/crypto/vault'),password='public HOST fixture password '.repeat(3);
  for(const start of [1023,Number.MAX_SAFE_INTEGER]){const directory=await mkdtemp(join(tmpdir(),'lianum-defi-counter-v8-'));try{await child('capture-empty',directory);const vault=new Vault(join(directory,'defi-supervisor.vault')),before=await vault.read(password);await vault.update(password,before.revision,()=>({...before.data,generation:start}));const reopened=await child(start===1023?'open-empty':'overflow-empty',directory);assert.equal(reopened.checkpoint.generation,start===1023?1024:start);assert.equal(reopened.checkpoint.phase,start===1023?'ACTIVE':'OPENING');}finally{await rm(directory,{recursive:true,force:true});}}
 });
+
+
+test('Root reads the same protected interrupted DeFi opening across two distinct dead processes without issuing financial permissions',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'lianum-defi-interrupted-opening-v10-'));
+ try{await child('seed',directory);await child('begin-opening',directory);const result=await child('root-read-opening',directory);assert.deepEqual(result,{readOnly:true,phase:'OPENING',distinctDeadActors:true,financialPermissionIssued:false});}finally{await rm(directory,{recursive:true,force:true});}
+});
