@@ -3,6 +3,7 @@ import {setTimeout as pause} from 'node:timers/promises';
 import {need,fail,signalCurrent} from './common-v1.mjs';
 import {classifyNativeRpcContractRejectionDataV1} from './rpc-contract-rejection-data-v1.mjs';
 import {resolvePublicTestnetRpcRouteV1,normalizeNonBlobReceiptResultV1} from './public-testnet-rpc-route-v1.mjs';
+import {waitPublicSepoliaReadTurnV1} from './public-read-rpc-scheduler-v1.mjs';
 const LIMIT=8388608;
 const READ_RPC_METHODS=new Set([
  'eth_chainId','eth_blockNumber','eth_getBlockByNumber','eth_getBlockByHash',
@@ -21,6 +22,7 @@ async function request(endpoint,{method='GET',body,signal,text=false,missing=fal
   for(let attempt=0;;attempt++){
    signalCurrent(signal);
    try{
+    if(readOnly)await waitPublicSepoliaReadTurnV1(endpoint,abort.signal);
     reply=await fetch(endpoint,{method,body,signal:abort.signal,redirect:'error',headers:{Accept:text?'text/plain':'application/json',...(body!==undefined?{'Content-Type':text?'text/plain':'application/json'}:{})}});
     if(missing&&reply.status===404){await reply.body?.cancel();return null;}
     if(reply.status!==200){
