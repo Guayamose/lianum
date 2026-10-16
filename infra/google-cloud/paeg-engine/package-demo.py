@@ -74,8 +74,18 @@ def delivery_module_bytes(source):
     # The service helpers live beside candidate/, outside its node_modules
     # lookup tree. Resolve this public DATA export to the same candidate file
     # rather than creating another package or permitting new release symlinks.
-    text = re.sub(r"(from\s+)(['\"])@lianum/mobile-protocol/device/sepolia-defi-connection-v7\2",
-                  lambda match: match[1] + match[2] + '../candidate/packages/mobile-protocol/src/device-sepolia-defi-connection-v7.mjs' + match[2], text)
+    candidate_imports = {
+        '@lianum/mobile-protocol/device/sepolia-defi-connection-v7':
+            'packages/mobile-protocol/src/device-sepolia-defi-connection-v7.mjs',
+        '@lianum/mobile-protocol/device/paged-owner-v3':
+            'packages/mobile-protocol/src/device-paged-owner-v3.mjs',
+        '../../../../packages/backend/src/operations/recovery/paged-empty-source-replacement-data-v9.mjs':
+            'packages/backend/src/operations/recovery/paged-empty-source-replacement-data-v9.mjs',
+    }
+    for original, candidate_path in candidate_imports.items():
+        text = re.sub(r"(from\s+)(['\"])" + re.escape(original) + r"\2",
+                      lambda match, path=candidate_path:
+                          match[1] + match[2] + '../candidate/' + path + match[2], text)
     return text.encode()
 
 

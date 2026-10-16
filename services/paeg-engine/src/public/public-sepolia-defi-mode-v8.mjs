@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {lstat} from 'node:fs/promises';
+import {assertPublicEmptySourceLocationDataV9} from './public-empty-source-location-v9.mjs';
 import {normalizeDeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
 import {PUBLIC_OPERATOR_STATE_V4,readPrivateOperatorFileV4,publishOriginalPublicConnectionFileV4} from './public-operator-state-v4.mjs';
 
@@ -35,7 +36,7 @@ export async function readPublicSepoliaDefiCheckpointV8(root,configuration,devic
 }
 export function assertPublicSepoliaDefiCapturedV8(state,devicePublicKey,mode=null){
  assert.equal(state.phase,'CAPTURED','PAEG_DEFI_CAPTURE_REQUIRED');hash(state.identity);
- assert.ok(state.mixedSource?.ready&&state.mixedAuthority&&state.mixedProvider,'PAEG_DEFI_SOURCE7_CAPTURE_REQUIRED');hash(state.mixedSource.planSHA256);assert.equal(state.mixedAuthority.descriptor.devicePublicKey,devicePublicKey,'PAEG_DEFI_SOURCE7_SAME_PHONE_REQUIRED');exact(state.targets,protocols);assert.equal(state.authorities.length,2,'PAEG_DEFI_BOTH_ORIGINAL_AUTHORITIES_REQUIRED');
+ assert.ok(state.mixedSource?.ready&&state.mixedAuthority&&state.mixedProvider,'PAEG_DEFI_SOURCE7_CAPTURE_REQUIRED');hash(state.mixedSource.planSHA256);assertPublicEmptySourceLocationDataV9(state.mixedAuthority,join(PUBLIC_SEPOLIA_DEFI_DIRECTORY_V8,'source7','authority','journal.vault'),devicePublicKey);assert.equal(state.mixedAuthority.descriptor.devicePublicKey,devicePublicKey,'PAEG_DEFI_SOURCE7_SAME_PHONE_REQUIRED');exact(state.targets,protocols);assert.equal(state.authorities.length,2,'PAEG_DEFI_BOTH_ORIGINAL_AUTHORITIES_REQUIRED');
  for(const protocol of protocols){assert.equal(state.targets[protocol].ready,true,'PAEG_DEFI_TARGET_INITIALIZATION_INCOMPLETE');hash(state.targets[protocol].planSHA256);const row=state.authorities.filter(row=>row.protocol===protocol);assert.equal(row.length,1);assert.equal(row[0].descriptor.devicePublicKey,devicePublicKey,'PAEG_DEFI_SAME_PHONE_REQUIRED');}
  if(mode){assert.equal(state.identity,mode.retentionIdentity,'PAEG_DEFI_ORIGINAL_RETENTION_IDENTITY');assert.equal(state.mixedSource.planSHA256,mode.sourcePlanSHA256,'PAEG_DEFI_SOURCE7_ORIGINAL_PLAN');for(const protocol of protocols)assert.equal(state.targets[protocol].planSHA256,mode.targetPlanSHA256[protocol],'PAEG_DEFI_ORIGINAL_TARGET_PLAN');}
  return state;
@@ -56,8 +57,8 @@ export async function readPublicSepoliaDefiModeV8(root,configuration,uniswapMode
  }
  try{
   assert.ok(uniswapMode,'PAEG_DEFI_ORIGINAL_UNISWAP_REQUIRED');const devicePublicKey=uniswapMode.input.mixed.devicePublicKey,mode=normalizePublicSepoliaDefiModeV8(JSON.parse(bytes.toString('utf8')),configuration,devicePublicKey),state=assertPublicSepoliaDefiCapturedV8(await readPublicSepoliaDefiCheckpointV8(root,configuration,devicePublicKey),devicePublicKey,mode);
-  for(const protocol of protocols){const publicBytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8[protocol]);try{const packet=normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(publicBytes.toString('utf8')));assert.equal(packet.protocol,protocol);assert.equal(sha(packet),mode.connectionsSHA256[protocol],'PAEG_DEFI_ORIGINAL_PUBLIC_PROFILE');assert.deepEqual(packet.descriptor,state.authorities.find(row=>row.protocol===protocol).descriptor,'PAEG_DEFI_RETAINED_PUBLIC_DESCRIPTOR');}finally{publicBytes.fill(0);}}
-  return{mode,state,input:publicSepoliaDefiConfigurationV8(configuration,devicePublicKey,'CAPTURED')};
+  const connections=[];for(const protocol of protocols){const publicBytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8[protocol]);try{const packet=normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(publicBytes.toString('utf8')));connections.push(packet);assert.equal(packet.protocol,protocol);assert.equal(sha(packet),mode.connectionsSHA256[protocol],'PAEG_DEFI_ORIGINAL_PUBLIC_PROFILE');assert.deepEqual(packet.descriptor,state.authorities.find(row=>row.protocol===protocol).descriptor,'PAEG_DEFI_RETAINED_PUBLIC_DESCRIPTOR');}finally{publicBytes.fill(0);}}
+  assertPublicSepoliaDefiConnectionsV8(connections,state,devicePublicKey,mode);return{mode,state,input:publicSepoliaDefiConfigurationV8(configuration,devicePublicKey,'CAPTURED')};
  }finally{bytes.fill(0);}
 }
 export async function publishCapturedPublicSepoliaDefiV8(root,configuration,devicePublicKey,rawConnections){
