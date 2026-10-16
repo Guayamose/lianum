@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeRpcV1} from '../../src/native-wallet/http-v1.mjs';
-import {resolvePublicTestnetRpcRouteV1 as route,PUBLIC_SEPOLIA_RPC_ROUTE_V1 as policy} from '../../src/native-wallet/public-testnet-rpc-route-v1.mjs';
+import {resolvePublicTestnetRpcRouteV1 as route,PUBLIC_SEPOLIA_RPC_ROUTE_V1 as policy,normalizeNonBlobReceiptResultV1 as receipt} from '../../src/native-wallet/public-testnet-rpc-route-v1.mjs';
+test('zero provider blob extension on a non-blob receipt cannot invalidate the original capture',()=>{
+ const original={type:'0x2',status:'0x1',transactionHash:'HOST transaction',blockHash:'HOST block',logs:[{data:'HOST event'}]},extended={...original,blobGasUsed:'0x0'};
+ assert.deepEqual(receipt('eth_getTransactionReceipt',extended),original);assert.equal(extended.blobGasUsed,'0x0');
+ for(const value of [{...extended,type:'0x3'},{...extended,blobGasUsed:'0x1'}])assert.strictEqual(receipt('eth_getTransactionReceipt',value),value);
+ const changed=receipt('eth_getTransactionReceipt',{...extended,status:'0x0'});assert.notDeepEqual(changed,original);assert.equal(changed.status,'0x0');assert.strictEqual(receipt('eth_call',extended),extended);
+});
 test('retained public Sepolia route has one explicit destination without changing other endpoints',()=>{
  assert.equal(route(policy.retainedEndpoint),policy.effectiveEndpoint);assert.equal(route(policy.retainedEndpoint+'/'),policy.effectiveEndpoint);
  for(const endpoint of ['https://private.drpc.org','https://sepolia.drpc.org/private','https://sepolia.drpc.org?key=anything','https://rpc.invalid',policy.effectiveEndpoint])assert.equal(route(endpoint),endpoint);

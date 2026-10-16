@@ -13,3 +13,9 @@ export const PUBLIC_SEPOLIA_RPC_ROUTE_V1=Object.freeze({
 export function resolvePublicTestnetRpcRouteV1(endpoint){
  return endpoint===RETAINED_SEPOLIA||endpoint===RETAINED_SEPOLIA+'/'?PUBLIC_SEPOLIA_RPC_ROUTE_V1.effectiveEndpoint:endpoint;
 }
+/** Some providers add a zero blob counter to non-blob receipts. Keep the
+ * original receipt shape while preserving every consensus and log field. */
+export function normalizeNonBlobReceiptResultV1(method,value){
+ if(method!=='eth_getTransactionReceipt'||!value||!['0x0','0x1','0x2'].includes(value.type)||value.blobGasUsed!=='0x0')return value;
+ const normalized={...value};delete normalized.blobGasUsed;return normalized;
+}
