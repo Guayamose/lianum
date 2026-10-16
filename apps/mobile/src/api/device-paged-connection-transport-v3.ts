@@ -5,6 +5,8 @@ import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-
 import {normalizeExternalFlatDescriptorV1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import {normalizeDeviceDefiPositionDescriptorV1} from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
 import {normalizePublicWalletConnectionV1} from '../state/public-connection-registry-v1.mjs';
+import {normalizeDeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
+import type {DeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
 
 export type DevicePagedConnectionProfileV3={format:'DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3';descriptor:any;transport:{type:'ANDROID_PINNED_TLS_V1';certificatePEM:string;certificateSHA256:string}};
 function fail(code:string):never{throw Error(code);}
@@ -41,6 +43,17 @@ export async function createDevicePagedConnectionTransportV3(profile:DevicePaged
 export async function createDeviceExternalFlatPinnedTransportV1(input:{descriptor:unknown;certificatePEM:string;certificateSHA256:string;signal?:AbortSignal}):Promise<Transport>{
  const descriptor=normalizeExternalFlatDescriptorV1(input.descriptor);
  return createPinnedTransport('EXTERNAL_FLAT',descriptor.origin,Date.now()+9*60*60*1000,input,input.signal);
+}
+export function parseDeviceSepoliaDefiConnectionV7(text:string):DeviceSepoliaDefiConnectionV7{
+ if(typeof text!=='string'||text.length===0||text.length>65536)fail('MOBILE_PAGED_TLS_PROFILE');return normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(text));
+}
+export async function createDeviceSepoliaDefiPinnedTransportV7(profile:DeviceSepoliaDefiConnectionV7,signal?:AbortSignal):Promise<Transport>{
+ const packet=normalizeDeviceSepoliaDefiConnectionV7(profile);
+ return createPinnedTransport('SEPOLIA_DEFI_V7',packet.descriptor.origin,Date.now()+9*60*60*1000,packet.transport,signal,packet.descriptor.pairingId);
+}
+export async function readDeviceSepoliaDefiConnectionClipboardV7():Promise<string>{
+ if(Platform.OS!=='android'||!bridge?.readConnectionProfile)fail('MOBILE_PAGED_TLS_BRIDGE_REQUIRED');
+ const text=await bridge.readConnectionProfile('SEPOLIA_DEFI_V7');parseDeviceSepoliaDefiConnectionV7(text);return text;
 }
 export async function createDeviceDefiPositionsPinnedTransportV1(profile:DeviceDefiPositionsConnectionProfileV1,signal?:AbortSignal):Promise<Transport>{
  const packet=parseDeviceDefiPositionsConnectionProfileV1(JSON.stringify(profile));

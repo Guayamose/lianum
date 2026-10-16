@@ -16,6 +16,7 @@ test('public profiles persist exact identities, stay UNKNOWN and never adopt cus
  const data=new Map();let failChunk=false,chunkWrites=0;
  const storage={get:async key=>data.get(key)??null,set:async(key,value)=>{assert.ok(value.length<=8192);if(failChunk&&key.includes('.profile.')&&++chunkWrites===2)throw Error('HOST_STORAGE_WRITE_REJECTED');data.set(key,value);},remove:async key=>{data.delete(key);}};
  const registry=createPublicConnectionRegistryV1({devicePublicKey:key,storage});
+ const direct={format:'DEVICE_EXTERNAL_FLAT_CONNECTION_V1',descriptor:descriptor(true),transport:pin},decoded=normalizePublicWalletConnectionV1(JSON.stringify(direct),key);assert.equal(decoded.kind,'EXTERNAL_FLAT');assert.deepEqual(JSON.parse(decoded.profile),direct,'the actual cloud descriptor packet retains its public schema');assert.equal(decoded.descriptors.length,1);assert.throws(()=>normalizePublicWalletConnectionV1(JSON.stringify({...direct,pairing:descriptor(true)}),key));
  const saved=await registry.remember(external()),pos=await registry.remember(positions());assert.equal(saved.kind,'EXTERNAL_FLAT');assert.equal(saved.protocol,'AAVE');assert.equal(saved.observation,'UNKNOWN');assert.equal(pos.kind,'POSITIONS');
  assert.equal(await registry.remember(external()).then(value=>value.id),saved.id);assert.equal((await registry.list()).length,2);
  const reopened=createPublicConnectionRegistryV1({devicePublicKey:key,storage});assert.equal((await reopened.selected('EXTERNAL_FLAT')).id,saved.id);assert.equal((await reopened.selected('POSITIONS')).id,pos.id);

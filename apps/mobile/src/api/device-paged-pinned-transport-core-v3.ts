@@ -3,12 +3,13 @@ import bridge from '../native-specs/NativeLianumPagedPinnedTls.ts';
 function fail(code:string):never{throw Error(code);}
 export type Transport={fetchImpl:typeof fetch;close:()=>Promise<void>};
 type Pin={certificatePEM:string;certificateSHA256:string};
-export type Group='PAGED'|'PAGED_SOURCE_RENEWAL_V4'|'EXTERNAL_FLAT'|'POSITIONS';
+export type Group='PAGED'|'PAGED_SOURCE_RENEWAL_V4'|'EXTERNAL_FLAT'|'POSITIONS'|'SEPOLIA_DEFI_V7';
 function routes(group:Group):Map<string,number>{
  const result=new Map<string,number>();
  if(group==='PAGED')for(const path of ['/v1/mobile/paged-owner/challenges','/v1/mobile/paged-owner/operations','/v1/mobile/paged-owner/graph/pairing','/v1/mobile/paged-owner/graph/challenges','/v1/mobile/paged-owner/graph/operations'])result.set(path,4*1024*1024);
  else if(group==='PAGED_SOURCE_RENEWAL_V4')for(const route of ['challenges','renewals'])result.set('/v1/mobile/paged-owner/source-renewal/'+route,8192);
  else if(group==='POSITIONS')for(const path of ['challenges','reviews','observations'])result.set('/v1/mobile/defi-positions/'+path,8192);
+ else if(group==='SEPOLIA_DEFI_V7')for(const route of ['challenges','defi-proposals','defi-reviews','defi-read-review','defi-authorizations','reviews','private-operations','operations','status','financial-submit','financial-observe','withdrawal-review','withdrawal-arm','redeem-submit'])result.set('/v1/mobile/sepolia-defi-shares/'+route,route==='private-operations'?16384:8192);
  else{
   for(const family of ['external-flat','external-flat-share'])for(const route of ['challenges','reviews','operations','private-operations','status'])result.set('/v1/mobile/'+family+'/'+route,route==='private-operations'?16384:8192);
   for(const route of ['challenges','preparations','reviews','operations','private-operations','status','output-quotes','output-reviews','output-operations','private-output-operations'])result.set('/v1/mobile/external-flat/source-graph/'+route,65536);
@@ -48,9 +49,17 @@ export async function createDevicePagedPinnedTransportCoreV3(group:Group,origin:
  const fetchImpl=(async(input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
   if(closed||Date.now()>=deadlineMs)fail('MOBILE_PAGED_TLS_CLOSED');
   if(typeof input!=='string'||!init||init.method!=='POST'||typeof init.body!=='string')fail('MOBILE_PAGED_TLS_REQUEST');
-  const actualHeaders=new Headers(init.headers),expectedHeaders=(group==='PAGED'||group==='PAGED_SOURCE_RENEWAL_V4')?{'Content-Type':'application/json','x-lianum-paged-pairing-id':pairingId}:{Accept:'application/json',Origin:origin,'Content-Type':'application/json'};
-  if([...actualHeaders.keys()].length!==Object.keys(expectedHeaders).length||Object.entries(expectedHeaders).some(([key,value])=>actualHeaders.get(key)!==value))fail('MOBILE_PAGED_TLS_REQUEST');
   const url=new URL(input);if(url.origin!==origin||url.search||url.hash||url.username||url.password||!allowed.has(url.pathname)||input!==origin+url.pathname||new TextEncoder().encode(init.body).length>allowed.get(url.pathname)!)fail('MOBILE_PAGED_TLS_REQUEST');
+  const actualHeaders=new Headers(init.headers),expectedHeaders:Record<string,string>=(group==='PAGED'||group==='PAGED_SOURCE_RENEWAL_V4')?{'Content-Type':'application/json','x-lianum-paged-pairing-id':pairingId}:{Accept:'application/json',Origin:origin,'Content-Type':'application/json'};
+  if(group==='SEPOLIA_DEFI_V7'){
+   expectedHeaders['x-lianum-defi-pairing-id']=pairingId;
+   if(url.pathname==='/v1/mobile/sepolia-defi-shares/reviews'){
+    const reference=JSON.parse(init.body).reference;
+    if(typeof reference!=='string'||!/^[0-9a-f]{64}$/.test(reference))fail('MOBILE_PAGED_TLS_REQUEST');
+    expectedHeaders['x-lianum-defi-review-reference']=reference;
+   }
+  }
+  if([...actualHeaders.keys()].length!==Object.keys(expectedHeaders).length||Object.entries(expectedHeaders).some(([key,value])=>actualHeaders.get(key)!==value))fail('MOBILE_PAGED_TLS_REQUEST');
   const requestId='request-'+(++sequence),requestSignal=init.signal;
   if(sequence>999999999||requestSignal?.aborted)fail('MOBILE_PAGED_TLS_CANCELLED');
   const cancel=()=>{native.cancel(session,requestId);};requestSignal?.addEventListener('abort',cancel,{once:true});

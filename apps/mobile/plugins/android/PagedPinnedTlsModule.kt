@@ -60,6 +60,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
     "PAGED" -> listOf("/v1/mobile/paged-owner/challenges", "/v1/mobile/paged-owner/operations", "/v1/mobile/paged-owner/graph/pairing", "/v1/mobile/paged-owner/graph/challenges", "/v1/mobile/paged-owner/graph/operations").associateWith { limit }
     "PAGED_SOURCE_RENEWAL_V4" -> listOf("/v1/mobile/paged-owner/source-renewal/challenges", "/v1/mobile/paged-owner/source-renewal/renewals").associateWith { 8192 }
     "POSITIONS" -> listOf("/v1/mobile/defi-positions/challenges", "/v1/mobile/defi-positions/reviews", "/v1/mobile/defi-positions/observations").associateWith { 8192 }
+    "SEPOLIA_DEFI_V7" -> listOf("challenges", "defi-proposals", "defi-reviews", "defi-read-review", "defi-authorizations", "reviews", "private-operations", "operations", "status", "financial-submit", "financial-observe", "withdrawal-review", "withdrawal-arm", "redeem-submit").associate { "/v1/mobile/sepolia-defi-shares/$it" to if (it == "private-operations") 16384 else 8192 }
     "EXTERNAL_FLAT" -> buildMap {
       for (family in listOf("external-flat", "external-flat-share")) for (route in listOf("challenges", "reviews", "operations", "private-operations", "status")) put("/v1/mobile/$family/$route", if (route == "private-operations") 16384 else 8192)
       for (route in listOf("challenges", "preparations", "reviews", "operations", "private-operations", "status", "output-quotes", "output-reviews", "output-operations", "private-output-operations")) put("/v1/mobile/external-flat/source-graph/$route", 65536)
@@ -98,7 +99,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
   override fun open(group: String, origin: String, certificatePEM: String, certificateSHA256: String, deadlineMs: Double, pairingId: String, promise: Promise) {
     try {
       require(sessions.isEmpty() && certificatePEM.length <= 32768)
-      require(if (group == "PAGED" || group == "PAGED_SOURCE_RENEWAL_V4") pairingId.matches(Regex("[a-z0-9-]{8,100}")) else pairingId.isEmpty())
+      require(if (group == "PAGED" || group == "PAGED_SOURCE_RENEWAL_V4") pairingId.matches(Regex("[a-z0-9-]{8,100}")) else if (group == "SEPOLIA_DEFI_V7") pairingId.matches(Regex("[0-9a-f]{64}")) else pairingId.isEmpty())
       val uri = URI(origin)
       require(uri.scheme == "https" && uri.host != null && (uri.port == -1 || uri.port in 1..65535) && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null && uri.rawUserInfo == null)
       require(certificateSHA256.matches(Regex("[a-f0-9]{64}")))
@@ -159,7 +160,17 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
       val request = Request.Builder().url(session.origin + path)
         .header("Content-Type", "application/json").header("Accept", "application/json")
         .header("Connection", "close")
-        .header("Cache-Control", "no-store").apply { if (session.group == "PAGED" || session.group == "PAGED_SOURCE_RENEWAL_V4") header("x-lianum-paged-pairing-id", session.pairingId) else header("Origin", session.origin) }
+        .header("Cache-Control", "no-store").apply {
+          if (session.group == "PAGED" || session.group == "PAGED_SOURCE_RENEWAL_V4") header("x-lianum-paged-pairing-id", session.pairingId) else header("Origin", session.origin)
+          if (session.group == "SEPOLIA_DEFI_V7") {
+            header("x-lianum-defi-pairing-id", session.pairingId)
+            if (path == "/v1/mobile/sepolia-defi-shares/reviews") {
+              val reference = JSONObject(body).getString("reference")
+              require(reference.matches(Regex("[0-9a-f]{64}")))
+              header("x-lianum-defi-review-reference", reference)
+            }
+          }
+        }
         .post(bytes.toRequestBody("application/json".toMediaType())).build()
       val call = session.client.newCall(request)
       active = Pair(requestId, call)
@@ -225,7 +236,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
       val clipboard = reactApplicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
       val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: error("EMPTY")
       require(text.length <= 65536 && text.count { it == '{' || it == '[' } <= 128)
-      val format = when (group) { "PAGED" -> "DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3"; "EXTERNAL_FLAT" -> "DEVICE_EXTERNAL_FLAT_CONNECTION_V1"; "POSITIONS" -> "DEVICE_DEFI_POSITIONS_CONNECTION_V1"; else -> error("GROUP") }
+      val format = when (group) { "PAGED" -> "DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3"; "EXTERNAL_FLAT" -> "DEVICE_EXTERNAL_FLAT_CONNECTION_V1"; "POSITIONS" -> "DEVICE_DEFI_POSITIONS_CONNECTION_V1"; "SEPOLIA_DEFI_V7" -> "DEVICE_SEPOLIA_DEFI_SHARES_CONNECTION_V7"; else -> error("GROUP") }
       require(JSONObject(text).getString("format") == format)
       promise.resolve(text)
     } catch (_: Exception) { deny(promise, "MOBILE_PAGED_TLS_CLIPBOARD") }

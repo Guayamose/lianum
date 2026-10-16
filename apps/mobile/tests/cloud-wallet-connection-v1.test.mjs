@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {secp256k1} from '@noble/curves/secp256k1.js';
 import {hex} from '@scure/base';
 import {nativeWalletAuthMessageV1,verifyNativeWalletAuthV1} from '../../../packages/crypto/src/native-wallet-auth-v1.mjs';
+import {sepoliaDefiFixtureV7,defiHashV7 as h} from './helpers/sepolia-defi-fixture-v7.mjs';
 
 test('cloud connection discovery uses the unlocked session and rejects wrong wallet/origin, ambiguity and a session closed mid-request',async t=>{
  const key=new Uint8Array(32).fill(1),publicKey=hex.encode(secp256k1.getPublicKey(key,false)),origin='https://api.lianum.oryontechnology.com';let active=true,signed=0,mode='valid';
@@ -26,15 +27,23 @@ test('cloud connection discovery uses the unlocked session and rejects wrong wal
   const value={profile:'LIANUM_CLOUD_CONNECTIONS_V1',devicePublicKey:publicKey,connections:[structuredClone(packet)]};
   if(mode==='none')value.connections=[];
   if(mode==='ambiguous')value.connections.push(packet);
+  if(['multiple','cross-pin','duplicate-defi','too-many'].includes(mode)){
+   for(const protocol of ['AAVE_STATIC','MORPHO_V2']){const profile=sepoliaDefiFixtureV7(protocol).connection;profile.descriptor.devicePublicKey=publicKey;profile.transport=structuredClone(packet.transport);value.connections.push(profile);}
+   const flat=structuredClone(value.connections[1].descriptor);flat.pairingId=h('flat USDC pairing');flat.lifetime=h('flat USDC lifetime');flat.assetMetadata={kind:'ERC20',symbol:'USDC',decimals:6};value.connections.push({format:'DEVICE_EXTERNAL_FLAT_CONNECTION_V1',descriptor:flat,transport:structuredClone(packet.transport)});
+   if(mode==='cross-pin')value.connections[1].transport.certificateSHA256='3'.repeat(64);
+   if(mode==='duplicate-defi')value.connections[2]=structuredClone(value.connections[1]);
+   if(mode==='too-many')value.connections.push(packet,packet);
+  }
   if(mode==='foreign')value.connections[0].descriptor.devicePublicKey='04'+'2'.repeat(128);
   if(mode==='origin')value.connections[0].descriptor.origin='https://other.example';
   if(mode==='secret')value.connections[0].privateKey='PRIVATE';
   if(mode==='lock-result')active=false;
   return Response.json(value);
  });
- const {readCloudPagedConnectionV1}=await import('../src/api/cloud-wallet-connection-v1.ts');
+ const {readCloudPagedConnectionV1,readCloudDefiConnectionsV7}=await import('../src/api/cloud-wallet-connection-v1.ts');
  const signal=new AbortController().signal;
  const result=JSON.parse(await readCloudPagedConnectionV1(signal));assert.equal(result.descriptor.devicePublicKey,publicKey);assert.equal(signed,1);assert.equal(requests.length,2);
- for(const value of ['none','ambiguous','foreign','origin','secret','lock-result','lock-challenge']){active=true;mode=value;const before=signed;await assert.rejects(readCloudPagedConnectionV1(signal));if(value==='lock-challenge')assert.equal(signed,before);}
+ mode='multiple';assert.equal(JSON.parse(await readCloudPagedConnectionV1(signal)).format,packet.format);assert.equal((await readCloudDefiConnectionsV7(signal)).length,2);
+ for(const value of ['none','ambiguous','cross-pin','duplicate-defi','too-many','foreign','origin','secret','lock-result','lock-challenge']){active=true;mode=value;const before=signed;await assert.rejects(readCloudPagedConnectionV1(signal));if(value==='lock-challenge')assert.equal(signed,before);}
  active=true;mode='valid';const controller=new AbortController();controller.abort();const before=requests.length;await assert.rejects(readCloudPagedConnectionV1(controller.signal));assert.equal(requests.length,before);
 });

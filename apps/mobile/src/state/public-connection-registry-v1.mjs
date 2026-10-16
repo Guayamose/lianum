@@ -4,6 +4,7 @@ import * as Crypto from 'expo-crypto';
 import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
 import {normalizeExternalFlatDescriptorV1,externalFlatExactV1,DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import {normalizeDeviceDefiPositionDescriptorV1} from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
+import {DEVICE_SEPOLIA_DEFI_SHARES_CONNECTION_V7,normalizeDeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
 const FORMAT='DEVICE_PUBLIC_CONNECTION_REGISTRY_V1',MAX=65536,CHUNK=1200,LIMIT=12;
 const fail=()=>{throw Error('MOBILE_PUBLIC_CONNECTION_REGISTRY');};
 const need=value=>{if(!value)fail();};
@@ -19,16 +20,19 @@ export function normalizePublicWalletConnectionV1(text,expectedPublicKey){
   const v=exact(raw,['format','descriptor','transport']),descriptor=P.normalizeDevicePagedDescriptorV3(v.descriptor);packet={format:v.format,descriptor,transport:transport(v.transport)};kind='PAGED';descriptors=[descriptor];
  }else if(raw?.format==='DEVICE_DEFI_POSITIONS_CONNECTION_V1'){
   const v=exact(raw,['format','descriptor','transport']),descriptor=normalizeDeviceDefiPositionDescriptorV1(v.descriptor);packet={format:v.format,descriptor,transport:transport(v.transport)};kind='POSITIONS';descriptors=[descriptor];
+ }else if(raw?.format===DEVICE_SEPOLIA_DEFI_SHARES_CONNECTION_V7){
+  packet=normalizeDeviceSepoliaDefiConnectionV7(raw);kind='EXTERNAL_FLAT';protocol=packet.protocol==='AAVE_STATIC'?'AAVE':'MORPHO';descriptors=[packet.descriptor];
  }else{
-  const v=exact(raw,['format','pairing','transport']);need(v.format==='DEVICE_EXTERNAL_FLAT_CONNECTION_V1');let pairing;
+  const direct=Object.hasOwn(raw??{},'descriptor'),v=exact(raw,['format',direct?'descriptor':'pairing','transport']);need(v.format==='DEVICE_EXTERNAL_FLAT_CONNECTION_V1');let pairing;
   const names={'DEVICE_EXTERNAL_FLAT_UNISWAP_PAIRING_V1':'UNISWAP','DEVICE_EXTERNAL_FLAT_AAVE_PAIRING_V1':'AAVE','DEVICE_EXTERNAL_FLAT_METAMORPHO_UNDERLYING_PAIRING_V2':'MORPHO'};
-  if(Object.hasOwn(names,v.pairing?.profile)){
+  if(direct){pairing=normalizeExternalFlatDescriptorV1(v.descriptor);descriptors=[pairing];}
+  else if(Object.hasOwn(names,v.pairing?.profile)){
    const meta=v.pairing.profile==='DEVICE_EXTERNAL_FLAT_METAMORPHO_UNDERLYING_PAIRING_V2',p=exact(v.pairing,['profile','source','target',...(meta?['redemptionRecipient']:[])]),source=normalizeExternalFlatDescriptorV1(p.source),target=normalizeExternalFlatDescriptorV1(p.target);
    need(source.profile===DEVICE_EXTERNAL_FLAT_NOTE_V1&&target.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1&&source.origin===target.origin&&source.devicePublicKey===target.devicePublicKey&&source.pairingId!==target.pairingId&&source.poolTerms.pool!==target.poolTerms.pool&&source.poolTerms.assetIdentity!==target.poolTerms.assetIdentity&&['genesis','hub','hubCodeHash','hubDomain'].every(k=>source.poolTerms[k]===target.poolTerms[k]));
    if(meta)need(typeof p.redemptionRecipient==='string'&&/^[0-9a-f]{40}$/.test(p.redemptionRecipient)&&p.redemptionRecipient!=='0'.repeat(40));
    pairing={profile:p.profile,source,target,...(meta?{redemptionRecipient:p.redemptionRecipient}:{})};descriptors=[source,target];protocol=names[p.profile];
   }else{pairing=normalizeExternalFlatDescriptorV1(v.pairing);descriptors=[pairing];}
-  packet={format:v.format,pairing,transport:transport(v.transport)};kind='EXTERNAL_FLAT';
+  packet={format:v.format,...(direct?{descriptor:pairing}:{pairing}),transport:transport(v.transport)};kind='EXTERNAL_FLAT';
  }
  const descriptor=descriptors[0];publicKey(descriptor.devicePublicKey);if(expectedPublicKey!==undefined){publicKey(expectedPublicKey);need(descriptor.devicePublicKey===expectedPublicKey);}const profile=JSON.stringify(packet);need(profile.length<=MAX);
  return freeze({kind,protocol,origin:descriptor.origin,devicePublicKey:descriptor.devicePublicKey,profile,descriptors,transport:packet.transport,observation:'UNKNOWN'});

@@ -71,6 +71,7 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
   }
   async function post(path, payload, originalResultResponse = false) {
     live(); const target = original.origin + (sepoliaDefi?'/v1/mobile/sepolia-defi-shares/':original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
+    if(sepoliaDefi&&path==='reviews'&&sepoliaReviewReference!==null)payload={...payload,reference:sepoliaReviewReference};
     const body = JSON.stringify(payload);
     if (new TextEncoder().encode(body).byteLength > (path==='private-operations'?16384:8192)) fail();
     const controller = new AbortController(); controllers.add(controller);
@@ -83,9 +84,9 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
     }, originalResultResponse ? 900000 : 15000); });
     const work = (async () => {
       const response = await fetchImpl(target, { method: 'POST', headers: { Accept: 'application/json', Origin: original.origin,
-        'Content-Type': 'application/json',...(sepoliaDefi?{'x-lianum-defi-pairing-id':original.pairingId,...(sepoliaReviewReference?{'x-lianum-defi-review-reference':sepoliaReviewReference}:{})}:{}) }, body, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
+        'Content-Type': 'application/json',...(sepoliaDefi?{'x-lianum-defi-pairing-id':original.pairingId,...(path==='reviews'&&sepoliaReviewReference?{'x-lianum-defi-review-reference':sepoliaReviewReference}:{})}:{}) }, body, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
       live();
-      if (controller.signal.aborted || !response.ok || response.redirected || response.url && response.url !== target
+      if (controller.signal.aborted || response.redirected || response.url && response.url !== target
         || /^application\/json(?:;\s*charset=utf-8)?$/i.exec(response.headers.get('content-type') ?? '')?.[0] !== response.headers.get('content-type')) fail();
       const length = response.headers.get('content-length');
       if (length !== null && (/^(0|[1-9][0-9]{0,5})$/.exec(length)?.[0] !== length || Number(length) > 65536)) fail();
@@ -99,7 +100,8 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
           bytes.set(part.value, used); used += part.value.byteLength;
         }
         if (length !== null && used !== Number(length)) fail();
-        return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, used)));
+        const parsed=JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, used)));
+        if(!response.ok){if(sepoliaDefi){const error=externalFlatExactV1(parsed,['error']);if(error.error==='SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED')throw Error(error.error);}fail();}return parsed;
       } finally { bytes.fill(0); }
     })();
     try { return await Promise.race([work, stop, timeout]); }

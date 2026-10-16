@@ -1,15 +1,30 @@
 import type {ExternalFlatDescriptor,ExternalFlatConsent} from '@lianum/mobile-protocol/device/source-note-v1';
 import type {DeviceSepoliaDefiReviewV4} from '@lianum/mobile-protocol/device/sepolia-defi-review-v4';
+import type {DeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
+import type {DeviceSepoliaDefiFinancialStatusV7} from '@lianum/mobile-protocol/device/sepolia-defi-financial-status-v7';
+import type {DeviceSepoliaDefiProposalV7} from './device-sepolia-defi-financial-api-v7.mjs';
 import type {createDeviceExternalFlatRoutedNoteVaultV1} from '../custody/device-external-flat-note-vault-v1.ts';
 declare const preparationBrand:unique symbol;
 export type DeviceSepoliaDefiPreparationV4=Readonly<{[preparationBrand]:true}>;
 export type DeviceSepoliaDefiSharesApiV4=Readonly<{
  descriptor:ExternalFlatDescriptor;
  prepare(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,signal?:AbortSignal):Promise<DeviceSepoliaDefiPreparationV4>;
+ prepareReceiptV8(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,originalPreparation:object,signal?:AbortSignal):Promise<DeviceSepoliaDefiPreparationV4>;
  prepareWithReviewedAuthorizationV5(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,authorization:object,signal?:AbortSignal):Promise<DeviceSepoliaDefiPreparationV4>;
  submit(token:DeviceSepoliaDefiPreparationV4):Promise<unknown>;
+ propose(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,input:DeviceSepoliaDefiProposalV7):Promise<DeviceSepoliaDefiReviewV4>;
+ recoverInvestmentPreparation(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,jobId:string):Promise<DeviceSepoliaDefiPreparationV4>;
+ executeInvestment(token:DeviceSepoliaDefiPreparationV4,capitalNodeId?:string):Promise<DeviceSepoliaDefiFinancialStatusV7>;
+ continueInvestment(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,jobId:string,observation:DeviceSepoliaDefiFinancialStatusV7,capitalNodeId?:string):Promise<DeviceSepoliaDefiFinancialStatusV7>;
+ resumeRedemption(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,jobId:string,signal?:AbortSignal):Promise<DeviceSepoliaDefiPreparationV4>;
+ executeRedemption(token:DeviceSepoliaDefiPreparationV4):Promise<DeviceSepoliaDefiFinancialStatusV7>;
+ redeemFinancial(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,jobId:string):Promise<DeviceSepoliaDefiFinancialStatusV7>;
+ observeFinancial(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>,review:DeviceSepoliaDefiReviewV4,jobId:string):Promise<DeviceSepoliaDefiFinancialStatusV7>;
  signPreparedWithdrawal(token:DeviceSepoliaDefiPreparationV4,consent:ExternalFlatConsent):Promise<string>;
+ readOriginalStatus(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>):Promise<import('@lianum/mobile-protocol/device/source-note-v1').ExternalFlatStatus>;
  observe(vault:Awaited<ReturnType<typeof createDeviceExternalFlatRoutedNoteVaultV1>>):Promise<unknown>;
  close():void;
 }>;
-export function createDeviceSepoliaDefiSharesApiV4(input:{descriptor:ExternalFlatDescriptor;fetchImpl?:typeof globalThis.fetch}):DeviceSepoliaDefiSharesApiV4;
+export function createDeviceSepoliaDefiSharesApiV4(input:{descriptor:ExternalFlatDescriptor;connection?:DeviceSepoliaDefiConnectionV7;fetchImpl?:typeof globalThis.fetch}):DeviceSepoliaDefiSharesApiV4;
+
+export function readDeviceSepoliaDefiProofPreparationV8(token:object):Readonly<{review:DeviceSepoliaDefiReviewV4;jobId:string}>;

@@ -1,0 +1,10 @@
+import {createHash} from 'node:crypto';
+export const defiHashV7=value=>createHash('sha256').update(value).digest('hex');
+export function sepoliaDefiFixtureV7(protocol='AAVE_STATIC',action='INVEST') {
+  const h=defiHashV7,descriptor={profile:'LIANUM_DEVICE_EXTERNAL_FLAT_SHARE_NOTE_V1',origin:'https://api.lianum.oryontechnology.com',devicePublicKey:'04'+'11'.repeat(64),pairingId:h('pairing'+protocol),lifetime:h('lifetime'+protocol),
+    poolTerms:Object.fromEntries(['pool','asset','hub','poolCodeHash','scope','policy','assetIdentity','assetCodeHash','genesis','domainCommitment','hubCodeHash','hubDomain','ledgerNamespace'].map(name=>[name,h(name+protocol).slice(0,['pool','asset','hub'].includes(name)?40:64)])),assetMetadata:{kind:'ERC20',symbol:protocol==='AAVE_STATIC'?'stataUSDC':'mvUSDC',decimals:protocol==='AAVE_STATIC'?6:18}};
+  const connection={format:'DEVICE_SEPOLIA_DEFI_SHARES_CONNECTION_V7',descriptor,protocol,underlying:{symbol:'USDC',decimals:6,address:'0x'+'7'.repeat(40)},terms:{shareWithdrawalRecipient:'0x'+'9'.repeat(40),underlyingReceiver:'0x'+'8'.repeat(40),maximumInputAtomic:'1002000',minimumAssetsAtomic:'999000'},transport:{type:'ANDROID_PINNED_TLS_V1',certificatePEM:'-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n',certificateSHA256:h('TLS')}};
+  const review={profile:'DEVICE_SEPOLIA_DEFI_REVIEW_V4',protocol,action,descriptor,rootId:h('root'),noteRevision:1,reference:h('review'+action),shares:protocol==='AAVE_STATIC'?'1000000':'1000000000000000000',maximumInputAtomic:action==='INVEST'?'1001000':null,minimumAssetsAtomic:action==='REDEEM'?'1000000':null,underlyingReceiver:connection.terms.underlyingReceiver,shareWithdrawalRecipient:connection.terms.shareWithdrawalRecipient,validFrom:'1000',validUntil:'1600',receiptCommitment:action==='INVEST'?h('receipt'):null};
+  const jobId=h('job'+action),summary={rootId:review.rootId,noteRevision:1,jobs:[{jobId,mode:action==='INVEST'?'deposit_intent':'withdraw_balance',stage:'PROVED',consentFields:{rootId:review.rootId}}]};
+  return{connection,review,summary,jobId};
+}

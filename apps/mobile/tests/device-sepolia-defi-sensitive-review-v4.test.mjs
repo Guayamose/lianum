@@ -46,5 +46,19 @@ test('one sensitive Sepolia DeFi review precedes original note signing and fixes
  await assert.rejects(api.prepare({...vault},review),/ORIGINAL_VAULT/);assert.equal(bios,0);assert.equal(requests,0);
  await assert.rejects(api.prepare(vault,review),/LOST_AUTHORIZATION_ACK/);assert.equal(bios,1);assert.equal((await vault.summary()).commitment,null,'lost review response leaves no note signature or witness');
  const token=await api.prepare(vault,review);assert.equal(bios,2,'explicit user retry is a new approval, not an automatic financial signature');assert.equal(authorized.reference,review.reference);const after=await vault.summary();assert.notEqual(after.commitment,null);assert.equal(after.recipient,review.shareWithdrawalRecipient.slice(2));assert.equal(after.amount,review.shares);
- const challenge={profile:R.DEVICE_SEPOLIA_DEFI_REVIEW_CHALLENGE_V4,review,challengeId:sha('second review'),nonce:sha('second nonce'),expiresAt:Date.now()+15000};const approval=await W.approveWalletSessionSepoliaDefiV4(review);const bioBefore=bios;assert.throws(()=>W.signWalletSessionSepoliaDefiReviewV4(approval,{...challenge,review:{...review,underlyingReceiver:'0x'+'7'.repeat(40)}}),/REVIEW_CHANGED/);assert.throws(()=>W.assertWalletSessionSepoliaDefiV4({...approval},review),/AUTHORIZATION/);assert.match(W.signWalletSessionSepoliaDefiReviewV4(approval,challenge),/^[0-9a-f]{128}$/);assert.equal(bios,bioBefore,'the same approval signs its exact challenge without another biometric');W.closeWalletSessionAuthorizationV1(approval);api.close();await assert.rejects(api.submit(token),/REVIEW_BINDING/);W.lockWalletSessionV1();
+ const challenge={profile:R.DEVICE_SEPOLIA_DEFI_REVIEW_CHALLENGE_V4,review,challengeId:sha('second review'),nonce:sha('second nonce'),expiresAt:Date.now()+15000};const approval=await W.approveWalletSessionSepoliaDefiV4(review);const bioBefore=bios;assert.throws(()=>W.signWalletSessionSepoliaDefiReviewV4(approval,{...challenge,review:{...review,underlyingReceiver:'0x'+'7'.repeat(40)}}),/REVIEW_CHANGED/);assert.throws(()=>W.assertWalletSessionSepoliaDefiV4({...approval},review),/AUTHORIZATION/);assert.match(W.signWalletSessionSepoliaDefiReviewV4(approval,challenge),/^[0-9a-f]{128}$/);assert.equal(bios,bioBefore,'the same approval signs its exact challenge without another biometric');W.closeWalletSessionAuthorizationV1(approval);
+ // This HOST issuer substitutes only the Source7 Vault's opaque pending-page
+ // cap. The actual session's receipt-only classification/signers stay live.
+ const receiptCap=Object.freeze(Object.create(null));let receiptLive=true;
+ t.mock.module('../src/custody/device-paged-note-vault-v3.ts',{exports:{readDevicePagedSepoliaDefiReceiptPreparationV8:async cap=>{assert.equal(cap,receiptCap);if(!receiptLive)throw Error('HOST_RECEIPT_CLOSED');return{descriptor:{...descriptor,chainId:'11155111',origin:review.descriptor.origin},review,capitalNodeId:'defi-receipt-host',receiptCommitment:review.receiptCommitment};}}});
+ const receiptBios=bios;
+ await assert.rejects(W.prepareWalletSessionSepoliaDefiReceiptV8(review,{...receiptCap}));
+ const receiptApproval=await W.prepareWalletSessionSepoliaDefiReceiptV8(review,receiptCap);
+ assert.equal(bios,receiptBios,'an authenticated Source7 receipt preparation uses the open session');
+ assert.match(W.signWalletSessionSepoliaDefiReviewV4(receiptApproval,{...challenge,nonce:sha('receipt-only nonce')}),/^[0-9a-f]{128}$/);
+ assert.throws(()=>W.assertWalletSessionSepoliaDefiV4(receiptApproval,{...review,action:'REDEEM',maximumInputAtomic:null,minimumAssetsAtomic:'1',receiptCommitment:null}),/REVIEW_CHANGED/);
+ assert.throws(()=>W.assertWalletSessionSepoliaMorphoBatchV5(receiptApproval,{}),/AUTHORIZATION/);
+ W.closeWalletSessionAuthorizationV1(receiptApproval);receiptLive=false;
+ await assert.rejects(W.prepareWalletSessionSepoliaDefiReceiptV8(review,receiptCap),/HOST_RECEIPT_CLOSED/);
+ api.close();await assert.rejects(api.submit(token),/REVIEW_BINDING/);W.lockWalletSessionV1();
 });

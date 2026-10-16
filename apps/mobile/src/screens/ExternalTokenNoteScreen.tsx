@@ -20,6 +20,9 @@ import {deviceDefiAmountToAtomicV1,deviceDefiAmountFromAtomicV1,deviceDefiRecept
 import type {DeviceDefiOperationDecisionV1} from '../../../../packages/mobile-protocol/src/device-defi-operation-flow-v1.mjs';
 import {normalizePublicWalletConnectionV1,publicWalletConnectionMatchesRouteV1} from '../state/public-connection-registry-v1.mjs';
 import type {PublicConnectionRegistryV1} from '../state/public-connection-registry-v1.mjs';
+import {normalizeDeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
+import {createDeviceSepoliaDefiPinnedTransportV7} from '../api/device-paged-connection-transport-v3';
+import {createDeviceSepoliaDefiSharesApiV4} from '../api/device-sepolia-defi-shares-api-v4.mjs';
 
 type Client=ReturnType<typeof createDeviceExternalFlatNoteApiV1>;
 type Vault=Awaited<ReturnType<typeof createDeviceExternalFlatNoteVaultV1>>;
@@ -239,9 +242,9 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
   let packet=JSON.parse(rawText);publicTls.current=null;setTlsDisplay(null);
   if(packet?.format==='DEVICE_EXTERNAL_FLAT_CONNECTION_V1'){
    if(connectionRegistry)normalizePublicWalletConnectionV1(rawText,connectionRegistry.devicePublicKey);
-   const profile=externalFlatExactV1(packet,['format','pairing','transport']),transport=externalFlatExactV1(profile.transport,['type','certificatePEM','certificateSHA256']);
+   const direct=Object.hasOwn(packet,'descriptor'),profile=externalFlatExactV1(packet,['format',direct?'descriptor':'pairing','transport']),transport=externalFlatExactV1(profile.transport,['type','certificatePEM','certificateSHA256']);
    if(transport.type!=='ANDROID_PINNED_TLS_V1'||typeof transport.certificatePEM!=='string'||transport.certificatePEM.length===0||transport.certificatePEM.length>16384||typeof transport.certificateSHA256!=='string'||!/^[0-9a-f]{64}$/.test(transport.certificateSHA256))throw Error('MOBILE_DEFI_CONNECTION_INVALID');
-   packet=profile.pairing;const paired=['DEVICE_EXTERNAL_FLAT_UNISWAP_PAIRING_V1','DEVICE_EXTERNAL_FLAT_AAVE_PAIRING_V1','DEVICE_EXTERNAL_FLAT_METAMORPHO_UNDERLYING_PAIRING_V2'].includes(packet?.profile),descriptor=normalizeExternalFlatDescriptorV1(paired?packet.source:packet);
+   packet=direct?profile.descriptor:profile.pairing;const paired=['DEVICE_EXTERNAL_FLAT_UNISWAP_PAIRING_V1','DEVICE_EXTERNAL_FLAT_AAVE_PAIRING_V1','DEVICE_EXTERNAL_FLAT_METAMORPHO_UNDERLYING_PAIRING_V2'].includes(packet?.profile),descriptor=normalizeExternalFlatDescriptorV1(paired?packet.source:packet);
    if(paired){const target=normalizeExternalFlatDescriptorV1(packet.target);if(target.origin!==descriptor.origin||target.devicePublicKey!==descriptor.devicePublicKey)throw Error('MOBILE_DEFI_CONNECTION_INVALID');}
    publicTls.current={origin:descriptor.origin,devicePublicKey:descriptor.devicePublicKey,certificatePEM:transport.certificatePEM,certificateSHA256:transport.certificateSHA256};setTlsDisplay({origin:descriptor.origin,certificateSHA256:transport.certificateSHA256});
   }
@@ -254,6 +257,11 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  async function rememberPublicConnection(text:string){if(connectionRegistry&&JSON.parse(text)?.format==='DEVICE_EXTERNAL_FLAT_CONNECTION_V1')await connectionRegistry.remember(text,{select:selectConnectionRef.current});}
  async function openRegisteredConnection(request:ExternalConnectionRequestV1){
   const entry=normalizePublicWalletConnectionV1(request.profile,connectionRegistry?.devicePublicKey);if(entry.kind!=='EXTERNAL_FLAT'||request.route&&!publicWalletConnectionMatchesRouteV1(entry,request.route))throw Error('MOBILE_DEFI_CONNECTION_INVALID');
+  if(JSON.parse(entry.profile).format==='DEVICE_SEPOLIA_DEFI_SHARES_CONNECTION_V7'){
+   await closeConnection();const packet=normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(entry.profile)),abort=new AbortController();let transport:Awaited<ReturnType<typeof createDeviceSepoliaDefiPinnedTransportV7>>|null=null,vault:Vault|null=null,api:ReturnType<typeof createDeviceSepoliaDefiSharesApiV4>|null=null;
+   try{if(!activeRef.current||await readDevicePublicKey()!==packet.descriptor.devicePublicKey)throw Error('MOBILE_DEFI_CONNECTION_INVALID');transport=await createDeviceSepoliaDefiPinnedTransportV7(packet,abort.signal);vault=await openExistingDeviceExternalFlatCustodyV1(packet.descriptor);api=createDeviceSepoliaDefiSharesApiV4({descriptor:packet.descriptor,connection:packet,fetchImpl:transport.fetchImpl});const value=await api.readOriginalStatus(vault);if(!activeRef.current)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');onObservation?.(value);setNotice('Participaciones originales consultadas. Abre Invertir para preparar una operación.');return;}
+   finally{abort.abort();api?.close();await vault?.close();await transport?.close();}
+  }
   if(request.reception&&(entry.descriptors.length!==1||entry.descriptors[0].profile!==DEVICE_EXTERNAL_FLAT_SHARE_V1||Object.keys(request.reception).sort().join(',')!=='commitment,jobId,rootId'||Object.values(request.reception).some(value=>!/^[0-9a-f]{64}$/.test(value))))throw Error('MOBILE_EXTERNAL_FLAT_RECEPTION_BINDING');
   receptionRequestRef.current=request.reception??null;
   try{setFlowConnectionText(entry.profile);await loadFlowConnection(entry.profile);}finally{receptionRequestRef.current=null;}
