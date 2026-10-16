@@ -35,5 +35,3 @@ export async function corroborateOriginalPagedPublicMixedSourceRowsV10(token,raw
  }
  await(await import('./paged-expired-withdrawal-current-data-v10.mjs')).corroboratePagedExpiredWithdrawalRowsCanonicalV10(raw.sourceRows,ids,raw.rpc,raw.head);await raw.rpc.assertCanonical(raw.head);await g.current();assert.equal(await F.hashPagedSourcePrivateFileV4(sourceFile,33554432),sourceSHA,'MIXED_CURRENT_SOURCE_HIGHWATER');for(const file of files)assert.equal(await F.hashPagedSourcePrivateFileV4(file.path,file.max),file.sha256,'MIXED_CURRENT_BROKER_HIGHWATER');g.result={entries,sourceRowIds:ids,files};return freeze(clone(g.result));
 }
-
-export async function recoverOriginalPagedPublicUniswapMixedActivationV10(raw){assert.equal(arguments.length,1);exact(raw,['directory','password','mixedJournalPassword']);return build({directory:raw.directory,password:raw.password},null,true,false,null,true,raw.mixedJournalPassword);}
