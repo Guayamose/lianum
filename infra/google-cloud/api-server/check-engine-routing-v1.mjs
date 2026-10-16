@@ -22,7 +22,7 @@ for(const row of rows){
  const response=await pinned('/v1/mobile/paged-owner/graph/pairing',row.transport.certificateSHA256,'{}',row.descriptor.pairingId);
  assert.equal(response.status,200);assert.equal(response.body.profile,DEVICE_PAGED_GRAPH_OWNER_V3);assert.deepEqual(response.body.descriptor,row.descriptor);
  const nativePreparation=normalizeDevicePagedNativePreparationV3(response.body.nativePreparation,row.descriptor);
- checks.push({identitySHA256:createHash('sha256').update(row.descriptor.devicePublicKey).digest('hex'),matchingDescriptor:true,nativePreparationValidated:!!nativePreparation,publicTLSCertificatePinned:true});
+ checks.push({identitySHA256:createHash('sha256').update(row.descriptor.devicePublicKey).digest('hex'),matchingDescriptor:true,nativePreparationValidated:!!nativePreparation,networks:(nativePreparation.networks??[]).map(n=>({family:n.family,asset:n.assetSymbol,networkId:n.networkId??null})),defi:nativePreparation.uniswap?['UNISWAP']:[],publicTLSCertificatePinned:true});
 }
 const pin=rows[0].transport.certificateSHA256,health=await pinned('/health',pin),unknown=await pinned('/v1/mobile/paged-owner/graph/pairing',pin,'{}','unknown-pairing');
 const missing=await new Promise((resolve,reject)=>{const req=request(origin+'/v1/mobile/paged-owner/graph/pairing',{method:'POST',headers:{'content-type':'application/json'},timeout:20000},response=>{response.resume();response.on('end',()=>resolve(response.statusCode));});req.on('timeout',()=>req.destroy(Error('PUBLIC_REQUEST_TIMEOUT')));req.on('error',reject);req.end('{}');});
