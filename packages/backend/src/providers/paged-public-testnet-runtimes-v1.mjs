@@ -12,6 +12,7 @@ import {readPublicPagedDispatchV1} from '../chains/public-testnet/original-dispa
 import {validatePublicPagedPreparedV1,validatePublicPagedSignedV1} from '../chains/public-testnet/wire-v1.mjs';
 import {assertSepoliaReceiverBootstrapReadyV4} from '../chains/public-testnet/key-store-v1.mjs';
 import {createOriginalPagedSepoliaRpcV4} from '../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
+import {normalizePagedPublicDefiRecoveryLocatorDataV8} from '../operations/recovery/paged-public-defi-source-current-data-v8.mjs';
 
 const owners=new WeakMap(),issuedFacts=new WeakMap(),issuedPreparations=new WeakMap(),sha=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const current=s=>{need(s&&!s.closed&&!s.closing&&!s.poisoned,'PUBLIC_RUNTIME_CLOSED');return s;};
@@ -224,7 +225,7 @@ export async function reopenOriginalPagedPublicRefillRecoveryRuntimeV16(input,to
 }
 async function reopenOriginalRetainedPublicRuntimeV16(input,saved,refillRecoveryStorage){
  exact(saved,['profile','directory','keysetId','configuration','checkpoint','source']);need(saved.profile==='ORIGINAL_PAGED_PUBLIC_RUNTIME_RETENTION_V4'&&resolve(input.directory)===saved.directory,'PUBLIC_RUNTIME_REOPEN_PROFILE');
- exact(saved.source,['profile','configuration','checkpoint','bootstrap']);need(saved.source.profile==='ORIGINAL_PAGED_PUBLIC_SOURCE_RETENTION_V4','PUBLIC_RUNTIME_REOPEN_SOURCE');exact(saved.configuration,['profile','networks','publicConfiguration']);need(saved.configuration.profile==='ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4','PUBLIC_RUNTIME_REOPEN_CONFIGURATION');const configuration={networks:saved.configuration.networks};
+ exact(saved.source,['profile','configuration','checkpoint','bootstrap'],['defiRetentionV8']);need(saved.source.profile==='ORIGINAL_PAGED_PUBLIC_SOURCE_RETENTION_V4','PUBLIC_RUNTIME_REOPEN_SOURCE');if(Object.hasOwn(saved.source,'defiRetentionV8'))normalizePagedPublicDefiRecoveryLocatorDataV8(saved.source.defiRetentionV8,{chainId:'11155111',keysetId:saved.keysetId,account:saved.source.configuration.receiver.account.address});exact(saved.configuration,['profile','networks','publicConfiguration']);need(saved.configuration.profile==='ORIGINAL_PAGED_PUBLIC_RUNTIME_CONFIGURATION_V4','PUBLIC_RUNTIME_REOPEN_CONFIGURATION');const configuration={networks:saved.configuration.networks};
  const runtime=await openOriginalPagedPublicTestnetRuntime({directory:saved.directory,configuration},{...saved,bootstrap:saved.source.bootstrap},refillRecoveryStorage);return runtime;
 }
 
