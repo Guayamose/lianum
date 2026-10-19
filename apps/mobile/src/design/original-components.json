@@ -1,0 +1,16 @@
+{
+  "referenceRoot": "/mnt/c/Users/Rafa Pradillo/Desktop/Lianum/src",
+  "Chart.tsx": {
+    "source": "components/charts/Chart.tsx",
+    "changes": "Only local motion/font import paths; original ECharts SVG adapter retained."
+  },
+  "VoiceOrbs": {
+    "source": "vendor/voiceorbs",
+    "license": "MIT, Alexis Munoz",
+    "changes": "Renderer/state/color unchanged; native SVG drawing adapter and type-only frame contract."
+  },
+  "marketDataDocumentation": [
+    "https://docs.cdp.coinbase.com/coinbase-app/track-apis/exchange-rates",
+    "https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles"
+  ]
+}

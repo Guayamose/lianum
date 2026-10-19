@@ -1,5 +1,6 @@
+import {WalletText as Text,WalletTextInput as TextInput} from '../design/typography';
 import {useEffect,useRef,useState} from 'react';
-import {Alert,AppState,Share,Text,TextInput,StyleSheet,View} from 'react-native';
+import {Alert,AppState,Share,StyleSheet,View} from 'react-native';
 import {WalletButton,WalletCard,WalletChoice,WalletScreenLayout,WalletStatus,walletColors} from '../components/wallet-ui';
 import type {PublicConnectionRegistryV1} from '../state/public-connection-registry-v1.mjs';
 import {exportJointWalletRecoveryV4,restoreJointWalletRecoveryV1,type WalletRecoveryProgressV1} from '../custody/wallet-recovery-native-v1';
@@ -81,4 +82,4 @@ export default function WalletRecoveryScreen({registry,expectedPublicKey,onQuies
   <WalletButton label="Borrar datos de esta pantalla" tone="secondary" disabled={blocked} onPress={clearScreen}/>
  </WalletScreenLayout>;
 }
-const styles=StyleSheet.create({choices:{flexDirection:'row',gap:10,marginBottom:16},body:{fontSize:14,lineHeight:22,color:walletColors.text,marginBottom:12},help:{fontSize:13,lineHeight:20,color:walletColors.muted,marginBottom:12},label:{fontSize:14,fontWeight:'600',color:walletColors.text,marginBottom:8},input:{minHeight:48,borderWidth:1,borderColor:walletColors.border,borderRadius:12,padding:12,color:walletColors.text,marginBottom:12},large:{minHeight:150,textAlignVertical:'top'},copy:{fontSize:12,lineHeight:18,color:walletColors.muted}});
+const styles=StyleSheet.create({choices:{flexDirection:'row',gap:10,marginBottom:16},body:{fontSize:14,lineHeight:22,color:walletColors.text,marginBottom:12},help:{fontSize:13,lineHeight:20,color:walletColors.muted,marginBottom:12},label:{fontSize:14,fontWeight:'600',color:walletColors.text,marginBottom:8},input:{minHeight:48,borderWidth:1,borderColor:walletColors.border,borderRadius:6,padding:12,color:walletColors.text,marginBottom:12},large:{minHeight:150,textAlignVertical:'top'},copy:{fontSize:12,lineHeight:18,color:walletColors.muted}});

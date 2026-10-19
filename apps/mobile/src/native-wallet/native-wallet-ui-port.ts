@@ -1,12 +1,13 @@
 /** Public account and service DATA. Implementations keep seed/signing in custody. */
 export type NativeWalletChainV1='ethereum'|'bitcoin'|'solana';
 export type NativeWalletAccountV1=Readonly<{chain:NativeWalletChainV1;network:'mainnet'|'testnet';networkId:string;address:string;path:string;publicKey:string}>;
-export type NativeWalletStateV1=Readonly<{status:'ABSENT'|'READY';accounts:readonly NativeWalletAccountV1[];transactions?:readonly NativeWalletTransferV1[];fiatOrders?:readonly NativeWalletFiatOrderV1[];pendingFiatRequests?:readonly NativeWalletFiatRequestV1[]}>;
+export type NativeWalletEnvironmentV2='mainnet'|'testnet';
+export type NativeWalletStateV1=Readonly<{status:'ABSENT'|'READY'|'NETWORK_REQUIRED';network?:NativeWalletEnvironmentV2;accounts:readonly NativeWalletAccountV1[];transactions?:readonly NativeWalletTransferV1[];fiatOrders?:readonly NativeWalletFiatOrderV1[];pendingFiatRequests?:readonly NativeWalletFiatRequestV1[]}>;
 export type NativeWalletNetworkV1=Readonly<{id:string;chain:NativeWalletChainV1;network:'mainnet'|'testnet';genesisHash:string;symbol:string;decimals:number;trust:'RPC_PROVIDER'}>;
-export type NativeWalletBalanceV1=Readonly<{network:NativeWalletNetworkV1;address:string;balanceAtomic:string;spendableAtomic:string;reservedAtomic:string;observed:Readonly<{blockHash:string;blockNumber:string}>}>;
-export type NativeWalletAccountBalanceV1=Readonly<{account:NativeWalletAccountV1;status:'CONFIRMED'|'UNKNOWN';balance:NativeWalletBalanceV1|null;reason?:string}>;
+export type NativeWalletBalanceV1=Readonly<{network:NativeWalletNetworkV1;address:string;balanceAtomic:string;spendableAtomic:string;reservedAtomic:string;pendingAtomic?:string;hasPendingTransfer?:boolean;observed:Readonly<{blockHash:string;blockNumber:string}>}>;
+export type NativeWalletAccountBalanceV1=Readonly<{account:NativeWalletAccountV1;status:'CONFIRMED'|'UNKNOWN';balance:NativeWalletBalanceV1|null;reason?:string;stale?:boolean;observedAt?:number}>;
 export type NativeWalletSendQuoteV1=Readonly<{profile:'NATIVE_WALLET_SEND_QUOTE_V1';id:string;networkId:string;network:NativeWalletNetworkV1;account:NativeWalletAccountV1;recipient:string;amountAtomic:string;fee:Readonly<{assetSymbol:string;maximumAtomic:string}>;issuedAt:number;expiresAt:number;transaction:unknown;quoteSHA256:string}>;
-export type NativeWalletTransferV1=Readonly<{id:string;status:'SUBMITTED'|'PENDING'|'CONFIRMED'|'FAILED'|'UNKNOWN';transactionId?:string|null;networkId?:string;recipient?:string;amountAtomic?:string}>;
+export type NativeWalletTransferV1=Readonly<{id:string;status:'SUBMITTED'|'PENDING'|'INCLUDED'|'CONFIRMED'|'FAILED'|'UNKNOWN';confirmations?:string|null;errorCode?:string|null;terminal?:boolean;transactionId?:string|null;networkId?:string;recipient?:string;amountAtomic?:string}>;
 export type NativeWalletFiatAssetV1=Readonly<{asset:'BTC'|'ETH'|'SOL';network:NativeWalletChainV1;decimals:number;chain:string}>;
 export type NativeWalletFiatCapabilitiesV1=Readonly<{profile:'LIANUM_MOONPAY_CAPABILITIES_V1';configured:boolean;environment:'SANDBOX'|'PRODUCTION'|null;buy:boolean;sell:boolean;fiatCurrencies:readonly ['EUR'];assets:readonly NativeWalletFiatAssetV1[];reason:string|null}>;
 export type NativeWalletFiatRequestV1=Readonly<{requestId:string;flow:'BUY'|'SELL';asset:'BTC'|'ETH'|'SOL';network:NativeWalletChainV1;fiatCurrency:'EUR';amount:string;walletAddress:string}>;
@@ -18,7 +19,7 @@ export interface NativeWalletUiPortV1 {
  restore(mnemonic:string,signal:AbortSignal):Promise<NativeWalletStateV1>;
  /** Explicit protected disclosure only; no private keys returned by any port. */
  revealMnemonic(signal:AbortSignal):Promise<string>;
- readBalances(signal:AbortSignal):Promise<readonly NativeWalletAccountBalanceV1[]>;
+ readBalances(signal:AbortSignal,onAccount?:(value:NativeWalletAccountBalanceV1)=>void):Promise<readonly NativeWalletAccountBalanceV1[]>;
  prepareSend(input:{account:NativeWalletAccountV1;recipient:string;amountAtomic:string},signal:AbortSignal):Promise<NativeWalletSendQuoteV1>;
  /** Cancels only an original unsigned quote, never a signed/uncertain send. */
  cancelSendQuote(id:string,signal:AbortSignal):Promise<void>;

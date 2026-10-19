@@ -76,6 +76,38 @@ generación. [Detalle y límites](SOURCE-GENERATIONS.md).
 
 ## Elegir qué comprobar
 
+Para un fix pequeño, ejecutar primero su regresión y las pruebas de los
+componentes afectados. Ejecutar `./dev check` una vez al cerrar el cambio;
+repetir comprobaciones ya aprobadas sólo si cambia su código o queda un fallo
+sin resolver. La documentación por sí sola no requiere pruebas.
+
+Una reapertura completa en cloud es una operación de despliegue, no una prueba
+por defecto para cada edición. Agrupar las correcciones comprobadas antes de
+publicar una versión y verificar después el comportamiento público afectado.
+Repetir un laboratorio económico o ZK sólo cuando el cambio afecte al recorrido
+que demuestra o exista un fallo nuevo que lo justifique. Conservar siempre la
+generación y el alcance de la evidencia anterior: reutilizarla no convierte una
+versión nueva en una nueva aceptación financiera.
+
+La entrada pública normal puede completar la renovación pendiente de Source4/7
+en el mismo producto Original y el mismo epoch ya firmado, conservándolo abierto
+para servir. Este recorrido evita abrir administrativamente, capturar y volver
+a abrir el servicio. Su recibo vivo no acredita `CAPTURED`: el despliegue sigue
+exigiendo `READY` de la invocación instalada y la comprobación de las rutas públicas.
+Durante el arranque desde almacenamiento capturado, V16 conserva en SQLite
+lecturas públicas de historia finalizada y puede reutilizarlas tras reiniciar el
+proceso. Comprueba de nuevo la red, su génesis y el bloque finalizado guardado;
+si cambia ese anclaje, invalida las lecturas anteriores. El almacenamiento tiene
+límites de tamaño y se cierra antes de servir operaciones financieras. Los
+saldos, nonces, permisos y demás estado actual se consultan de nuevo. Esta
+caché recupera lecturas históricas, no la composición criptográfica en memoria
+ni una aceptación financiera anterior.
+
+El seguimiento registra hitos de arranque, métodos RPC, lotes y ritmo de lectura.
+El número de hitos pendientes no es un porcentaje de tiempo ni el total de
+consultas pendientes. En la primera ejecución del recorrido nuevo, el tiempo
+restante figura como desconocido mientras no haya una base medida para estimarlo.
+
 ```sh
 # Ver qué comprobaciones propone el cambio actual; no ejecuta pruebas.
 ./dev test --changed --plan

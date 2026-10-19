@@ -12,10 +12,10 @@ const root=resolve(fileURLToPath(new URL('../candidate/',import.meta.url)));
 const original=path=>import(pathToFileURL(join(root,path)).href);
 const handles=new WeakMap(),hex=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const exact=(x,fields)=>{assert.ok(x&&typeof x==='object'&&!Array.isArray(x),'PAEG_FINANCIAL_REVIEW_OBJECT');assert.deepEqual(Object.keys(x).sort(),[...fields].sort(),'PAEG_FINANCIAL_REVIEW_FIELDS');return x;};
-function reviewData(raw,normalizePolicy){
+function reviewData(raw,normalizePolicy,normalizeLimits){
  exact(raw,['intentId','expectedCheckpoint','expectedEpochId','policy','limits']);assert.ok(hex(raw.intentId)&& (raw.expectedEpochId===null||hex(raw.expectedEpochId)),'PAEG_FINANCIAL_REVIEW_ID');
  assert.ok(raw.expectedCheckpoint&&typeof raw.expectedCheckpoint==='object'&&!Array.isArray(raw.expectedCheckpoint),'PAEG_FINANCIAL_REVIEW_CHECKPOINT');
- normalizePolicy(raw.policy);exact(raw.limits,['maximumTotalSuccessorPools','maximumSourcesPerWallet',...(Object.hasOwn(raw.limits??{},'maximumTotalMixedSources')?['maximumTotalMixedSources']:[])]);for(const value of Object.values(raw.limits))assert.ok(typeof value==='string'&&/^[1-9][0-9]*$/.test(value)&&BigInt(value)<=16n,'PAEG_FINANCIAL_REVIEW_QUOTA');return raw;
+ normalizePolicy(raw.policy);normalizeLimits(raw.limits);return raw;
 }
 async function replacePrivateState(name,bytes){
  assert.ok(name===FINANCIAL_EPOCH_STATE_FILE_V5&&Buffer.isBuffer(bytes)&&bytes.length>0&&bytes.length<=65536,'PAEG_FINANCIAL_STATE_BYTES');await assertPrivateOperatorDirectoryV4(PUBLIC_OPERATOR_STATE_V4);
@@ -34,7 +34,7 @@ export async function openOriginalPublicFinancialEpochControlV5(product,onAuthor
  await publish();
  async function applyReview(){
   assert.ok(!closing,'PAEG_FINANCIAL_CONTROL_CLOSING');let bytes,review;
-  try{bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,FINANCIAL_EPOCH_REVIEW_FILE_V5);review=reviewData(JSON.parse(bytes.toString('utf8')),data.normalizeSourceFinancialPolicyDataV5);
+  try{bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,FINANCIAL_EPOCH_REVIEW_FILE_V5);review=reviewData(JSON.parse(bytes.toString('utf8')),data.normalizeSourceFinancialPolicyDataV5,data.normalizeSourceFinancialEpochLimitsDataV5);
    // The Original issuer checks CAS and idempotent replay. Do not reject its
    // previously signed SAME review merely because the checkpoint advanced.
    const state=await backend.authorizeOriginalPagedPublicNativeFinancialEpochV5(product,review);

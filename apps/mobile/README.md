@@ -1,5 +1,53 @@
 # Wallet móvil
 
+La interfaz incorpora la identidad original de `Lianum_design`: fondo marfil
+`#F3F0E8`, pizarra, champagne, DM Sans e Instrument Serif locales, marca SVG
+y controles compactos. La portada sigue la referencia de saldo centrado sobre
+el fondo plano, sin tarjeta azul. Los importes proceden de cada cuenta nativa;
+no se importan saldos de ejemplo, históricos ni workspaces del prototipo.
+El overview reúne BTC, ETH y SOL de las cuentas principales en un patrimonio
+valorado en EUR o USD, con elección persistente y columnas de disponible,
+reservado y en operaciones. Usa aritmética entera para valorar cantidades
+atómicas; una lectura desconocida impide presentar un total completo. Los
+fondos de testnet no se suman al patrimonio principal. Las filas de distribución
+abren el detalle del activo y su mercado; elegir una red deja de cambiar el
+patrimonio de la portada.
+
+Los saldos se consultan al abrir, al volver a primer plano y cada minuto,
+con cancelación por sesión y sin ocupar el bloqueo financiero. Se puede
+navegar mientras cargan; deslizar hacia abajo permite una actualización
+adicional. Preparar y autorizar un envío conserva los controles originales.
+
+Las cotizaciones indicativas provienen del endpoint público de
+[tipos de cambio de Coinbase](https://docs.cdp.coinbase.com/coinbase-app/track-apis/exchange-rates),
+con caché de un minuto. Las gráficas 1D/1S/1M/1A usan sus
+[velas de mercado](https://docs.cdp.coinbase.com/api-reference/exchange-api/rest-api/products/get-product-candles),
+con caché de cinco minutos y peticiones acotadas. Estas consultas no envían
+direcciones ni identidad y no autorizan operaciones. La evolución del
+patrimonio registra observaciones de esta sesión; no usa el mercado como
+si fuera la rentabilidad personal ni inventa un histórico anterior.
+
+La navegación conserva sus custodias y acciones originales. La copia completa
+del frontend de referencia está en `C:\Users\Rafa Pradillo\Desktop\Lianum`;
+la copia `Lianum_design` del workspace es parcial. `HomeScreen`, `AgentScreen`
+y el tab bar completos guían estructura, medidas y navegación. El renderer
+VoiceOrbs conserva sus fuentes y licencia MIT, con un adaptador SVG nativo;
+las gráficas reutilizan el adaptador ECharts del frontend. Procedencia en
+`src/design/original-components.json` y licencias en `src/design/licenses`.
+La integración Android añade el resolver Metro de tslib del frontend original
+y limita ARIA DOM de ECharts a web; el contenedor nativo declara su descripción
+accesible. Las gráficas se han revisado visualmente en Android; TalkBack sigue
+pendiente de validación.
+`Brand.tsx` y el layout del frontend aportan la marca y las familias tipográficas;
+`components/finance.tsx` aporta la estructura de las filas de activos, y
+`app/settings.tsx` / `app/security.tsx` la organización de ajustes y seguridad.
+Las primitivas nativas se integran en `wallet-ui.tsx`; los handlers continúan
+perteneciendo a la wallet, sin sustituirlos por los servicios mock del frontend.
+Los assets y sus licencias están en `src/design`; las fuentes proceden de
+`@expo-google-fonts/dm-sans@0.4.2` y
+`@expo-google-fonts/instrument-serif@0.4.1`. Las marcas de redes conservan
+sus originales y las referencias de `assets/ecosystem/sources.json`.
+
 Aplicación **React Native/Expo con entrega Android**, custodia local,
 conexiones HTTPS explícitas y permisos firmados en los dominios originales.
 La pantalla **Cartera** usa Ethereum, Bitcoin y Solana mainnet mediante la API
@@ -22,10 +70,42 @@ caducada muestran **Saldo por consultar**. El último importe confirmado conserv
 su hora y se identifica como histórico, sin presentarse como disponible actual.
 Los trabajos pendientes permanecen en sus custodias originales.
 
-La navegación principal contiene **Cartera**, **Demo privada**, **DeFi demo** y
-**Actividad demo**, con **Ajustes** en la cabecera. Dentro de DeFi, **Mis inversiones** abre los activos recibidos
-y las cuentas vinculadas. **Ajustes → Herramientas avanzadas y recuperación**
-conserva las conexiones y recuperaciones anteriores.
+La navegación principal contiene **Inicio**, **Operaciones**, **Agente**,
+**Aprobaciones** y **Más**. El historial se abre desde Inicio. Más conserva
+seguridad, recuperación y las conexiones avanzadas. Operaciones presenta
+los envíos registrados y permite abrir los planes y estrategias guardados.
+Las conexiones de pruebas siguen identificándose en sus revisiones originales.
+Agente conecta con el servicio persistente y el modelo real mediante la API
+firmada del dispositivo. Su cabecera, orbe, bienvenida, compositor y paneles
+siguen el código de `features/agent/AgentScreen.tsx` del frontend completo.
+El orbe refleja conexión, trabajo y respuesta; las transiciones y pulsaciones
+respetan movimiento reducido. El compositor crece con el texto y se adapta al
+teclado Android. Los mensajes aparecen de inmediato; la recepción se confirma
+por separado y un reintento conserva el mismo identificador. Si se cambia de
+pestaña durante un envío no confirmado, queda disponible para reintentar.
+Los fragmentos llegan por SSE autenticado mediante XHR incremental nativo. El
+indicador de espera tiene un pulso suave y desaparece al primer texto recibido,
+incluso si el servidor aún está cerrando el turno. Con movimiento reducido el
+indicador permanece estático. Las respuestas progresivas se sustituyen por el
+resultado guardado, con texto
+formateado, enlaces HTTPS, tarjetas de observaciones y propuestas verificables.
+El scroll conserva la posición al leer mensajes anteriores y ofrece volver al
+último mensaje. Ajustes incluye tareas, memoria editable y permisos reales.
+El chat remoto permanece en el servidor al bloquear o actualizar la app; el
+borrador se conserva entre pestañas durante la sesión desbloqueada. Si el
+servicio no está disponible, se informa sin fabricar una conversación local.
+La voz y las notificaciones siguen pendientes. No se importan datos ni propuestas
+ficticias del prototipo. Aprobaciones permite revisar enlaces
+de propuestas recibidas mediante el controlador original; no fabrica un inbox
+remoto ni un número de solicitudes pendientes sin haberlas consultado.
+
+El botón Atrás de Android cierra primero el teclado o un panel abierto, después
+vuelve por los detalles de la cartera y el historial de secciones. En Inicio,
+sin paneles ni pasos internos, deja actuar al sistema. Las secciones con
+operaciones conservan los bloqueos y el propietario de su transporte. El estado
+del recorrido se reinicia al bloquear la sesión. El indicador de espera usa una
+onda de brillo por letras y puntos escalonados, con animación nativa y sin
+movimiento cuando se activa esa preferencia.
 
 ## Conectar el teléfono al ordenador
 
@@ -641,3 +721,32 @@ Advisories pendientes:
 Referencias: [SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore/),
 [Crypto](https://docs.expo.dev/versions/latest/sdk/crypto/),
 [LocalAuthentication](https://docs.expo.dev/versions/latest/sdk/local-authentication/).
+
+## Principal y Pruebas — preparación del 17 de octubre
+
+El selector superior cambia el entorno de toda la cartera. Principal conserva
+las cuentas existentes; Pruebas utiliza Ethereum Sepolia, Bitcoin testnet3 y
+Solana devnet. Los saldos y el historial se filtran por red. Las valoraciones
+con cotizaciones de mercado en Pruebas son sólo referencias, sin valor monetario.
+Las operaciones privadas y DeFi de esta entrega se abren desde Pruebas.
+
+La primera activación del otro entorno requiere autorización biométrica para
+derivar sus cuentas públicas desde la misma raíz protegida. No reemplaza las
+cuentas ni genera otras palabras. El formato de recuperación cifrada V4 se
+conserva: al restaurar la raíz original, activar de nuevo el otro entorno
+regenera las mismas direcciones. Ethereum y Solana pueden compartir dirección
+entre redes; la dirección por sí sola no identifica el entorno.
+
+El servidor debe instalar primero el código que separa los journals por entorno
+y después habilitar las seis redes. El journal principal mantiene su ruta y
+huella de configuración originales; el de pruebas reside en `testnet-v2` dentro
+del directorio del mismo propietario. En envío, cancelación y consulta, la nueva
+APK incluye el `networkId` firmado. Las peticiones antiguas de mainnet siguen
+funcionando. Una revisión preparada antes de cambiar de entorno deja de ser
+utilizable; un envío ya firmado con resultado incierto sólo se observa al reintentar.
+
+La APK preparada está en
+`.local/mobile/artifacts/android-lianum-environments-20261017/app-release.apk`.
+Sus evidencias de compilación y pruebas son `20261017-environments-*` en
+`.local/maintenance`. La instalación y aceptación en Android físico quedan
+pendientes de la disponibilidad del dispositivo y del despliegue compatible.

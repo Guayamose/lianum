@@ -42,6 +42,7 @@ python3 - "$workspace" <<'PY'
 import json, os, pathlib, pwd, sys
 root = pathlib.Path(sys.argv[1]); user = pwd.getpwnam('lianum-paeg')
 paths = ['omnichain-product/.local/integrations', 'omnichain-product/evidence/paeg-proof-attempts',
+         'omnichain-product/evidence/m23-wallet-proof-attempts',
          'omnichain-flat-profile/flat-wallet/.local/proof-workers']
 for relative in paths:
     path = root / 'candidate/resources' / relative
@@ -52,6 +53,10 @@ for relative in paths:
         os.chown(directory, user.pw_uid, user.pw_gid); directory.chmod(0o700)
 # Protect every original historical artifact/report inside the writable worker
 # tree. The service gets fresh job directories but cannot replace these bytes.
+diagnostics = root / 'candidate/evidence/device-paged-note-computation'
+diagnostics.mkdir(parents=True, exist_ok=True)
+if diagnostics.is_symlink(): raise SystemExit('PAEG_INSTALL_STATE_ALIAS')
+os.chown(diagnostics, user.pw_uid, user.pw_gid); diagnostics.chmod(0o700)
 manifest = json.loads((root / 'candidate/source-bundle.json').read_bytes())
 prefix = 'resources/omnichain-flat-profile/flat-wallet/.local/proof-workers/'
 lines = ['[Service]']

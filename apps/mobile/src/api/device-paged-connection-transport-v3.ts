@@ -38,7 +38,10 @@ export async function readDeviceDefiPositionsConnectionClipboardV1():Promise<str
 /** Only this constructor-scoped original descriptor can supply either SDK. */
 export async function createDevicePagedConnectionTransportV3(profile:DevicePagedConnectionProfileV3,signal?:AbortSignal):Promise<Transport>{
  const packet=parseDevicePagedConnectionProfileV3(JSON.stringify(profile)),descriptor=packet.descriptor;
- return createPinnedTransport('PAGED',descriptor.origin,descriptor.deadlineMs,packet.transport,signal,descriptor.pairingId);
+ // Transport lifetime is independent of the signed financial permission.
+ // Android bounds each TLS session to nine hours, even for longer permissions.
+ const transportDeadline=Math.min(descriptor.deadlineMs,Date.now()+9*60*60*1000);
+ return createPinnedTransport('PAGED',descriptor.origin,transportDeadline,packet.transport,signal,descriptor.pairingId);
 }
 export async function createDeviceExternalFlatPinnedTransportV1(input:{descriptor:unknown;certificatePEM:string;certificateSHA256:string;signal?:AbortSignal}):Promise<Transport>{
  const descriptor=normalizeExternalFlatDescriptorV1(input.descriptor);

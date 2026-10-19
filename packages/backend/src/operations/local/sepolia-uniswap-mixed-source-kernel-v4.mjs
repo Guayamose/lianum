@@ -101,6 +101,9 @@ export function isOriginalSepoliaUniswapMixedSourceCommandV4(token){return sourc
 export const readOriginalSepoliaUniswapMixedSourceCommandV4=(...args)=>sourceJournal.readCommand(...args);
 export const consumeOriginalSepoliaUniswapMixedSourceCommandV4=(...args)=>sourceJournal.consumeCommand(...args);
 export const closeOriginalSepoliaUniswapMixedSourceJournalV4=(...args)=>sourceJournal.close(...args);
+export const isOriginalSepoliaUniswapExpiredDepositRetirementV18=(...args)=>sourceJournal.isExpiredDepositRetirementV18(...args);
+export const armOriginalSepoliaUniswapExpiredDepositRetirementV18=(...args)=>sourceJournal.armExpiredDepositRetirementV18(...args);
+export const consumeOriginalSepoliaUniswapExpiredDepositRetirementV18=(...args)=>sourceJournal.consumeExpiredDepositRetirementV18(...args);
 
 /** Retained compiled Mixed Source DATA; only a later Original Sup consumer may reopen. */
 export async function retainOriginalSepoliaUniswapMixedSourceV4(runtime,system){
@@ -134,3 +137,7 @@ export const readOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sour
 export const publishOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.publishExpiredWithdrawalV10(...args);
 export async function reopenOriginalSepoliaUniswapMixedExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,token){assert.equal(arguments.length,5);assertOriginalSepoliaUniswapMixedSourceV4(runtime,system);const S=await import('../recovery/paged-public-uniswap-mixed-supervisor-v4.mjs'),saved=await S.consumeOriginalPagedPublicUniswapExpiredMixedWithdrawalV10(token);return sourceJournal.reopenExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,saved);}
 export const openOutputOwnerOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...args)=>sourceJournal.openExpiredWithdrawalOutputOwnerV10(...args);
+
+export const isOriginalSepoliaUniswapExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.isExpiredWithdrawalRetirementV32(...args);
+export const armOriginalSepoliaUniswapExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.armExpiredWithdrawalRetirementV32(...args);
+export const consumeOriginalSepoliaUniswapExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.consumeExpiredWithdrawalRetirementV32(...args);

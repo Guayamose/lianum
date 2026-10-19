@@ -1,13 +1,17 @@
 import {createServer} from 'node:http';
+import {once} from 'node:events';
 import {join} from 'node:path';
 import {mkdir,lstat,opendir} from 'node:fs/promises';
 import {isIP} from 'node:net';
+import {createHash,timingSafeEqual} from 'node:crypto';
+import {createAgentWalletBackendV1} from './agent-wallet-backend-v1.mjs';
 import {createPublicWalletAuthV1} from './auth-v1.mjs';
 import {readCloudConnectionDirectoryV1} from './connection-directory-v1.mjs';
 import {dispatchMoonPayHttpV1} from '../fiat/moonpay-http-v1.mjs';
 import {createMoonPayGatewayV1} from '../fiat/moonpay-gateway-v1.mjs';
 import {createNativeWalletServiceV1} from '../native-wallet/index.mjs';
-import {validateNativeAccountV1,validateNativeAddressV1,nativeAtomicV1} from '@lianum/crypto/native-wallet-v1';
+import {nativePublicNetworksV1} from '../native-wallet/networks-v1.mjs';
+import {validateNativeAccountV1,validateNativeAddressV1,nativeAtomicV1,nativeNetworkV1} from '@lianum/crypto/native-wallet-v1';
 import {NATIVE_WALLET_AUTH_ROUTES_V1} from '@lianum/crypto/native-wallet-auth-v1';
 
 export const PUBLIC_WALLET_LIMITS_V1=Object.freeze({
@@ -20,6 +24,11 @@ const OWNER=/^[0-9a-f]{64}$/,ID=/^[0-9a-f-]{36}$/;
 const loopback=value=>value==='127.0.0.1'||value==='::1'||value==='::ffff:127.0.0.1';
 function refuse(code){throw Error(code);}
 function errorCode(error){const value=error?.code??error?.message;return typeof value==='string'&&/^(?:NATIVE_[A-Z_]+|FIAT_[A-Z_]+)$/.test(value)?value:'NATIVE_SERVICE_UNAVAILABLE';}
+function nativeFailureDiagnostic(path,error,code){
+ // No request, signature, transaction bytes, headers or provider text.
+ const locations=[...(typeof error?.stack==='string'?error.stack:'').matchAll(/\/(?:native-wallet|public-wallet|crypto)\/([a-z0-9-]+\.mjs):([0-9]{1,6}):([0-9]{1,6})/g)].slice(0,3).map(m=>m[1]+':'+m[2]+':'+m[3]);
+ try{console.error('LIANUM_NATIVE_REQUEST_FAILURE_V24',JSON.stringify({path,code,locations,httpStatus:Number.isInteger(error?.httpStatus)?error.httpStatus:null,rpcCode:Number.isInteger(error?.rpcErrorCode)?error.rpcErrorCode:null}));}catch{}
+}
 function exactBody(value,required,optional=[]){
  if(!value||typeof value!=='object'||Array.isArray(value)||Object.getPrototypeOf(value)!==Object.prototype)refuse('NATIVE_HTTP_BODY');
  const keys=Object.keys(value);if(!required.every(key=>keys.includes(key))||!keys.every(key=>required.concat(optional).includes(key)))refuse('NATIVE_HTTP_BODY');
@@ -32,9 +41,9 @@ function validateNativeBody(path,body){
   if(nativeAtomicV1(body.amountAtomic)<=0n||body.operationId!==undefined&&!ID.test(body.operationId)||body.networkId!==undefined&&body.networkId!==body.account.networkId)refuse('NATIVE_HTTP_BODY');
   return;
  }
- if(path==='/v1/native/submit'){exactBody(body,['quoteId','rawTransaction']);if(!ID.test(body.quoteId)||typeof body.rawTransaction!=='string'||!body.rawTransaction.length||body.rawTransaction.length>800000)refuse('NATIVE_HTTP_BODY');return;}
- if(path==='/v1/native/cancel'){exactBody(body,['id']);if(!ID.test(body.id))refuse('NATIVE_HTTP_BODY');return;}
- if(path==='/v1/native/status'){exactBody(body,['id']);if(typeof body.id!=='string'||body.id.length>128||!/^[0-9a-zA-Z-]+$/.test(body.id))refuse('NATIVE_HTTP_BODY');return;}
+ if(path==='/v1/native/submit'){exactBody(body,['quoteId','rawTransaction'],['networkId']);if(body.networkId!==undefined)nativeNetworkV1(body.networkId);if(!ID.test(body.quoteId)||typeof body.rawTransaction!=='string'||!body.rawTransaction.length||body.rawTransaction.length>800000)refuse('NATIVE_HTTP_BODY');return;}
+ if(path==='/v1/native/cancel'){exactBody(body,['id'],['networkId']);if(body.networkId!==undefined)nativeNetworkV1(body.networkId);if(!ID.test(body.id))refuse('NATIVE_HTTP_BODY');return;}
+ if(path==='/v1/native/status'){exactBody(body,['id'],['networkId']);if(body.networkId!==undefined)nativeNetworkV1(body.networkId);if(typeof body.id!=='string'||body.id.length>128||!/^[0-9a-zA-Z-]+$/.test(body.id))refuse('NATIVE_HTTP_BODY');return;}
  refuse('NATIVE_ROUTE_NOT_FOUND');
 }
 function responseStatus(code){
@@ -107,28 +116,39 @@ async function originalOwners(directory){
 /** Keyless API behind a loopback-only HTTPS ingress. Limits apply before body
  * allocation and journal birth. Shutdown aborts reads and drains admitted signed
  * submissions; their gateway persists UNKNOWN rather than rebroadcasting. */
-export async function createPublicWalletHttpServiceV1({origin,directory,nativeConfiguration,moonpayConfiguration=null,connectionDirectoryPath=null,nativeFactory=createNativeWalletServiceV1,fiatFactory=createMoonPayGatewayV1}){
+export async function createPublicWalletHttpServiceV1({origin,directory,nativeConfiguration,moonpayConfiguration=null,connectionDirectoryPath=null,nativeFactory=createNativeWalletServiceV1,fiatFactory=createMoonPayGatewayV1,agent=null,agentBackendToken=null,agentMarketReader}){
  const connections=await readCloudConnectionDirectoryV1(connectionDirectoryPath,origin);
  const auth=createPublicWalletAuthV1(origin,{maxPending:PUBLIC_WALLET_LIMITS_V1.pendingChallenges}),nativeServices=new Map(),active=new Set(),contexts=new Set(),admit=createAdmission();
  let closed=false,closeWork,ownerQueue=Promise.resolve();
  await privateDirectory(directory);const nativeDirectory=join(directory,'native');await privateDirectory(nativeDirectory);
  const owners=await originalOwners(nativeDirectory),fiat=await fiatFactory({configuration:moonpayConfiguration,directory:join(directory,'fiat')});
- function native(ownerId){
-  if(!OWNER.test(ownerId))refuse('NATIVE_AUTH_BINDING');let promise=nativeServices.get(ownerId);if(promise)return promise;
-  if(nativeServices.size>=PUBLIC_WALLET_LIMITS_V1.residentOwners)refuse('NATIVE_SERVICE_CAPACITY');
+ const partition=new Map(['mainnet','testnet'].map(network=>[network,(nativeConfiguration?.networks??[]).filter(row=>nativeNetworkV1(row.id).network===network)]));
+ const mixedEnvironments=partition.get('mainnet').length>0&&partition.get('testnet').length>0;
+ if(mixedEnvironments)nativePublicNetworksV1(nativeConfiguration);
+ function native(ownerId,network){
+  if(!OWNER.test(ownerId)||!['mainnet','testnet'].includes(network))refuse('NATIVE_AUTH_BINDING');if((partition.get('mainnet').length||partition.get('testnet').length)&&!partition.get(network).length)refuse('NATIVE_WALLET_NETWORK_NOT_CONFIGURED');const serviceKey=mixedEnvironments?ownerId+':'+network:ownerId;let promise=nativeServices.get(serviceKey);if(promise)return promise;
+  const residentOwners=new Set([...nativeServices.keys()].map(key=>key.slice(0,64)));
+  if(!residentOwners.has(ownerId)&&residentOwners.size>=PUBLIC_WALLET_LIMITS_V1.residentOwners)refuse('NATIVE_SERVICE_CAPACITY');
   promise=ownerQueue.then(async()=>{
    if(closed)refuse('NATIVE_SERVICE_CLOSED');
    if(!owners.has(ownerId)){if(owners.size>=PUBLIC_WALLET_LIMITS_V1.persistedOwners)refuse('NATIVE_SERVICE_OWNER_CAPACITY');await privateDirectory(join(nativeDirectory,ownerId));owners.add(ownerId);}
-   return nativeFactory({directory:join(nativeDirectory,ownerId),configuration:nativeConfiguration});
+   // Keep the existing mainnet journal and its configuration fingerprint
+   // byte compatible. Testnet gets a separate Original gateway/journal.
+   const target=mixedEnvironments&&network==='testnet'?join(nativeDirectory,ownerId,'testnet-v2'):join(nativeDirectory,ownerId);
+   await privateDirectory(target);
+   return nativeFactory({directory:target,configuration:mixedEnvironments?{networks:partition.get(network)}:nativeConfiguration});
   });
-  ownerQueue=promise.then(()=>{},()=>{});nativeServices.set(ownerId,promise);promise.catch(()=>{if(nativeServices.get(ownerId)===promise)nativeServices.delete(ownerId);});return promise;
+  ownerQueue=promise.then(()=>{},()=>{});nativeServices.set(serviceKey,promise);promise.catch(()=>{if(nativeServices.get(serviceKey)===promise)nativeServices.delete(serviceKey);});return promise;
  }
+ const agentWallet=agentBackendToken?await createAgentWalletBackendV1({directory:join(directory,'agent-wallets'),native,networks:(nativeConfiguration?.networks??[]).map(row=>row.id),...(agentMarketReader?{marketReader:agentMarketReader}:{})}):null;
+ let backendServer=null;
  async function dispatch(request,response,context){
-  let raw;const path=request.url;
+  let raw,nativeActionStarted=false;const path=request.url;
   try{
    if(closed)refuse('NATIVE_SERVICE_CLOSED');
    if(request.method==='GET'&&path==='/health'){send(response,200,{ready:true});return;}
    if(request.method==='GET'&&path==='/v1/fiat/capabilities'){send(response,200,fiat.capabilities());return;}
+   if(request.method==='GET'&&path==='/v1/agent/capabilities'){send(response,200,agent?await agent.capabilities(context.abort.signal):{profile:'LIANUM_AGENT_CAPABILITIES_V1',configured:false});return;}
    const allowed=path==='/v1/auth/challenge'||path==='/v1/fiat/moonpay/webhook'||NATIVE_WALLET_AUTH_ROUTES_V1.includes(path);
    if(request.method!=='POST'||!allowed){send(response,404,{error:'NATIVE_ROUTE_NOT_FOUND'},true);return;}
    raw=await readBody(request,bodyLimit(path),context.abort.signal);
@@ -137,21 +157,43 @@ export async function createPublicWalletHttpServiceV1({origin,directory,nativeCo
    if(path==='/v1/auth/challenge'){send(response,200,context.admission.issueChallenge(()=>auth.issue(envelope)));return;}
    const {ownerId,devicePublicKey,body}=auth.consume(path,envelope);
    if(context.abort.signal.aborted)refuse('NATIVE_HTTP_CANCELLED');
+   if(path.startsWith('/v1/agent/')){
+    if(!agent)refuse('NATIVE_AGENT_NOT_CONFIGURED');
+    const identity={ownerId,devicePublicKey,connections:connections.filter(row=>row.descriptor.devicePublicKey===devicePublicKey)};
+    if(path==='/v1/agent/wallet'){
+     if(!agentWallet)refuse('NATIVE_AGENT_BACKEND_NOT_CONFIGURED');
+     // The agent's deployment allowlist is checked before registry creation.
+     await agent.dispatch(identity,'/v1/agent/state',{},context.abort.signal);
+     const linked=await agentWallet.link(identity,body);
+     send(response,200,await agent.dispatch(identity,path,linked,context.abort.signal));return;
+    }
+    if(path==='/v1/agent/stream'){
+     for await(const chunk of agent.stream(identity,body,context.abort.signal)){
+      if(context.abort.signal.aborted||response.destroyed)break;
+      if(!response.headersSent){response.writeHead(200,{'content-type':'text/event-stream; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','x-accel-buffering':'no'});response.flushHeaders();}
+      if(!response.write(chunk))await once(response,'drain',{signal:context.abort.signal});
+     }if(!response.destroyed)response.end();return;
+    }
+    send(response,200,await agent.dispatch(identity,path,body,context.abort.signal));return;
+   }
    if(path==='/v1/wallet/connections'){
     exactBody(body,[]);
     send(response,200,{profile:'LIANUM_CLOUD_CONNECTIONS_V1',devicePublicKey,connections:connections.filter(row=>row.descriptor.devicePublicKey===devicePublicKey)});return;
    }
    if(path.startsWith('/v1/fiat/')){const result=await dispatchMoonPayHttpV1('POST',path,body,ownerId,fiat,context.abort.signal);send(response,result.status,result.body);return;}
-   validateNativeBody(path,body);const service=await native(ownerId);
+   validateNativeBody(path,body);
+   nativeActionStarted=path==='/v1/native/prepare'||path==='/v1/native/submit';
+   const network=path==='/v1/native/account'?body.network:path==='/v1/native/prepare'?body.account.network:body.networkId!==undefined?nativeNetworkV1(body.networkId).network:mixedEnvironments?'mainnet':partition.get('testnet').length?'testnet':'mainnet';
+   const service=await native(ownerId,network);
    if(context.abort.signal.aborted)refuse('NATIVE_HTTP_CANCELLED');
    let result;
    if(path==='/v1/native/account')result=await service.readAccount(body,context.abort.signal);
    else if(path==='/v1/native/prepare')result=await service.prepareSend(body,context.abort.signal);
    else if(path==='/v1/native/submit')result=await service.submitSigned(body,context.abort.signal);
-   else if(path==='/v1/native/status')result=await service.observeTransfer(body.id,context.abort.signal);
+   else if(path==='/v1/native/status')result=await service.observeTransfer(body.networkId===undefined?body.id:{id:body.id,networkId:body.networkId},context.abort.signal);
    else result=await service.cancelQuote(body,context.abort.signal);
    send(response,200,result);
-  }catch(error){const code=context.deadline?'NATIVE_HTTP_DEADLINE':errorCode(error);send(response,responseStatus(code),{error:code},!request.complete);}
+  }catch(error){if(response.headersSent){response.end();return;}const code=context.deadline?'NATIVE_HTTP_DEADLINE':errorCode(error);if(nativeActionStarted)nativeFailureDiagnostic(path,error,code);send(response,responseStatus(code),{error:code},!request.complete);}
   finally{raw?.fill(0);}
  }
  function receive(request,response){
@@ -174,12 +216,25 @@ export async function createPublicWalletHttpServiceV1({origin,directory,nativeCo
    if(!['127.0.0.1','::1'].includes(host))refuse('NATIVE_SERVICE_LOOPBACK');
    await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,()=>{server.removeListener('error',reject);resolve();});});return server.address();
   },
+  async listenAgentBackend({port=8791}={}){
+   if(!agentWallet||backendServer||typeof agentBackendToken!=='string'||agentBackendToken.length<32||/[\r\n]/.test(agentBackendToken))refuse('NATIVE_AGENT_BACKEND_CONFIGURATION');
+   const digest=value=>createHash('sha256').update(value).digest(),expected=digest('Bearer '+agentBackendToken);
+   backendServer=createServer((request,response)=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);const cancel=()=>controller.abort();response.once('close',cancel);
+    const work=(async()=>{try{
+     if(closed||!loopback(request.socket.remoteAddress)||!timingSafeEqual(expected,digest(request.headers.authorization??''))){send(response,403,{error:'NATIVE_AGENT_BACKEND_AUTH'});request.resume();return;}
+     if(request.method!=='POST'||request.url!=='/snapshot'){send(response,404,{error:'NATIVE_AGENT_BACKEND_ROUTE'});request.resume();return;}
+     const bytes=await readBody(request,65536,controller.signal),body=JSON.parse(bytes.toString('utf8'));bytes.fill(0);exactBody(body,['ownerId','network']);
+     send(response,200,await agentWallet.snapshot(body.ownerId,body.network,controller.signal));
+    }catch(error){send(response,400,{error:errorCode(error)});}finally{clearTimeout(timer);response.removeListener('close',cancel);}})();active.add(work);void work.finally(()=>active.delete(work));
+   });backendServer.requestTimeout=30000;backendServer.headersTimeout=5000;backendServer.maxHeadersCount=16;
+   await new Promise((resolve,reject)=>{backendServer.once('error',reject);backendServer.listen(port,'127.0.0.1',()=>{backendServer.removeListener('error',reject);resolve();});});return backendServer.address();
+  },
   close(){
    if(closeWork)return closeWork;closed=true;
    closeWork=(async()=>{
-    const stopped=new Promise(resolve=>server.close(()=>resolve()));
+    const stopped=new Promise(resolve=>server.close(()=>resolve())),backendStopped=backendServer?new Promise(resolve=>{backendServer.closeAllConnections();backendServer.close(resolve);}):Promise.resolve();
     for(const context of contexts)context.abort.abort();
-    await Promise.allSettled([...active]);await stopped;
+    await Promise.allSettled([...active]);await stopped;await backendStopped;
     auth.close();const failures=[];
     try{await fiat.close();}catch(error){failures.push(error);}
     for(const promise of nativeServices.values()){const value=await promise.catch(()=>null);try{await value?.close();}catch(error){failures.push(error);}}

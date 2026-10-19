@@ -10,11 +10,11 @@ export interface NativeWalletGatewayV1{
  balances(account:NativeAccountV1,signal?:AbortSignal):Promise<NativeBalanceV1>;
  readAccount(account:NativeAccountV1,signal?:AbortSignal):Promise<NativeBalanceV1>;
  prepareSend(input:{account:NativeAccountV1;recipient:string;amountAtomic:string;operationId?:string;networkId?:NativeNetworkIdV1},signal?:AbortSignal):Promise<NativeQuoteV1>;
- broadcast(input:{quoteId:string;rawTransaction:string},signal?:AbortSignal):Promise<NativeStatusV1>;
- submitSigned(input:{quoteId:string;rawTransaction:string},signal?:AbortSignal):Promise<NativeStatusV1>;
+ broadcast(input:{quoteId:string;rawTransaction:string;networkId?:NativeNetworkIdV1},signal?:AbortSignal):Promise<NativeStatusV1>;
+ submitSigned(input:{quoteId:string;rawTransaction:string;networkId?:NativeNetworkIdV1},signal?:AbortSignal):Promise<NativeStatusV1>;
  transactionStatus(input:{id:string;networkId?:NativeNetworkIdV1},signal?:AbortSignal):Promise<NativeStatusV1>;
  observeTransfer(id:string|{id:string;networkId?:NativeNetworkIdV1},signal?:AbortSignal):Promise<NativeStatusV1>;
- cancelQuote(input:{id:string},signal?:AbortSignal):Promise<NativeStatusV1>;
+ cancelQuote(input:{id:string;networkId?:NativeNetworkIdV1},signal?:AbortSignal):Promise<NativeStatusV1>;
  close():Promise<void>;
 }
 export function createNativeWalletGatewayV1(options:{directory:string;configuration:NativeConfigurationV1}|{journalDirectory:string;config:NativeConfigurationV1}):Promise<NativeWalletGatewayV1>;

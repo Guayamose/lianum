@@ -42,3 +42,21 @@ test('one fixed Aave faucet call is signed against the same seven finalized targ
  const pending=structuredClone(rows);pending[1].phase='CONFIRMED';assert.throws(()=>R.validatePagedPublicDefiSourceCurrentDataV8(pending,f.checkpoint,f.raw),/FAUCET_FINALIZED_TARGET/);
  const repeated=structuredClone(rows);repeated.push({...faucet,id:h(99)});assert.throws(()=>R.validatePagedPublicDefiSourceCurrentDataV8(repeated,f.checkpoint,f.raw));
 });
+
+test('cold Source7 reader authenticates retired W39 plus its same-note replacement and retains both fee reservations',async()=>{
+ const {encodeWalletPoolInputs}=await import('@lianum/engine/wallet/notes/private-wallet-note-encoding'),{publicKeccak256}=await import('@lianum/engine/cohorts/private-cohort-public-native'),D=await import('../../src/chains/public-testnet/sepolia-note-retry-data-v32.mjs');
+ const f=fixture(),w=n=>BigInt(n).toString(16).padStart(64,'0'),selector=publicKeccak256(Buffer.from('withdraw(bytes,bytes32[])')).subarray(0,4).toString('hex');
+ function withdrawal(epoch,recipient='0x'+'7'.repeat(40)){
+  const result=row(1,R.DEFI_MIXED_COMMAND_ROW_V8),inputs=encodeWalletPoolInputs('withdraw_balance',{scope:'0x'+h(3),policy:'0x'+h(4),epoch:String(epoch),root:'0x'+h(5),nullifier:'0x'+h(6),amount:'10',recipient}),data='0x'+selector+w(64)+w(128)+w(1)+'01'.padEnd(64,'0')+w(inputs.length)+inputs.map(w).join('');
+  result.command={...result.command,action:'WITHDRAW_W39',data};result.transaction.calldata=data;
+  result.id=epoch===1?sha([result.command.identity,result.command.jobId,result.command.action]):D.sourceNoteRetryIdV32(result.command);
+  result.signed=validateSepoliaSourceCallWireV4(result.transaction,policy.account,signSepoliaSourceCallWireV4(result.transaction,key));
+  result.phase=epoch===1?D.EXPIRED_WITHDRAWAL_V32:'UNKNOWN';return result;
+ }
+ const retired=withdrawal(1),retry=withdrawal(2),rows=[...f.base,retired,retry];
+ assert.equal(R.validatePagedPublicDefiSourceCurrentDataV8(rows,f.checkpoint,f.raw).extensionRows,2);
+ const active=structuredClone(rows);active[1].phase='UNKNOWN';assert.throws(()=>R.validatePagedPublicDefiSourceCurrentDataV8(active,f.checkpoint,f.raw),/ORIGINAL_EXPIRED|DUPLICATE_NONCE/);
+ assert.throws(()=>R.validatePagedPublicDefiSourceCurrentDataV8([...f.base,retired,withdrawal(2,'0x'+'8'.repeat(40))],f.checkpoint,f.raw),/SUBSTITUTION/);
+ const success=structuredClone(rows);success[1].receipt={status:'0x1'};assert.throws(()=>R.validatePagedPublicDefiSourceCurrentDataV8(success,f.checkpoint,f.raw),/EXPIRED_SUCCESS/);
+ const tampered=structuredClone(rows);tampered[1].transaction.calldata='0x1234';assert.throws(()=>R.validatePagedPublicDefiSourceCurrentDataV8(tampered,f.checkpoint,f.raw));
+});

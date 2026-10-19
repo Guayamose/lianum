@@ -99,6 +99,24 @@ export async function sealOriginalDevicePagedOwnerTerminalOutputWithdrawalV5(pre
 export async function readOriginalDevicePagedOwnerProofIntentCheckpointV4(config,descriptor,before,accepted){
  assert.equal(arguments.length,4);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);try{return await reader.readProofIntentCheckpointV4(before,accepted);}finally{reader.close();}
 }
+
+/** Recovery starts at the authentic accepted checkpoint. No predecessor
+ * checkpoint is guessed when an old observation lost the authority marker. */
+export async function readOriginalDevicePagedOwnerAcceptedProofIntentCheckpointV19(config,descriptor,accepted){
+ assert.equal(arguments.length,3);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected:null},descriptor);try{return await reader.readAcceptedProofIntentCheckpointV19(accepted);}finally{reader.close();}
+}
+export async function readOriginalDevicePagedOwnerUntrackedReserveIntentV19(config,descriptor,expected,graph){
+ assert.equal(arguments.length,4);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected},descriptor);try{return await reader.readUntrackedReserveIntentV19(graph);}finally{reader.close();}
+}
+/** Read the accepted reserve's original funding window from the same
+ * authenticated capsule. These are DATA for cutoff/recovery checks, including
+ * an independently authorized unused-source withdrawal. They issue no proof,
+ * permission, cancellation or new source opening. */
+export async function readOriginalDevicePagedOwnerUntrackedReserveRecoveryV21(config,descriptor,expected,graph){
+ assert.equal(arguments.length,4);P.pagedOwnerExactV3(config,['path','password']);const reader=await createDevicePagedOwnerRetentionV3({...config,expected},descriptor);let capsule;
+ try{const accepted=await reader.readUntrackedReserveIntentV19(graph);if(accepted===null)return null;capsule=reader.restored();assert.deepEqual(reader.checkpoint(),accepted.checkpoint);const fundingValidUntil=capsule.cfg.fundingValidUntil;P.pagedOwnerUintV3(fundingValidUntil);return{accepted,fundingValidUntil};}
+ finally{wipePrivateProofInputsV1(capsule);reader.close();}
+}
 /** Existing private Vault only. DATA cannot reopen a financial owner: the
  * actual graph client must reconstruct its signature-bound intent over IPC. */
 export async function readOriginalDevicePagedOwnerUnacknowledgedExecutorIntentV5(config,descriptor,graph){

@@ -1,3 +1,5 @@
+import {withPublicCanonicalBlockReadsV25} from '../../native-wallet/http-v1.mjs';
+import {readOriginalPagedSepoliaRpcContextV4} from '../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
 /** Independent ORIGINAL PUBLIC compiled owner. No LOCAL ownership,
  * provider, signer, Authority callbacks or DTO system adoption. */
 import assert from 'node:assert/strict';
@@ -45,7 +47,14 @@ const originalSourceJournal=buildPagedSepoliaSourceJournalDataV4(Object.freeze({
 function readOriginalPagedSepoliaSourceDeploymentV4(runtime,system){assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);const s=owned.get(system),entries=s.sourceEntries;return Object.freeze({entries,ownPins:s.sourceProofPins,ownArtifacts:s.sourceProofArtifacts,pool:s.context.pool,state:s.context.state,native:s.context.native,ledgerLeaves:head=>s.context.ledgerLeaves(head),call:(kind,signature,args=[],block='latest')=>runtime.call({to:system[kind],data:staticSourceData(entries[kind].artifact,signature,args)},block)});}
 export async function assertOriginalPagedSepoliaReceiverReadyV4(runtime,system){assertOriginalPagedSepoliaSourceLaneV4(runtime);return observedOriginalReceiverReady(runtime,system);}
 export async function assertOriginalPagedSepoliaRefillRecoveryReceiverReadyV16(runtime,system){const R=await import('../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs');await R.readOriginalPagedSepoliaRefillRecoveryObserverFinancialStateV16(runtime);return observedOriginalReceiverReady(runtime,system);}
-async function observedOriginalReceiverReady(runtime,system){assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);const s=owned.get(system),head=await runtime.block('finalized');await runtime.assertCanonical(head);assert.ok(system.deployments.length>3,'SEPOLIA_SOURCE_BOOTSTRAP_INCOMPLETE');await Promise.all(system.deployments.map(async row=>{assert.ok(BigInt(row.receipt.blockNumber)<=BigInt(head.number),'SEPOLIA_SOURCE_BOOTSTRAP_FINALITY_PENDING');const actual=await runtime.receipt(row.receipt.transactionHash);assert.deepEqual(actual,row.receipt,'SEPOLIA_SOURCE_BOOTSTRAP_ORIGINAL_RECEIPT');await runtime.checkReceipt(actual);assert.equal(await runtime.code(row.address,head.number),row.expectedCode,'SEPOLIA_SOURCE_BOOTSTRAP_CODE');}));await runtime.assertCanonical(head);s.finalizedBootstrap=Object.freeze({hash:head.hash,number:head.number});return Object.freeze({profile:'ORIGINAL_PAGED_SEPOLIA_SOURCE_READY_V4',status:'FINALIZED',contracts:system.deployments.length,finalizedHead:s.finalizedBootstrap,trust:'RPC_PROVIDER',independentConsensus:false});}
+async function observedOriginalReceiverReady(runtime,system){
+ assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);const s=owned.get(system),head=await runtime.block('finalized');await runtime.assertCanonical(head);assert.ok(system.deployments.length>3,'SEPOLIA_SOURCE_BOOTSTRAP_INCOMPLETE');
+ if(s.finalizedBootstrap?.hash!==head.hash||s.finalizedBootstrap.number!==head.number){
+  await withPublicCanonicalBlockReadsV25(readOriginalPagedSepoliaRpcContextV4(runtime).endpoint,head,()=>Promise.all(system.deployments.map(async row=>{assert.ok(BigInt(row.receipt.blockNumber)<=BigInt(head.number),'SEPOLIA_SOURCE_BOOTSTRAP_FINALITY_PENDING');const actual=await runtime.receipt(row.receipt.transactionHash);assert.deepEqual(actual,row.receipt,'SEPOLIA_SOURCE_BOOTSTRAP_ORIGINAL_RECEIPT');await runtime.checkReceipt(actual);assert.equal(await runtime.code(row.address,head.number),row.expectedCode,'SEPOLIA_SOURCE_BOOTSTRAP_CODE');})));
+  await runtime.assertCanonical(head);assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);s.finalizedBootstrap=Object.freeze({hash:head.hash,number:head.number});
+ }else await runtime.assertCanonical(head);
+ assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);return Object.freeze({profile:'ORIGINAL_PAGED_SEPOLIA_SOURCE_READY_V4',status:'FINALIZED',contracts:system.deployments.length,finalizedHead:s.finalizedBootstrap,trust:'RPC_PROVIDER',independentConsensus:false});
+}
 export async function createOriginalPagedSepoliaSourceJournalV4(runtime,system,input){assert.equal(arguments.length,3);assertOriginalFundedPagedGraphSepoliaWalletV4(runtime,system);assert.equal(owned.get(system).parent,null,'SEPOLIA_SOURCE_INDEPENDENT_JOURNAL_REQUIRED');const {readOriginalPagedSepoliaSourceLaneV4}=await import('../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs'),lane=readOriginalPagedSepoliaSourceLaneV4(runtime);return originalSourceJournal.createInitial(runtime,system,input,lane.policy.expiresAt-30*60*1000);}
 /** Only the original fixed successor can receive the second identity. Its
  * session cannot outlive the existing sponsored Source policy. */
@@ -155,3 +164,7 @@ export async function reopenOriginalPagedSepoliaRefillStorageTerminalWithdrawalJ
 
 /** Metadata/retention binding only; financial journal checks remain separate. */
 export function assertOriginalPagedSepoliaSourceStorageJournalV8(runtime,system,bundle){assert.equal(arguments.length,3);return originalSourceJournal.assertStorageBundle(runtime,system,bundle);}
+
+export const isOriginalPagedSepoliaExpiredWithdrawalRetirementV32=(...args)=>originalSourceJournal.isExpiredWithdrawalRetirementV32(...args);
+export const armOriginalPagedSepoliaExpiredWithdrawalRetirementV32=(...args)=>originalSourceJournal.armExpiredWithdrawalRetirementV32(...args);
+export const consumeOriginalPagedSepoliaExpiredWithdrawalRetirementV32=(...args)=>originalSourceJournal.consumeExpiredWithdrawalRetirementV32(...args);

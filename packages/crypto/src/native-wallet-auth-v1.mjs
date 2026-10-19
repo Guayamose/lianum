@@ -5,6 +5,9 @@ export const NATIVE_WALLET_AUTH_ROUTES_V1=Object.freeze([
  '/v1/native/account','/v1/native/prepare','/v1/native/submit','/v1/native/status','/v1/native/cancel',
  '/v1/fiat/sessions','/v1/fiat/orders/reconcile','/v1/fiat/orders/read',
  '/v1/wallet/connections',
+ '/v1/agent/state','/v1/agent/stream','/v1/agent/messages','/v1/agent/ack','/v1/agent/cancel','/v1/agent/tasks/cancel','/v1/agent/retry','/v1/agent/memory/forget',
+ '/v1/agent/voice/open','/v1/agent/voice/state','/v1/agent/voice/heartbeat','/v1/agent/voice/close',
+ '/v1/agent/wallet','/v1/agent/operations/register','/v1/agent/operations/update','/v1/agent/operations/retry','/v1/agent/operations/stop','/v1/agent/push','/v1/agent/presence',
 ]);
 export function nativeWalletBodyHashV1(raw){if(typeof raw!=='string'||raw.length>1000000)throw Error('NATIVE_AUTH_BODY');return hex.encode(sha256(new TextEncoder().encode(raw)));}
 export function nativeWalletAuthMessageV1(value,expected,now=Date.now()){

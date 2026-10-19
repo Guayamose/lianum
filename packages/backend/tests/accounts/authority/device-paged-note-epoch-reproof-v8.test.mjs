@@ -29,22 +29,26 @@ test('PUBLIC epoch reproof requires zero Original Source attempts and preserves 
  // Native's kernel focal separately covers its producer and financial caps.
  const {Vault}=await import('@lianum/engine/crypto/vault');
  const bundles=new WeakMap(),journals=new WeakMap(),permissions=new WeakMap(),consumed=new WeakMap();
+ const retirementRequests=new WeakMap(),{canonical}=await import('@lianum/engine/crypto/privacy');
+ async function consumeRetirement(runtime,token){const g=retirementRequests.get(token);assert.ok(g&&!g.used&&g.runtime===runtime,'HOST_ORIGINAL_RETIREMENT');const j=journals.get(g.journalToken);assert.ok(j&&!j.closed);const r=await j.vault.read(j.password);assert.equal(r.revision,g.expected.revision);assert.equal(createHash('sha256').update(canonical(r.data)).digest('hex'),g.expected.dataSHA256);g.used=true;const job=r.data.jobs.find(j=>j.jobId===g.jobId);return{identity:r.data.identity,jobId:g.jobId,...r.data.pending,publicInputs:job.publicInputs,poolCodeHash:j.descriptor.poolCodeHash};}
  const kernelURL=new URL('../../../src/operations/local/funded-graph-paged-public-kernel-v4.mjs',import.meta.url);
  t.mock.module(kernelURL.href,{exports:{
   async createOriginalPagedSepoliaSourceJournalV4(runtime,system,input){
    assert.strictEqual(originalSystems.get(runtime),system,'HOST_ORIGINAL_DEPLOYMENT');assert.equal(system.receiverProfile,'ORIGINAL_PAGED_PUBLIC_SEPOLIA_RECEIVER_V4','PAGED_AUTHORITY_RECEIVER_PROFILE');
    const d=fixtures.get(runtime).deployment,math=system.deployments[0],head=await runtime.block(),descriptor=P.normalizeDevicePagedDescriptorV3({profile:P.DEVICE_PAGED_OWNER_V3,graphProfile:P.DEVICE_PAGED_GRAPH_V3,sparseEncoding:P.DEVICE_PAGED_SPARSE_V3,origin:input.origin,devicePublicKey:input.devicePublicKey,chainId:runtime.metadata.chainId,genesis:runtime.metadata.evmGenesis,...Object.fromEntries(['pool','state','native','scope','policy','assetIdentity','domain','hubDomain','registryCommitment','manifestSHA256','consumerSHA256'].map(k=>[k,system[k]])),poolCodeHash:d.pool.codeHash.slice(2),stateCodeHash:d.state.codeHash.slice(2),nativeCodeHash:d.native.codeHash.slice(2),math:math.address,mathCodeHash:math.codeHash.slice(2),pairingId:'host-public-source-'+randomBytes(8).toString('hex'),deadlineMs:P.devicePagedNowV3()+9*60*60*1000,chainDeadlineSeconds:(BigInt(head.timestamp)+32400n).toString()});
    const identity=randomBytes(32).toString('hex'),vault=new Vault(input.journal.path);await vault.create({schema:P.DEVICE_PAGED_OWNER_V3,identity,descriptor,jobs:[],pending:null,graph:null},input.journal.password);
-   const journalToken=Object.freeze({}),bundle=Object.freeze({journalToken,vault,descriptor,identity,opening:null});journals.set(journalToken,{descriptor,closed:false});bundles.set(bundle,{runtime,system});return bundle;
+   const journalToken=Object.freeze({}),bundle=Object.freeze({journalToken,vault,descriptor,identity,opening:null});journals.set(journalToken,{descriptor,closed:false,vault,runtime,password:input.journal.password});bundles.set(bundle,{runtime,system});return bundle;
   },
   assertOriginalPagedSepoliaSourceJournalV4(runtime,system,bundle){assert.deepEqual(bundles.get(bundle),{runtime,system},'HOST_ORIGINAL_JOURNAL_BUNDLE');},
   issueOriginalPagedSepoliaSourcePermissionV4(journalToken,raw){const j=journals.get(journalToken);assert.ok(j&&!j.closed);const consent=P.validateDevicePagedConsentFreshV3(raw);assert.deepEqual(consent.descriptor,j.descriptor);const token=Object.freeze({});permissions.set(token,{journalToken,consent,used:false});return token;},
   consumeOriginalPagedSepoliaSourcePermissionV4(journalToken,token,sig){const p=permissions.get(token);assert.ok(p&&p.journalToken===journalToken&&!p.used);P.validateDevicePagedConsentFreshV3(p.consent);assert.ok(verify('sha256',P.devicePagedPermissionMessageV3(p.consent),{key:device.publicKey,dsaEncoding:'ieee-p1363'},Buffer.from(sig,'hex')));p.used=true;const grant=Object.freeze({});consumed.set(grant,p);return grant;},
   readOriginalPagedSepoliaSourcePermissionV4(journalToken,token){const p=consumed.get(token);assert.ok(p?.journalToken===journalToken);return{kind:'note',consent:p.consent};},
+  async armOriginalPagedSepoliaExpiredDepositRetirementV18(token,expected,jobId){const j=journals.get(token);assert.ok(j&&!j.closed);const request=Object.freeze({});retirementRequests.set(request,{journalToken:token,runtime:j.runtime,expected,jobId,used:false});return request;},
+  async armOriginalPagedSepoliaExpiredWithdrawalRetirementV32(token,expected,jobId){const j=journals.get(token);assert.ok(j&&!j.closed);const request=Object.freeze({});retirementRequests.set(request,{journalToken:token,runtime:j.runtime,expected,jobId,used:false});return request;},
   closeOriginalPagedSepoliaSourceJournalV4(token){const j=journals.get(token);assert.ok(j);j.closed=true;}
  }});
- const sourceAttempts=new WeakMap();let sourceReads=0;
- t.mock.module(new URL('../../../src/providers/paged-public-testnet-runtimes-v1.mjs',import.meta.url).href,{exports:{async readOriginalPagedPublicSepoliaSourceRecoveryRowsV8(runtime){assert.ok(originalSystems.has(runtime),'HOST_ORIGINAL_SOURCE_RUNTIME');sourceReads++;return Object.freeze({operations:structuredClone(sourceAttempts.get(runtime)??[])});}}});
+ const sourceAttempts=new WeakMap();let sourceReads=0,retirements=0,retiredGrant=null,retiredToken=null;
+ t.mock.module(new URL('../../../src/providers/paged-public-testnet-runtimes-v1.mjs',import.meta.url).href,{exports:{async readOriginalPagedPublicSepoliaSourceRecoveryRowsV8(runtime){assert.ok(originalSystems.has(runtime),'HOST_ORIGINAL_SOURCE_RUNTIME');sourceReads++;return Object.freeze({operations:structuredClone(sourceAttempts.get(runtime)??[])});},async retireOriginalPagedPublicExpiredDepositV18(runtime,token){retiredGrant=await consumeRetirement(runtime,token);retiredToken=token;retirements++;return Object.freeze({retired:true,financialSignatureIssued:false,broadcasts:0});},async retireOriginalPagedPublicExpiredWithdrawalV32(runtime,token){retiredGrant=await consumeRetirement(runtime,token);retiredToken=token;retirements++;return Object.freeze({retired:true,financialSignatureIssued:false,broadcasts:0});}}});
  const A=await import('../../../src/accounts/authority/device-paged-note-authority-v3.mjs');
  const device=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),jwk=device.publicKey.export({format:'jwk'});
  const devicePublicKey='04'+Buffer.from(jwk.x,'base64url').toString('hex')+Buffer.from(jwk.y,'base64url').toString('hex');
@@ -55,7 +59,7 @@ test('PUBLIC epoch reproof requires zero Original Source attempts and preserves 
   const n=++serial,head={number:'0x1',hash:'0x'+hash(8),timestamp:'0x4b0'},later={number:'0x2',hash:'0x'+hash(9),timestamp:'0x4bc'};
   const f={head,later,current:head,advance:false,reorg:false,codeMismatch:false,reads:0,canonicalReads:[]};
   const system={profile:P.DEVICE_PAGED_GRAPH_V3,...(isPublic?{receiverProfile:'ORIGINAL_PAGED_PUBLIC_SEPOLIA_RECEIVER_V4'}:{}),manifestSHA256:hash(1),consumerSHA256:hash(2),pool:address(1),state:address(2),native:address(3),scope:hash(3),policy:hash(4),assetIdentity:hash(5),domain:hash(6),hubDomain:hash(7),registryCommitment:hash(8),deployments:[{name:'PagedSparsePoseidon2V3',address:address(4),codeHash:'0x'+hash(9)}]};
-  f.deployment={...Object.fromEntries(['pool','state','native'].map(key=>[key,{expectedCode:'0x6000',codeHash:'0x'+hash(9)}])),call:async(_,method)=>{assert.ok(['leafCount()','backedAmount()','insertedCommitments(bytes32)'].includes(method));return word(0);}};
+  f.deployment={...Object.fromEntries(['pool','state','native'].map(key=>[key,{expectedCode:'0x6000',codeHash:'0x'+hash(9)}])),call:async(_,method)=>{assert.ok(['leafCount()','backedAmount()','insertedCommitments(bytes32)','spentNullifiers(bytes32)'].includes(method));return word(0);}};
   const runtime={metadata:{chainId:isPublic?'11155111':'31337',evmGenesis:hash(1)},receipts:[],block:async()=>{f.reads++;return f.current;},health:async()=>{},assertCanonical:async value=>{f.canonicalReads.push(value);assert.ok(value===head||value===later);assert.ok(!f.reorg,'HOST_WITNESS_REORG');},code:async(_,block)=>{assert.equal(block,head.number);if(f.advance)f.current=later;return f.codeMismatch?'0x6001':'0x6000';}};
   originalSystems.set(runtime,system);fixtures.set(runtime,f);
   const input={origin:'https://localhost:23456',devicePublicKey,journal:{path:join(directory,'jobs-'+n+'.aead'),password:'host-original-public-journal-32bytes'}};
@@ -76,4 +80,45 @@ test('PUBLIC epoch reproof requires zero Original Source attempts and preserves 
  }
  const unknown=await seeded('UNKNOWN'),before=await unknown.v.read(unknown.input.journal.password),uc=await unknown.authority.challenge(draft('epoch-unknown')),u=await unknown.authority.submit(uc,permission(uc),null);
  assert.equal(u.jobs[0].stage,'UNKNOWN');assert.deepEqual(await unknown.v.read(unknown.input.journal.password),before,'lost ACK remains the same pending intent');
+ // The real account issues/consumes a one-use retirement only for its own
+ // current UNKNOWN mixed-source deposit after a finalized epoch boundary.
+ const recoverable=await seeded('UNKNOWN'),rr=await recoverable.v.read(recoverable.input.journal.password);
+ recoverable.runtime.accounts=[address(1)];const pending={...rr.data.pending,to:recoverable.system.pool};
+ await recoverable.v.update(recoverable.input.journal.password,rr.revision,data=>({...data,pending}));
+ sourceAttempts.set(recoverable.runtime,[{profile:'ORIGINAL_PAGED_SEPOLIA_DEFI_SOURCE_ROW_V8',phase:'UNKNOWN',command:{identity:rr.data.identity,jobId:recoverable.job.jobId,action:'FUND_D26'},signed:{nativeId:'0x'+hash(8)}}]);
+ const rc=await recoverable.authority.challenge({...draft('retire'),action:'OBSERVE_JOB',jobId:recoverable.job.jobId}),recovered=await recoverable.authority.submit(rc,permission(rc),null);
+ assert.equal(recovered.stage,'FAILED');assert.equal(recovered.errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal(retirements,1);
+ const afterRetirement=await recoverable.v.read(recoverable.input.journal.password);assert.equal(afterRetirement.data.pending,null);assert.deepEqual(afterRetirement.data.jobs[0].publicInputs,recoverable.job.publicInputs);assert.equal(afterRetirement.data.jobs[0].proof,recoverable.job.proof);
+ assert.equal(retiredGrant.identity,rr.data.identity);assert.equal(retiredGrant.to,recoverable.system.pool);assert.equal(retiredGrant.value,'10');assert.deepEqual(retiredGrant.publicInputs,recoverable.job.publicInputs);
+ await assert.rejects(consumeRetirement(recoverable.runtime,{}),/ORIGINAL_RETIREMENT/);
+ await assert.rejects(consumeRetirement(recoverable.runtime,retiredToken),/ORIGINAL_RETIREMENT/);
+ const neverSigned=await seeded('UNKNOWN'),nr=await neverSigned.v.read(neverSigned.input.journal.password);
+ neverSigned.runtime.accounts=[address(1)];await neverSigned.v.update(neverSigned.input.journal.password,nr.revision,data=>({...data,pending:{...data.pending,to:neverSigned.system.pool}}));
+ const nc=await neverSigned.authority.challenge({...draft('retire-no-signature'),action:'OBSERVE_JOB',jobId:neverSigned.job.jobId}),ns=await neverSigned.authority.submit(nc,permission(nc),null);
+ assert.equal(ns.stage,'FAILED');assert.equal(ns.errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal(retirements,2);assert.equal((await neverSigned.v.read(neverSigned.input.journal.password)).data.pending,null);
+
+
+ // Expired UNKNOWN W39 has the same exact-account retirement, without sending
+ // or claiming payment. Changing the pool/sender/value keeps the intent pending.
+ const {encodeWalletPoolInputs}=await import('@lianum/engine/wallet/notes/private-wallet-note-encoding');
+ for(const wrong of [null,'from','to','value']){
+  const f=await seeded('UNKNOWN'),before=await f.v.read(f.input.journal.password);f.runtime.accounts=[address(1)];
+  const job={...f.job,mode:'withdraw',publicInputs:encodeWalletPoolInputs('withdraw_balance',{scope:'0x'+f.system.scope,policy:'0x'+f.system.policy,epoch:'1',root:'0x'+hash(6),nullifier:'0x'+hash(7),amount:'10',recipient:address(8)})};
+  const pending={...before.data.pending,to:f.system.pool,value:'0'};if(wrong)pending[wrong]=wrong==='value'?'10':address(9);
+  await f.v.update(f.input.journal.password,before.revision,data=>({...data,jobs:[job],pending}));
+  const checkpoint=await f.v.read(f.input.journal.password),count=retirements,challenge=await f.authority.challenge({...draft('withdraw-'+(wrong??'ok')),action:'OBSERVE_JOB',jobId:job.jobId});
+  const result=await f.authority.submit(challenge,permission(challenge),null),after=await f.v.read(f.input.journal.password);
+  if(wrong){assert.equal(result.stage,'UNKNOWN');assert.deepEqual(after,checkpoint);assert.equal(retirements,count);}
+  else{assert.equal(result.stage,'FAILED');assert.equal(result.errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal(retirements,count+1);assert.equal(after.data.pending,null);assert.deepEqual(after.data.jobs[0].publicInputs,job.publicInputs);assert.equal(after.data.jobs[0].proof,job.proof);assert.equal(retiredGrant.value,'0');await assert.rejects(consumeRetirement(f.runtime,retiredToken),/ORIGINAL_RETIREMENT/);}
+ }
+
+ // Near an epoch boundary the real PUBLIC authority rejects before allocating
+ // a proof recipient or changing the retained failed job.
+ const short=await seeded('FAILED'),sr=await short.v.read(short.input.journal.password);
+ await short.v.update(short.input.journal.password,sr.revision,data=>({...data,jobs:[{...data.jobs[0],errorCode:P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8}]}));
+ short.fixture.current.timestamp='0x'+(1799n).toString(16);
+ const beforeShort=await short.v.read(short.input.journal.password),inputs=[...short.job.publicInputs];inputs[16]='2';
+ const retry={action:'PROVE_D26',jobId:short.job.jobId,rootId:short.job.rootId,revision:short.job.revision,mode:'deposit',publicInputs:inputs,witnessSHA256:hash(3),authorizationRoot:null,reserveNullifier:null,previousCommitment:null,nextCommitment:null,proofSHA256:null};
+ await assert.rejects(short.authority.challenge(retry),/PAGED_DEVICE_NOTE_EPOCH_TOO_SHORT/);assert.deepEqual(await short.v.read(short.input.journal.password),beforeShort);
+
 });

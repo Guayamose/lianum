@@ -43,7 +43,9 @@
     "./transport/platform-diagnostics": "./src/api/transport/platform-diagnostics.mjs",
     "./transport/gateway-pairing": "./src/api/transport/gateway-pairing.mjs",
     "./public-wallet/http-service": "./src/public-wallet/http-service-v1.mjs",
-    "./operations/recovery/paged-empty-source-replacement-data-v9": "./src/operations/recovery/paged-empty-source-replacement-data-v9.mjs"
+    "./public-wallet/agent-gateway": "./src/public-wallet/agent-gateway-v1.mjs",
+    "./operations/recovery/paged-empty-source-replacement-data-v9": "./src/operations/recovery/paged-empty-source-replacement-data-v9.mjs",
+    "./chains/public-testnet/sepolia-operation-window-data-v17": "./src/chains/public-testnet/sepolia-operation-window-data-v17.mjs"
   },
   "lianum": {
     "status": "active"

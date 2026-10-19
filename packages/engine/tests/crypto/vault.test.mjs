@@ -6,9 +6,27 @@ import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Vault } from '../../src/crypto/vault.mjs';
-import { encryptJson } from '../../src/crypto/privacy.mjs';
+import { encryptJson, decryptJson, encryptJsonAsync, decryptJsonAsync } from '../../src/crypto/privacy.mjs';
 
 const password = 'synthetic-vault-test-password';
+
+test('asynchronous vault crypto preserves existing envelopes and yields during key derivation', async () => {
+  const value = { revision: 7, data: { available: '1000', marker: 'synthetic' } };
+  const existing = encryptJson(value, password);
+  let settled = false;
+  const work = decryptJsonAsync(existing, password).finally(() => { settled = true; });
+  const yielded = await new Promise(resolve => setImmediate(() => resolve(!settled)));
+  assert.equal(yielded, true, 'key derivation must not run on the request event loop');
+  existing.cipher.tag = '00'.repeat(16);
+  assert.deepEqual(await work, value, 'async read snapshots the validated envelope before yielding');
+  const pending = encryptJsonAsync(value, password);
+  value.data.available = '9999';
+  const written = await pending;
+  assert.equal(decryptJson(written, password).data.available, '1000');
+  assert.deepEqual(await decryptJsonAsync(written, password), decryptJson(written, password));
+  await assert.rejects(decryptJsonAsync(written, 'wrong-synthetic-password'), /authentication/);
+  await assert.rejects(decryptJsonAsync(existing, password), /authentication/);
+});
 
 async function setup(t) {
   const directory = await mkdtemp(join(tmpdir(), 'paeg-vault-test-'));

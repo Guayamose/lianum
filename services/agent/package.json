@@ -1,0 +1,17 @@
+{
+  "name": "@lianum/agent-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --max-old-space-size=384 src/entry.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "openai": "7.36.0",
+    "ws": "8.22.0"
+  }
+}

@@ -44,6 +44,25 @@ export async function createDevicePagedOwnerRetentionV3(config,descriptor){
     assert.ok(c.pending?.proof&&c.proofIntent===undefined,'PAGED_OWNER_RECOVERY_PROOF_REQUIRED');return {stage:'PROVED',checkpoint:actual};
    }finally{wipePrivateProofInputsV1(current.data.controller);}
   },
+  async readAcceptedProofIntentCheckpointV19(accepted){
+   assert.ok(!closed);P.pagedOwnerExactV3(accepted,['profile','descriptorSHA256','revision','dataSHA256','public']);assert.equal(accepted.profile,PROFILE);assert.equal(accepted.descriptorSHA256,binding);await physical(true);
+   const current=await vault.read(password);
+   try{const actual=validate(current),c=current.data.controller;assert.deepEqual(actual.public,accepted.public);assert.ok(actual.revision===accepted.revision||actual.revision===accepted.revision+1,'PAGED_OWNER_PROOF_INTENT_CHECKPOINT_STEP');
+    if(actual.revision===accepted.revision){assert.deepEqual(actual,accepted);assert.ok(c.proofIntent&&c.pending===null,'PAGED_OWNER_ORIGINAL_PROOF_INTENT_REQUIRED');return{stage:'INTENT',checkpoint:actual};}
+    assert.ok(c.pending?.proof&&c.proofIntent===undefined,'PAGED_OWNER_RECOVERY_PROOF_REQUIRED');return{stage:'PROVED',checkpoint:actual};
+   }finally{wipePrivateProofInputsV1(current.data.controller);}
+  },
+  // Revoked grants are readable audit data; recovery must quarantine them.
+  // The retained OWNER and authority must agree on the exact revocation flag.
+  async readUntrackedReserveIntentV19(graph){
+   assert.ok(!closed);await physical(true);const current=await vault.read(password);
+   try{const checkpoint=validate(current),c=current.data.controller,intent=c.proofIntent;if(!intent)return null;
+    assert.ok(graph?.phase==='PREPARED'&&graph.work===null&&graph.pending===null&&graph.job===null,'PAGED_UNTRACKED_RESERVE_SCOPE');assert.equal(c.phase,'PREPARED');assert.equal(c.pending,null);assert.deepEqual(c.public,graph.public);assert.deepEqual(checkpoint.public,graph.public);
+    const a=graph.automation;assert.ok(a&&typeof a.revoked==='boolean'&&a.commandsUsed===1&&a.commandsUsed<=a.terms.maxCommands,'PAGED_UNTRACKED_RESERVE_GRANT');assert.equal(c.automation.commandsUsed,a.commandsUsed);for(const key of ['consent','signature','terms','revoked'])assert.deepEqual(c.automation[key],a[key]);
+    assert.equal(intent.signature,null);assert.equal(intent.c.action,'PROVE_R');assert.equal(intent.mode,'reserve');assert.equal(intent.automationCounter,a.commandsUsed);assert.deepEqual(intent.public,graph.public);
+    return{checkpoint,metadata:{profile:'DEVICE_PAGED_ORIGINAL_PROOF_INTENT_V4',jobId:intent.c.jobId,action:intent.c.action,mode:intent.mode,authorization:'START_AUTOMATION',commandSHA256:createHash('sha256').update(JSON.stringify(intent.command)).digest('hex'),automationCounter:intent.automationCounter,ownerProcess:structuredClone(intent.ownerProcess),facts:structuredClone(intent.facts),public:structuredClone(intent.public)}};
+   }finally{wipePrivateProofInputsV1(current.data.controller);}
+  },
   async readEmptyBirthCheckpoint(){
    assert.ok(!closed);await physical(true);const current=await vault.read(password);
    try{const result=validate(current),c=current.data.controller;assert.equal(c.phase,'BUILDING','PAGED_REFILL_BIRTH_ALREADY_ACTIVE');assert.equal(c.pending,null);assert.equal(c.preparation,null);assert.equal(c.automation,null);assert.equal(c.public.sourceCommitment,null);assert.equal(c.public.authorizationRoot,null);assert.equal(c.public.progressCommitment,null);return result;}

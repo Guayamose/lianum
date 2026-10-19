@@ -5,8 +5,8 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createHash} from 'node:crypto';
-import {deriveNativeAccountV1,bitcoinScriptV1,signNativeWalletTransactionV1} from '@lianum/crypto/native-wallet-v1';
+import {createHash,randomUUID} from 'node:crypto';
+import {deriveNativeAccountV1,bitcoinScriptV1,signNativeWalletTransactionV1,nativeJsonHashV1} from '@lianum/crypto/native-wallet-v1';
 import {createNativeWalletGatewayV1} from '../../src/native-wallet/index.mjs';
 const entropy=new Uint8Array(32),otherEntropy=new Uint8Array(32).fill(1),hash='a'.repeat(64),fundingHash='b'.repeat(64);
 const genesis={
@@ -18,8 +18,41 @@ const directory=()=>mkdtemp(join(tmpdir(),'lianum-public-native-fixture-'));
 const configuration=id=>({networks:[{id,endpoint:'https://native-fixture.example/api'}]});
 const json=value=>new Response(JSON.stringify(value),{status:200,headers:{'content-type':'application/json'}});
 const text=value=>new Response(value,{status:200});
+const deferred=()=>{let resolve;const promise=new Promise(done=>resolve=done);return{promise,resolve};};
+
+test('a slow account does not block another account and journal commits retain both quotes',async t=>{
+ const root=await directory(),id='ethereum-mainnet',a=deriveNativeAccountV1(entropy,id),b=deriveNativeAccountV1(otherEntropy,id);
+ const network=mockNetwork(t,id,a,root),fetch=globalThis.fetch,entered=deferred(),release=deferred();
+ t.mock.method(globalThis,'fetch',async(url,options)=>{const request=JSON.parse(options.body);if(request.method==='eth_getBalance'&&request.params[0]===a.address){entered.resolve();await release.promise;}return fetch(url,options);});
+ const gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});
+ t.after(async()=>{release.resolve();await gateway.close();await rm(root,{recursive:true,force:true});});
+ const first=gateway.prepareSend({account:a,recipient:b.address,amountAtomic:'1000'});await entered.promise;
+ const alternate={...a,address:a.address===a.address.toLowerCase()?'0x'+a.address.slice(2).toUpperCase():a.address.toLowerCase()};assert.notEqual(alternate.address,a.address);
+ const duplicate=gateway.prepareSend({account:alternate,recipient:b.address,amountAtomic:'2000'}).then(()=>null,error=>error);
+ const second=await Promise.race([gateway.prepareSend({account:b,recipient:a.address,amountAtomic:'3000'}),new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error('independent account was blocked')),2000);timer.unref();})]);
+ assert.equal(second.account.address,b.address);release.resolve();const quote=await first;
+ assert.match((await duplicate).message,/ACCOUNT_PENDING/);
+ assert.equal((await gateway.balances(alternate)).hasPendingTransfer,true,'case variants retain the same reservation');
+ const saved=JSON.parse(await readFile(join(root,'native-wallet.json'),'utf8'));
+ assert.deepEqual(new Set(saved.operations.map(row=>row.quote.id)),new Set([quote.id,second.id]));
+ await Promise.all([gateway.cancelQuote({id:quote.id}),gateway.cancelQuote({id:second.id})]);
+ assert.ok(JSON.parse(await readFile(join(root,'native-wallet.json'),'utf8')).operations.every(row=>row.phase==='CANCELLED'));
+ assert.equal(network.sends,0);
+});
+
+test('unchanged observations do not rewrite the journal and duplicate submissions send once',async t=>{
+ const root=await directory(),id='ethereum-mainnet',own=deriveNativeAccountV1(entropy,id),recipient=deriveNativeAccountV1(otherEntropy,id),network=mockNetwork(t,id,own,root);
+ const gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});t.after(async()=>{await gateway.close();await rm(root,{recursive:true,force:true});});
+ const quote=await gateway.prepareSend({account:own,recipient:recipient.address,amountAtomic:'1000'}),signed=signNativeWalletTransactionV1(entropy,own,quote.transaction);
+ const submit={quoteId:quote.id,rawTransaction:signed.rawTransaction};await Promise.all([gateway.broadcast(submit),gateway.broadcast(submit)]);assert.equal(network.sends,1);
+ await gateway.observeTransfer(quote.id);const before=await readFile(join(root,'native-wallet.json'),'utf8');
+ await Promise.all([gateway.observeTransfer(quote.id),gateway.observeTransfer(signed.id)]);
+ assert.equal(await readFile(join(root,'native-wallet.json'),'utf8'),before);
+ network.observed=true;assert.equal((await gateway.observeTransfer(quote.id)).status,'FINALIZED');
+ const after=await readFile(join(root,'native-wallet.json'),'utf8');await gateway.observeTransfer(quote.id);assert.equal(await readFile(join(root,'native-wallet.json'),'utf8'),after);
+});
 function previousTx(account){const amount=Buffer.alloc(8);amount.writeBigUInt64LE(200000n);const script=bitcoinScriptV1(account.address,account.network),raw='0200000001'+'c'.repeat(64)+'0000000000ffffffff01'+amount.toString('hex')+'16'+script+'00000000',id=Buffer.from(createHash('sha256').update(createHash('sha256').update(Buffer.from(raw,'hex')).digest()).digest()).reverse().toString('hex');return{raw,id};}
-function mockNetwork(t,id,account,root,fees=null){let sends=0,signed=null,observed=false,wrongGenesis=false,fakeUtxo=false;const previous=id==='bitcoin-mainnet'?previousTx(account):null;
+function mockNetwork(t,id,account,root,fees=null,behavior=null){let sends=0,signed=null,observed=false,wrongGenesis=false,fakeUtxo=false;const previous=id==='bitcoin-mainnet'?previousTx(account):null;
  t.mock.method(globalThis,'fetch',async(url,options)=>{
   if(id==='bitcoin-mainnet'){
    const path=new URL(url).pathname.replace('/api','');
@@ -48,7 +81,7 @@ function mockNetwork(t,id,account,root,fees=null){let sends=0,signed=null,observ
    if(method==='eth_maxPriorityFeePerGas')return reply('0x3b9aca00');
    if(method==='eth_getCode')return reply('0x');
    if(method==='eth_estimateGas')return reply('0x5208');
-   if(method==='eth_sendRawTransaction'){sends++;const stored=JSON.parse(await readFile(join(root,'native-wallet.json'),'utf8'));assert.ok(stored.operations.some(row=>row.phase==='SUBMITTING'&&row.rawTransaction===request.params[0]),'signed wire must be durable before send');signed=request.params[0];throw Error('FIXTURE_REPLY_LOST');}
+   if(method==='eth_sendRawTransaction'){sends++;const stored=JSON.parse(await readFile(join(root,'native-wallet.json'),'utf8'));assert.ok(stored.operations.some(row=>row.phase==='SUBMITTING'&&row.rawTransaction===request.params[0]),'signed wire must be durable before send');signed=request.params[0];if(behavior?.writeError)return json({jsonrpc:'2.0',id:request.id,error:behavior.writeError});throw Error('FIXTURE_REPLY_LOST');}
    if(method==='eth_getTransactionReceipt')return reply(observed?{transactionHash:request.params[0],blockHash:'0x'+hash,blockNumber:'0x10',from:account.address,to:deriveNativeAccountV1(otherEntropy,id).address,status:'0x1',gasUsed:'0x5208',effectiveGasPrice:'0x3b9aca00'}:null);
   }else{
    if(method==='getGenesisHash')return reply(wrongGenesis?'11111111111111111111111111111111':genesis[id]);
@@ -81,6 +114,19 @@ for(const id of ['ethereum-mainnet','bitcoin-mainnet','solana-mainnet'])test(id+
  const changed={...quote.transaction,...(id==='ethereum-mainnet'?{to:own.address}:id==='bitcoin-mainnet'?{outputs:[{...quote.transaction.outputs[0],address:own.address,scriptPubKey:bitcoinScriptV1(own.address,own.network)},quote.transaction.outputs[1]]}:{to:own.address})};
  assert.throws(()=>signNativeWalletTransactionV1(otherEntropy,own,changed));assert.equal(network.sends,1);
 });
+test('bounded broadcast rejection survives absent receipts and restart, without releasing or rebroadcasting signed UNKNOWN',async t=>{
+ const root=await directory(),id='ethereum-mainnet',own=deriveNativeAccountV1(entropy,id),other=deriveNativeAccountV1(otherEntropy,id),behavior={writeError:{code:-32000,message:'transaction underpriced: PRIVATE_PROVIDER_TEXT'}},network=mockNetwork(t,id,own,root,null,behavior);
+ let gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});t.after(async()=>{try{await gateway.close();}finally{await rm(root,{recursive:true,force:true});}});
+ const quote=await gateway.prepareSend({account:own,recipient:other.address,amountAtomic:'1000000000000000'}),signed=signNativeWalletTransactionV1(entropy,own,quote.transaction),first=await gateway.broadcast({quoteId:quote.id,rawTransaction:signed.rawTransaction});
+ assert.equal(first.status,'UNKNOWN');assert.equal(first.errorCode,'NATIVE_WALLET_RPC_WRITE_FEE_TOO_LOW');assert.equal(first.terminal,false);
+ for(let i=0;i<2;i++){const read=await gateway.observeTransfer(quote.id);assert.equal(read.errorCode,first.errorCode);assert.equal(read.status,'UNKNOWN');}
+ const stored=await readFile(join(root,'native-wallet.json'),'utf8');assert.ok(!stored.includes('PRIVATE_PROVIDER_TEXT'));
+ await gateway.close();gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});
+ assert.equal((await gateway.observeTransfer(quote.id)).errorCode,first.errorCode);assert.equal((await gateway.balances(own)).spendableAtomic,'0');
+ await assert.rejects(gateway.cancelQuote({id:quote.id}),/SIGNED_CANNOT_CANCEL/);
+ await gateway.broadcast({quoteId:quote.id,rawTransaction:signed.rawTransaction});assert.equal(network.sends,1);
+ network.observed=true;const final=await gateway.observeTransfer(quote.id);assert.equal(final.status,'FINALIZED');assert.equal(final.errorCode,null);assert.equal(final.terminal,true);assert.equal(network.sends,1);
+});
 test('cancelling an unsigned review persists and releases the account without admitting a later signature',async t=>{
  const root=await directory(),id='ethereum-mainnet',own=deriveNativeAccountV1(entropy,id),other=deriveNativeAccountV1(otherEntropy,id),network=mockNetwork(t,id,own,root);let gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});t.after(async()=>{try{await gateway.close();}finally{await rm(root,{recursive:true,force:true});}});
  const quote=await gateway.prepareSend({account:own,recipient:other.address,amountAtomic:'1000000000000000'}),signed=signNativeWalletTransactionV1(entropy,own,quote.transaction),cancelled=await gateway.cancelQuote({id:quote.id});assert.equal(cancelled.status,'FAILED');assert.equal(cancelled.errorCode,'NATIVE_WALLET_QUOTE_CANCELLED');assert.equal(cancelled.terminal,true);assert.equal((await gateway.balances(own)).hasPendingTransfer,false);
@@ -104,4 +150,23 @@ test('explicit MEMPOOL configuration requests recommended hour fee, rounds up sa
  for(const invalid of [0,-1,10001,'3',null]){fees.hourFee=invalid;await assert.rejects(gateway.prepareSend({account:own,recipient:recipient.address,amountAtomic:'10000'}),/NATIVE_WALLET_BTC_FEE_ESTIMATE/);}
  assert.ok(fees.paths.every(path=>path==='/v1/fees/recommended'),'the explicit provider must not fall back to a different fee shape');assert.equal(network.sends,0);
  await assert.rejects(createNativeWalletGatewayV1({directory:join(root,'invalid-provider'),configuration:{networks:[{id,endpoint:'https://native-fixture.example/api',feeProvider:'OTHER'}]}}),/NATIVE_WALLET_CONFIG/);
+});
+
+
+test('full history rejects a new quote before RPC while retained operations remain queryable',async t=>{
+ const root=await directory(),id='ethereum-mainnet',own=deriveNativeAccountV1(entropy,id),recipient=deriveNativeAccountV1(otherEntropy,id);
+ mockNetwork(t,id,own,root);let gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});
+ t.after(async()=>{await gateway.close();await rm(root,{recursive:true,force:true});});
+ const quote=await gateway.prepareSend({account:own,recipient:recipient.address,amountAtomic:'1000'});await gateway.cancelQuote({id:quote.id});await gateway.close();
+ const saved=JSON.parse(await readFile(join(root,'native-wallet.json'),'utf8'));
+ const {openNativeWalletJournalV1}=await import('../../src/native-wallet/journal-v1.mjs');
+ const journal=await openNativeWalletJournalV1(root,saved.configurationSHA256);
+ const rows=Array.from({length:512},()=>{const row=structuredClone(saved.operations[0]);row.quote.id=randomUUID();const {quoteSHA256,...body}=row.quote;row.quote.quoteSHA256=nativeJsonHashV1(body);return row;});
+ await journal.commit(rows);await journal.close();
+ gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});
+ const before=await readFile(join(root,'native-wallet.json'),'utf8');let requests=0;
+ t.mock.method(globalThis,'fetch',async()=>{requests++;throw Error('unexpected RPC after capacity exhaustion');});
+ await assert.rejects(gateway.prepareSend({account:own,recipient:recipient.address,amountAtomic:'1000'}),/JOURNAL_CAPACITY/);
+ assert.equal((await gateway.observeTransfer(rows[0].quote.id)).terminal,true);assert.equal(requests,0);
+ assert.equal(await readFile(join(root,'native-wallet.json'),'utf8'),before);
 });

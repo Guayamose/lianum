@@ -49,6 +49,9 @@ export function mountOriginalDeviceSepoliaDefiSharesFinancialHttpV8(handler){ass
 /** Start only after the enclosing Original product has completed activation. */
 export function startOriginalDeviceSepoliaDefiSharesApprovedWorkerV8(handler){assert.equal(arguments.length,1);const state=original(handler);assert.ok(state.financial&&!state.closed,'SEPOLIA_DEFI_NATIVE_MOUNT_PENDING');state.financial.startApprovedWorker();}
 export async function runOriginalDeviceSepoliaDefiSharesApprovedPendingV8(handler){assert.equal(arguments.length,1);const state=original(handler);assert.ok(state.financial&&!state.closed,'SEPOLIA_DEFI_NATIVE_MOUNT_PENDING');return state.financial.runApprovedPending();}
+/** A live snapshot shares the queue used by HTTP and the approved worker.
+ * Holding only the authority's fail-fast lock can race the worker after listen. */
+export async function withOriginalDeviceSepoliaDefiSharesIdleV10(handler,operation){assert.equal(arguments.length,2);const state=original(handler);assert.ok(state.financial&&!state.closed,'SEPOLIA_DEFI_NATIVE_MOUNT_PENDING');assert.equal(typeof operation,'function');return state.financial.runExclusive(operation);}
 /** Drain transport and its approved worker before retaining the SAME account. */
 export async function quiesceOriginalDeviceSepoliaDefiSharesHttpV8(handler){assert.equal(arguments.length,1);const state=original(handler);state.closed=true;await state.financial?.close();await A.quiesceOriginalDeviceSepoliaDefiFinancialWarmupV8(state.account);}
 

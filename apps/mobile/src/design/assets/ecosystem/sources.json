@@ -1,0 +1,60 @@
+{
+  "ethereum": {
+    "file": "ethereum.svg",
+    "source": "https://ethereum.org/assets/",
+    "asset": "https://ethereum.org/images/assets/svgs/eth-glyph-colored.svg"
+  },
+  "solana": {
+    "file": "solana.svg",
+    "source": "https://solana.com/branding",
+    "asset": "https://solana.com/src/img/branding/solanaLogoMark.svg"
+  },
+  "bitcoin": {
+    "file": "bitcoin.png",
+    "source": "https://bitcoin.org/en/resources",
+    "asset": "https://bitcoin.org/img/icons/logo_ios.png?1790370652"
+  },
+  "tether": {
+    "file": "tether.svg",
+    "source": "https://tether.to/en/media/",
+    "asset": "https://tether.to/images/logoCircle.svg"
+  },
+  "usdc": {
+    "file": "usdc.svg",
+    "source": "https://www.circle.com/pressroom",
+    "asset": "https://6778953.fs1.hubspotusercontent-na1.net/hubfs/6778953/Pressroom/brandkit/logo-downloads/usdc.zip",
+    "archiveEntry": "Token Logo/USDC Token.svg"
+  },
+  "base": {
+    "file": "base.svg",
+    "source": "https://brand.base.org/core-identifiers",
+    "asset": "https://brand.base.org/base-brand.zip",
+    "archiveEntry": "1_Base Brand Assets/The Square/Base_square_blue.svg"
+  },
+  "arbitrum": {
+    "file": "arbitrum.svg",
+    "source": "https://github.com/OffchainLabs/arbitrum-docs",
+    "asset": "https://raw.githubusercontent.com/OffchainLabs/arbitrum-docs/master/static/img/logo.svg"
+  },
+  "bnb": {
+    "file": "bnb.svg",
+    "source": "https://www.bnbchain.org/en/brand-guidelines",
+    "asset": "https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg"
+  },
+  "tron": {
+    "file": "tron.svg",
+    "source": "https://trondao.org/",
+    "asset": "https://framerusercontent.com/images/4STctnO0NvbeRt4XUEhJKOJjc.svg"
+  },
+  "aave": {
+    "file": "aave.png",
+    "source": "https://aave.com/brand",
+    "asset": "https://aave.com/images/icon-aave.png"
+  },
+  "uniswap": {
+    "file": "uniswap.svg",
+    "source": "https://about.uniswap.org/",
+    "asset": "https://github.com/Uniswap/brand-assets/raw/main/Uniswap%20Brand%20Assets.zip",
+    "archiveEntry": "Uniswap Brand Assets/Uniswap_icon_pink.svg"
+  }
+}

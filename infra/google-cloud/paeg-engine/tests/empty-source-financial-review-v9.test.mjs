@@ -25,3 +25,29 @@ test('lost response reuses the signed epoch and the exact retained review withou
  assert.throws(()=>prepare(state,intent,{...review,expectedCheckpoint:{...review.expectedCheckpoint,revision:1}},now),/REVIEW_CHANGED/);
  assert.throws(()=>prepare(state,intent,null,now));
 });
+test('a source quota review preserves the existing deadline and every other financial term',()=>{
+ const {state,intent}=fixture(),before=structuredClone(state);intent.expiresAt=state.effectivePolicy.expiresAt;
+ const review=prepare(state,intent,null,now);
+ assert.deepEqual(review.policy,state.effectivePolicy);
+ assert.deepEqual(review.limits,{...state.limits,maximumSourcesPerWallet:'2'});
+ assert.deepEqual(review.expectedCheckpoint,state.checkpoint);assert.deepEqual(state,before);
+ assert.throws(()=>prepare(state,{...intent,maximumSourcesPerWallet:'1'},null,now),/PERIOD/);
+ assert.throws(()=>prepare(state,{...intent,expiresAt:intent.expiresAt-1},null,now),/PERIOD/);
+ assert.throws(()=>prepare(state,intent,null,intent.expiresAt),/PERIOD/);
+});
+
+import {OPERATION_WINDOW_V17,operationSpendingPolicySHA256V17} from '../../../../packages/backend/src/chains/public-testnet/sepolia-operation-window-data-v17.mjs';
+test('explicit finite operation window extends time while binding every monetary ceiling and retry',()=>{
+ const {state,intent}=fixture(),before=structuredClone(state);
+ intent.expiresAt=now+38*24*3600000;
+ intent.operationWindowV17={profile:OPERATION_WINDOW_V17,authorizedAt:now,expiresAt:intent.expiresAt,spendingPolicySHA256:operationSpendingPolicySHA256V17(state.effectivePolicy)};
+ const review=prepare(state,intent,null,now);
+ assert.deepEqual(review.limits.operationWindowV17,intent.operationWindowV17);assert.deepEqual({...review.policy,expiresAt:state.effectivePolicy.expiresAt},state.effectivePolicy);assert.deepEqual(state,before);
+ assert.throws(()=>prepare(state,{...intent,operationWindowV17:{...intent.operationWindowV17,spendingPolicySHA256:h(9)}},null,now),/SPENDING_CHANGED/);
+ assert.throws(()=>prepare(state,{...intent,operationWindowV17:{...intent.operationWindowV17,authorizedAt:now+1}},null,now),/AUTHORIZATION_TIME/);
+ assert.throws(()=>prepare(state,{...intent,operationWindowV17:{...intent.operationWindowV17,expiresAt:intent.expiresAt-1}},null,now),/POLICY_DEADLINE/);
+ const epoch={nonce:intent.intentId,epochId:h(6),predecessorEpochId:intent.previousEpochId,policy:review.policy,limits:review.limits,checkpoint:structuredClone(review.expectedCheckpoint)};
+ state.history.push({epoch});state.epoch=epoch;state.effectivePolicy=review.policy;state.limits=review.limits;
+ assert.deepEqual(prepare(state,intent,review,now+1),review);
+ assert.throws(()=>prepare(state,{...intent,operationWindowV17:{...intent.operationWindowV17,authorizedAt:now-1}},review,now+1),/QUOTAS_CHANGED/);
+});

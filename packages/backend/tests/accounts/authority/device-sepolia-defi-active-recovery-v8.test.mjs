@@ -24,7 +24,8 @@ mock.module(url('defi/vaults/morpho-v2-sepolia-retained-v4.mjs'),{exports:{}});
 mock.module(url('chains/public-testnet/sepolia-receiver-rpc-v4.mjs'),{exports:{readOriginalPagedSepoliaSourceLaneV4(r){assert.strictEqual(r,runtime);return{policy};}}});
 const selector=publicKeccak256(Buffer.from('verify(bytes,bytes32[])')).subarray(0,4).toString('hex');
 mock.module(url('operations/deployments/system/deployment-artifacts.mjs'),{exports:{async loadFlatVerifierArtifacts(){return{verifiers:{deposit_intent:{source:'HOST_D27.sol',artifact:{evm:{methodIdentifiers:{'verify(bytes,bytes32[])':selector}},abi:[{type:'function',name:'verify',inputs:[{type:'bytes'},{type:'bytes32[]'}]}]}}}};}}});
-mock.module(url('chains/public-testnet/sepolia-defi-shares-ledger-data-v4.mjs'),{exports:{async readSepoliaDefiSharesLedgerDataV4(){assert.fail('HOST_RECOVERY_MUST_NOT_EXECUTE_LEDGER_ACTION');}}});
+let statusLedger=null;
+mock.module(url('chains/public-testnet/sepolia-defi-shares-ledger-data-v4.mjs'),{exports:{async readSepoliaDefiSharesLedgerDataV4(r,t,at){assert.ok(statusLedger,'HOST_RECOVERY_MUST_NOT_EXECUTE_LEDGER_ACTION');assert.strictEqual(r,runtime);assert.strictEqual(t,target);assert.deepEqual(at,head);return copy(statusLedger);}}});
 const retainedTokens=new WeakMap(),sourceTokens=new WeakMap();
 mock.module(url('operations/recovery/sepolia-defi-retention-v8.mjs'),{exports:{async consumeOriginalSepoliaDefiComponentV8(r,u,token,kind,protocol){assert.strictEqual(r,runtime);assert.strictEqual(u,uniswapTarget);assert.equal(kind,'authority');assert.equal(protocol,'AAVE_STATIC');const row=retainedTokens.get(token);assert.ok(row&&!row.used,'HOST_ORIGINAL_RETAINED_TOKEN');row.used=true;return copy(row.saved);}}});
 mock.module(url('chains/public-testnet/key-store-v1.mjs'),{exports:{consumeOriginalPublicSepoliaDefiSubmissionEvidenceV8(r,account,token){const row=sourceTokens.get(token);assert.ok(row&&!row.used&&row.runtime===r&&row.account===account,'HOST_ORIGINAL_SOURCE_EVIDENCE');row.used=true;return row.data;}}});
@@ -33,6 +34,25 @@ async function adapterOpen({directory,password},reopen){const path=join(director
 mock.module(url('defi/vaults/aave-sepolia-retained-v4.mjs'),{exports:{createOriginalAaveSepoliaRetainedAdapterV4:input=>adapterOpen(input,false),reopenOriginalAaveSepoliaRetainedAdapterV4:input=>adapterOpen(input,true),async warmOriginalAaveSepoliaRetainedFinancialV8(adapter){assert.ok(adapters.has(adapter),'HOST_ORIGINAL_ADAPTER');},async readOriginalAaveSepoliaRetainedCheckpointV8(adapter){const s=adapters.get(adapter),r=s.record();return{profile:'ORIGINAL_SEPOLIA_DEFI_ACTIONS_CHECKPOINT_V8',path:s.path,revision:r.revision,dataSHA256:sha(JSON.stringify(r.data))};},async readOriginalAaveSepoliaRetainedRecordV8(adapter){return copy(adapters.get(adapter).record());}}});
 const A=await import('../../../src/accounts/authority/device-sepolia-defi-shares-authority-v4.mjs');
 function retention(saved,active){const token=Object.freeze({});retainedTokens.set(token,{saved:{...copy(saved),...(active?{activeRecovery:true}:{})},used:false});return token;}
+test('live share status projects the canonical block and preserves signed one-use read access without changing custody',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'defi-live-status-v31-')),device=freshKey(),devicePublicKey='04'+device.x.toString('hex')+device.y.toString('hex'),input={origin:'https://lianum.example',devicePublicKey,journal:{path:join(directory,'authority','journal.vault'),password:'75'.repeat(32)}};let account;
+ try{
+  statusLedger={head,commitments:[],nullifiers:[],roots:[h(1)],paths:[],publicState:{actualAssetBalance:'0',backedAmount:'0',surplus:'0'}};
+  account=await A.createOriginalDeviceSepoliaDefiSharesAuthorityV4(runtime,target,input);
+  const vault=new Vault(input.journal.path),before=await vault.read(input.journal.password),warmBefore=fullWarmCount;
+  financialEpoch++;
+  const badAccess=await account.challenge();
+  await assert.rejects(account.status({access:badAccess,signature:sign(device,Buffer.from('wrong permission')).toString('hex')}),/DEVICE_POP/);
+  const access=await account.challenge(),signature=sign(device,P.externalFlatPermissionMessageV1(access)).toString('hex'),status=await account.status({access,signature});
+  assert.deepEqual(status.observed,{blockNumber:BigInt(head.number).toString(),blockHash:head.hash.slice(2),timestamp:BigInt(head.timestamp).toString()});
+  assert.deepEqual(status.note,{state:'UNISSUED',commitment:null,available:null,backing:null});
+  assert.deepEqual(status.jobs,[]);assert.deepEqual(status.descriptor,account.descriptor);
+  assert.equal(status.expiresAt,status.observedAt+15000);assert.ok(status.expiresAt>Date.now());
+  await assert.rejects(account.status({access,signature}),/ORIGINAL_CHALLENGE/);
+  assert.deepEqual(await vault.read(input.journal.password),before,'a share read does not write financial state');
+  assert.equal(fullWarmCount,warmBefore,'read access does not renew financial permission');
+ }finally{statusLedger=null;await account?.close();device.privateKey=null;await rm(directory,{recursive:true,force:true});}
+});
 test('advanced signed/proved authority stays fenced until matching Original Source evidence; copies and signed-term corruption cannot recover',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'defi-authority-current-v8-')),device=freshKey(),devicePublicKey='04'+device.x.toString('hex')+device.y.toString('hex'),input={origin:'https://lianum.example',devicePublicKey,journal:{path:join(directory,'authority','journal.vault'),password:'73'.repeat(32)}};let account;
  try{

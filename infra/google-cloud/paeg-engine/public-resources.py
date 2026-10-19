@@ -16,6 +16,7 @@ ENGINE = 'omnichain-product'
 PROOF = ENGINE + '/experiments/private-core-proof'
 WALLET = 'omnichain-flat-profile/flat-wallet'
 STATE_DIRECTORIES = [ENGINE + '/.local/integrations', ENGINE + '/evidence/paeg-proof-attempts',
+                     ENGINE + '/evidence/m23-wallet-proof-attempts',
                      WALLET + '/.local/proof-workers/attempts', WALLET + '/.local/proof-workers/operations']
 
 

@@ -66,7 +66,9 @@
         "packages/backend/tests/claims/operations/device-root-spl-source-binding-v3.test.mjs",
         "packages/backend/tests/claims/recovery/device-root-claim-observation-v3.test.mjs",
         "packages/backend/tests/operations/support/wrapped-recovery-composition.test.mjs",
-        "packages/backend/tests/operations/support/device-graph-recovery-contracts.test.mjs"
+        "packages/backend/tests/operations/support/device-graph-recovery-contracts.test.mjs",
+        "packages/backend/tests/providers/paged-public-graph-operator-v4.test.mjs",
+        "packages/backend/tests/providers/paged-empty-provider-advance-v9.test.mjs"
       ]
     },
     "custody": {
@@ -206,6 +208,24 @@
       "tests": [
         "services/paeg-engine/tests/paged-native-bootstrap-v3.test.mjs"
       ]
+    },
+    "agent": {
+      "watch": [
+        "packages/agent/",
+        "services/agent/"
+      ],
+      "tests": [
+        "services/agent/tests/context.test.mjs",
+        "services/agent/tests/backend-wallet.test.mjs",
+        "services/agent/tests/backend-public.test.mjs",
+        "services/agent/tests/operations.test.mjs",
+        "services/agent/tests/push.test.mjs",
+        "services/agent/tests/voice.test.mjs",
+        "services/agent/tests/runtime.test.mjs",
+        "services/agent/tests/http.test.mjs",
+        "services/agent/tests/provider.test.mjs",
+        "services/agent/tests/public-integration.test.mjs"
+      ]
     }
   },
   "entrypoints": [
@@ -292,6 +312,13 @@
       "entry": "services/paeg-engine/src/entry.mjs",
       "command": "./dev engine paged-mixed-reopen",
       "description": "Reabre el motor con su estado retenido. Los perfiles new requieren preparaci\u00f3n privada expl\u00edcita."
+    },
+    {
+      "id": "agent",
+      "level": "host",
+      "entry": "services/agent/src/entry.mjs",
+      "command": "./dev npm --prefix services/agent start",
+      "description": "Agente persistente; requiere directorio privado y token interno. IA mediante OPENAI_API_KEY."
     }
   ],
   "commands": [

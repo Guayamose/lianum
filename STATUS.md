@@ -1,54 +1,1983 @@
 # Estado actual
 
-Actualizado el 16 de octubre de 2026. La API pública, el motor de ejecución remoto y la app móvil
+## 19 de octubre, 02:01 Madrid — actualización V32 instalada; motor arrancando
+
+La actualización autorizada está instalada con release
+`6ba11ca4cac25c620ae8504e2e3cd092ad081eaa072278e699e153a7cbf12db4`.
+El nuevo proceso arrancó a las **02:00:43 Madrid** (PID 223968, invocación
+`68c138ab07d14bd28d26b49004e712fd`). La primera observación confirma el servicio
+activo y los recursos de arranque verificados; **todavía no hay READY ni
+validación pública de disponibilidad**. A las 02:02 la misma invocación conserva
+2 de 21 etapas completadas y ningún fallo registrado; el primer informe de
+consultas cuenta 47 RPC y 397 lecturas reutilizadas de 434 solicitudes de caché.
+Estos contadores parciales no permiten estimar la duración total.
+
+El cierre anterior terminó correctamente. La primera inspección del paquete
+rechazó el journal de Uniswap de 74.037 bytes porque usaba el lector de
+configuración limitado a 64 KiB. Se corrigió para usar el lector protegido y
+el límite de 2 MiB que ya tiene Vault, conservando permisos, propietario,
+prohibición de enlaces y comprobaciones del estado autenticado. La regresión
+reproduce el fallo y pasa siete comprobaciones; `./dev check` también pasa sus
+491 comprobaciones. La inspección real corregida
+pasó y la instalación comprobó que todos los datos privados permanecían
+idénticos. No hizo falta otro cierre del motor.
+
+El paquete mantiene los recursos, contratos y la generación de código
+`8cfdc73c4a9d703a0f795689fa5bdeb3161d34c1d4402130ac5c34be3f5efa68`;
+respecto al paquete inicialmente preparado solo cambia ese inspector de
+infraestructura. Se conservan el epoch financiero 13 y el vencimiento del
+23 de noviembre. No se instaló la APK ni se enviaron nuevas operaciones
+financieras de prueba durante este despliegue.
+
+La unidad `lianum-engine-v32b-monitor` está activa en la VM: comprueba esta
+invocación cada 30 segundos durante un máximo de seis horas y, al observar
+READY, verifica las rutas públicas con TLS fijado y consultas sin firma.
+Registra los fallos; no reinicia ni envía transacciones automáticamente.
+Queda pendiente completar el arranque y la aceptación real desde el móvil.
+Evidencia: `.local/maintenance/20261019-engine-v32-update/deployment-result.json`,
+`capture-inspector-fix.json` y registros de instalación y seguimiento.
+
+## 19 de octubre, 01:35 Madrid — actualización del motor V32 autorizada y lanzada
+
+El usuario ha autorizado desplegar la actualización del motor. Se ha verificado
+el paquete `c7ca33962d76e612c12b1e8c7286f12359336a8b7a5dec16d76a166b5c3e1f3e`
+contra V27: 37 cambios del paquete y recursos criptográficos/contratos intactos.
+La preparación remota y el preflight original pasan, sin RPC ni escrituras
+financieras. Se han liberado 3,48 GiB de cuatro copias públicas de preparación
+verificadas, sin referencias de servicios o procesos; se conservan las versiones
+instaladas y los datos privados.
+
+Se ha lanzado la unidad administrativa `lianum-engine-v32-update`: cierre
+controlado, verificación de captura, instalación revisada y arranque normal.
+La disponibilidad de la versión nueva todavía no está confirmada. El permiso
+financiero conserva el epoch 13 y su vencimiento de noviembre; no se ha instalado
+la APK V32 ni se han autorizado nuevas operaciones financieras por este despliegue.
+Evidencia: `.local/maintenance/20261019-engine-v32-update/`.
+
+
+## 19 de octubre, 01:14 Madrid — revisión local V32 completada; sin despliegue
+
+Se han recorrido los flujos existentes, reproducido bloqueos y preparado sus
+correcciones locales. La instrucción vigente es terminar la revisión y dejar
+que el usuario decida si se despliega. En esta campaña no se han reiniciado
+servicios, instalado otra APK ni emitido nuevas transacciones públicas. La
+última consulta conserva el motor activo con PID 215679 e invocación
+`4fa913a428f94dab8b111bb31c01cb2d`, iniciado a las 17:39:09 UTC.
+
+**Resultado completo en redes locales:** Uniswap → ETH → BTC → SOL, con
+las dependencias entre los cuatro movimientos, preparación y autorización del
+plan, cierre, retirada del sobrante y cuatro cobros del ejecutor. Pasan las
+21 pruebas criptográficas (20 Paged y una D27). El depósito de 600 unidades
+sintéticas cuadra con 200 de sobrante y 400 de cobros; el saldo retenido y
+respaldado de la cuenta del plan queda en cero. El token recibido por Uniswap
+conserva 100 unidades privadas; su retirada no forma parte de esta integración.
+Duración de la ejecución final: 680 segundos, incluido el cierre de recursos.
+Esto no mide el arranque del motor público ni acredita ejecución desde Android.
+
+| Recorrido | Evidencia alcanzada | Lo que sigue pendiente |
+| --- | --- | --- |
+| Recibir y enviar ETH, SOL y BTC | Los tres saldos y envíos propios ya estaban confirmados en el móvil y en las redes; pasan 48 regresiones nativas | Historial entrante y recuperación autónoma de ETH |
+| Conectar y consultar una operación guardada | Corregidos la reconexión y el refresco que fallaban con el plan detenido y una retirada pendiente; cuatro regresiones pasan | Comprobar la nueva APK contra el servidor actualizado |
+| Ingresar desde la cartera personal | La revisión confirma que la ruta actual paga desde el servidor | Implementar el ingreso personal; no equivale al patrocinio de prueba |
+| Preparar y autorizar planes | 43 regresiones móviles, cuatro del recorrido público simulado y plan local completo | Nueva autorización pública después de resolver la retirada pendiente |
+| Pagos PAEG, varios pagos, redes y dependencias | Integración local completa con EVM, Bitcoin y Solana | Confirmación pública desde el móvil |
+| Uniswap | Intercambio local completo; preparación D27/W39 con criptografía real y recibos HOST | Intercambio y retirada públicos; retirada del token en la integración local |
+| Invertir y retirar en Aave/Morpho | Pasan los recorridos de autoridad y SDK con pruebas criptográficas reales y cadena HOST; la consulta 403 está corregida localmente | Inversiones y retiradas confirmadas en Sepolia |
+| Retirar del motor | Recuperación de retirada caducada cubierta por 14 regresiones; cinco retiradas confirmadas en la integración local | Recuperar la retirada pública UNKNOWN con la custodia original |
+| Liquidar y pagar al ejecutor | Cuatro cobros locales confirmados y contabilidad final cuadrada | Plan público completado y liquidado |
+| Detener, recuperar y observar | Detención pública anterior confirmada; regresiones de recuperación, respuestas perdidas y reapertura de estado | Validación pública de las nuevas correcciones |
+| Inicio y operaciones pendientes | Muestra operaciones privadas conocidas sin añadir RPC y aclara el alcance del subtotal | Valoración completa de PAEG/DeFi e historial de ingresos |
+
+**Correcciones preparadas:** recuperación de la retirada Source W39 caducada
+solo tras comprobar ausencia de gasto y caducidad finalizada, conservando
+importe, destinatario y transacción anterior; normalización de bloques en la
+consulta de participaciones V31; conexión/refresco con retirada pendiente;
+rechazo temprano de nuevas pruebas públicas si quedan menos de tres minutos
+de ventana; visibilidad de operaciones privadas pendientes; conservación del
+beneficiario revisado de Uniswap en preparación, oferta, ejecución y liquidación;
+y formato explícito del recibo público de Uniswap. Este último conserva la
+validación de oferta, importe, destinatario, límite de entrada y activo de la
+comisión, sin inventar un balance de respaldo local. Requiere actualizar APK y
+backend conjuntamente. La retirada pública existente sigue sin modificarse.
+
+También se corrigieron siete entradas de pruebas locales para declarar su
+mínimo de depósito y fixtures HOST desactualizados. No se relajaron las cuotas,
+la política financiera ni la planificación RPC de producción. La ventana mínima
+reduce fallos tardíos, pero no garantiza que cualquier prueba termine a tiempo.
+
+**Validación:** 491 comprobaciones generales, TypeScript y 27 regresiones finales
+de liquidación pasan. Los tres recorridos genuinos de Uniswap/Aave/Morpho pasan
+con criptografía real, pero RPC y recibos HOST; no son operaciones públicas. El
+índice conserva los demás grupos y los intentos fallidos o cancelados, sin sumar
+pruebas solapadas como si fueran casos distintos. APK V32 compilada correctamente, sin instalar ni subir. SHA-256:
+`07fbc929920acc39d03d4bb5f9a208c4378e1265510fdfa75dff514f2b00420a`.
+
+**No está todo terminado:** siguen sin implementarse el ingreso personal al
+motor, el historial entrante completo, la valoración conjunta de PAEG/DeFi y la
+retransmisión automática nativa de ETH. El envío ETH previo se confirmó tras una
+retransmisión manual de los mismos bytes. La aceptación de todas las familias
+financieras sigue siendo falsa. El siguiente despliegue requiere decisión del
+usuario y no sustituye las pruebas posteriores en el móvil y las redes públicas.
+
+Evidencia: `.local/maintenance/20261018-mobile-core-acceptance/v32-campaign/`:
+`operation-matrix.json`, `test-index.json`, `mixed-financial-report.json`,
+`mixed-financial-summary.json`, `settlement-regressions-report.json`,
+`genuine-final-report.json`, `recovery-final-report.json`, `changes.patch`,
+`changes.json` y `deployment-review.json`. Generación local:
+`8cfdc73c4a9d703a0f795689fa5bdeb3161d34c1d4402130ac5c34be3f5efa68`.
+
+
+## 18 de octubre, 23:17 Madrid — consulta de inversiones corregida localmente; motor sin reiniciar
+
+La APK V30 reproduce HTTP 403 al consultar las participaciones. Se ha confirmado
+que el código instalado de la autoridad compartida de Aave/Morpho entrega
+`blockNumber` y `blockHash` a una función que espera `number` y `hash`. La prueba
+con la autoridad real, firma ECDSA y diario cifrado reproduce
+`DEVICE_EXTERNAL_FLAT_DATA`; RPC y ledger son fixtures HOST explícitos.
+La corrección local normaliza ese bloque con los campos esperados. Pasan ocho
+regresiones y las 491 comprobaciones generales. Se mantienen la firma, la lectura
+de un solo uso, los plazos y la comprobación del estado. No se ha desplegado la
+corrección ni acreditado una lectura pública corregida o una inversión.
+
+El motor conserva PID 215679 e invocación `4fa913a428f94dab8b111bb31c01cb2d`,
+activo desde las 17:39:09 UTC. No se han reiniciado servicios, emitido nuevos
+pagos ni modificado diarios financieros. El móvil queda en Inicio con la APK V30
+y los datos conservados. ETH, BTC y SOL mantienen la confirmación documentada.
+
+Continúan pendientes: recuperar la retirada PAEG UNKNOWN cuya prueba caducó;
+financiar y probar pagos, intercambios, inversiones, retiradas y liquidación;
+implementar el ingreso desde la cartera personal (la ruta actual patrocina desde
+el servidor); completar el historial de ingresos y la integración del saldo y
+operaciones PAEG en Inicio. Se ha vuelto a comprobar que Inicio dice «No hay
+operaciones en progreso» aunque sigue existiendo la retirada PAEG pendiente.
+La aceptación de todas las familias financieras sigue siendo falsa.
+
+Evidencia en `.local/maintenance/20261018-mobile-core-acceptance/`:
+`v31-share-status-fix.json`, `v31-share-status-correction.diff`,
+`v31-share-status-before.log`, `v31-share-status-after.log`,
+`v31-general-check-report.json`, `v31-installed-bug-and-engine.txt`,
+`physical-v27-v31-return-home.xml` y `v27-mobile-acceptance.json`.
+
+## 18 de octubre, 23:03 Madrid — los tres envíos nativos confirmados
+
+La APK muestra Confirmado para ETH, BTC y SOL. Dos proveedores independientes
+confirman la finalidad y el bloque canónico del envío ETH recuperado, con recibo
+exitoso. Se conserva el hash original, sin nueva firma. La aplicación actualizó
+su estado mediante la consulta normal. Evidencia: `v29-native-eth-finality-sixth.json`
+y `physical-v27-v29-final-native-send-check.xml` en el directorio de aceptación.
+
+El motor no se ha reiniciado. Las seis conexiones públicas y `/health` vuelven a
+pasar a las 20:58 UTC. Los pagos PAEG, Uniswap e inversiones siguen sin aceptación
+financiera completa. La renovación del ingreso de Aave autorizada con huella
+terminó FAILED/EPOCH_REPROOF_REQUIRED, sin envío; Morpho comparte ese presupuesto
+y mantiene deshabilitada la propuesta. Las lecturas de participaciones de ambos
+dan MOBILE_EXTERNAL_FLAT_RESPONSE_REJECTED, todavía en diagnóstico. «Nuevo plan»
+encuentra la retirada anterior pendiente; tampoco se acredita un plan nuevo.
+
+La APK V29 se instaló conservando datos: diferencia el fallo de preparación
+caducada de un ingreso pendiente y registra únicamente el código seguro del error
+de consulta. Pasaron seis regresiones, TypeScript y las 491 comprobaciones generales.
+Eso no corrige la retirada UNKNOWN del servidor ni acredita una inversión.
+
+## 18 de octubre, 22:49 Madrid — ETH ejecutado; retirada PAEG aún bloqueada
+
+El usuario ha pedido completar las pruebas con el móvil y ha prohibido reiniciar
+el motor. Se conserva el proceso PID 215679 y la misma invocación V27.
+El envío ETH original se retransmitió una sola vez con sus mismos bytes firmados,
+tras comprobar red, firma, destinatario propio, importe, nonce, saldo y comisiones.
+No hubo nueva firma ni edición del diario nativo. Tres proveedores muestran el
+mismo recibo exitoso; dos confirman su bloque canónico. Falta que alcance la
+finalidad exigida por la app y comprobar su presentación allí. La recuperación
+manual no corrige todavía los reintentos automáticos del producto.
+
+La retirada PAEG sigue UNKNOWN. Una simulación actual devuelve STALE_EPOCH:
+su prueba ya caducó; no se ha retransmitido. El código instalado puede retirar
+intentos de ingreso caducados, pero no este intento de retirada. Los envíos
+posteriores de la cuenta patrocinadora quedan pendientes de resolver ese estado.
+El ingreso antiguo de Aave sí pasó a FAILED/EPOCH_REPROOF_REQUIRED sin envío;
+el usuario acaba de autorizar con su huella preparar de nuevo ese mismo ingreso.
+Esto aún no acredita financiación confirmada ni inversión.
+
+Evidencia en `.local/maintenance/20261018-mobile-core-acceptance/`:
+`v29-native-eth-recovery-send.json`, `v29-native-eth-independent.json`,
+`v29-native-eth-finality-first.json`, `v29-original-withdrawal-current-call.json`,
+`v29-source7-observed.json` y `v27-mobile-acceptance.json`.
+
+## 18 de octubre, 22:38 Madrid — comprobación actual de la retirada
+
+El mismo proceso V27 continúa activo. La retirada conserva UNKNOWN y no se ha
+retransmitido. La consulta actual no encuentra transacción ni recibo. La prueba
+corresponde al epoch 2987258 y la red está en 2987259: la recuperación puntual
+preparada ya rechaza el envío por caducidad de la prueba. La simulación favorable
+de las 22:27 no autoriza a enviarla ahora. El consentimiento solicitado para
+retransmitir no se ha recibido y tampoco bastaría por sí solo para superar esta
+comprobación. Sigue pendiente resolver el intento original sin borrar historial,
+reutilizar el nonce a ciegas ni reiniciar el motor.
+Evidencia: `v28-withdrawal-epoch-current.json`, `v28-owner-user-review.jsonl`,
+`v28-engine-status-user-review.txt` en el directorio de aceptación móvil.
+
+## 18 de octubre, 22:28 Madrid — retirada bloqueada en transmisión; motor activo
+
+Google Cloud vuelve a estar autenticado. La comprobación pública de las seis
+conexiones pasa contra la misma invocación V27, sin reiniciar el motor.
+La APK V27 se instaló conservando datos. El móvil emitió un envío de 1.000 sat
+BTC Testnet3 a su propia dirección; dos proveedores ven el mismo hash y la
+comisión de 141 sat. Está incluido en el bloque 5.195.472 y tiene siete confirmaciones según ambos proveedores;
+la pantalla de Operaciones del móvil ya muestra «Confirmado · Bitcoin».
+SOL conserva el envío anterior FINALIZED. El envío original de ETH continúa
+UNKNOWN: el proveedor no encuentra transacción ni recibo, nonce latest/pending
+0; no se ha reemplazado ni reenviado.
+
+STOP_AUTOMATION se completó desde el móvil. OWNER y Authority conservan el
+mismo grafo PREPARED y registran revoked:true, sin crear otra operación.
+La lectura posterior muestra 1.000.000.000.000 wei disponibles en la nota
+original. La retirada se autorizó en el móvil, terminó su prueba W39 y quedó
+firmada con nonce 89. El POST original devolvió HTTP 429; Source y Authority
+conservan UNKNOWN. Tres proveedores no encuentran la transacción
+`0x5a1d989927a1c5d5a5733778d0295e56e5d0928a1d111c0ee82ba41da46a0357`.
+La simulación de esos mismos bytes pasa; hay una recuperación puntual preparada
+con comprobación de firma, nonce, importe, destinatario, epoch y simulación nueva.
+Se ha pedido autorización explícita para una única retransmisión idéntica porque
+el recorrido actual admite un solo POST; no se ha ejecutado ni se ha reiniciado el motor.
+La apertura del plan tuvo fallos intermitentes STATUS_EXPIRED; una reconexión
+pasó y el procesamiento local de la respuesta midió 661 ms. Otra lectura
+caducó tras 963 ms durante su guardado local. No se considera corregido.
+
+La APK de diagnóstico V28 añade tiempos sin secretos; se instaló a las 20:20 UTC una
+corrección de interfaz para que una lectura automática fallida no retire el
+campo de destinatario. El controlador conserva una lectura nueva antes de la
+revisión y otra antes de la autorización. TypeScript, cinco pruebas del controlador
+y las 491 comprobaciones generales pasan. El formulario ya conserva la dirección
+y permitió revisar y autorizar la retirada en el móvil. Sigue pendiente la aceptación de las
+demás familias financieras; estas pruebas no cierran el proyecto.
+Evidencia en `.local/maintenance/20261018-mobile-core-acceptance/`:
+`v27-routing-after-ready.json`, `v27-btc-independent.json`,
+`v28-original-eth-configured.json`, `v28-owner-after-stop.jsonl`,
+`v27-mobile-acceptance.json`.
+
+## 18 de octubre, 21:40 Madrid — V27 completa el arranque
+
+La invocación `4fa913a428f94dab8b111bb31c01cb2d` alcanzó READY con los
+21 hitos completos, reapertura del estado original y sin fallo registrado.
+El monitor lo observó a las 19:40:05 UTC y terminó tras guardar el resultado.
+Tiempo de arranque: 7.246 s (2 h 00 min 46 s), frente a 8.024 s de V18;
+mejora de 778 s (12 min 58 s). Registró 19.373 llamadas RPC lógicas y
+18.550 unidades de lectura enviadas a red, frente a 34.097 y 21.859 anteriores.
+Hubo 9.175 aciertos de caché. Estas cifras no acreditan todas las operaciones
+financieras ni un arranque incremental de minutos.
+El acceso raíz antiguo sigue READ_ONLY; esto no describe por sí solo los
+perfiles activos renovados Uniswap/Aave/Morpho. Sus recorridos financieros y
+la nueva APK continúan pendientes de validación pública.
+Evidencia: `.local/maintenance/20261018-mobile-core-acceptance/v27-ready-observed.json`.
+La sesión administrativa de gcloud requiere reautenticación; el registro
+continuo que ya estaba conectado permitió confirmar la finalización.
+Comprobación pública a las 20:01:44 UTC: `/health` 200 ready, descubrimiento
+de acceso flat 200 y selector paged desconocido rechazado con 403. No hubo
+firmas ni operaciones financieras. La comprobación completa de todas las
+rutas y sus descriptores sigue pendiente de recuperar el acceso administrativo.
+
+## 18 de octubre, 19:39 Madrid — V27 instalada y motor relanzado
+
+El usuario autorizó expresamente instalar y relanzar. El motor arrancó a las
+17:39:09 UTC con la versión V27
+`29a6595555df8c5ee78f80c23206deeb743e29c128a7ddbb8513ccb010890d26`,
+PID215679, invocación `4fa913a428f94dab8b111bb31c01cb2d`.
+La actualización revisada comprobó la misma captura antes y después de instalar;
+el inventario privado quedó idéntico. Mantiene epoch13, las cuotas y el permiso
+hasta el 23 de noviembre a las 23:30 UTC. Arranque en curso: todavía no se acredita
+READY ni la validación pública de las operaciones pendientes. Las indicaciones
+históricas de no relanzar quedan sustituidas por esta autorización explícita.
+Evidencia: `.local/maintenance/20261018-mobile-core-acceptance/v27-started.json`.
+
+API V27 instalada a las 17:39:29 UTC, release
+`ca6b70ee9303aaa6c0af738fa1187d5aa03a34fb2c7e301e10732d81e2cb53d6`,
+con `/health` 200 y `ready:true`. El proceso del agente no cambió. El primer
+intento de su envoltorio de instalación rechazó un nombre de archivo del tar
+antes de cambiar el servicio; corregido el nombre, la instalación pasó.
+El móvil sigue sin aparecer conectado por ADB; APK V27 preparada.
+
+Seguimiento independiente iniciado en la VM:
+`lianum-v27-startup-monitor.service`, lectura cada 30 segundos de esta invocación.
+Conserva observaciones, registra READY o fallo y no reinicia ni reenvía operaciones.
+Su ventana de seis horas limita sólo el seguimiento; no apaga el motor.
+Última comprobación 17:44:24 UTC: motor y monitor activos, cinco hitos de 21
+completados, parte Uniswap en curso, sin fallo registrado. Último contador de
+arranque: 792 llamadas RPC, 1.706 aciertos de caché; no representa el total
+pendiente. La autoridad raíz acabó a los 168 s frente a 204 s de V18; no es
+una medición del tiempo total. Disponibles 8,46 GiB tras instalar.
+
+## 18 de octubre — V27: retirada del plan vencido y reapertura local verificadas
+
+El motor de producción sigue sin relanzarse. La inspección Original del estado
+CAPTURED en la VM ha pasado: checkpoint
+`530e62b25eb36b35470a8eceb9000c24bae7304ef2b1de46d9187e6f7ec6a9cf`.
+No se han emitido firmas, enviado transacciones ni cambiado diarios privados.
+La lectura actual confirma epoch13, límite de cuatro fuentes y permiso hasta
+el 23 de noviembre a las 23:30 UTC. Los perfiles activos Uniswap/Aave/Morpho
+vencen ese día a las 23:00 UTC; las referencias anteriores a octubre eran
+incorrectas. Hay 33 registros Source: 32 FINALIZED y uno EXPIRED_DEPOSIT_V18,
+sin UNKNOWN en ese diario. Esto no demuestra que todas las autoridades hayan
+reconciliado todavía sus estados derivados.
+
+V27 permite retirar la nota original de un plan PREPARED, con automatización
+revocada y plazo de reserva vencido, únicamente tras comprobar ausencia de
+reserva, progreso o intento de reserva en cadena/diario. Requiere una nueva
+autorización W39 del móvil. Conserva la intención antigua y sus contadores.
+El controlador móvil observa el mismo intento ante pérdida de respuesta;
+la prueba con SDK, custodia, Authority, OWNER, Source y supervisor originales
+ha pasado también cerrando y reabriendo la autoridad desde su captura. RPC,
+prover y biometría de esta prueba son puertos HOST: no es una retirada pública.
+La retirada no crea todavía una fuente sucesora ni convierte el plan PREPARED
+en un plan ejecutado o recuperado.
+
+Las lecturas agrupadas reutilizan la cabecera validada dentro de su bloque,
+con comprobación canónica fresca al salir. La caché sigue sin reutilizar saldos
+o nonces actuales. Se ha corregido además la conservación de una prueba
+preparada para un nuevo epoch cuando llega el estado FAILED del epoch anterior.
+El móvil detecta el mínimo BTC y la capacidad del historial antes de firmar;
+el gateway detecta su capacidad antes de consultar RPC. La capacidad no se
+ha ampliado y el archivo del historial sigue pendiente.
+
+Regresiones V27: 29 de caché/coalescencia; 12 de recuperación/controlador/pantalla;
+una del controlador real con reapertura de OWNER; una adicional con captura y
+reapertura de Authority (50,2 s); una de renovación de prueba D26/W39 (15,8 s);
+12 de gateway/controlador nativo, incluido historial lleno. Tipos móviles y
+análisis estático pasan. Los primeros intentos de la nueva prueba fría fallaron
+por configuración incompleta del fixture; la prueba final pasa con todos los
+componentes enlazados, sin relajar ninguna comprobación de producción.
+
+Sigue pendiente antes de afirmar cierre funcional: financiación PAEG desde la
+cartera personal (FUND_D26 sigue patrocinado por el operador), fuente sucesora
+tras retirar el plan vencido, causa física del fallo BTC y resolución consentida
+del ETH UNKNOWN, totales/historial unificados, archivo del historial y reconstrucción
+realmente incremental del arranque. También faltan las 16 familias de aceptación
+pública y las mediciones completas, que requieren el relanzado previamente
+acordado. No se garantiza una reapertura de cinco minutos. Paquete V27 verificado y preparado en la VM, sin instalar:
+`29a6595555df8c5ee78f80c23206deeb743e29c128a7ddbb8513ccb010890d26`.
+Los inspectores antiguo y nuevo autentican la misma captura. Preflight del
+candidato pasa con cero RPC: RAM, 10,2 GiB libres, certificados y seis perfiles
+públicos verificados. 491 comprobaciones generales pasan (23,3 s).
+APK V27 compilada sin Metro, mismo certificado, SHA256
+`130265cecce1a46b90823b0dddda71281d152b395588bef771ef1f495410e6ca`;
+sigue sin instalar porque ADB no muestra dispositivo. La API V27 está empaquetada,
+sin desplegar. Generación adoptada:
+`3a338fdb54ce28b2588c21f4e4c707bcca96f164fc3bf34ee2cb32f87a3d19e8`.
+Detalle en `.local/maintenance/20261018-mobile-core-acceptance/implementation-v27.json`.
+El lote de recuperación está preparado; el alcance completo solicitado continúa
+incompleto por los pendientes enumerados arriba.
+
+
+## 18 de octubre, 18:13 Madrid — mejoras V25/V26 comprobadas; motor sin relanzar
+
+El motor público está `inactive/dead`, PID0, `Result=success`, confirmado de
+nuevo por systemd. El apagado anterior terminó a las 14:57:21 UTC después de
+846 segundos. Conserva la versión `c2f07fb8d6a20de01f035f2744b96f212435e2ab37e8458530e0b6693d729b73`.
+Este trabajo no lo ha arrancado ni ha modificado sus diarios privados. Su log
+anterior informó captura controlada; no se ha autenticado independientemente
+el checkpoint en esta revisión. Sigue siendo necesario hablar con el usuario
+antes de cualquier relanzado. El conjunto completo todavía no está terminado.
+
+La API independiente V25 está instalada:
+`54d63128261173140d4239938c475c313c2df7912acdff1f7f5acbe288a8e743`.
+HTTPS `/health` devuelve 200 y `ready:true`; el proceso del agente no cambió.
+Separa las colas de cuentas y redes independientes, conserva la exclusión de
+la misma cuenta ETH aunque cambie el uso de mayúsculas y evita reescribir
+observaciones que no han cambiado. Incluye el diagnóstico acotado de fallos
+de preparación. No se han enviado operaciones financieras en esta ronda.
+
+Cambios del motor comprobados en local: grupos de lecturas históricas ligados
+a un bloque canónico; reutilización persistente del código inmutable permitido
+entre bloques finalizados; derivación de claves de Vault asíncrona sin reducir
+los parámetros; métricas separadas de espera, RPC y etapas del cierre. Una
+comprobación pública real en dos procesos reutilizó el código de un contrato
+sin otra llamada `eth_getCode`, conservando la comprobación de red y bloque.
+No mide el arranque completo ni acredita un tiempo de reapertura de minutos.
+La reconstrucción incremental completa y la interrupción segura de pruebas
+largas siguen pendientes.
+
+V26 permite revocar mediante autorización nueva del dispositivo la continuación
+del plan con intención de reserva retenida. Conserva intención y contador,
+no calcula otra prueba ni envía una transacción. La revocación persiste al
+reabrir el OWNER original. El botón móvil deja de exigir la observación previa
+que bloqueaba la acción y exige confirmación antes de mostrar éxito. Esto
+detiene la automatización; **no libera el origen reclamado ni completa su retirada**.
+
+APK V26 compilada, sin Metro, mismo certificado de desarrollo:
+`5c71f1ee231803f9db21d42cc7b2f97ab748896b6c10ba1453d8d576298dc241`.
+Todavía no está instalada: ADB no muestra ningún dispositivo. Incluye saldos
+parciales con fecha y aviso de antigüedad, estado incluido distinto de confirmado,
+seguimiento de confirmaciones, reconexión explícita al perfil activo y eliminación
+del interruptor Uniswap que no construía ninguna operación.
+
+491 comprobaciones generales, tipos móviles y regresiones específicas de
+caché, colas, Vault, recuperación, revocación y pantalla pasan. Los fixtures
+Aave/Morpho no equivalen a inversiones reales. Generación adoptada:
+`32c8dd7ddcd009d4ea1e1696485dffc86ee73f4f58e7f173115d46d312809f1a`.
+Detalle y límites en `.local/maintenance/20261018-mobile-core-acceptance/implementation-v26.json`.
+
+Pendiente: liberar/retirar el origen del plan vencido, ingreso desde la cartera
+personal al pool, diagnóstico físico BTC y resolución explícita del envío ETH
+UNKNOWN, totales nativos/PAEG/DeFi e historial de ingresos sin duplicación,
+archivo del historial limitado y mediciones completas. La configuración real
+BTC usa `MEMPOOL` correctamente; no se ha encontrado ahí la causa del fallo.
+Dos proveedores siguen sin devolver el intento ETH y mantienen nonce0; no se
+ha borrado ni reenviado. Las 16 familias de operaciones no están validadas.
+
+## 18 de octubre, 16:44 Madrid — relanzado detenido por el usuario
+
+El usuario ordenó no reiniciar el motor. Se detuvo primero y después se terminó
+sólo el instalador V22 (PID213375), antes de cambiar la versión o solicitar
+el nuevo arranque. La orden previa de apagado ya estaba en curso: última lectura
+`deactivating/stop-sigterm`, PID197267, invocación V18 original. Sigue instalada
+`c2f07fb8d6a20de01f035f2744b96f212435e2ab37e8458530e0b6693d729b73`.
+No reanudar el despliegue ni arrancar el motor sin una nueva indicación del usuario.
+No se acredita todavía un checkpoint CAPTURED final de este apagado.
+
+Antes de detenerlo: se verificaron y retiraron cinco paquetes temporales públicos,
+sin referencias de procesos/servicios ni archivos privados fuera de manifiesto.
+Disco pasó de 6,77 a 11,12 GiB libres; preflight V22 pasó (sin RPC ni envío).
+API independiente V23 `7318e549d83c503229ff491a5b10773b91a50bbac569025c05a07c0273b550c1`
+activa, agente sin cambios, conserva el diagnóstico acotado de envíos UNKNOWN.
+API V24 con diagnóstico de fallos de preparación está empaquetada, NO instalada.
+491 controles generales y cinco pruebas HTTP pasan; Bitcoin recibido y confirmado
+114.393 sat, pero revisión de envío desde el móvil falla y sigue pendiente de diagnóstico.
+ETH continúa UNKNOWN. No se ha completado la validación de las 16 operaciones.
+
+## 18 de octubre — V22: APK/API instaladas; envío SOL confirmado
+
+APK `a04adffebb0d0bb457544c2d8eb51b2cf972da2d9d30b441e7c9d5466c48429e`
+instalada con `-r`, conservando datos. Compilación completa sin Metro, fuentes
+incorporadas verificadas y mismo certificado de desarrollo. Consulta automáticamente
+los envíos pendientes por su identificador, sin firmar ni reenviar; al confirmar
+vuelve a leer saldos. Diez regresiones móviles, tipos y análisis estático pasan.
+Pendiente comprobar esta confirmación automática en un nuevo envío físico.
+
+API V22 `babcaf379ab00d2b4e3ed8edbdcb0d0059d4ccefcdd238df8e4dce6930aac8d6`
+activa, PID42566, `/health` 200; agente sin cambios. Frente a V21 cambia sólo el
+adaptador ETH: el RPC devolvía una estimación positiva de 12.000 y se rechazaba
+la revisión. Se aplica un mínimo de 21.000 antes del margen existente del 20%,
+conservando límites de coste/saldo y comprobaciones previas al envío. Ocho pruebas
+backend pasan. Revisión física ETH correcta; se firmó el intento descrito a continuación.
+
+Envío físico SOL de 0,001 SOL a la propia dirección confirmado y corroborado como
+finalizado mediante RPC independiente: firma
+`36iGX4DZYmpvSDHwpgu6jSzTMJcL7w7x5JnZmBKegdjWYCZogYUdbVPPNkw9vUiHLY3wWbZgiSXUFB7vLhSD8KaM`.
+Comisión 5.000 lamports. El móvil muestra 0,05 ETH y 4,999995 SOL; recibe también
+0,00114393 BTC todavía sin confirmar, por lo que no se acredita disponibilidad
+para enviar BTC ni un envío BTC realizado.
+
+Intento ETH físico `0xdd3c90b08fcb11cf6c33889b484e8e870876ababd78dae591c527642c1284a68`
+para 0,000001 ETH a su propia dirección: UNKNOWN tanto en móvil como gateway.
+Tenderly y Publicnode no devuelven transacción ni recibo. No se acredita envío
+confirmado ni se repite. El observador anterior borró el código de error inicial
+al no encontrar recibo; su causa concreta no puede recuperarse ni suponerse.
+Se corrigió localmente la conservación del diagnóstico acotado durante UNKNOWN,
+y clasificación de rechazos conocidos; nueve pruebas backend pasan. Esta última
+corrección todavía NO está desplegada y no convierte UNKNOWN en fallo terminal.
+
+Motor V18 conserva PID197267; no reiniciado. Nuevo candidato V22 preparado:
+`5831ecc5addd500b4aa7a257ae733ed238f8e7965f107ebf2f48de4001a265da`, generación
+`fed3e45ffe2720d1a7d33ba75db5b2a670a76c22ba51ccc2d94fffba2862c88e`.
+Contratos y recursos compilados idénticos a V18. Sustituye al candidato V21 pendiente,
+NO al proceso activo. Ya copiado y verificado en la VM sin cambiar diarios ni
+proceso; espacio disponible 6,78 GiB. Continúan abiertas las limitaciones PAEG descritas debajo:
+Source4 reclamado por plan vencido, recuperación/cancelación incompleta, financiación
+personal al pool y presentación unificada. No se han validado las 16 operaciones.
+
+## 18 de octubre — V21: validación física en curso; correcciones agrupadas
+
+APK instalada conservando datos: `85924956aa2a2c8d9209ee820d4418eab98335c4a1e400cfc21fdeb3a082e142`.
+Publica cada saldo al responder su red, permite mostrar la dirección de recepción
+mientras otra operación consulta y abre las inversiones públicas desde DeFi.
+Las consultas automáticas de inversión no bloquean todos los botones; un ingreso
+pendiente se consulta por su mismo identificador, sin repetir la financiación.
+La lectura de participaciones puede fallar sin ocultar el estado del presupuesto.
+Pendiente la comprobación física de esta APK tras desbloquear la sesión.
+
+API independiente actualizada a `c58f6b0979722d131b4dbb9de972f0f5a51ff45654313c73a2a46b585b150d2e`;
+`/health` responde 200. El agente conserva su proceso. Corrige el diagnóstico de
+saldo insuficiente antes de estimar gas y reúne los cambios comprobados de lectura.
+491 controles generales, tipos móviles y 32 regresiones de API/RPC pasan; ocho
+regresiones de publicación parcial y recuperación DeFi pasan. No acreditan pagos
+públicos. La compilación Android actual verifica fuentes incluidas y firma de
+desarrollo; la opción de auditoría histórica `--verify-standalone-local` referencia
+un intento antiguo eliminado y no es una verificación de la compilación actual.
+
+Motor V18 continúa en PID197267; sin reiniciar. La prueba desde el móvil de
+financiación Source7 quedó UNKNOWN, sin hash ni envío firmado nuevo. El ingreso
+Source4 ya confirmado sigue UNKNOWN en el diario Native Source y bloquea el envío
+siguiente. V21 comprueba sus recibos mediante el observador Original antes de
+rechazar el nuevo envío; once regresiones de Source/firma/epoch/DeFi pasan.
+La recuperación del plan antiguo conserva su intención Original y la bloquea
+al vencer el permiso o su plazo original de reserva: no calcula ni envía, no
+borra la intención, no cancela ni permite retirar su origen reclamado. Las
+regresiones HOST con SDK/Vault/OWNER prueban ambos vencimientos y conservación.
+Esta limitación de cancelación/retirada sigue abierta.
+
+Candidato de motor preparado, NO desplegado:
+`27408a31d77de1dfdfdd12e08fd19546dceb502d808a2aabf24acdecb864e747`, generación
+`6ff780c11feedca772af9b74abe296b1157a9e91332b3d65bb14ad1b5b221b42`.
+Incluye las optimizaciones V20; contratos y recursos compilados idénticos a V18.
+No se ha medido el tiempo de arranque de esta versión. Se avisará antes de relanzar.
+
+Se observaron 5 SOL devnet recibidos en la dirección del móvil mediante RPC público
+independiente. Falta comprobarlos y probar el envío desde la APK. La cuenta ETH
+personal y BTC necesitan comprobar su financiación. El ingreso Source4 previo
+es presupuesto aportado por el operador al pool, no ingreso a la dirección ETH
+personal. Inicio aún omite saldos/planes PAEG y no puede considerarse cartera
+financiera completa. No se han validado todas las operaciones; matriz y hechos en
+`.local/maintenance/20261018-mobile-core-acceptance/operation-validation-v21.json`.
+
+## 18 de octubre — V20 reduce consultas repetidas; paquete preparado, motor V18 conservado
+
+El arranque V18 registró 34.097 RPC lógicas, 21.859 unidades de red y 2.674
+expulsiones de caché. V20 conserva por runtime y bloque exacto los conjuntos de
+código ya verificados, con comprobación canónica fresca antes/después; comparte
+la verificación del bootstrap finalizado y de código/getters del target Uniswap
+sólo mientras coincide ese mismo bloque. No reutiliza saldo, nonce, política ni
+permisos actuales. La caché SQLite comprime respuestas grandes, compacta las filas
+antiguas tras corroborar su anclaje y evita una escritura LRU por cada acierto.
+No cambia circuitos, contratos ni artefactos compilados.
+
+Medición de lectura contra Sepolia real, con otro proceso y sin tocar el motor:
+20 comprobaciones de 24 contratos necesitaron 24 RPC de código frente a 480 sin
+reutilizar el conjunto; 72 RPC totales incluyendo identidad y canonicalidad,
+7,18 s. No mide el arranque completo ni acredita operaciones financieras.
+Auditoría sólo de lectura de la caché real: 64,25 MB de respuestas sin comprimir,
+21,20 MB de payload deflate, antes de codificación base64/metadatos SQLite.
+22 regresiones de caché/RPC pasan; el recorrido HOST con kernel, compilación y
+firmante originales pasa sus dos pruebas (86 s), además de 491 controles generales
+(16,8 s). RPC/recibos de ese recorrido son fixtures HOST, sin aceptación pública.
+
+Paquete público `c9dd26e1c16e22cb039606af1c135fffedc9bf0b30c1a43ddfec2c1709aa46df`,
+generación `4d9302322feaaf6d050ebc9f1d3d004df41974d14aaca1a91bb9ee71e0d849d1`.
+15 diferencias respecto a V18, ocho fuentes runtime; incluye la recuperación V19
+anterior. Recursos/circuitos/contratos idénticos. NO desplegado: persiste la tarea
+de resolver el plan firmado que venció para reservar a las 14:58 antes de actualizar.
+Motor activo en PID197267 y la misma invocación; cero reinicios. Evidencia
+`v20-local-review.json`, `v20-real-public-query-measure.log` y `v20-*-tests.log`
+en `.local/maintenance/20261018-mobile-core-acceptance/`.
+
+## 18 de octubre — V18 arrancada y rutas verificadas; aceptación financiera pendiente
+
+Implementada la recuperación de depósitos UNKNOWN cuya prueba caducó: el diario
+Original conserva la firma y reserva anteriores, corrobora ausencia, nonce libre,
+compromiso no insertado, bloque finalizado, código del pool y rechazo STALE_EPOCH.
+Sólo permite un intento nuevo con prueba/consentimiento originales nuevos y los
+mismos términos; admite también la ausencia de intento que el propio firmante
+Original acredita en su diario. No reenvía la transacción caducada ni fabrica un
+recibo. Pruebas dirigidas pasan en Source4/Uniswap y Source7/DeFi, con Vault,
+firmas y diario reales; RPC, pruebas ZK y productores de permisos de esas pruebas
+son puertos HOST explícitos, sin aceptación financiera pública.
+
+La lectura de un ingreso pendiente busca su transacción exacta en el diario
+Original y refresca su recibo; deja de recorrer todos los recibos históricos.
+Los controles de código de tres contratos se consultan en paralelo en el mismo
+bloque, conservando la comprobación canónica. Añadidos diagnósticos de envío
+acotados sin datos privados y sin reintentos automáticos.
+
+El arranque omite repetir una renovación ya completada sólo tras corroborar el
+recibo, epoch y vencimientos con el producto Original actual. El código anterior
+habría vuelto a exigir exactamente 31 filas pese a existir ya un ingreso nuevo.
+491 controles generales aprobados (19,3 s). El proveedor real confirma el rechazo
+STALE_EPOCH con el decoder exacto del candidato, cuatro RPC de lectura.
+
+Candidato `c2f07fb8d6a20de01f035f2744b96f212435e2ab37e8458530e0b6693d729b73`,
+generación `0a460a3ec89f90b4b4598a6e94be0dc28438956b1333a71be4d3e4d76bcfa2c0`.
+Contratos y artefactos compilados idénticos al despliegue V17; sin estado privado
+incluido. Motor V18 instalado mediante captura Original y revisión exacta de los 25 cambios.
+La captura terminó correctamente; incrementó su contador de registro 215→216 y
+conservó las 32 operaciones byte por byte. Una comprobación local demasiado estricta
+interrumpió el primer instalador antes de copiar; se corrigió sólo esa condición y
+se continuó desde el mismo checkpoint CAPTURED autenticado, sin repetir captura.
+Inventario privado idéntico antes/después de instalar; límites y permiso hasta
+noviembre intactos. Nueva invocación `9a481be0465444229b2b7523b59b8d45`, PID197267,
+arrancada a las 04:42:04 UTC. Completó READY, 21/21 hitos, hacia las 08:55 de
+Madrid: 2 h 13 min 44 s, 21.859 unidades RPC efectivas y cero intentos de envío.
+Comprobada activa la misma invocación a las 13:27 de Madrid. Verificadas seis
+conexiones públicas con certificado fijado, salud y selección de perfil; cero
+escrituras financieras. Recibos: `recovery-v18-ready.json`,
+`recovery-v18-status-now.log` y `recovery-v18-public-routing.json`, dentro de
+`.local/maintenance/20261018-mobile-core-acceptance/`. Sigue pendiente la
+aceptación física del ingreso y pago; READY no acredita operaciones financieras.
+
+Validación Android posterior: la recuperación Original retiró el intento anterior
+como `EXPIRED_DEPOSIT_V18`, conservando su registro y la nota. La prueba renovada
+produjo el ingreso `0x8d89e9a337ef89d601f2fd836086b823181d222b9b4f82daad64d38d1003bf81`,
+nonce 88, 1.000.000.000.000 wei de Sepolia, recibo exitoso. Tras volver a consultar,
+la APK muestra ese importe como presupuesto disponible. La primera respuesta de
+confirmación falló en `EFFECT_SUBMIT` con `MOBILE_PAGED_SERVICE_UNAVAILABLE`; se
+observó el ingreso existente y no se repitió el envío. Queda por resolver esa
+presentación de confirmación incierta. Preparándose desde el móvil un plan PAEG
+de un pago de 1.000.000.000 wei a la dirección propia del teléfono, con reserva de
+100 wei; su ejecución y aceptación siguen pendientes.
+
+El pago quedó PREPARED antes de cualquier reserva/envío: la prueba Original de
+reserva falló y una consulta OBSERVE_GRAPH sobrescribió y borró el marcador de
+trabajo pendiente. La intención privada autenticada permanece en OWNER, contador
+1/14, sin reserva ni pago. Una reproducción aislada con el mismo testigo y cliente
+Original genera y verifica la prueba en 21,6 s; no se adopta ese resultado aislado
+como prueba del servicio ni se alteran sus diarios. Causa inicial exacta del fallo
+criptográfico aún no determinada; no hay evidencia de OOM, disco o límite de procesos.
+
+Corrección V19 local, todavía NO desplegada: impedir que consultas entren en OWNER
+mientras hay un cálculo aceptado, permitir una recuperación automática acotada del
+mismo cálculo y recuperar la intención de reserva cuya referencia perdió V18,
+leyendo su checkpoint auténtico, comprobando autorización y ausencia de envío en
+Source, sin inventar un checkpoint previo ni reiniciar contadores. Pruebas HOST con
+SDK/Vault/Authority/OWNER y Source reales pasan para recuperación automática y para
+el marcador perdido; criptografía/RPC del fixture son puertos HOST, sin aceptación
+financiera. 491 controles generales pasan. El plan físico sólo permite reservar
+hasta 14:58:48 de Madrid y su autorización vence a las 16:13:48; no se amplían sus
+términos firmados. La actualización debe resolver este vencimiento antes de
+reiniciar: el motor V18 sigue en la misma invocación y el pago NO está aceptado. Evidencias `physical-v18-*`
+en el mismo directorio de mantenimiento. No se reinició el motor para estas pruebas.
+
+## 18 de octubre — APK conectada; aceptación financiera bloqueada por un ingreso pendiente
+
+Corregidos dos fallos físicos Android: una sesión TLS intentaba durar hasta el
+vencimiento financiero de noviembre pese al máximo nativo de nueve horas; después
+la pantalla interpretaba la preparación pública de Uniswap con el lector local y
+cerraba la app con `MOBILE_PAGED_OWNER_BINDING`. El transporte ahora conserva el
+permiso financiero y acota sólo la sesión; visualización y preparación de pasos
+seleccionan el lector público o local original correspondiente. Tres regresiones
+sobre las funciones reales de la pantalla y una comprobación TLS fijada contra la
+respuesta pública real acreditan la corrección. TypeScript, pruebas dirigidas y
+491 controles generales aprobados. APK instalada conservando los datos, sin Metro:
+`9cfde4efd6fd18e07ceebc57a6b9c02a051b1c29a9627281ec7774277c733107`.
+Comprobados en el teléfono la conexión Paged y el cambio Principal/Pruebas con sus
+etiquetas y funciones correspondientes; la separación con movimientos financieros
+todavía no está aceptada.
+
+El ingreso mínimo patrocinado conserva su nota e importe, 1.000.000.000.000 wei
+(0,000001 ETH de Sepolia). Su primer cálculo falló porque el usuario del servicio
+no podía crear `evidence/m23-wallet-proof-attempts`. Reproducido `EACCES` bajo el
+usuario real y creados sólo los dos directorios de recibos necesarios, modo 0700;
+comprobada escritura con ese usuario, sin cambiar fuentes/artefactos ni reiniciar.
+Corregidos los instaladores y la lista de estado público para futuros despliegues.
+La app ahora permite observar la preparación PROVING conservada. La renovación
+explícita de esa misma prueba terminó aceptada y verificada en 50,3 segundos.
+
+**La financiación aún no está aceptada.** El envío quedó UNKNOWN, nonce 88,
+`0x334a87c02a116b7f7143a5b2845c4f787b614eb565035c8465c7ae20c7ed5cb0`.
+El proveedor no devuelve transacción ni recibo; su saldo cubre valor y comisión.
+El código actual retiene el envío y sólo observa, sin reenviar. Su prueba ya ha
+caducado: la revisión de recuperación de la misma transacción fue rechazada por
+la simulación con `STALE_EPOCH`; **no se ejecutó ningún reenvío manual**. No se debe
+suponer que otra consulta o un reinicio recuperarán por sí solos ese estado.
+Falta implementar/revisar la recuperación Original de este ingreso pendiente antes
+de continuar su financiación y el pago. No se borraron ni alteraron sus registros.
+
+Motor V17 y epoch13 conservados, mismo PID 177136: las 31 operaciones FINALIZED
+anteriores permanecen y existe ahora una fila financiera adicional UNKNOWN.
+Los recibos antiguos que exigían exactamente 31 filas correspondían al arranque
+sin operaciones nuevas y no deben reutilizarse como condición actual de cierre.
+No se reinició el motor ni se hicieron llamadas de pago a OpenAI. Voz, notificaciones
+y aprobación financiera del agente siguen pendientes de aceptación física.
+Evidencias y siguiente trabajo: `.local/maintenance/20261018-mobile-core-acceptance/`.
+
+## 18 de octubre, 01:09 Madrid — Ventana hasta el 23 de noviembre aplicada; arranque y rutas verificados
+
+El usuario ha autorizado mantener el motor disponible durante todo el 23 de
+noviembre de 2026. La versión instalada es
+`ff2978515327173f1d3e85b25da1b363df2429c2810586f4e074d86a4b4607d8`, con
+la ventana finita V17 incluida en los límites que firma el epoch Original.
+Permiso firmado hasta `2026-11-23T23:30:00Z`, cierre de operaciones a
+`2026-11-23T23:00:00Z` (24 de noviembre, 00:00 Madrid). Se conservan los cuatro
+topes monetarios y todas las reservas acumuladas; cuota interna tres a cuatro
+para una última renovación vacía de Source4/7, sin despliegues ni envíos.
+**Autorización firmada por el Original, epoch13; READY real con 21/21 hitos.**
+El motor completó el arranque a las 01:08:40 del 18 de octubre, en la misma
+invocación iniciada a las 22:10 del día 17: PID 177136,
+`b14c9cae1da94ee09538deb0eb29fc3a`. Duración: 2 h 57 min 58 s; 29.287
+unidades RPC de red y 20.634 lecturas históricas reutilizadas. Source4/7
+renovadas dentro del producto Original vivo; Uniswap, Aave y Morpho publican
+el plazo `1795474800000`, la medianoche que termina el 23 de noviembre en Madrid.
+Conservadas las 31 operaciones FINALIZED y las reservas, cero envíos nuevos.
+No hacen falta renovaciones cada nueve horas durante este periodo.
+
+API publicada y comprobada a las 01:09:01: cinco perfiles, dos dispositivos,
+seis comprobaciones de conexión y cuatro retos sin firma, cero escrituras
+financieras. Conservadas las seis redes nativas principales/de pruebas, los
+secretos y el proceso del agente, la configuración de Caddy y las identidades.
+Temporizador de cierre persistente instalado para la medianoche de Madrid
+del 24 de noviembre; los temporizadores anteriores están retirados y la
+vigencia no se prolonga al reiniciar. El único temporizador persistente de
+Lianum es el de noviembre.
+
+Este resultado acredita la ampliación, el arranque y las rutas públicas.
+**Siguen pendientes la aceptación financiera y la validación física Android**;
+el acceso raíz anterior sigue READ_ONLY y READY mantiene
+`defiFinancialReady:false`. Recibos:
+`.local/maintenance/20261017-continuity-v17-engine-ready.json` y
+`.local/maintenance/20261017-continuity-v17-publication.json`.
+
+Al detener V16, el cierre encontró un lector que exigía servicio activo después
+de haber bloqueado el acceso HTTP. Corregido con un lector de retención que
+sigue autenticando la misma autoridad y el mismo sistema Original; la lectura
+operativa sigue bloqueada. Recuperado el almacenamiento por el sellado Original
+existente e inspeccionado como CAPTURED, sin transacciones. La versión con la
+corrección pasó 491 controles generales, 13 pruebas de ventana/firma/temporizador
+y regresiones de captura con el operador y TLS reales sobre puertos HOST.
+
+Renovado el certificado **interno** del motor hasta el 15 de enero de 2027,
+con la misma clave; actualizado el almacén de confianza de Caddy y comprobada
+su validez en la fecha de noviembre. Certificado público reconocido por la APK,
+cuentas, datos y procesos de API/agente conservados. El certificado público ya
+vence el 11 de enero de 2027. Se archivaron copias públicas redundantes sin
+ampliar discos ni tocar los historiales privados.
+
+Coste de los recursos inventariados, a tarifas actuales en EUR y 730 h/mes:
+**165,93 €/mes** antes de IVA, créditos promocionales y tráfico; **138,47 €/mes**
+con el máximo descuento mensual N2 por uso continuado. Tráfico NAT observado:
+aproximadamente 0,72 €/mes si conserva el ritmo de los últimos siete días.
+API y agente comparten `e2-small`; el motor usa `n2-standard-4`. Discos: 100 GiB
+balanced y 20 GiB standard; dos IPv4 y un NAT. FCM no tiene cuota fija; OpenAI
+se añade según uso y conserva el presupuesto acordado de 50 € hasta la demo.
+Esto es una **estimación de funcionamiento**, no una factura: no se ha confirmado
+una exportación de facturación accesible para este proyecto y el saldo de créditos
+no está verificado. El cierre del permiso no apaga las máquinas: seguirán
+facturando mientras permanezcan encendidas.
+Detalle y pruebas en `.local/maintenance/20261017-cost-monthly-estimate.json`
+y `.local/maintenance/20261017-continuity-v17-*`.
+
+## 17 de octubre, 21:20 Madrid — Arranque completado y rutas públicas verificadas
+
+El motor V16 completó **21/21 hitos y READY** a las 21:15, en la misma
+invocación iniciada a las 18:17 (PID 158714). Duración: 2 h 57 min 20 s;
+29.787 unidades RPC de red y 20.836 lecturas históricas reutilizadas.
+Source4/7 renovadas dentro del producto Original vivo y del epoch12 autorizado,
+cuota tres. Conservadas las 31 operaciones FINALIZED, identidades, límites y
+reservas; cero envíos financieros nuevos. La caché de arranque se cerró antes
+de servir operaciones y queda conservada en disco para próximos arranques.
+
+API publicada con cinco perfiles y seis redes nativas: Ethereum/Bitcoin/Solana
+principales y Sepolia/Bitcoin testnet/Solana devnet. Comprobadas seis conexiones
+públicas con TLS fijado, descriptores coincidentes y selección de cuenta válida;
+identificadores desconocidos rechazados. Paged/DeFi rechazan el identificador
+ausente; el único Flat permite descubrir su reto público, según su contrato
+existente. La comprobación final emitió cuatro retos sin firma (tres con
+identificador y uno de descubrimiento), sin escrituras financieras.
+Motor, API, agente y Caddy activos; configuración principal y secretos del agente
+conservados. **491 controles generales aprobados en 18 segundos** tras ajustar
+el comprobador. Corregidos el registro del resultado de publicación y la
+expectativa de descubrimiento Flat; el motor no se reinició por esos ajustes.
+
+Este cierre acredita arranque, despliegue y rutas públicas. **Pendientes la
+aceptación financiera real y la validación física Android**; el acceso raíz
+anterior sigue READ_ONLY y READY mantiene `defiFinancialReady:false`.
+Permiso hasta **18 de octubre, 02:17:53 Madrid**, con captura preventiva a las
+**01:47:53**. No hay ampliación futura automática. Seguimiento hasta completar
+el servidor satisfecho; recibo:
+`.local/maintenance/20261017-reopen-v16-publication.json`.
+
+## 17 de octubre, 18:17 Madrid — V16 instalada, arranque normal solicitado
+
+La corrección de recuperación V15 y la caché persistente V16 están instaladas:
+`c82563ee320617190383e6711e62a2260bdc284bcbc2599c0bc8036af57f9f52`.
+15 regresiones nuevas de persistencia/recuperación, 20 de transporte y 491
+controles generales aprobados. La prueba real con 20 lecturas pasó de 22
+peticiones a cinco en frío y cuatro tras otro proceso; no acredita todavía
+la duración del arranque completo. Prueba SIGKILL con escritura sin commit:
+conservadas 20 lecturas ya comprometidas. Sólo lecturas públicas de historia
+finalizada; controles actuales y permisos se siguen verificando. Se desactiva
+la reutilización de arranque antes de servir operaciones financieras.
+
+El preflight real de la instalación valida dos fuentes, el nacimiento pendiente,
+la cuota tres y su propietario existente; no hizo RPC. Conservados todos los
+archivos privados, contratos y recursos compilados. El controlador de instalación
+se detuvo tras completarla por un nombre de informe duplicado; la continuación
+verificó el estado y completó los recibos sin reinstalar ni arrancar el motor.
+
+Permiso epoch12 firmado hasta **18 de octubre, 02:17:53 Madrid**; sólo cuota
+por cartera de dos a tres, autorizada explícitamente. Límites económicos y
+reservas intactos, 31 operaciones FINALIZED, cero envíos financieros nuevos.
+Arranque solicitado a las 18:17 con monitor de la misma invocación y publicación
+API condicionada al READY financiero real. READY, rutas públicas y aceptación
+móvil siguen pendientes. Seguimiento: `.local/maintenance/20261017-reopen-v16-monitor.log`.
+No se considera cerrado por tener pruebas host o copiar una versión.
+
+Seguimiento a las 20:52 Madrid: misma invocación activa, dieciocho hitos completados,
+incluyendo COMPOSITION_LISTENING. Trabajando en RENEWING_EMPTY_SOURCE4_7;
+25.865 unidades RPC de red y 17.334 lecturas reutilizadas. Renovación viva,
+READY y publicación API todavía pendientes. Sin errores nuevos ni envíos
+financieros; conservadas las 31 operaciones y el permiso epoch12.
+El seguimiento continúa por petición expresa del usuario hasta completar el
+arranque y verificar las rutas, con revisión de causa antes de cualquier reintento.
+
+## 17 de octubre — Prioridad: conservar trabajo y detectar bloqueos antes de relanzar
+
+El usuario autoriza cuota interna de dos a tres manteniendo las 02:17:53 y los
+límites económicos. Su revisión Original está en curso; todavía no hay nuevo
+arranque normal. V15 preparada y verificada, instalada sólo como candidato
+aislado. 13 regresiones de recuperación, seis de revisión y 491 controles
+generales aprobados. El usuario pide corregir primero la repetición del trabajo
+al reiniciar: se pospone el arranque normal hasta comprobar esa mejora. El
+móvil queda a cargo del usuario.
+
+## 2026-10-17 — Permiso ampliado nueve horas y verificado
+
+Vencimiento **firmado y verificado: 18 de octubre a las 02:17:53 Madrid**
+(00:17:53 UTC), nueve horas desde la petición y sustituyendo la propuesta
+anterior de las 04:00. Epoch 11 aplicado por la revisión Original, terminado
+con éxito a las 17:28:44 Madrid. Conservados límites económicos, reservas, cuota
+de dos fuentes, las 31 operaciones y los seis perfiles de conexión. Cero
+transacciones. Almacenamiento CAPTURED; el motor permanece parado y no se
+relanza con esta ampliación. No hay renovación futura programada ni timer
+preventivo armado; el anterior monitor había terminado al detectar el fallo.
+Recibo: `.local/maintenance/20261017-period-max-nine-hours-applied.json`.
+
+La corrección de recuperación del propietario vacío supera 13 pruebas dirigidas
+y 491 comprobaciones generales. El preflight autenticado sobre los datos reales
+conserva los archivos y la identidad, sin escrituras ni RPC; la corrección aún
+no está instalada. La preparación del paquete detecta los pins móviles
+pendientes de actualizar tras el cambio de dependencias de voz; además debe
+refrescarse el preflight de lectura para el nuevo epoch 11. La siguiente
+renovación requiere cuota tres: no está autorizada
+ni aplicada por una ampliación únicamente temporal.
+
+Actualizado el 17 de octubre de 2026. La API pública, el motor de ejecución remoto y la app móvil
 tienen instalaciones y evidencias distintas. Las secciones posteriores
 conservan sus fechas, generaciones y límites históricos.
 
-## Revisión del 16 de octubre, 14:17 UTC — cierre en curso
+## Agente del 17 de octubre, 16:56 Madrid — backend y APK instalados; aceptación física pendiente
 
-**El motor remoto sigue sin estar disponible.** La API conserva la versión
+API y agente usan la release
+`57faabb2cdf85813957e1921a0acdc018b6d19ac2b1165ffa7bf7589d92cbb46`.
+La actualización preservó los 39 mensajes, dos identidades, conversaciones y
+sesiones remotas existentes. Configuradas lectura optativa del backend,
+observación de grants finitos, cola FCM y voz GPT-Live 1 conectada al mismo
+agente Luna. Las capacidades de ejecución de fondos siguen deshabilitadas.
+Firebase se activó en el proyecto existente. El servidor usa una identidad
+FCM dedicada y credenciales temporales de metadata, sin claves descargadas.
+
+44 pruebas del agente y 491 comprobaciones generales aprobadas; TypeScript y
+10 regresiones móviles aprobadas. La cuenta reconoce GPT-Live 1, sin haber
+iniciado llamadas de voz de pago en esta actualización. Voz reservada hasta
+USD 5 acumulados y 10 minutos por llamada; no equivale a imponer el presupuesto
+completo de EUR 50 del proyecto. APK `67157bdad7578989949539553a2ba5569ed2fc73c07aee2d91e349166a0ab711`
+instalada conservando los datos; abre sin errores detectados. Corregido el límite
+de metaspace de Gradle (384 a 512 MiB, mismo heap de 768 MiB y control total de
+3 GiB); la compilación incremental terminó en 83 segundos. **Pendientes voz
+audible, notificación física y recorrido de aprobación real en Android**.
+No hay aceptación financiera nueva. Recibo:
+`.local/maintenance/20261017-agent-always-on-deployed.json`.
+
+## Actualización del 17 de octubre, 16:36 Madrid — V14 detenida, recuperación pendiente
+
+La invocación V14 terminó con `EMPTY_REPLACEMENT_UNISSUED_FILE_PRESENT`
+al intentar retirar un nacimiento vacío de un epoch anterior. Completó cinco
+hitos, hasta ROOT_AUTHORITY, y falló durante UNISWAP_MIXED después de **11.540
+consultas lógicas / 8.374 unidades RPC HTTP**. Cero envíos financieros; las 31
+operaciones FINALIZED y el alcance del epoch10 están conservados. No hay READY
+ni renovación viva de Source4/7. El monitor terminó al detectar el fallo y no
+relanzó el motor. El permiso sigue venciendo a las 19:00 Madrid.
+
+El guard exige ausencia del owner/locks antes de retirar un intento no emitido.
+El archivo concreto es `authority-uniswap-phone-v6/renewals/1/private-owner.vault`;
+no hay locks. Ese nacimiento ya tiene owner retenido y no puede tratarse como
+no emitido. Falta autenticar y recuperar ese owner por el recorrido Original;
+no se borra ni se relaja el control para superar el arranque. Evidencia:
+`.local/maintenance/20261017-reopen-v14-failure-receipt.json`.
+Las secciones siguientes conservan el historial del arranque, no su estado actual.
+
+## Relanzamiento del 17 de octubre, 16:03 Madrid — V14 activa hasta las 19:00
+
+El usuario revocó la espera anterior y autorizó ampliar la vigencia financiera
+hasta las **19:00 Madrid / 17:00 UTC**, manteniendo límites, cuotas y reservas,
+y relanzar V14. La revisión Original completó epoch10 a las 16:02:53 Madrid,
+con las 31 operaciones FINALIZED y todas las conexiones conservadas, cero
+transacciones nuevas y almacenamiento CAPTURED antes del arranque.
+
+La entrada normal arrancó a las **16:03:16 Madrid**, PID **150975**, invocación
+`227fb973ef514e85890ecf4c19481873`, release
+`564c8b7921576cb0892c1b8a787727bf196cc1a2659c3b5796131ba111388845`.
+El preflight real de la versión instalada verificó recursos, certificados hasta
+el nuevo vencimiento, seis pins publicados, estado y ventana antes de arrancar.
+El cierre preventivo pasa a las **18:30 Madrid**. No hay reinicios automáticos.
+ROOT_RETENTION y NATIVE_RUNTIMES observados; READY y la renovación viva de Source4/7
+siguen pendientes. El monitor conserva las comprobaciones de invocación y alcance
+financiero antes de publicar perfiles/testnets; PID local 4150418, registro
+`.local/maintenance/20261017-reopen-v14-monitor-1900.log`.
+
+Recibos: `20261017-period-until-1900-applied.json` y
+`20261017-reopen-v14-started-1900.json`. La espera antes del relanzamiento descrita
+en la revisión de las 15:44 queda sustituida por esta autorización y ejecución.
+La caché continúa limitada al proceso; no se ha añadido reanudación del arranque.
+
+## Agente del 17 de octubre, 16:05 Madrid — lectura del backend preparada en fuentes
+
+Conectada la lectura optativa de cuentas públicas por propietario y entorno,
+mediante listener loopback y token independiente. La app permite conectar
+Principal o Pruebas por separado y desconectar todas las cuentas. El agente
+consulta cuando una herramienta lo necesita o en un seguimiento ya solicitado;
+no hay un barrido continuo ni llamadas extra al modelo para vincular cuentas.
+La recuperación de un resultado de herramienta conserva su lectura guardada.
+La desconexión o un cambio de entorno descartan resultados que lleguen tarde;
+fallos RPC/precios mantienen importes desconocidos y origen/antigüedad explícitos.
+
+33 pruebas del agente, 13 móviles dirigidas, TypeScript móvil y 491 comprobaciones
+generales aprobadas. Se corrigió la declaración compartida de saldo para conservar
+el carácter opcional de hasPendingTransfer. Cero llamadas de pago a OpenAI.
+**Sólo fuentes y verificaciones locales:** la API y el agente cloud conservan sus
+releases anteriores; no se ha compilado/instalado una APK nueva ni validado en móvil.
+Evidencia `.local/maintenance/20261017-agent-backend-wallet-evidence.json`.
+El worker de seguimiento de operaciones y Android push siguen pendientes; Firebase
+no ha sido activado. No se amplían capacidades de ejecución financiera.
+
+## Revisión final del 17 de octubre, 15:44 Madrid — V14 instalada y motor detenido por petición del usuario
+
+La release `564c8b7921576cb0892c1b8a787727bf196cc1a2659c3b5796131ba111388845`
+está instalada en ambos enlaces current. El inspector Original autenticó CAPTURED
+antes y después de la instalación, con el mismo checkpoint. El inventario privado
+se conservó exactamente. **No se ha relanzado el motor ni el monitor. El usuario
+ha pedido expresamente parar antes del relanzamiento; esperar su siguiente instrucción.**
+El estado `failed` de systemd pertenece todavía a la antigua invocación V13;
+no existe una invocación V14 ni un READY nuevo.
+
+La recuperación completa con V14 pasó: Root, Mixed y DeFi quedaron CAPTURED en
+105 segundos, con 778 lecturas RPC de red y cero transacciones. La revisión previa
+con límite de 512 lecturas se detuvo por ese límite; otra prueba con red bloqueada
+confirmó que el sellado también corrobora recibos y contratos en blockchain.
+Por tanto, el preflight de 20 archivos sin RPC descrito más abajo no debe
+confundirse con el sellado completo. En total, los dos intentos con red de esta
+revisión emitieron 1.290 unidades RPC de lectura. El intento final no agotó su
+límite de 4.096 lecturas/ocho minutos. Se verificaron sin cambios los nueve archivos
+protegidos de operaciones, permisos y conexiones durante la recuperación.
+
+Se retiraron tres copias públicas redundantes, verificadas contra sus originales
+conservados, recuperando 2,8 GB. Tras instalar quedan 9,08 GB libres frente al
+mínimo de arranque de 7,52 GB; RAM disponible 15,86 GB frente a 2,68 GB requeridos.
+La comprobación sobre la versión instalada valida TLS, claves de transporte,
+los seis pins publicados, certificados vigentes hasta el vencimiento, las 31
+operaciones FINALIZED, ausencia de envíos y el mismo epoch9. El permiso vence
+a las 18:00 Madrid; el cierre preventivo se selecciona a las 17:30. No se amplió.
+
+Cinco regresiones adicionales del tramo final pasaron (renovación viva,
+publicación y recursos), además de las 10 + 5 dirigidas y 491 comprobaciones
+generales de esta misma versión ya aprobadas. Las fuentes corregidas coinciden
+con los hashes del paquete. API y agente siguen activos en sus releases anteriores;
+los hashes de configuración de API coinciden con los esperados por el publicador.
+Los scripts V14 de seguimiento/publicación están preparados, sin ejecutarse.
+
+Evidencias actuales: `.local/maintenance/20261017-reopen-v14-final-review.json`,
+`20261017-reopen-v14-startup-readonly-installed.json`,
+`20261017-reopen-v14-stopped-after-review.json`,
+`20261017-reopen-v14-final-path-tests.log` y `20261017-reopen-v14-install-only.log`.
+Faltan la ejecución completa hasta READY, la publicación de sus nuevas conexiones
+y la validación física. No hay aceptación financiera nueva ni un total/ETA de RPC
+demostrado para la siguiente ejecución; su caché sigue siendo local al proceso.
+
+## Incidencia del 17 de octubre, 15:08 Madrid — diagnóstico y preparación de V14
+
+La invocación V13 `2f2e1818a8134361a339ed9a0777eb0f`, release
+`22057989bd1cfc3843221ae920fa6cc140c3e9e86917fc593e6af2293d6d279c`,
+terminó con `PAGED_PLATFORM_APPLICATION_CLOSED` tras 12.771 llamadas RPC lógicas,
+sin intentos de envío. No llegó a READY. Las 31 operaciones FINALIZED, el journal
+de envíos vacío y el alcance epoch9 hasta las 18:00 Madrid se conservaron.
+El monitor V13 se detuvo; no existe un nuevo arranque en curso.
+
+La regresión local reproduce el mismo error al reconstruir la interfaz durante
+la sustitución vacía: su comprobación de vida observa el bloqueo de sustitución.
+El ajuste completa los enlaces, comprueba que no hubo cierre y libera ese bloqueo
+sólo durante el relevo síncrono; el padre conserva su bloqueo hasta cambiar la ruta.
+Pasan Source4/Source7, revisión de rutas y cierre concurrente. Sin traza del fallo
+V13 no se atribuye con certeza su ubicación; el siguiente paquete incorpora el
+diagnóstico ya acotado de causas y ubicaciones, sin texto privado de excepciones.
+
+El sellado de recuperación V13 encontró `MIXED_DEAD_STORAGE_PROVIDER_ADVANCED`:
+el proveedor conserva una única adición administrativa, revisión 1 a 2, que el
+checkpoint previo aún no contiene. La corrección V14 valida la reconstrucción
+exacta del checkpoint anterior, ausencia de trabajo económico y el mismo
+predecesor/OWNER validado. Conserva el checkpoint anterior; no habilita firmas,
+no acepta avances arbitrarios y la reapertura Original sigue verificando al hijo.
+Su preflight sobre 20 archivos reales cifrados de cloud pasó sin mutaciones,
+consultas RPC ni transacciones. Esto no acredita el sellado completo ni READY.
+
+10 pruebas dirigidas de recuperación, 5 posteriores de composición/diagnóstico
+y 491 comprobaciones generales aprobadas. Evidencias:
+`.local/maintenance/20261017-reopen-v14-{recovery-directed,downstream,global-final,actual-preflight}.log`.
+Paquete local V14 `564c8b7921576cb0892c1b8a787727bf196cc1a2659c3b5796131ba111388845`,
+generación `f7710de8656efb3385b2cc035ff51de81a94943d0287067aa00d20b0d2f06206`.
+Contratos y recursos compilados idénticos; incluye inventario de fuentes del
+trabajo pendiente del agente, sin desplegar la API ni su servicio. Revisión:
+`.local/maintenance/20261017-reopen-v14-release-review.json`.
+
+En el corte de las 15:24, V14 aún no estaba instalada ni el motor relanzado.
+La revisión de las 15:44 anterior sustituye ese estado. El trabajo de agente 1–4 queda preparado
+parcialmente en el checkout y no se ha desplegado; Firebase aún no está activado.
+
+## Agente del 17 de octubre, 14:44 Madrid — contexto persistente desplegado
+
+Actualización exclusiva del servicio del agente:
+`c7ab179ac3b98e9d06684df7f7ab4d95d204fe691c26a16ebf71452e4544e4a6`.
+La API conserva `7ea8d94555c971f53add3bffa7e265a1efc601a308e185847affcd037bd16476`
+y su mismo proceso. El agente tiene un pin independiente mediante el drop-in
+`lianum-agent.service.d/agent-context-v2.conf`; futuras actualizaciones del agente
+requieren revisar ese pin, además del courier público. Se conservaron identidades,
+sesiones y los 39 mensajes existentes; copia privada de SQLite antes del cambio.
+Claves, configuración, modelo `gpt-6-luna` y capacidades financieras preservados.
+
+El contexto por mensaje incorpora preferencias recientes, claves olvidadas,
+fragmentos del historial recuperados por palabras clave y seguimientos pendientes.
+Tiene límites de tamaño y se congela antes de enviar para mantener los reintentos
+idénticos. Las instrucciones largas de estilo dejan de repetirse en cada turno.
+Los seguimientos nuevos conservan la última zona horaria guardada tras reiniciar,
+y cartera/operaciones identifican el entorno y la antigüedad de su observación.
+Los entornos heredados desconocidos no se suponen Principal ni Pruebas; las
+propuestas testnet requieren un contexto testnet conocido. No se añade una sesión
+nueva ni herramientas nuevas que obliguen a recrear las conversaciones actuales.
+
+26 pruebas dirigidas y 491 comprobaciones generales aprobadas. API pública y
+capacidades del agente HTTP 200 tras instalar. Cero llamadas de pago de prueba;
+la calidad de las respuestas reales del modelo sigue necesitando validación de
+uso. La recuperación por palabras clave no es búsqueda semántica ni memoria
+perfecta. Los saldos en segundo plano siguen pendientes de conectarse al backend.
+Voz, push y ejecución financiera continúan deshabilitados.
+
+Motor financiero observado a las 14:45:00: misma invocación y PID 143353,
+cinco hitos, última muestra de 6.484 RPC lógicas, cero intentos de envío.
+Permiso epoch9 y las 31 operaciones anteriores conservados. Sigue pendiente READY;
+el monitor V13 mantiene su publicación posterior de perfiles y testnets.
+Evidencia: `.local/maintenance/20261017-agent-context-evidence.json`.
+
+## Incidencia del 17 de octubre, 14:19 Madrid — renovación incompleta de un permiso anterior
+
+El intento V12 se detuvo tras **11.412 invocaciones RPC lógicas** (8.352 unidades
+RPC de lectura en red), con `EMPTY_REPLACEMENT_INTENT_BINDING`. Source4 conservaba
+una intención y un journal inicial de epoch8 (hasta las 14:00), sin OWNER. El
+permiso vigente es epoch9 hasta las 18:00; Source7 no tenía renovación pendiente.
+Las 31 operaciones FINALIZED, el journal de envíos vacío y el alcance financiero
+se conservaron. El sellado Original de la invocación fallida terminó CAPTURED,
+sin revisión financiera ni transacciones nuevas.
+
+La corrección V13 sólo permite retirar una creación vacía que nunca obtuvo OWNER,
+cuando ambos periodos pertenecen al historial firmado y únicamente aumenta su
+vigencia. Rechaza OWNER/locks, journal avanzado o ajeno, fondos, cambios de cuotas
+o gasto y antecedentes no autenticados. Conserva cifrados el intent y el journal
+retirados, verifica otra vez el predecessor y el saldo actual, y actualiza el
+intent por CAS. Una interrupción después del archivado se puede recuperar. No
+renueva cuentas ya activadas ni incrementa la cuota o los límites financieros.
+
+Pruebas dirigidas: siete casos aprobados, con variantes negativas y recuperación
+tras interrupción. Comprobación global final: 491 aprobadas en 15 segundos. El
+preflight en gcloud verificó el historial firmado real y la recuperación sobre
+copias cifradas temporales, sin modificar los originales de producción.
+Paquete revisado `22057989bd1cfc3843221ae920fa6cc140c3e9e86917fc593e6af2293d6d279c`,
+generación `f13edc4eb649e674272d78a2a2f56ddc8758fce2b678689762e28b35b002d203`;
+contratos y recursos compilados idénticos. Instalación terminada a las 14:30:19 Madrid, con estado privado preservado.
+Arranque normal a las **14:30:20 Madrid**, PID **143353**, invocación
+`2f2e1818a8134361a339ed9a0777eb0f`, observado activo a las 14:30:38.
+El guard real aprobó 9.129.062.400 bytes libres frente a 7.516.192.768
+requeridos y RAM suficiente. A las 14:31:23: dos hitos completados, 183
+invocaciones RPC lógicas y cero intentos de envío. READY y la renovación viva
+siguen pendientes.
+Monitor V13: PID local 3983351, `20261017-reopen-v13-monitor-wait.log`.
+El permiso sigue hasta las 18:00 y el cierre preventivo a las 17:30 Madrid.
+
+## Arranque del 17 de octubre, 13:47:48 Madrid — ejecución nueva iniciada
+
+Instalado el paquete `3647bdd23a341ceb554a24e71ddf0e58bb012c6b2a3ecd241001cfe0274c6435`
+con preservación comprobada del estado privado durante la actualización.
+Motor normal PID **139306**, invocación `938dfcc59f36482ebd97553562629146`,
+observado activo a las 13:48:44 Madrid con ROOT_RETENTION y NATIVE_RUNTIMES
+completados. Epoch9 hasta las 18:00, 31 operaciones anteriores conservadas y
+journal de envíos vacío. No se declara READY ni renovación viva completada.
+La caché y el guard de recursos ya forman parte de esta invocación instalada.
+Guard real aprobado: 11.976.069.120 bytes libres frente a 7.516.192.768
+exigidos, y RAM suficiente. Primer minuto: 178 invocaciones RPC lógicas,
+177 unidades RPC en red, 11 entradas en caché y diez aciertos de código;
+cero intentos de envío. Estos contadores no acreditan aún una mejora global
+medida de duración ni permiten prometer un total o una hora de finalización.
+El monitor actual es `20261017-reopen-v12-monitor.py`, PID local 3962156;
+el log es `20261017-reopen-v12-monitor-wait.log`. Sólo publica perfiles y testnets
+si esta misma invocación completa READY y el recibo Original vivo. Una avería
+conserva su causa y detiene la publicación para diagnóstico, sin reinicio ciego.
+
+## Reintento del 17 de octubre, 13:48 Madrid — permiso aplicado; instalación en curso
+
+El usuario autoriza otro intento y amplía únicamente la vigencia financiera
+hasta las **18:00 Madrid / 16:00 UTC**. La revisión Original terminó a las 13:46:13 Madrid: recibo epoch9 verificado,
+conservando límites, cuotas, reservas, bytes de las 31 operaciones FINALIZED,
+journal de envíos vacío y conexiones del usuario. Al finalizar seguía CAPTURED,
+sin arranque normal ni transacciones financieras.
+El cierre preventivo del nuevo periodo corresponde a las 17:30 Madrid.
+
+Paquete nuevo `3647bdd23a341ceb554a24e71ddf0e58bb012c6b2a3ecd241001cfe0274c6435`,
+generación `20b693a24e3e41448f9db0ffe03eee9471c46a844a1e4a1164562745d57d75e1`.
+Los recursos compilados y contratos permanecen byte a byte idénticos. El guard
+inicial comprueba RAM y el disco real del worker antes de adquirir Original o
+consultar la cadena; exige 2 GiB adicionales sobre el mínimo del worker, después
+de instalar. Se retiraron nueve couriers públicos de recuperación duplicados,
+sin referencias y con copia instalada íntegra: 14.822.842.368 bytes libres antes
+de preparar el nuevo paquete. No se borraron instalaciones ni estado privado.
+
+La caché compartida en RAM sólo admite code/call/storage a una altura explícita.
+Cada reutilización observa otra vez su hash canónico; los fallos RPC no se guardan
+y una altura con otro hash usa otra entrada. Las lecturas nuevas usan EIP-1898
+`blockHash/requireCanonical:true`, también en lotes de hasta cuatro. Latest,
+pending, saldos, nonces, recibos, controles de permisos y envíos conservan sus
+lecturas originales. Memoria limitada a 32 MiB/4096 entradas. Los contadores
+muestran solicitudes únicas/repetidas, aciertos, fallos y unidades RPC en red;
+no publican direcciones ni parámetros. No hay aún caché persistente ni
+reanudación completa del arranque tras terminar el proceso.
+
+Pasan 19 casos dirigidos de transporte/caché/recursos, 18 del lector Original
+y sus rechazos, y 491 controles generales. Dos fixtures HTTP se adaptaron para
+exigir el selector canónico nuevo; los escenarios de código incompatibles usan
+contratos distintos para no simular dos códigos en el mismo bloque/dirección.
+Sondeo real de sólo lectura: cuatro consultas repetidas se resolvieron con una
+unidad RPC nueva para observar el bloque y cuatro aciertos. Esto no acredita
+una reducción global medida del arranque. Cero inferencias y envíos financieros.
+
+`lianum-reopen-cache-v12.service` espera el recibo financiero completo antes de
+instalar la revisión y arrancar una sola vez el motor normal. El monitor
+`20261017-reopen-v12-monitor.py` verifica epoch9, la invocación exacta y su READY;
+sólo entonces publica los cinco perfiles y habilita las seis redes sobre la
+API compatible ya instalada. No se afirma aún que las consultas estén iniciadas.
+Evidencias y continuación en `.local/maintenance/20261017-core-closure-handoff.json`.
+
+## Cierre del 17 de octubre, 13:25 Madrid — fallo de recursos diagnosticado; API compatible desplegada
+
+El acceso a Google Cloud está recuperado. Se comprobó la invocación normal
+`bde0f6bfa51742eca6b04933ab8cbe70`: falló a las 09:23:39 Madrid, tras 34.819
+consultas RPC y 18 de 21 hitos, durante `RENEWING_EMPTY_SOURCE4_7`, con
+`PAGED_GRAPH_RESOURCE_FLOOR`. El error posterior de captura era genérico y no
+sustituye esa causa inicial. El motor normal está detenido; no se alcanzó READY
+ni se publicó el recibo vivo. Las 31 operaciones FINALIZED, el journal de envíos
+vacío y el alcance del epoch8 se conservan. Cero intentos HTTP de envío.
+
+La comprobación de recursos exige 5.368.709.120 bytes libres. Al recuperar el
+acceso sólo había 4.556.742.656; la RAM disponible era suficiente. Se verificaron
+y retiraron dos couriers públicos temporales sin referencias, conservando sus
+copias instaladas: quedan aproximadamente 6.424 MB libres. No se modificó el
+estado privado ni se retiraron releases instaladas. El sellado Original del
+intento fallido está en curso con la versión instalada `0fccb78c…`, sin revisión
+financiera ni reapertura automática. Evidencias `20261017-reopen-v11-resource-*`
+y `20261017-reopen-v11-post-resource-recovery.json` en `.local/maintenance`.
+
+Se instaló la API compatible `7ea8d94555c971f53add3bffa7e265a1efc601a308e185847affcd037bd16476`
+a las 13:23 Madrid, conservando configuración, secretos, identidad y conversación.
+La salud pública y las capacidades del agente responden HTTP 200. No hubo
+inferencia ni operaciones financieras. La configuración mantiene las tres redes
+mainnet; publicar los cinco perfiles y habilitar testnets sigue pendiente.
+El código se puede instalar independientemente del fallo del motor: no se
+anuncian por ello conexiones financieras disponibles ni aceptación económica.
+
+La APK Principal/Pruebas ya compilada conserva su SHA256 `e835112e…`, no se ha
+instalado ni validado físicamente. Su protocolo ya es compatible con la API
+instalada; todavía requiere habilitar las redes de prueba. La ventana financiera
+sigue acabando a las 14:00 Madrid, sin ampliación. El arranque observado tardó
+unas 3 h 25 min hasta el fallo: no se ha iniciado otro intento que no pueda
+completar dentro de esa ventana. Los puntos 5 y 6 siguen aplazados.
+
+## Cierre del 17 de octubre, 06:30 Madrid — APK preparada; acceso cloud caducado
+
+APK preparada, sin instalar: `.local/mobile/artifacts/android-lianum-environments-20261017/app-release.apk`,
+SHA256 `e835112ee04fd30ab141fff49c3fe552ffadea6c5e3ec76ff281966bc5277656`.
+Selector global Principal/Pruebas; cuentas originales preservadas, recuperación
+V4 compatible, saldos/historial separados y contexto del agente con red explícita.
+La firma coincide con la APK instalada. Pasan TypeScript, 22 casos dirigidos,
+20 del agente, 491 controles generales y revisión visual a 320/390 px.
+Compilación independiente de Metro con 395 inputs idénticos antes/después.
+No se ha usado el móvil ni se ha efectuado inferencia o transacción financiera.
+
+El servidor compatible está empaquetado como
+`7ea8d94555c971f53add3bffa7e265a1efc601a308e185847affcd037bd16476`, todavía
+sin desplegar. La separación conserva byte a byte el journal mainnet existente;
+testnet usa un journal distinto. Las pruebas HTTP con firmas reales comprueban
+reapertura, separación de reservas y rechazo de una red distinta incluso dentro
+del mismo entorno; el reintento de un envío incierto no retransmite.
+Debe instalarse este código ANTES de ampliar la configuración de tres a seis redes.
+
+Google Cloud exige reautenticación desde las 06:08 Madrid. Se comprobó tanto la
+sesión Linux como la sesión Windows; ambas devuelven `Reauthentication failed`.
+Se solicitó al usuario ejecutar `gcloud auth login` en WSL. Última observación
+remota anterior al bloqueo: motor `0fccb78c…`, PID 134025, cinco hitos y 3.374 RPC.
+No se afirma su estado actual ni READY después de perder el acceso.
+
+El monitor local `20261017-reopen-v11-monitor.py` espera recuperar las credenciales,
+con límite de las 14:00 Madrid. Al recuperarlas verifica la misma invocación y
+el epoch8; sólo con READY y recibo Original instala la API compatible, publica
+los cinco perfiles/habilita las seis redes y comprueba el routing público.
+No amplía el permiso ni reinicia un motor fallido sin diagnóstico. Si aparece
+un fallo nuevo requiere revisión del agente antes de reintentar. La captura
+preventiva del motor sigue siendo a las 13:30 Madrid. El cierre financiero real
+y la aceptación física siguen pendientes; los puntos 5 y 6 permanecen aplazados.
+
+Resumen de continuación y límites de las comprobaciones:
+`.local/maintenance/20261017-core-closure-handoff.json`.
+
+## Cierre autorizado del 17 de octubre — motor y selector de entornos en curso
+
+El usuario autorizó corregir y relanzar el motor hasta completar el arranque y
+la publicación para la APK, dentro del permiso vigente hasta las 14:00 Madrid.
+Después se prepara Principal/Pruebas; la validación física queda para su vuelta.
+La integración financiera final del agente y los entregables se posponen.
+
+Se reprodujo sin RPC el rechazo del perfil DeFi guardado: el productor actual
+anuncia `executorPayoutsV5: true` y cambia el orden de propiedades de preparación.
+La corrección autentica los perfiles guardados por su huella exacta y compara
+sus valores con el productor vivo. Sólo admite ese anuncio booleano adicional;
+cuentas, TLS, límites, redes, contratos y preparación restante siguen iguales.
+La publicación de nuevas huellas sigue requiriendo la renovación Original viva.
+Pasan cinco pruebas dirigidas y 491 controles generales; contratos y recursos
+compilados idénticos. Evidencias `20261017-reopen-v11-*` en `.local/maintenance`.
+
+El primer intento de instalar el paquete se detuvo por disco lleno antes de
+arrancar. Se verificaron y retiraron siete copias públicas temporales duplicadas
+conservando las instalaciones originales; se recuperaron 6,5 GB. La copia parcial
+del intento fallido se conservó para auditoría. No se modificó el estado privado.
+El siguiente intento instaló `0fccb78c40bcba1ec0f6377607835f9cce2a6f4fadd5b7c1182d043331727fd0`.
+Motor observado en ejecución con PID 134025 y los primeros hitos completados.
+No se declara aún READY, renovación completada ni publicación en la API.
+
+El monitor local `20261017-reopen-v11-monitor.py` consulta el intento actual,
+compara con el epoch8 autorizado y, al verificar READY y su recibo Original,
+exporta los cinco perfiles y publica las conexiones sobre la API vigente,
+conservando agente, secretos y Caddy. También prepara las tres redes de prueba
+junto a las tres mainnet. Un fallo detiene esa publicación para diagnóstico;
+no reintenta a ciegas ni concede otro periodo financiero. Su ventana acaba a
+las 14:00 Madrid; el motor conserva su captura preventiva a las 13:30.
+
+El selector de entornos está en desarrollo, aún sin APK nueva compilada o instalada.
+La ampliación deriva cuentas públicas del otro entorno desde la raíz existente,
+sin cambiar las cuentas ni el formato de copia V4. Las mismas palabras permiten
+regenerar ambas; al recuperar sólo habrá que volver a activar el otro entorno.
+Se comprueban aislamiento de saldos/historial y rechazo de revisiones de envío
+preparadas antes de un cambio. El contexto del agente añade el entorno como dato
+opcional; su servidor debe actualizarse antes de usar la nueva APK. No se han
+hecho llamadas de inferencia ni se ha iniciado el punto 5 financiero del agente.
+
+## Permiso del 17 de octubre, 05:24 Madrid — ampliado hasta las 14:00
+
+El productor Original completó la captura controlada del intento fallido y la
+revisión firmada del nuevo periodo. Epoch **8**, vencimiento **17 de octubre a
+las 14:00 Madrid / 12:00 UTC**. Se comprobaron idénticos topes monetarios,
+cuotas, reservas, bytes de las 31 operaciones finalizadas, journal de envíos
+vacío y los seis perfiles de conexión. Hubo cero transacciones financieras.
+El almacenamiento termina `CAPTURED`. No se han abierto nuevos contratos,
+reiniciado el motor normal, cambiado la API ni trabajado en el agente.
+
+El motor sigue detenido por `PAEG_DEFI_ORIGINAL_PUBLIC_PROFILE` tras 31.219 RPC
+y 18/21 hitos. La ampliación no acredita `READY` ni soluciona ese fallo. La captura
+preventiva correspondiente al nuevo vencimiento sería a las **13:30 Madrid**;
+el temporizador del motor no está armado mientras esté parado. El arranque
+normal deriva ese plazo del periodo firmado al volver a abrirse. Las referencias
+históricas a epoch7 y 10:30 quedan conservadas como evidencia anterior.
+
+Evidencia: `.local/maintenance/20261017-period-until-1400-applied.json`,
+`20261017-period-until-1400-status.json` y su historial JSONL. En cloud:
+`/var/lib/lianum-maintenance/20261017-period-until-1400/result.json`.
+Las unidades administrativas finalizaron sin reintentos automáticos.
+
+Cerrar la reapertura y sus comprobaciones públicas/Android cerraría este bloque
+de infraestructura financiera, no el producto completo. La consulta de las
+capacidades públicas confirma MoonPay sin configurar por falta de claves del
+comercio, y agente persistente por texto activo con voz, push y ejecución
+desde el chat deshabilitados. Siguen pendientes las integraciones y sus pruebas
+completas para la demo; no se declara aceptación financiera de la generación
+actual por ampliar sólo el periodo.
+
+## Android del 17 de octubre, 05:07 Madrid — Atrás y animación instalados
+
+APK vigente: `.local/mobile/artifacts/android-lianum-native-back-20261017/app-release.apk`,
+SHA256 `a5cf3b7ca07f647f0785e0d7490aed364d00cd3ba636210062140a6923de423b`. Actualización instalada conservando identidad y datos.
+Atrás usa el historial de las secciones, vuelve por los detalles internos de la
+cartera y da prioridad al teclado y a los paneles. Los subpaneles del agente
+vuelven al panel anterior. En Inicio, sin pasos internos, se mantiene la acción
+predeterminada de Android. Los cambios pasan por el controlador existente, con
+sus restricciones durante operaciones; no sustituyen ni cancelan autoridades.
+El historial se limpia al bloquear la sesión. El texto de espera lleva una onda
+de brillo por letras y puntos escalonados con animación nativa, estáticos con
+movimiento reducido; sigue desapareciendo al primer texto del modelo.
+
+Pasan TypeScript, tres pruebas de navegación y 491 controles generales.
+Navegador: brillo, reducción de movimiento y retorno de subpaneles. Android
+físico: Atrás entre Agente/Operaciones/Inicio, selector y detalle de recepción,
+subpaneles del agente y teclado antes de navegar. Cero errores JS/fatales
+detectados; inputs de compilación estables. No se añadieron llamadas al modelo,
+no se desplegó el servidor y no se reinició el motor. Evidencias en
+`.local/maintenance/20261017-native-back-*`. La aceptación visual queda pendiente.
+La API/agente conserva la release `93b2c1f994d87a9c65281be0abd68397f25bc18c07f29b64cad80306c13b102e`.
+
+## Reapertura del 17 de octubre — fallo confirmado a las 04:43 Madrid
+
+La invocación `d3652f73da6e4facb6ae029effc1d8d1`, release `2634cd91…`,
+falló a las 04:43:53 al entrar en `RENEWING_EMPTY_SOURCE4_7`, después de abrir
+la composición. Último total terminal: **31.219 RPC, 18 de 21 hitos**, cero
+intentos de envío. El motivo es `PAEG_DEFI_ORIGINAL_PUBLIC_PROFILE`, una
+comparación de huella del perfil DeFi. No hay `READY` y el servicio está
+`failed`, PID 0. No se ha reiniciado durante este trabajo.
+
+La observación de las 04:58 Madrid conserva las 31 operaciones de origen
+finalizadas y el alcance financiero anterior. Epoch7 vence a las 10:30 Madrid.
+La inspección posterior de archivos confirma que los perfiles públicos guardados
+de Aave y Morpho coinciden con las huellas del marcador de activación. La
+comprobación que rechaza el perfil reconstruido debe diagnosticarse antes de
+reintentar; no se han relajado sus validaciones ni sustituido perfiles. La
+inspección utilizó diarios y archivos, sin RPC ni escrituras financieras.
+Evidencias: `20261017-native-back-engine-status.json` y
+`20261017-native-back-engine-diagnosis.json`. El monitor histórico terminó a
+las 03:00 Madrid; no se declara un seguimiento continuo activo.
+
+## Agente del 17 de octubre, 04:55 Madrid — streaming continuo e indicador corregido
+
+API/agente vigente: `93b2c1f994d87a9c65281be0abd68397f25bc18c07f29b64cad80306c13b102e`.
+APK instalada conservando los datos: `.local/mobile/artifacts/android-lianum-agent-live-stream-20261017/app-release.apk`,
+SHA256 `da500b17ddd17b2bc8095eb81f6fd1f10dbb71ac8d734e57536d3960f32dde25`.
+La configuración, secretos, identidades e historial existentes se conservan;
+el motor financiero no se ha reiniciado ni modificado.
+
+El texto ya llega por una conexión SSE autenticada mediante la firma habitual
+del dispositivo, atravesando API y gateway. XHR incremental entrega fragmentos
+al móvil sin esperar a cerrar la respuesta. El canal rota cada 15 segundos,
+respeta los límites existentes, contrapresión y cancelación; se recupera desde
+el historial y no reenvía mensajes ni añade llamadas al modelo. Desconectar el
+canal deja en marcha el trabajo aceptado. Las consultas de estado en reposo se
+mantienen separadas.
+
+«Preparando la respuesta» desaparece con el primer texto del modelo y continúa
+oculto aunque el backend aún cierre el turno. El indicador tiene un pulso lento
+y sutil de opacidad, estático al reducir movimiento. La respuesta parcial se
+sustituye por su versión guardada sin duplicados. El texto visible se conserva
+si la publicación del resultado guardado llega después del cierre del turno.
+
+Pasan TypeScript, 20 casos del agente y 491 controles generales. La prueba HTTP
+real verifica firma de un uso, fragmentos antes del EOF y cancelación del canal.
+El navegador comprueba fragmentos, desaparición inmediata, final visible con
+turno aún activo, sustitución única y ambos ajustes de movimiento. Una prueba
+acotada real de Luna recibió 372 deltas y ocho longitudes parciales distintas;
+su sesión se eliminó al terminar. Android físico muestra texto parcial creciendo,
+indicador ausente durante y después de la respuesta, historial entre pestañas
+y cero errores JS/fatales detectados. El build conserva sus inputs. Evidencias:
+`.local/maintenance/20261017-agent-live-stream-*` y resumen actualizado en
+`20261017-agent-service-handoff.json`. Aceptación visual del usuario pendiente.
+Se mantienen Luna y el presupuesto acumulado de 50 EUR, sin declarar un corte
+automático exacto; voz, push y búsqueda web permanecen desactivados.
+
+## Agente del 17 de octubre, 04:41 Madrid — interfaz pulida instalada
+
+Servidor vigente: `4c4fc76a6d46945977be1fe9c165b971cae7d2de877347f0f775ed06b4da09c5`.
+APK instalada: `.local/mobile/artifacts/android-lianum-agent-polish-20261017/app-release.apk`,
+SHA256 `a047f4274a2d5651829c6da814ecef817a26d29db4a1ff4ce2e6830049e501d2`.
+Se conservan identidad, datos e historial del móvil, conversaciones y claves del
+agente, configuración privada y acceso restringido a dispositivos emparejados.
+El motor financiero no se ha modificado ni reiniciado en este trabajo.
+
+La pantalla adapta el código del frontend completo: cabecera, orbe con estados,
+animaciones de entrada y pulsación, paneles, compositor creciente y teclado.
+Envía mensajes de inmediato, confirma recepción por separado, presenta texto
+progresivo, tarjetas generadas con observaciones reales, enlaces HTTPS y revisión
+de propuestas. Conserva lectura y borrador entre pestañas; reintenta un envío
+no confirmado con el mismo ID. Ajustes muestra tareas, preferencias que se
+pueden olvidar y permisos efectivos. Los importes desconocidos siguen siendo
+«Por confirmar», sin fabricar saldos ni estados de operaciones.
+
+La voz conversacional se centra en Lianum, usa historial, preferencias e idioma
+y zona validados, evita nombres supuestos y detalles internos y aclara los datos
+faltantes. La prueba física detectó una espera al abrir la transmisión de un
+chat en reposo: la apertura ya no bloquea el envío más de 250 ms. La respuesta
+sigue dependiendo de la latencia del modelo. Se protegen también la transición
+entre turnos y la recuperación de respuestas guardadas que se publican tarde.
+
+Pasan TypeScript, 19 pruebas del agente y 491 controles generales; el build
+conserva sus inputs. Navegador: componentes reales con HTTP de prueba explícito
+en 320/390 px, reintentos, cambio de pestaña, texto progresivo y memoria. Modelo
+real: 11 turnos sintéticos acotados, sesiones eliminadas al terminar. Android
+físico: tarjeta de cartera real, teclado visible, continuación y persistencia
+entre pestañas; cero errores JS o fatales detectados. La primera prueba agotó
+su espera y queda registrada; la comprobación final posterior consta en
+`20261017-agent-polish-phone-continuation.json`. La aceptación visual del usuario
+sigue pendiente.
+
+Se mantiene Luna Standard con razonamiento bajo y presupuesto acumulado de
+50 EUR hasta la presentación, sin fallback caro ni herramientas alojadas de
+pago. No se afirma un corte automático exacto del presupuesto. Voz, push,
+búsqueda web y ejecución financiera no están habilitados. Evidencias en
+`.local/maintenance/20261017-agent-polish-*`; resumen de entrega en
+`20261017-agent-service-handoff.json`. Las publicaciones financieras posteriores
+deben conservar esta release y los servicios y secretos del agente.
+
+## Agente del 17 de octubre, 03:56 Madrid — desplegado y comprobado en el móvil
+
+`lianum-agent.service` está activo en la VM existente `lianum-wallet-api`, junto
+a la API pública. La release API/agente es
+`50fce795bd377bd484be351e705f5ca49c642b21b9bd17f09bb48717df77fde1`.
+El servicio escucha sólo en `127.0.0.1:8790`, exige token interno y restringe
+las identidades a los dos dispositivos emparejados. Una identidad nueva firmada
+recibe 403 antes de guardar estado o generar inferencia. La credencial de
+OpenAI permanece en el servidor, separada del token del gateway, con permisos
+0600. Caddy, la configuración privada y el directorio de conexiones existentes
+conservan sus hashes. No se ha reiniciado ni modificado el motor financiero.
+
+La prueba HTTPS autenticada llegó al modelo real y recibió su respuesta. La
+sesión e identidad temporales del despliegue se retiraron. Después se comprobó
+el chat real en Android: envío desde la APK, respuesta de Luna, historial
+recuperado tras actualizar la app y conservación entre pestañas. La conversación
+del usuario se mantiene. Se corrigió un fallo físico de Android que dejaba el
+compositor detrás del teclado: ahora adapta su altura y descuenta la barra de
+estado. Las capturas finales muestran completos el campo, el botón y el aviso
+sobre el teclado; no constan errores JS ni fatales en PID 7107.
+
+APK vigente: `.local/mobile/artifacts/android-lianum-agent-final-20261017/app-release.apk`,
+SHA256 `f5a380f9c3d4517828a1d10bf1df448c203ec2485d767e5c95bd25b5da5399c8`,
+51.257.018 bytes, autónoma sin Metro. Instalada como actualización preservando
+appId, fecha de instalación original y datos. Pasan TypeScript móvil, 15 casos
+del componente agente y los 491 controles generales. El build conserva inputs
+idénticos antes/después. Los dos APK intermedios del despliegue son históricos.
+
+Modelo `gpt-6-luna`, tarifa Standard y razonamiento bajo, sin fallback a modelos
+caros. Continúa el máximo acordado de 50 EUR acumulados hasta la demo final y
+presentación; los límites de cuenta son externos y no se declara un corte
+automático exacto del proyecto en euros. No se han habilitado búsqueda web,
+voz, push ni operaciones financieras del agente. La base persistente está
+desplegada; entrega push, llamadas y observación de operaciones siguen pendientes.
+
+Evidencias: `20261017-agent-cloud-audit.json`, `20261017-agent-public-smoke.json`,
+`20261017-agent-final-apk-evidence.json`, `20261017-agent-final-phone-verification.json`
+y `20261017-agent-service-handoff.json`, en `.local/maintenance/`.
+Para una publicación posterior de perfiles tras la reapertura, la API vigente
+es esta release, no la histórica `613cb795...`; conservar servicio y drop-in
+del gateway al aplicar cualquier publicación con comparación de versión.
+
+## Agente del 17 de octubre, 03:42 Madrid — sesión real y continuidad verificadas
+
+El propietario autorizó usar los límites existentes de la cuenta OpenAI y fijó
+un máximo **acumulado de 50 EUR desde ahora hasta la demo final y presentación**,
+incluyendo desarrollo, pruebas y uso en la demo. No es una asignación mensual ni
+por sesión. Se registra en `.local/maintenance/20261017-agent-budget.json`.
+El modo explícito `LIANUM_AGENT_BUDGET_MODE=account` omite `spend_control`;
+el modo predeterminado `session` conserva el rechazo seguro y no hay cambio
+automático entre modos. El servicio no configura ni acredita un límite
+acumulado de proyecto en euros en la cuenta.
+
+La aceptación real con `gpt-6-luna` ha pasado: respuesta inicial, llamada a
+`remember_preference`, cierre y reapertura de SQLite/runtime, continuación con
+el mismo ID de sesión/conversación y recuperación mediante `read_memory`.
+Sólo se creó una sesión para los dos mensajes de continuidad y se ejecutaron
+dos herramientas internas. Ambos turnos constan completados. La API informó
+35.995 tokens de entrada (26.898 en caché) y 69 de salida para esa sesión;
+no constituye una factura ni el total de todo el proyecto. Las dos sesiones
+reales de prueba se eliminaron al terminar; no queda un agente desatendido.
+No hubo búsqueda web, voz ni operaciones financieras.
+
+Pasan 14 casos del componente agente y 491 comprobaciones generales (13,8 s).
+Evidencias: `20261017-agent-openai-account-preflight.json`,
+`20261017-agent-live-continuity.json`, `20261017-agent-account-directed.log`
+y `20261017-agent-account-global.log` en `.local/maintenance/`.
+Esta aceptación sustituye el bloqueo remoto del apartado anterior. Siguen
+pendientes el despliegue del servicio/gateway y su conexión en la APK instalada,
+la entrega push, la voz y la contabilidad acumulada necesaria antes de dejar
+cargas autónomas. La reapertura financiera conserva su ejecución.
+
+## Agente persistente del 17 de octubre, 03:37 Madrid — implementación local y bloqueo de presupuesto remoto
+
+Se han añadido `packages/agent` y `services/agent`: conversación por identidad
+de dispositivo en SQLite, cola persistente independiente de la petición móvil,
+recuperación de sesión, resultados de herramientas idempotentes, preferencias,
+seguimientos solicitados, cancelación y outbox de notificaciones. El gateway
+interno exige autenticación; la API pública verifica la firma del dispositivo.
+La app consulta el mismo historial y puede abrir propuestas nativas de testnet
+firmadas para su revisión mediante el SDK existente. El agente no recibe claves
+de la wallet ni puede preparar, firmar o enviar operaciones.
+
+La clave privada de OpenAI queda en `.env` ignorado por Git y modo 0600.
+El modelo predeterminado es `gpt-6-luna`, Standard, razonamiento bajo;
+otros modelos necesitan configuración explícita y no hay fallback automático.
+Búsqueda web y voz están desactivadas. Una única prueba real de conectividad
+con Responses, sin herramientas, razonamiento `none` y máximo 32 tokens,
+respondió correctamente: 15 tokens de entrada y 9 de salida. Esto verifica
+clave/modelo, **no acredita el agente persistente**.
+
+El preflight de Agents API rechaza `spend_control` con HTTP 400
+`unknown_parameter`, aunque figura en el SDK oficial fijado. No se ha creado
+una sesión remota de agente. Se solicita un límite de modelo de 25 céntimos USD
+por sesión, pero no se declara efectivo mientras la API lo rechace. El servicio
+se detiene con `CREATE_REJECTED` y `NATIVE_AGENT_COST_LIMIT_UNSUPPORTED`, sin
+quitar el límite ni reintentar con otra sesión/modelo. Los rechazos conocidos
+se distinguen de respuestas de creación perdidas (`CREATE_UNKNOWN`).
+
+Pasan 13 casos del componente agente, un caso de privacidad del contexto y los
+491 controles generales (14,3 s); TypeScript móvil también pasa. Incluyen SQLite/HTTP reales locales, aislamiento
+de usuarios, firmas de dispositivo, propuesta firmada mediante SDK y regresión
+del rechazo de presupuesto. Las comprobaciones de conversación en navegador
+320/390 px usan HTTP simulado; el smoke de reinicio usa el proceso real sin
+inferencia. Evidencias en `.local/maintenance/20261017-agent-*`.
+
+Pendientes: aceptación de sesiones reales con presupuesto, despliegue conjunto
+del servicio y gateway, nueva APK, entrega push, voz y observación de operaciones
+con grants finitos. No se ha desplegado esta implementación en GCloud ni se ha
+actualizado la APK instalada. La reapertura financiera conserva su ejecución.
+
+## Agente móvil del 17 de octubre, 02:26 Madrid — nueva APK instalada
+
+La pantalla Agente sigue ahora la cabecera, bienvenida centrada, orbe,
+compositor y paneles del `features/agent/AgentScreen.tsx` del frontend completo.
+El botón + abre sugerencias y los ajustes abren controles/permisos. Las
+respuestas locales presentan datos observados y comprobaciones desplegables,
+con accesos a las pantallas originales. Conversación y borrador se conservan
+entre pestañas dentro de la sesión; al bloquearse se desmonta la pantalla.
+No se ha conectado un modelo de IA ni se han importado saldos, presupuestos
+u objetivos ficticios. La voz explica que todavía está indisponible.
+
+APK vigente: `.local/mobile/artifacts/android-lianum-agent-design-20261017/app-release.apk`,
+SHA-256 `181ea59607f406b4754b6ca802ef8786148a4b8b9013db0b464c5f50498bbca9`.
+Arranque físico confirmado con PID `6318`, cero errores JS/fatales; se conservan
+appId, fecha de instalación original y directorio de datos. Android muestra el
+bloqueo biométrico: la revisión física del agente sigue pendiente de desbloqueo
+por el usuario. No consta aceptación visual del usuario ni aceptación financiera.
+
+Pasan TypeScript, 14 pruebas dirigidas, 491 controles generales y la revisión
+web de los componentes reales en 320/390 px (con fixtures públicos explícitos).
+Un primer build falló al componer sourcemaps con 384 MiB; el límite de Node de
+la construcción local se elevó a 768 MiB y la compilación completa pasó con
+inputs idénticos antes/después, firma de desarrollo existente y sin Metro.
+Esto no cambia el heap de la app ni la ejecución de GCloud.
+Evidencias `20261017-agent-design-apk-evidence.json`,
+`20261017-agent-design-web-verification.json` y `20261017-agent-design-build-report.json`
+en `.local/maintenance/`. La reapertura remota continúa con su instalación previa.
+
+## Recuperación del 17 de octubre, 01:47 Madrid — corrección instalada y nueva reapertura activa
+
+Se confirmó en el snapshot autenticado de GCloud que Sup8 guardaba
+`expiredWithdrawalsV10: []` en la autoridad Source7. `reopenDefiMixed` no
+admitía ese campo conocido y fallaba con `PAGED_DEPLOY_FIELDS`. La corrección
+admite y valida la lista acotada, conserva el rechazo de campos ajenos y exige
+los tokens Original separados para restaurar cada broker. La regresión dirigida
+reproduce el rechazo anterior; después del cambio pasan 13 pruebas dirigidas y
+491 controles generales. No se han repetido los laboratorios económicos completos.
+
+El estado del intento fallido se capturó mediante el productor Original de
+almacenamiento, sin revisión financiera ni envíos, conservando las 31 operaciones
+y seis conexiones. La versión corregida `2634cd91…` está preparada y verificada
+en GCloud: contratos y recursos compilados conservan sus hashes. El periodo
+hasta las 10:30 Madrid ya se firmó como epoch7, tras completar la revisión
+en curso de epoch6. Se conservaron exactamente topes, cuotas, reservas, bytes
+de Source31 y conexiones. La captura preventiva queda a las 10:00 Madrid;
+las 03:00 sólo limitan el seguimiento local. El máximo vigente es de nueve horas
+por firma. La instalación revisada terminó, conservando el inventario privado
+y el checkpoint CAPTURED. El motor normal arrancó a las 01:45:40 Madrid:
+PID `125766`, invocación `d3652f73da6e4facb6ae029effc1d8d1`. A las 01:46:48
+llevaba 173 consultas, cero envíos y los hitos ROOT_RETENTION/NATIVE_RUNTIMES
+completados (2/21). Source31, dispatch vacío y alcance firmado de epoch7 se
+corroboraron intactos. Todavía no hay READY, renovación LIVE ni publicación
+de cinco perfiles. Las consultas en RAM del proceso fallido no se recuperan.
+
+Evidencias locales: `20261017-reopen-schema-correction.json`,
+`20261017-schema-local-acceptance.json`, `20261017-schema-release-review.json`,
+`20261017-max-period-applied.json`, `20261017-schema-installation-observed.json`
+y los logs `20261017-reopen-schema-directed-final.log`,
+`20261017-reopen-schema-global.log` en `.local/maintenance/`.
+
+## Incidencia remota del 17 de octubre, 01:18 Madrid — reapertura detenida
+
+El motor `b354042c…`, invocación `1ec6a87f785d4dcba394e8e62dd7d71a`,
+terminó con código 1 por `PAGED_DEPLOY_FIELDS` después de 25.689 consultas
+lógicas y 14/21 hitos, tras `DEFI_SOURCE7` y antes de
+`DEFI_SOURCE7_PROVIDER`. No alcanzó READY ni completó la renovación LIVE.
+Las 31 operaciones originales, el alcance financiero y el journal de envíos
+vacío permanecen intactos; hubo cero envíos financieros. No consta captura
+controlada de este intento y no se reinició automáticamente.
+
+En ese momento el seguimiento observaba el estado fallido, sin reintentos ni
+publicación. El periodo entonces vigente vencía a las 02:39. Todavía no se había
+localizado el punto de llamada de la validación estricta de campos. La sección
+de recuperación anterior recoge el diagnóstico, corrección y periodo posteriores.
+Evidencia:
+`.local/maintenance/20261017-fast-clock-deploy-fields-failure.json`.
+Esta incidencia del motor privado no cambia el arranque y navegación de la
+APK comprobados a continuación, ni la instalación de la API de saldos nativos.
+
+## Revisión del 17 de octubre, 01:18 Madrid — wallet unificada instalada y revisada en Android
+
+La APK vigente sustituye las dos adaptaciones visuales anteriores. Sigue la
+estructura del Home, AgentScreen y tab bar del frontend completo: Inicio,
+Operaciones, Agente, Aprobaciones y Más. El overview valora conjuntamente
+BTC, ETH y SOL principales en EUR/USD, muestra disponible/reservado/en
+operaciones, envíos pendientes, progreso del plan observado, distribución e
+historial de envíos. Los activos abren su detalle y gráfica de mercado.
+Las conexiones avanzadas y la recuperación están en Más.
+
+Las lecturas de saldo se ejecutan al abrir, al volver a primer plano y cada
+minuto, con cancelación y sin activar el bloqueo financiero. Los controles
+de preparación, revisión, firma y envío originales permanecen. La valoración
+usa cantidades atómicas y aritmética entera; no completa un total con saldos
+desconocidos ni incorpora fondos de pruebas al patrimonio principal.
+
+Cotizaciones e histórico de Coinbase son lecturas públicas acotadas y con
+caché; la prueba en vivo recibió 30 velas de ETH/EUR, ordenadas entre el
+17 de septiembre y el 16 de octubre. El histórico personal usa observaciones
+de esta sesión. Se reutilizan el adaptador ECharts y el renderer VoiceOrbs
+del frontend, con procedencia y licencias conservadas. Agente ofrece resúmenes
+locales reales y revisión de propuestas; el modelo conversacional y la voz
+siguen pendientes. Aprobaciones no acredita un inbox remoto completo.
+
+APK autónoma vigente:
+`.local/mobile/artifacts/android-lianum-unified-native-chart-20261017/app-release.apk`,
+51.225.034 bytes, SHA256
+`a177fc4bb3704242dddc6e961077fdf2e307efdf1dbc7e147d7c201029c1135e`.
+Generación de fuentes host/SDK
+`f39e2c3c23685e17c811175f71e4b440ccc94f697c577d144ef103d239ca7bcd`;
+los inputs propios de la APK se registran por separado en su informe.
+Compilación en 1m09s, inputs idénticos antes/después y sin Metro.
+Instalada a las 01:16 como actualización, preservando appId, fecha original
+y datos. MainActivity inició en frío en 233 ms y el proceso PID 20033
+permaneció vivo durante el recorrido físico.
+
+Los dos APK anteriores de este bloque fallaron en Android: primero por el
+wrapper de tslib 2.3, corregido con tslib 2.8.1 y el resolver Metro del frontend;
+después por ARIA DOM de ECharts al montar una gráfica. ECharts usa ahora
+ARIA sólo en web; el contenedor nativo declara su propia descripción.
+Las dos regresiones pasan. Los fallos y binarios previos se conservan como
+históricos y no se consideran versiones vigentes.
+
+Comprobados en el móvil: Inicio con valoración conjunta, las tres filas de
+activos, la línea personal después de actualizar, gráfica real de ETH/EUR,
+orbe y compositor del agente, Aprobaciones y Operaciones. Cero errores fatales,
+TypeError, ReferenceError o SyntaxError en el proceso tras ese recorrido.
+Las gráficas se verificaron visualmente en las capturas; sus etiquetas no
+quedaron verificadas mediante UIAutomator y no se declara aceptación TalkBack.
+No se realizaron operaciones financieras ni se acredita aceptación visual
+por parte del usuario.
+
+Pasan TypeScript, 491 comprobaciones generales en 17,6 s, 12 casos focales
+en 0,31 s y dos regresiones de integración nativa en 0,42 s. También pasan
+pantallas reales a 320/390 px con puertos y sesión de prueba
+explícitos: consulta automática, navegación durante lectura lenta, cambio
+de moneda, gráfica, agente, aprobaciones, saldo cero y saldo incompleto.
+La gráfica también se comprobó en navegador con mercado real. La suite
+móvil completa anterior conserva siete fallos de recuperación/epoch; no
+se repitió ni se declaran resueltos. La aceptación financiera pública y el
+recorrido Android completo permanecen pendientes.
+
+Evidencia en `.local/maintenance/20261017-unified-wallet-native-chart-apk-evidence.json`,
+`20261017-unified-wallet-native-chart-phone-startup.json`,
+`20261017-unified-wallet-native-chart-phone-walkthrough.json`,
+`20261017-unified-wallet-visual-verification.json` y
+`20261017-unified-wallet-live-market.json`. El motor remoto no se reinició:
+a las 01:03 Madrid seguía con PID 109242 y 14/21 hitos, sin READY.
+
+## Revisión del 17 de octubre — seguimiento hasta las 03:00 y diseño original abierto
+
+Por petición del usuario, el seguimiento local se amplió hasta las 03:00 de
+Madrid (`2026-10-17T01:00:00Z`). Se sustituyó sólo el watcher local; se verifican
+el mismo PID remoto 109242, la misma invocación y las operaciones y el alcance
+financiero conservados. El vencimiento financiero sigue a las 02:39 de Madrid.
+Evidencia: `.local/maintenance/20261017-fast-clock-monitor-extend-three-am.json`.
+
+La vista previa original sirve en `http://localhost:8097`, desde el proyecto
+completo `C:\Users\Rafa Pradillo\Desktop\Lianum`. Se encontraron 83 archivos
+fuente y el bundle existente es posterior a todos ellos. El HTML y el bundle
+responden HTTP 200. Esta copia completa permite consultar las pantallas que
+faltaban en la copia parcial `Lianum_design` del workspace.
+
+## Revisión del 17 de octubre, 00:40 Madrid — cartera corregida y revisada en el móvil
+
+La APK vigente sustituye la primera adaptación visual de las 00:22. La cartera
+presenta saldo centrado, disponible/reservado/envíos por confirmar, acciones
+compactas, acceso a propuestas, activos por red y actividad real del journal.
+Los detalles técnicos y la recuperación quedan plegados. Conserva los
+controladores y las autorizaciones existentes.
+
+Instalada como actualización a las 00:37 en el Samsung SM-S948B, preservando
+appId, fecha original de instalación y directorio de datos. Tras el desbloqueo
+del usuario se observó la cartera real: la consulta terminó, las acciones se
+habilitaron y el desplazamiento mostró Ethereum, Bitcoin, Solana y actividad
+reciente sin solaparse con la navegación. Se restauró la posición inicial.
+Cero errores fatales o errores JavaScript de tipo, referencia o sintaxis en
+la lectura del proceso. No se ejecutaron operaciones financieras; la aceptación
+visual del usuario y el recorrido financiero completo siguen pendientes.
+
+APK autónoma: `.local/mobile/artifacts/android-lianum-wallet-revision-20261017/app-release.apk`,
+49.415.914 bytes, SHA256
+`05e5df80a49b862041db1592e622c973db3e8d2d3638e5016bde583a66675cd6`.
+Generación de compilación
+`ce8c7b9c3431be2c7c6530f5d1336daaa0d5de5a318ffd7ac178811717c1ac33`;
+inputs idénticos antes/después. Pasan TypeScript, 491 comprobaciones generales
+en 15,6 segundos, siete casos focales y seis capturas de componentes a
+320/390 px. No se repitió la suite móvil completa; sus siete fallos anteriores
+de recuperación/epoch permanecen registrados y sin resolver.
+
+Evidencia: `.local/maintenance/20261017-wallet-revision-apk-evidence.json`,
+`20261017-wallet-revision-phone-verification.json` y
+`20261017-wallet-revision-phone-scroll-verification.json`, en el mismo directorio.
+El motor remoto mantiene PID 109242: a las 00:39 Madrid seguía en reapertura,
+13/21 hitos y 19.223 consultas, sin READY ni renovación LIVE. La revisión
+visual no reinició ese proceso.
+
+## Revisión histórica del 17 de octubre, 00:22 Madrid — primera adaptación, sustituida
+
+Se adaptó el frontend disponible en `Lianum_design` a la aplicación existente:
+marca SVG y logos originales, fuentes locales DM Sans e Instrument Serif,
+paleta marfil/pizarra/champagne, controles compactos, filas de activos,
+portada con saldo por red y organización de Ajustes/Seguridad. Las acciones
+conservan sus controladores, custodias, permisos y datos originales. No se
+importaron los workspaces, saldos ni controles simulados del frontend.
+
+APK autónoma de desarrollo: 49.409.042 bytes, SHA256
+`f826ef4b1bf659e86b3fc1d6e1edd883847d2da06beb558be5ab7127ca6d84c0`,
+en `.local/mobile/artifacts/android-lianum-frontend-20261017/app-release.apk`.
+Las cinco fuentes se comprobaron dentro del APK por sus hashes. No requiere
+Metro. Los inputs antes y después de compilar son idénticos.
+
+Pasan TypeScript, 491 comprobaciones generales en 14,6 segundos, siete casos
+focales de formulario/controlador/navegación/contraste y la revisión de
+componentes a 320/390 px mediante React Native Web. Esta última usa datos
+de prueba y no equivale a una instalación física. La suite móvil completa
+terminó con 267/274 casos: siete fallos en recuperación y epoch, registrados
+en `.local/maintenance/20261017-design-mobile-tests.log`; no se corrigió el
+backend como parte del cambio visual.
+
+La APK se instaló como actualización en el Samsung SM-S948B a las 00:25 de
+Madrid: Android conservó appId, fecha original de instalación y directorio de
+datos. MainActivity arrancó en frío y quedó en primer plano, con cero errores
+fatales, TypeError, ReferenceError o SyntaxError en la lectura de su proceso.
+Faltan el desbloqueo biométrico y el recorrido funcional con el usuario;
+no acredita operación financiera pública. Evidencia de instalación y arranque:
+`.local/maintenance/20261017-design-phone-after.json` y
+`.local/maintenance/20261017-design-phone-startup.json`. Evidencia de APK:
+`.local/maintenance/20261017-design-apk-evidence.json`. La generación local
+es `fb4a8156b71eaf5d72cda964fe60b5058be63246d82b978b511c48c555011f3c`.
+El motor remoto conserva `b354042c…`, PID 109242 y la misma reapertura; no
+se reinició para aplicar este frontend.
+
+## Revisión del 16 de octubre, 20:51 UTC — instalada la espera acotada del reloj
+
+La versión actual es
+`b354042c517e49c089f2d518b858c9b1cd95266a60631c6506ac44e846108ec4`,
+generación `9ad71e815639489ecb4b487ede4c83070e630acc91efdbdc40e6fa3465023148`.
+El instalador comprobó idénticos inventario privado, contratos y recursos
+compilados. El servicio normal inició la reapertura el 16 de octubre a las
+20:51:56 UTC, PID 109242, invocación `1ec6a87f785d4dcba394e8e62dd7d71a`.
+Todavía no hay `READY` ni publicación de cinco perfiles.
+
+El intento de las 20:38 terminó antes de completar la cuenta principal con
+`PAGED_PUBLIC_RECEIVER_REAL_CLOCK_REQUIRED`: 2.173 consultas lógicas, 2.174
+peticiones HTTP y cero envíos financieros, después de aproximadamente seis
+minutos. No se registró la antigüedad del bloque concreto que provocó el fallo.
+Una lectura posterior comprobó NTP sincronizado y un bloque de hace 3,5 segundos.
+El cierre mediante los propietarios Original terminó correctamente: Root,
+Uniswap y DeFi quedaron `CAPTURED`, revisiones 96, 69 y 49; las operaciones,
+conexiones y el alcance financiero se conservaron.
+
+Sólo el enlace de un proveedor retenido puede observar un bloque nuevo hasta
+tres veces, esperando 12 segundos entre lecturas cuando falla ese control.
+Cada lectura aceptada sigue exigiendo la tolerancia de 30 segundos y
+canonicalidad. Tres lecturas desfasadas siguen rechazando el enlace. Los
+controles inmediatos de ejecución financiera no usan esa espera.
+Pasan cinco regresiones dirigidas en 6,6 segundos y las 491 comprobaciones
+generales en 22 segundos. Se conserva explícitamente la generación de las
+cuatro pruebas de targets compilados anteriores: sus kernels y el transporte
+siguen byte a byte idénticos, sin repetir ese recorrido de seis minutos.
+No constituye aceptación financiera de la generación nueva.
+
+La arquitectura de reapertura única, lotes, reutilización de validaciones e
+hitos descrita en el registro anterior sigue incluida. El seguimiento actual
+está en `.local/maintenance/20261016-fast-clock-live-status.json`; la publicación
+sigue esperando los gates reales de la misma invocación y el recibo vivo de
+Source4/7. Conserva epoch 5, límites, reservas y vencimiento financiero a las
+02:39 de Madrid. El 16 de octubre a las 23:21 de Madrid el usuario amplió el
+seguimiento hasta la 01:00 del 17 de octubre (23:00 UTC del 16). Se sustituyó
+sólo el monitor local: el motor conserva PID 109242 y la misma invocación.
+Evidencias: `20261016-fast-start-clock-failure.json`,
+`20261016-fast-clock-local-acceptance.json` y
+`20261016-fast-clock-installation.json`, en `.local/maintenance/`.
+
+## Registro anterior del 16 de octubre, 20:38 UTC — instalada la reapertura única
+
+Instalada la versión
+`761a0fd298f71bf7b973d4be96d037aabc417c0581a814d7a2e85c4d8bd25b60`,
+generación `2f474370c5326add4b7038fca9b94aa2c5207823c6860ca22acf0dd57fe3e14d`.
+El instalador terminó correctamente y comprobó idéntico inventario privado,
+contratos y recursos compilados. El servicio normal inició una única reapertura
+el 16 de octubre a las 20:38:02 UTC, PID 107619, invocación
+`a893f91fd5b249188c811bcbaaa5ca48`. Todavía no acredita `READY`; la API conserva
+los dos perfiles anteriores hasta completar los gates de publicación.
+
+La nueva entrada completa la renovación pendiente de Source4/7 sobre el mismo
+producto vivo y el epoch 5 existente. Evita la apertura administrativa, captura
+y segunda apertura normal. Reutiliza validaciones correctas del mismo bloque
+finalizado y recibos dentro de la ejecución, manteniendo canonicalidad, estado
+actual y guards financieros. Las lecturas independientes de un bloque concreto
+pueden viajar en lotes de hasta cuatro, con correlación por ID, cancelación
+individual, plazo original y presupuesto de ritmo ponderado. La publicación de
+activación conserva además las colas de ambos workers DeFi durante el snapshot.
+
+Pasan 44 pruebas dirigidas en 25,9 segundos, cuatro comprobaciones con targets
+compilados y firmas protegidas sobre cadena HOST en 384,7 segundos y las 491
+comprobaciones rápidas en 23,4 segundos. El paquete ejecutado en GCloud completó
+cuatro lecturas en una petición HTTP de 89 ms, sin envíos financieros. Esa sonda
+no mide el tiempo total de la reapertura ni constituye aceptación económica.
+La última adopción de generación cambió metadatos después de la comprobación
+general; las pruebas de targets usan la generación final. No se repite el
+laboratorio económico anterior ni se atribuye su aceptación a esta generación.
+
+El seguimiento registra 21 hitos, consultas por método, lotes y ritmo; el total
+RPC pendiente y la estimación en minutos siguen desconocidos en este primer
+recorrido medido. No se presentan los hitos como porcentaje de tiempo. La
+publicación exige `READY` de esta misma invocación, recibo Original vivo de
+Source4/7 y conservación de operaciones, dispatch y alcance financiero; después
+publica cinco perfiles y comprueba las rutas públicas con TLS fijado.
+El límite de seguimiento solicitado sigue siendo las 00:00 del 17 de octubre
+(hora de Madrid), sin ampliar el vencimiento financiero de las 02:39.
+
+Evidencia local: `.local/maintenance/20261016-fast-start-installation.json`,
+`20261016-fast-start-local-acceptance.json`, `20261016-fast-start-live-status.json`
+y `20261016-fast-start-publication-midnight.log`, bajo el mismo directorio.
+Evidencia de instalación en la VM:
+`/var/lib/lianum-maintenance/20261016-fast-start-deploy-v10/installation.json`.
+
+## Registro anterior del 16 de octubre, 20:02 UTC — reapertura fallida al publicar estado DeFi
+
+La reapertura administrativa terminó con `SEPOLIA_DEFI_BUSY_OR_CLOSED` a las
+20:02:27 UTC (22:02 en Madrid), antes del límite ampliado a medianoche. Había
+abierto la composición y falló al publicar la actualización del mismo epoch,
+antes de renovar Source4/7 y completar la captura. El último contador emitido
+registraba 43.242 consultas RPC y cero envíos; no es un contador final exacto.
+La captura final tampoco quedó confirmada. El motor normal no ha arrancado y
+los cinco perfiles no están publicados. No se ha lanzado otra reapertura.
+
+Verificación posterior: las 31 operaciones siguen finalizadas e idénticas al
+baseline, revisión 210; dispatch conserva cero operaciones; el intent y los
+campos de epoch, política, límites y reservas no han cambiado. El cierre de
+almacenamiento mediante los propietarios Original terminó correctamente,
+sin revisión financiera ni transacciones. Verificado a las 20:10 UTC: Root,
+Uniswap y DeFi están `CAPTURED`, revisiones 94, 67 y 49 respectivamente.
+`lianum-rpc-cooldown-failed-open-seal-v10.service` terminó con código cero;
+conserva las 31 operaciones y las seis conexiones privadas. Evidencia local:
+`.local/maintenance/20261016-failed-opening-storage-seal.json`.
+
+Corrección local preparada: la publicación de activación espera y mantiene
+las colas HTTP y de los workers de ambas cuentas mientras obtiene el snapshot.
+Conserva los guards de autoridad, canonicalidad y permisos financieros. Pasan
+siete pruebas dirigidas en 0,26 segundos, incluida la intercalación entre worker
+y snapshot, y las 491 comprobaciones generales en 21,6 segundos. La corrección
+todavía no está instalada en GCloud. No constituye aceptación financiera nueva.
+
+Evidencia local: `.local/maintenance/20261016-midnight-opening-failure.json`
+y `.local/maintenance/20261016-defi-activation-concurrency-fix.json`.
+
+## Registro anterior del 16 de octubre, 17:35 UTC — corrección RPC instalada
+
+Está instalada y verificada la versión
+`5ff429baf71a038fc8990bda81413a420c252d4f9e02acbaa534c6d934fdf9f0`,
+generación `e49ec1cf4bb1aec32c78dbd089a3bab33320c1d92e1a6ed277e21a858e98377c`.
+La instalación conserva idénticos estado privado, claves, contratos y recursos ZK.
+Evidencia en la VM:
+`/var/lib/lianum-maintenance/20261016-rpc-cooldown-deploy-v10/installation.json`.
+
+La reapertura de la versión anterior falló con HTTP 429 en una lectura pública.
+El transporte aplica ahora la espera compartida indicada por el RPC y reduce
+el ritmo ante saturación; las lecturas de almacenamiento pasan por el mismo
+planificador. Conserva los plazos originales, el límite de tres intentos de
+lectura y un único intento para envíos firmados. Pasan 24 pruebas de transporte
+en 13,6 segundos, cinco regresiones de reapertura en 4,1 segundos y las 491
+comprobaciones de `./dev check` en 14,4 segundos.
+
+El proceso `lianum-rpc-cooldown-empty-v10.service` está reabriendo la composición.
+Las 31 operaciones siguen finalizadas. El motor normal todavía no está listo y
+la API conserva dos conexiones. La continuación ya preparada espera su `READY`
+real para publicar cinco perfiles y comprobar las rutas públicas con TLS fijado.
+La reapertura administrativa seguida de otra reapertura del servicio sigue
+pendiente de optimización; los tiempos anteriores son de pruebas locales.
+Se limita la validación de futuros fixes conforme a [WORKFLOW](docs/WORKFLOW.md).
+
+Ampliación solicitada por el usuario y confirmada el 16 de octubre a las
+19:59 UTC: la espera administrativa llega hasta las **00:00 del 17 de octubre,
+hora de Madrid** (22:00 UTC del día 16). Conserva el PID 77364 y su misma
+invocación; no reinicia la composición ni modifica el epoch financiero 5,
+su vencimiento, sus límites o sus reservas. La continuación
+`lianum-rpc-cooldown-midnight-v10.service` cubre el vencimiento del supervisor
+anterior y exige las mismas verificaciones antes de arrancar el motor normal.
+Evidencia: `midnight-wait-confirmation.json` en el mismo directorio de auditoría.
+El cierre por timeout sigue siendo cooperativo; el plazo no acredita `READY`.
+
+## Registro anterior del 16 de octubre, 17:01 UTC
+
+Está instalada y verificada la versión
+`45f86d4828f2c31786cb79d0f86b9facda59077c00a90add9fb58c08ad55abb3`,
+generación `04af21ccee932abdff08603ca14dfc3ea87b11ae039f6b9cdd26795212dd6363`.
+La actualización conserva idénticos el estado privado, las claves, los contratos
+y los recursos ZK. Evidencia de instalación en la VM del motor:
+`/var/lib/lianum-maintenance/20261016-cold-bind-deploy-v10/installation.json`.
+
+La reapertura anterior se detuvo con
+`AAVE_SEPOLIA_FINANCIAL_CHECKPOINT_EXPIRED`: el enlace del proveedor retenido
+esperaba una preparación financiera de 30 segundos durante el arranque.
+El enlace frío ahora autentica el estado original sin exigir ni emitir esa
+preparación; las comprobaciones financieras explícitas conservan sus límites.
+Pasan cinco casos dirigidos, incluida la reapertura AEAD con preparación
+financiera fallida, y las 491 comprobaciones de `./dev check`.
+Esto no constituye una nueva aceptación financiera pública.
+
+La captura posterior terminó sin transacciones financieras. Las 31 operaciones
+siguen finalizadas y su contenido coincide exactamente con el intent original;
+se verificó un único incremento de revisión por la captura anterior.
+El proceso `lianum-cold-bind-empty-v10.service` está reabriendo la composición
+con la versión corregida para completar la renovación Original de fuentes
+vacías bajo el mismo epoch **5**, sin ampliar su vencimiento ni sus límites.
+El servicio normal todavía no está listo y la API conserva dos conexiones.
+La continuación arranca el motor tras la captura; la publicación espera su
+`READY` real antes de publicar cinco perfiles y verificar seis rutas de metadatos,
+tres ACCESS sin firma y los rechazos de selectores ausentes/desconocidos con TLS fijado.
+Android, MoonPay y el agente no forman parte de esta intervención.
+
+## Registro anterior del 16 de octubre, 15:57 UTC — instalación en curso
+
+**El motor remoto sigue sin estar disponible.** La API está activa con la versión
 `613cb7956a2a34c356330ee8378fa1d9d48cb600060f9984e41bd938b124fa76` y dos
 conexiones publicadas. El motor conserva instalada `5de34ba4…`; su servicio
-normal está parado mientras se recupera la composición Original completa.
+normal está parado. Un proceso administrativo está reabriendo la misma
+composición Native3, Uniswap y Aave/Morpho antes de instalar el paquete revisado.
 
-El código revisado está preparado en el paquete
-`f26df0dc6f4fa11dfe749749f0f335b4aa76ed24f3f6c96ca3974e02a992b620`,
-generación `1964e3cce78426c00bdecf120d8e3d5aacd2c552d1345ceb1b94a6b3241f3c58`.
+Paquete final preparado y comprobado:
+`46cf75a1eb0c20b0d8a741ad3adf8d901cee590d74f8273445171c9c57068d06`,
+generación `43018bb7b1ee01bea7b78d9580ee624f0854e8fcb166b77f904851f53ed86a00`.
 Contratos y recursos ZK son idénticos a los instalados. No está instalado todavía.
 
-Cambios que sí están implementados y comprobados:
+Implementado y comprobado:
 
-- Cobro automático del ejecutor dentro de los términos previamente autorizados,
-  con beneficiario, límite y plazo fijados; conserva un solo envío ante pérdida de ACK.
-- Retirada autorizada de notas de Source4/7 caducadas, recuperación del mismo
-  trabajo tras reapertura y separación de los permisos de lectura y retirada.
-- Recuperación de Root, Uniswap y DeFi mediante sus propietarios Originales,
-  con captura conjunta y conservación de los historiales y permisos anteriores.
-- Custodia móvil por sesión: la nueva recuperación reutiliza la custodia abierta
-  y evita otra escritura de ROOT que Android volvería a proteger con huella.
-- Lecturas de Sepolia escalonadas: comprobación desde la VM con 16 consultas,
-  16 respuestas HTTP 200 y ningún envío financiero.
-- Corrección de la publicación de metadatos de cuentas históricas y retiradas
-  terminadas. El caso con pruebas ZK reales confirmó dos ingresos y encontró
-  `s.storageDescriptor is not a function` al reabrir; la corrección está en
-  `68115cc6` y el caso real se está repitiendo. No equivale a identificar la
-  causa del fallo intermitente antiguo atribuido provisionalmente a `STALE_EPOCH`.
+- Cobro automático del ejecutor dentro de los términos autorizados, con
+  beneficiario, límite y plazo fijados y conservación del envío ante pérdida de ACK.
+- Retirada autorizada de notas de Source4/7 caducadas y recuperación del mismo
+  trabajo; separación de permisos de consulta, almacenamiento y retirada.
+- Recuperación de Root, Uniswap y DeFi interrumpidos, incluida su captura de
+  almacenamiento cuando ha vencido el periodo financiero. Conserva sus propietarios
+  originales, claves, historiales, reservas y plazos personales.
+- Corrección de los metadatos de cuentas históricas y del enlace de recuperación
+  entre supervisores. Los imports de los ayudantes del paquete se comprobaron
+  también fuera de los node_modules del workspace.
+- Repetición segura de la prueba de un mismo trabajo cuando cambia el epoch,
+  sólo ante el rechazo explícito y antes de cualquier intento de envío.
+- Custodia móvil por sesión: reutilización de la custodia abierta para evitar otra
+  escritura de ROOT que Android volvería a proteger con huella.
+- Escalonado de lecturas públicas, límites de espera y agrupación de peticiones
+  simultáneas idénticas. No hay caché de resultados terminados ni reenvío financiero
+  automático. El arranque en frío sigue siendo demasiado lento.
 
-`./dev check` pasa: 491 comprobaciones rápidas, imports, tipos y límites de
-módulos. No se ha repetido la batería completa ni los pagos públicos ya aceptados.
-La composición completa con cadena HOST pasó en 353 segundos; esto no sustituye
-la comprobación de esta instalación pública ni la de Android.
+Comprobaciones aceptadas: `./dev check`, 491 comprobaciones rápidas; diez casos
+específicos de captura interrumpida; comprobaciones adicionales de recuperación,
+metadatos, imports del paquete y custodia móvil. El caso histórico con pruebas ZK
+reales pasó en 558 segundos sobre un fork local controlado: dos ingresos, dos
+retiradas, recuperación histórica y respaldo final del pool cero. No emitió
+transacciones a la red pública. Se conservan las aceptaciones públicas anteriores
+con sus versiones; no se ha repetido la batería completa ni sus pagos.
 
-El periodo firmado actual es el 4 y vence a las 15:00 UTC. Se prepara una nueva
-revisión finita de nueve horas, manteniendo los límites monetarios y las reservas;
-las cuentas vacías usarán la cuota explícita de tres generaciones por wallet.
-Los permisos personales anteriores conservan sus plazos. El arranque en frío
-está siendo lento por las comprobaciones contra los RPC públicos.
+La captura de almacenamiento original terminó y el periodo financiero **5** quedó
+renovado a las 15:45 UTC, hasta el **17 de octubre a las 00:39 UTC**. Conserva
+los límites monetarios, las reservas y la cuota de **dos fuentes por wallet**.
+Las conexiones personales anteriores mantienen sus propios plazos. El proceso
+administrativo conserva las 31 operaciones de despliegue finalizadas y no ha
+emitido nuevos pagos. Está pendiente su reapertura completa y la renovación de
+las fuentes vacías mediante sus propietarios originales.
 
-Falta terminar la captura, firmar esa revisión mediante los controles Originales,
-reabrir las cuentas vacías, instalar el paquete revisado, arrancar el motor,
-publicar cinco conexiones y comprobar las rutas públicas con su certificado fijado.
-La instalación queda bloqueada hasta que pase el caso histórico con pruebas reales.
+Falta terminar esa reapertura, instalar el paquete revisado, arrancar el servicio
+normal, publicar cinco conexiones y comprobar seis rutas de metadatos y tres
+solicitudes de acceso sin firma, con el certificado público fijado. La publicación
+está automatizada y se detiene ante un fallo. No equivale a una nueva aceptación
+financiera pública ni a una aceptación de Android.
+
 El APK preparado tiene SHA256
 `589eb6aa7f6206ba2459f7ed2b392eeb25d17b7f4753b4051e853228f0ddd8c4`;
 aún no está instalado ni comprobado en el teléfono. MoonPay, el agente y el diseño

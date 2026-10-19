@@ -4,6 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./wallet/valuation-v1": {"types":"./src/wallet-valuation-v1.d.mts","default":"./src/wallet-valuation-v1.mjs"},
+    "./agent/chat-v1": {
+      "types": "./src/agent-chat-v1.d.mts",
+      "default": "./src/agent-chat-v1.mjs"
+    },
     ".": {
       "types": "./src/authorization.d.mts",
       "default": "./src/authorization.mjs"

@@ -15,13 +15,21 @@
     "export": "expo export --max-workers 2 --platform all --output-dir dist"
   },
   "dependencies": {
+    "@config-plugins/react-native-webrtc": "15.0.2",
     "@lianum/crypto": "file:../../packages/crypto",
     "@lianum/mobile-protocol": "file:../../packages/mobile-protocol",
+    "@lianum/sdk": "file:../../packages/sdk",
     "@noble/curves": "2.4.0",
+    "@wuba/react-native-echarts": "3.1.1",
+    "echarts": "6.1.0",
     "expo": "57.0.27",
+    "expo-asset": "57.0.19",
+    "expo-audio": "57.0.5",
     "expo-crypto": "57.0.3",
     "expo-dev-client": "57.0.19",
+    "expo-font": "57.0.4",
     "expo-local-authentication": "57.0.3",
+    "expo-notifications": "57.0.23",
     "expo-screen-capture": "57.0.4",
     "expo-secure-store": "57.0.4",
     "expo-system-ui": "57.0.4",
@@ -30,7 +38,8 @@
     "react": "19.2.3",
     "react-native": "0.86.3",
     "react-native-svg": "15.15.4",
-    "@lianum/sdk": "file:../../packages/sdk"
+    "react-native-webrtc": "155.0.0",
+    "tslib": "2.8.1"
   },
   "devDependencies": {
     "@types/react": "19.2.4",

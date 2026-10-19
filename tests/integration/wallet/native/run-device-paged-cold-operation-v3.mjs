@@ -67,7 +67,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
 try {
   assert.ok(!stopping, 'PAGED_COLD_START_CANCELLED');hostAcquisition = openOriginalPagedMobileHostV3(attempt);
   host = await hostAcquisition; assert.ok(!stopping);
-  const config = { deployment: { manifestSHA256, consumerSHA256, deploymentDomain: '0x'+randomBytes(32).toString('hex'), policy: '0x'+randomBytes(32).toString('hex') },
+  const config = { deployment: { minimumDepositAtomic: '1', manifestSHA256, consumerSHA256, deploymentDomain: '0x'+randomBytes(32).toString('hex'), policy: '0x'+randomBytes(32).toString('hex') },
     journal: { path: join(attempt, 'authority/account.aead'), password: randomBytes(32).toString('hex') },
     nativeDirectory: join(attempt, 'provider'), origin: 'https://127.0.0.1:7448',
     devicePublicKey: host.devicePublicKey, tls: infrastructure.tls, host: '127.0.0.1' };

@@ -1,5 +1,6 @@
+import {WalletText as Text,WalletTextInput as TextInput} from '../design/typography';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { MOBILE_ACTIONS, MOBILE_CHAINS, normalizeMobileIntent, type MobileAction, type MobileChain,
   type MobileChallenge, type MobileIntent, type MobileAuthorization, type MobileReceiptReview } from '@lianum/mobile-protocol';
@@ -212,7 +213,7 @@ export default function WalletScreen() {
     </View>
     <View style={styles.card}><Text style={styles.cardTitle}>Servicio</Text><Text style={styles.label}>Origen HTTPS</Text>
       <TextInput accessibilityLabel="Origen HTTPS del servicio" autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!busy}
-        style={styles.input} value={origin} placeholder="https://tu-servicio.run.app" placeholderTextColor="#7f8d94"
+        style={styles.input} value={origin} placeholder="https://tu-servicio.run.app" placeholderTextColor="#50616D"
         onChangeText={value => { invalidateReview(true); setOrigin(value); setState(null); }} />
       <ActionButton label="Actualizar disponibilidad" secondary disabled={busy} onPress={() => { void run(refresh); }} />
     </View>
@@ -275,28 +276,28 @@ export default function WalletScreen() {
       <ActionButton label="Consultar con biometría" disabled={busy} onPress={confirmReceipt} />
       <ActionButton label="Cancelar consulta" secondary disabled={busy} onPress={() => invalidateReview()} />
     </View>}
-    <View accessibilityLiveRegion="polite" style={styles.notice}>{busy && <ActivityIndicator color="#9de3be" />}
+    <View accessibilityLiveRegion="polite" style={styles.notice}>{busy && <ActivityIndicator color="#253746" />}
       <Text style={styles.noticeText}>{notice}</Text></View>
   </ScrollView></SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#101c22' }, content: { padding: 24, paddingBottom: 48, gap: 18 },
-  brand: { color: '#9de3be', fontSize: 13, fontWeight: '800', letterSpacing: 4, marginTop: 14 },
-  title: { color: '#f3f5ee', fontSize: 34, lineHeight: 40, fontWeight: '600' },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 9 }, dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#baa879' },
-  connectedDot: { backgroundColor: '#9de3be' }, statusText: { color: '#b8c8cd', fontSize: 13 },
-  card: { backgroundColor: '#192a31', borderRadius: 18, padding: 20, gap: 12, borderWidth: 1, borderColor: '#2c3c43' },
-  cardTitle: { color: '#eff5ef', fontSize: 19, fontWeight: '600' }, balance: { color: '#eff5ef', fontSize: 27 },
-  muted: { color: '#b8c8cd', fontSize: 14, lineHeight: 21 }, small: { color: '#93a6ad', fontSize: 12, lineHeight: 18 },
-  identifier: { color: '#bfddd0', fontSize: 11, lineHeight: 18, fontFamily: 'monospace' },
-  label: { color: '#cbd9db', fontSize: 12, fontWeight: '600', marginTop: 4, marginBottom: 6 },
-  input: { color: '#eff5ef', backgroundColor: '#112129', borderColor: '#42565d', borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 46 },
-  button: { backgroundColor: '#9de3be', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' },
-  buttonText: { color: '#14271e', fontWeight: '700', fontSize: 14 }, secondaryButton: { backgroundColor: '#283e47' },
-  secondaryText: { color: '#dae6e6' }, disabled: { opacity: 0.42 }, choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  choice: { backgroundColor: '#243b45', paddingHorizontal: 10, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: '#243b45' },
-  selectedChoice: { borderColor: '#9de3be', backgroundColor: '#315047' }, choiceText: { color: '#e0e9e7', fontSize: 12 },
-  review: { borderColor: '#9de3be' }, reviewValue: { color: '#e5efe8', fontSize: 13, lineHeight: 19 },
-  notice: { flexDirection: 'row', gap: 12, backgroundColor: '#17262b', padding: 16, borderRadius: 12 },
-  noticeText: { color: '#c7d8d9', flex: 1, fontSize: 13, lineHeight: 20 },
+  safe: { flex: 1, backgroundColor: '#F3F0E8' }, content: { padding: 24, paddingBottom: 48, gap: 18 },
+  brand: { color: '#253746', fontSize: 13, fontWeight: '800', letterSpacing: 4, marginTop: 14 },
+  title: { color: '#253746', fontSize: 34, lineHeight: 40, fontWeight: '600' },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 9 }, dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#766039' },
+  connectedDot: { backgroundColor: '#253746' }, statusText: { color: '#50616D', fontSize: 13 },
+  card: { backgroundColor: '#FAF8F3', borderRadius:6, padding: 20, gap: 12, borderWidth: 1, borderColor: '#D9D6CD' },
+  cardTitle: { color: '#253746', fontSize: 19, fontWeight: '600' }, balance: { color: '#253746', fontSize: 27 },
+  muted: { color: '#50616D', fontSize: 14, lineHeight: 21 }, small: { color: '#50616D', fontSize: 12, lineHeight: 18 },
+  identifier: { color: '#38634B', fontSize: 11, lineHeight: 18, fontFamily: 'monospace' },
+  label: { color: '#253746', fontSize: 12, fontWeight: '600', marginTop: 4, marginBottom: 6 },
+  input: { color: '#253746', backgroundColor: '#FAF8F3', borderColor: '#89877E', borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 46 },
+  button: { backgroundColor: '#253746', borderRadius: 10, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' },
+  buttonText: { color: '#F3F0E8', fontWeight: '700', fontSize: 14 }, secondaryButton: { backgroundColor: '#EAE6D9' },
+  secondaryText: { color: '#253746' }, disabled: { opacity: 0.42 }, choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choice: { backgroundColor: '#EAE6D9', paddingHorizontal: 10, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: '#EAE6D9' },
+  selectedChoice: { borderColor: '#253746', backgroundColor: '#EAE6D9' }, choiceText: { color: '#253746', fontSize: 12 },
+  review: { borderColor: '#253746' }, reviewValue: { color: '#253746', fontSize: 13, lineHeight: 19 },
+  notice: { flexDirection: 'row', gap: 12, backgroundColor: '#EAE6D9', padding: 16, borderRadius:6 },
+  noticeText: { color: '#50616D', flex: 1, fontSize: 13, lineHeight: 20 },
 });

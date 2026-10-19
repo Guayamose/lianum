@@ -1,7 +1,8 @@
+import {WalletText as Text,WalletTextInput as TextInput} from '../design/typography';
 import DeviceRootNativeClaimScreenV2 from './DeviceRootNativeClaimScreenV2';
 import type {DeviceRootClaimObservationV2} from '../api/native-claim-device-api-v1.mjs';
 import {useEffect,useRef,useState} from 'react';
-import {Alert,AppState,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput} from 'react-native';
+import {Alert,AppState,Pressable,SafeAreaView,ScrollView,StyleSheet} from 'react-native';
 import {fetch as expoFetch} from 'expo/fetch';
 import {readDevicePublicKey,signNativeClaimDevicePermissionV1} from '../custody/key-store';
 import {createNativeClaimDeviceApiV1} from '../api/native-claim-device-api-v1.mjs';
@@ -69,21 +70,21 @@ export default function NativeClaimScreen({onObservation,onDeviceRootObservation
  if(deviceRoot)return <DeviceRootNativeClaimScreenV2 onObservation={onDeviceRootObservation} onBack={()=>{clear();setDeviceRoot(false);}}/>;
  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}>
   <Text style={styles.title}>Claims BTC / SOL / SPL</Text>
-  <Pressable disabled={busy} onPress={()=>{clear();setDeviceRoot(true);}} style={styles.button}><Text>Nota privada bajo custodia del dispositivo</Text></Pressable>
+  <Pressable disabled={busy} onPress={()=>{clear();setDeviceRoot(true);}} style={styles.button}><Text style={styles.buttonText}>Nota privada bajo custodia del dispositivo</Text></Pressable>
   <Text style={styles.text}>Custodia del backend y quórum local. Este emparejamiento no entrega una clave BTC/SOL al dispositivo ni convierte un claim en saldo nativo gastable.</Text>
   <TextInput accessibilityLabel="Emparejamiento original de claims" multiline autoCapitalize="none" autoCorrect={false} editable={!busy} value={pairing}
-   onChangeText={value=>{clear();setPairing(value);}} placeholder="Descriptor privado del operador" placeholderTextColor="#b8c8cd" style={styles.input}/>
-  <Pressable accessibilityRole="button" disabled={busy} onPress={()=>void run(null)} style={styles.button}><Text>Autorizar lectura original</Text></Pressable>
-  <Pressable accessibilityRole="button" disabled={busy} onPress={()=>void restore()} style={styles.button}><Text>Recuperar el gasto guardado</Text></Pressable>
+   onChangeText={value=>{clear();setPairing(value);}} placeholder="Descriptor privado del operador" placeholderTextColor="#50616D" style={styles.input}/>
+  <Pressable accessibilityRole="button" disabled={busy} onPress={()=>void run(null)} style={styles.button}><Text style={styles.buttonText}>Autorizar lectura original</Text></Pressable>
+  <Pressable accessibilityRole="button" disabled={busy} onPress={()=>void restore()} style={styles.button}><Text style={styles.buttonText}>Recuperar el gasto guardado</Text></Pressable>
   <Text style={styles.text}>{notice}</Text>
   <Text style={styles.text}>Redimir claims custodiados mediante el ticket de quema y entrega originales. El destinatario nativo queda fijado por el operador antes del ingreso. No es una transferencia de autocustodia móvil.</Text>
   <TextInput accessibilityLabel="Identificador durable del gasto" value={requestId} onChangeText={setRequestId} editable={!busy&&!admitted.current} autoCapitalize="none" style={styles.input} placeholder="Identificador único; conservar tras un error"/>
   <TextInput accessibilityLabel="Importe en unidades atómicas originales" value={amount} onChangeText={setAmount} editable={!busy&&!admitted.current} keyboardType="numeric" style={styles.input} placeholder="Importe atómico de claims"/>
   <TextInput accessibilityLabel="Comisión máxima nativa original" value={maxFee} onChangeText={setMaxFee} editable={!busy&&!admitted.current} keyboardType="numeric" style={styles.input} placeholder="Comisión máxima atómica"/>
-  <Pressable accessibilityRole="button" disabled={busy||admitted.current} onPress={()=>void redeem()} style={styles.button}><Text>Autorizar quema y entrega original</Text></Pressable>
+  <Pressable accessibilityRole="button" disabled={busy||admitted.current} onPress={()=>void redeem()} style={styles.button}><Text style={styles.buttonText}>Autorizar quema y entrega original</Text></Pressable>
   {retained&&<><Text selectable style={styles.text}>Solicitud guardada: {retained.requestId}{'\n'}Estado: {retained.state==='CONFIRMED'?'Confirmada en el journal original':'Pendiente de conciliar'}{'\n'}Destino nativo: {retained.recipientEndpoint}</Text>
-   <Pressable accessibilityRole="button" disabled={busy} onPress={()=>void run(retained.requestId)} style={styles.button}><Text>Conciliar este gasto guardado</Text></Pressable>
-   {retained.state==='CONFIRMED'&&<Pressable accessibilityRole="button" disabled={busy} onPress={()=>{clear();admitted.current=false;setRequestId('');setAmount('');setMaxFee('');setRetained(null);setNotice('Introduce un identificador nuevo y revisa su importe. El gasto anterior conserva su identidad y confirmación.');}} style={styles.button}><Text>Preparar otro gasto</Text></Pressable>}
+   <Pressable accessibilityRole="button" disabled={busy} onPress={()=>void run(retained.requestId)} style={styles.button}><Text style={styles.buttonText}>Conciliar este gasto guardado</Text></Pressable>
+   {retained.state==='CONFIRMED'&&<Pressable accessibilityRole="button" disabled={busy} onPress={()=>{clear();admitted.current=false;setRequestId('');setAmount('');setMaxFee('');setRetained(null);setNotice('Introduce un identificador nuevo y revisa su importe. El gasto anterior conserva su identidad y confirmación.');}} style={styles.button}><Text style={styles.buttonText}>Preparar otro gasto</Text></Pressable>}
   </>}
   {view&&<><Text style={styles.title}>{view.descriptor.claimSymbol} · {view.descriptor.atomicUnit}</Text>
    <Text selectable style={styles.text}>Dominio: {view.descriptor.claimDomain}{'\n'}Génesis nativa: {view.descriptor.nativeGenesis}</Text>
@@ -91,7 +92,7 @@ export default function NativeClaimScreen({onObservation,onDeviceRootObservation
    {view.state.deposits.map(row=><Text key={row.intentId} selectable style={styles.text}>Ingreso original: {row.status}{'\n'}{row.intentId}</Text>)}
    {view.state.tickets.map(row=><Text key={row.ticketId} selectable style={styles.text}>Entrega nativa original: {row.status}{'\n'}{row.ticketId}</Text>)}
    {view.state.requests.map(row=><Pressable key={row.requestId} accessibilityRole="button" disabled={busy} onPress={()=>void run(row.requestId)} style={styles.button}>
-    <Text>{row.action}: {row.state} · Conciliar solicitud original</Text></Pressable>)}</>}
+    <Text style={styles.buttonText}>{row.action}: {row.state} · Conciliar solicitud original</Text></Pressable>)}</>}
  </ScrollView></SafeAreaView>;
 }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:'#101c22'},content:{padding:20,gap:16},title:{color:'#eef7f1',fontSize:22,fontWeight:'600'},text:{color:'#b8c8cd'},input:{color:'#eef7f1',borderColor:'#b8c8cd',borderWidth:1,padding:12,borderRadius:8,minHeight:96},button:{padding:12,backgroundColor:'#9de3be',borderRadius:8}});
+const styles=StyleSheet.create({buttonText:{color:'#F3F0E8',fontWeight:'600',textAlign:'center'},safe:{flex:1,backgroundColor:'#F3F0E8'},content:{padding:20,gap:16},title:{color:'#253746',fontSize:22,fontWeight:'600'},text:{color:'#50616D'},input:{color:'#253746',borderColor:'#50616D',borderWidth:1,padding:12,borderRadius:8,minHeight:96},button:{padding:12,backgroundColor:'#253746',borderRadius:8}});

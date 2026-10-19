@@ -1,12 +1,14 @@
 /** DATA review for a finite operator renewal. The caller must obtain state
  * from its live Original product; this module grants no signing capability. */
 import assert from 'node:assert/strict';
+import {normalizeOperationWindowDataV17,assertOperationWindowPolicyDataV17} from '@lianum/backend/chains/public-testnet/sepolia-operation-window-data-v17';
 import {createHash} from 'node:crypto';
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const hex=value=>typeof value==='string'&&/^[0-9a-f]{64}$/.test(value);
 const exact=(value,fields)=>{assert.ok(value&&Object.getPrototypeOf(value)===Object.prototype,'PAEG_EMPTY_RENEWAL_DATA');assert.deepEqual(Reflect.ownKeys(value).sort(),[...fields].sort(),'PAEG_EMPTY_RENEWAL_FIELDS');for(const key of fields)assert.ok(Object.hasOwn(Object.getOwnPropertyDescriptor(value,key),'value'),'PAEG_EMPTY_RENEWAL_FIELDS');};
 export function normalizeEmptySourceRenewalIntentDataV9(raw){
- exact(raw,['profile','intentId','expiresAt','previousEpochId','previousPolicySHA256','limitsSHA256','sourceRowsSHA256','maximumSourcesPerWallet']);
+ exact(raw,['profile','intentId','expiresAt','previousEpochId','previousPolicySHA256','limitsSHA256','sourceRowsSHA256','maximumSourcesPerWallet',...(Object.hasOwn(raw,'operationWindowV17')?['operationWindowV17']:[])]);
+ if(Object.hasOwn(raw,'operationWindowV17'))normalizeOperationWindowDataV17(raw.operationWindowV17);
  assert.equal(raw.profile,'PUBLIC_EMPTY_SOURCE_RENEWAL_INTENT_V9');
  for(const key of ['intentId','previousPolicySHA256','limitsSHA256','sourceRowsSHA256'])assert.ok(hex(raw[key]),'PAEG_EMPTY_RENEWAL_BINDING');
  assert.ok(raw.previousEpochId===null||hex(raw.previousEpochId),'PAEG_EMPTY_RENEWAL_EPOCH');
@@ -37,7 +39,7 @@ export function prepareEmptySourceFinancialReviewDataV9(state,rawIntent,retained
   assert.deepEqual({...prior.epoch.policy,expiresAt:previousPolicy.expiresAt},previousPolicy,'PAEG_EMPTY_RENEWAL_CAPS_CHANGED');
   const previousLimits=intent.previousEpochId===null?{maximumTotalSuccessorPools:'1',maximumSourcesPerWallet:'1'}:state.history.find(row=>row.epoch.epochId===intent.previousEpochId)?.epoch.limits;
   assert.ok(previousLimits,'PAEG_EMPTY_RENEWAL_PREDECESSOR_MISSING');assert.equal(hash(previousLimits),intent.limitsSHA256,'PAEG_EMPTY_RENEWAL_QUOTAS_CHANGED');
-  assert.deepEqual(prior.epoch.limits,{...previousLimits,maximumSourcesPerWallet:intent.maximumSourcesPerWallet},'PAEG_EMPTY_RENEWAL_QUOTAS_CHANGED');
+  assert.deepEqual(prior.epoch.limits,{...previousLimits,maximumSourcesPerWallet:intent.maximumSourcesPerWallet,...(intent.operationWindowV17?{operationWindowV17:intent.operationWindowV17}:{})},'PAEG_EMPTY_RENEWAL_QUOTAS_CHANGED');
   assert.deepEqual(state.limits,prior.epoch.limits,'PAEG_EMPTY_RENEWAL_SUCCESSOR_EXISTS');assert.equal(state.epoch?.epochId,prior.epoch.epochId,'PAEG_EMPTY_RENEWAL_SUCCESSOR_EXISTS');
   assert.equal(prior.epoch.policy.expiresAt,intent.expiresAt,'PAEG_EMPTY_RENEWAL_PERIOD_CHANGED');
   assert.equal(hash(prior.epoch.policy),hash(state.effectivePolicy),'PAEG_EMPTY_RENEWAL_SUCCESSOR_EXISTS');
@@ -47,8 +49,13 @@ export function prepareEmptySourceFinancialReviewDataV9(state,rawIntent,retained
  assert.equal(hash(state.effectivePolicy),intent.previousPolicySHA256,'PAEG_EMPTY_RENEWAL_POLICY_CHANGED');
  assert.equal(hash(state.limits),intent.limitsSHA256,'PAEG_EMPTY_RENEWAL_QUOTAS_CHANGED');
  assert.ok(BigInt(intent.maximumSourcesPerWallet)>=BigInt(state.limits.maximumSourcesPerWallet),'PAEG_EMPTY_RENEWAL_QUOTA_ROLLBACK');
- assert.ok(now<intent.expiresAt&&intent.expiresAt<=now+9*3600000&&intent.expiresAt>state.effectivePolicy.expiresAt,'PAEG_EMPTY_RENEWAL_PERIOD');
- const review={intentId:intent.intentId,expectedCheckpoint:structuredClone(state.checkpoint),expectedEpochId:intent.previousEpochId,policy:{...state.effectivePolicy,expiresAt:intent.expiresAt},limits:{...state.limits,maximumSourcesPerWallet:intent.maximumSourcesPerWallet}};
+ // A separately authorized source quota can increase without extending the
+ // already signed deadline. An unchanged quota still requires a later period.
+ const laterPeriod=intent.expiresAt>state.effectivePolicy.expiresAt;
+ const sourceQuotaOnly=intent.expiresAt===state.effectivePolicy.expiresAt&&BigInt(intent.maximumSourcesPerWallet)>BigInt(state.limits.maximumSourcesPerWallet);
+ assert.ok(now<intent.expiresAt&&(intent.operationWindowV17||intent.expiresAt<=now+9*3600000)&&(laterPeriod||sourceQuotaOnly),'PAEG_EMPTY_RENEWAL_PERIOD');
+ if(intent.operationWindowV17)assertOperationWindowPolicyDataV17(intent.operationWindowV17,{...state.effectivePolicy,expiresAt:intent.expiresAt},now);
+ const review={intentId:intent.intentId,expectedCheckpoint:structuredClone(state.checkpoint),expectedEpochId:intent.previousEpochId,policy:{...state.effectivePolicy,expiresAt:intent.expiresAt},limits:{...state.limits,maximumSourcesPerWallet:intent.maximumSourcesPerWallet,...(intent.operationWindowV17?{operationWindowV17:intent.operationWindowV17}:{})}};
  if(retainedReview!==null)assert.deepEqual(retainedReview,review,'PAEG_EMPTY_RENEWAL_REVIEW_CHANGED');
  return Object.freeze(review);
 }

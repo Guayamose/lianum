@@ -7,7 +7,7 @@ import {sha256} from '@noble/hashes/sha2.js';
 import * as RecoverySession from './wallet-session-v1.ts';
 import {sealDeviceCustodyBackupV1,unsealDeviceCustodyBackupV1} from './sealed-custody-backup-v1.mjs';
 import {readWalletRecoveryPartsInventoryV4} from './wallet-recovery-parts-v4.mjs';
-import {deriveNativeAccountsV1,nativeEntropyV1,nativeMnemonicV1,signNativeWalletTransactionV1,validateNativeSendReviewV1,type NativeAccountV1} from '../../../../packages/crypto/src/native-wallet-v1.mjs';
+import {deriveNativeAccountsV1,nativeEntropyV1,nativeMnemonicV1,signNativeWalletTransactionV1,validateNativeSendReviewV1,validateNativeAccountV1,type NativeAccountV1} from '../../../../packages/crypto/src/native-wallet-v1.mjs';
 import {walletSessionStatusV1,readWalletSessionSecret,writeWalletSessionSecret,captureWalletSessionGuardV1} from './wallet-session-v1.ts';
 
 const SECRET='lianum.native.wallet.v1.root',META='lianum.native.wallet.v1.accounts';
@@ -18,7 +18,39 @@ let busy=false,operationGuard:(()=>void)|undefined;
 function current(signal:AbortSignal,owner?:string){operationGuard?.();const session=walletSessionStatusV1();if(signal.aborted||!session.active||AppState.currentState==='background'||(owner&&session.publicKey!==owner))throw Error('NATIVE_WALLET_LOCKED');return session.publicKey!;}
 async function exclusive<T>(work:()=>Promise<T>){if(busy)throw Error('NATIVE_WALLET_BUSY');operationGuard=captureWalletSessionGuardV1();busy=true;try{return await work();}finally{operationGuard=undefined;busy=false;}}
 async function metadata(signal:AbortSignal):Promise<Metadata|null>{const owner=current(signal),raw=await Store.getItemAsync(META,publicOptions);current(signal,owner);if(raw===null)return null;if(raw.length>8000)throw Error('NATIVE_CUSTODY_INVALID');const m=JSON.parse(raw) as Metadata;if(m.version!==1||m.devicePublicKey!==owner||![16,32].includes(m.entropyBytes)||!['mainnet','testnet'].includes(m.network)||!Array.isArray(m.accounts)||m.accounts.length!==3)throw Error('NATIVE_CUSTODY_INVALID');return m;}
-export async function readNativeWalletCustodyV1(signal:AbortSignal){const m=await metadata(signal);return m?{status:'READY' as const,accounts:m.accounts}:{status:'ABSENT' as const,accounts:[]};}
+type Network='mainnet'|'testnet';
+const networkKey=(m:Metadata)=>'lianum.native.wallet.network.v2.'+hex.encode(sha256(new TextEncoder().encode(JSON.stringify(m))));
+function networkAccounts(value:unknown,network:Network):NativeAccountV1[]{
+ if(!Array.isArray(value)||value.length!==3)throw Error('NATIVE_CUSTODY_INVALID');
+ const accounts=value.map(validateNativeAccountV1);
+ if(accounts.some(a=>a.network!==network)||new Set(accounts.map(a=>a.chain)).size!==3)throw Error('NATIVE_CUSTODY_BINDING');
+ return accounts;
+}
+/** Additional public derivations share the existing protected root. The V4
+ * recovery cut remains byte compatible; the same words regenerate both sets. */
+export async function readNativeWalletCustodyV1(signal:AbortSignal,network?:Network){
+ const m=await metadata(signal);if(!m)return{status:'ABSENT' as const,accounts:[]};
+ networkAccounts(m.accounts,m.network);
+ if(network===undefined||network===m.network)return{status:'READY' as const,accounts:m.accounts};
+ const raw=await Store.getItemAsync(networkKey(m),publicOptions);current(signal,m.devicePublicKey);
+ if(raw===null)return{status:'NETWORK_REQUIRED' as const,accounts:[]};
+ if(raw.length>8000)throw Error('NATIVE_CUSTODY_INVALID');
+ const extra=JSON.parse(raw);if(extra.version!==2||extra.devicePublicKey!==m.devicePublicKey||extra.network!==network||Object.keys(extra).sort().join(',')!=='accounts,devicePublicKey,network,version')throw Error('NATIVE_CUSTODY_BINDING');
+ return{status:'READY' as const,accounts:networkAccounts(extra.accounts,network)};
+}
+export async function enableNativeWalletNetworkV2(network:Network,signal:AbortSignal){return exclusive(async()=>{
+ if(network!=='mainnet'&&network!=='testnet')throw Error('NATIVE_NETWORK_UNSUPPORTED');
+ const m=await metadata(signal);if(!m)return{status:'ABSENT' as const,accounts:[]};
+ const existing=await readNativeWalletCustodyV1(signal,network);if(existing.status==='READY')return existing;
+ await approve(network==='testnet'?'Activar tus cuentas de prueba con la misma cartera':'Activar tus cuentas de la red principal',signal);
+ return withEntropy(signal,async(entropy,original)=>{
+  const key=networkKey(original),before=await Store.getItemAsync(key,publicOptions),accounts=deriveNativeAccountsV1(entropy,network),raw=JSON.stringify({version:2,devicePublicKey:original.devicePublicKey,network,accounts});
+  current(signal,original.devicePublicKey);if(before!==null&&before!==raw)throw Error('NATIVE_CUSTODY_BINDING');
+  await Store.setItemAsync(key,raw,publicOptions);current(signal,original.devicePublicKey);
+  if(await Store.getItemAsync(key,publicOptions)!==raw)throw Error('NATIVE_CUSTODY_WRITE_FAILED');
+  current(signal,original.devicePublicKey);return{status:'READY' as const,accounts};
+ });
+});}
 async function withEntropy<T>(signal:AbortSignal,work:(entropy:Uint8Array,m:Metadata)=>T|Promise<T>):Promise<T>{const owner=current(signal),m=await metadata(signal);if(!m)throw Error('NATIVE_WALLET_REQUIRED');let raw:string|null=null,held:Uint8Array|undefined,entropy:Uint8Array|undefined;try{raw=await readWalletSessionSecret(SECRET,secretOptions);current(signal,owner);if(raw===null)throw Error('NATIVE_RECOVERY_REQUIRED');held=hex.decode(raw);entropy=held.slice(0,m.entropyBytes);if(m.entropyBytes===16&&held.slice(16).some(byte=>byte!==0))throw Error('NATIVE_CUSTODY_INVALID');if(JSON.stringify(deriveNativeAccountsV1(entropy,m.network))!==JSON.stringify(m.accounts))throw Error('NATIVE_CUSTODY_BINDING');const result=await work(entropy,m);current(signal,owner);return result;}finally{held?.fill(0);entropy?.fill(0);raw=null;}}
 async function approve(promptMessage:string,signal:AbortSignal){const owner=current(signal);const approval=await Auth.authenticateAsync({promptMessage,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current(signal,owner);if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');}
 async function storeEntropy(entropy:Uint8Array,network:'mainnet'|'testnet',signal:AbortSignal){const owner=current(signal),old=await metadata(signal);if(old){if(old.network!==network||JSON.stringify(deriveNativeAccountsV1(entropy,network))!==JSON.stringify(old.accounts))throw Error('NATIVE_WALLET_ALREADY_EXISTS');const padded=new Uint8Array(32);padded.set(entropy);try{await writeWalletSessionSecret(SECRET,hex.encode(padded),secretOptions);current(signal,owner);return{status:'READY' as const,accounts:old.accounts};}finally{padded.fill(0);}}
@@ -30,7 +62,7 @@ export async function restoreNativeWalletCustodyV1(phrase:string,network:'mainne
 export async function revealNativeWalletMnemonicV1(signal:AbortSignal){return exclusive(async()=>{await approve('Mostrar las palabras que permiten recuperar tus fondos',signal);return withEntropy(signal,entropy=>nativeMnemonicV1(entropy));});}
 /** The review is snapshotted before biometric authentication; changes cannot
  * substitute a recipient or spend after the original foreground session closes. */
-export async function authorizeNativeWalletSendV1(input:{account:NativeAccountV1;transaction:unknown;recipient:string;amountAtomic:string;maximumFeeAtomic:string;expiresAt:number},signal:AbortSignal){return exclusive(async()=>{const owner=current(signal),snapshot=JSON.parse(JSON.stringify(input));const check=()=>{current(signal,owner);if(Date.now()>=snapshot.expiresAt)throw Error('NATIVE_QUOTE_EXPIRED');validateNativeSendReviewV1(snapshot.account,snapshot.transaction,snapshot.recipient,snapshot.amountAtomic,snapshot.maximumFeeAtomic);};check();await approve('Autorizar el envío y la comisión que has revisado',signal);check();return withEntropy(signal,(entropy,m)=>{if(!m.accounts.some(account=>JSON.stringify(account)===JSON.stringify(snapshot.account)))throw Error('NATIVE_ACCOUNT_BINDING');check();return signNativeWalletTransactionV1(entropy,snapshot.account,snapshot.transaction);});});}
+export async function authorizeNativeWalletSendV1(input:{account:NativeAccountV1;transaction:unknown;recipient:string;amountAtomic:string;maximumFeeAtomic:string;expiresAt:number},signal:AbortSignal){return exclusive(async()=>{const owner=current(signal),snapshot=JSON.parse(JSON.stringify(input));const check=()=>{current(signal,owner);if(Date.now()>=snapshot.expiresAt)throw Error('NATIVE_QUOTE_EXPIRED');validateNativeSendReviewV1(snapshot.account,snapshot.transaction,snapshot.recipient,snapshot.amountAtomic,snapshot.maximumFeeAtomic);};check();await approve('Autorizar el envío y la comisión que has revisado',signal);check();return withEntropy(signal,async(entropy)=>{const enabled=await readNativeWalletCustodyV1(signal,snapshot.account.network),derived=deriveNativeAccountsV1(entropy,snapshot.account.network);if(enabled.status!=='READY'||JSON.stringify(derived)!==JSON.stringify(enabled.accounts)||!derived.some(account=>JSON.stringify(account)===JSON.stringify(snapshot.account)))throw Error('NATIVE_ACCOUNT_BINDING');check();return signNativeWalletTransactionV1(entropy,snapshot.account,snapshot.transaction);});});}
 
 
 const nativeRecoveryBinding=(rootId:string)=>({profile:'DEVICE_NATIVE_ROOT_NOTE_CUSTODY_V1' as const,rootId});

@@ -1,4 +1,5 @@
-import {StyleSheet,Text,View} from 'react-native';
+import {WalletText as Text} from '../design/typography';
+import {StyleSheet,View} from 'react-native';
 import {WalletQuickAction,walletColors} from './wallet-ui';
 
 type WalletAction='send'|'deposit'|'swap'|'invest';
@@ -20,4 +21,4 @@ export function WalletActions({onAction,disabled=false}:{onAction:(action:Wallet
  </View>;
 }
 
-const styles=StyleSheet.create({container:{marginBottom:20},context:{backgroundColor:walletColors.primarySoft,borderRadius:14,padding:14,marginBottom:10},badge:{fontSize:10,lineHeight:16,fontWeight:'700',letterSpacing:0.4,color:walletColors.primary,marginBottom:4},contextText:{fontSize:13,lineHeight:19,color:walletColors.text},actions:{flexDirection:'row',gap:8},unavailable:{borderTopWidth:1,borderTopColor:walletColors.border,paddingTop:12,marginTop:8},unavailableTitle:{fontSize:12,lineHeight:18,fontWeight:'600',color:walletColors.muted},unavailableDetail:{fontSize:12,lineHeight:18,color:walletColors.muted,marginTop:2}});
+const styles=StyleSheet.create({container:{marginBottom:20},context:{backgroundColor:walletColors.primarySoft,borderRadius:6,padding:14,marginBottom:10},badge:{fontSize:10,lineHeight:16,fontWeight:'700',letterSpacing:0.4,color:walletColors.primary,marginBottom:4},contextText:{fontSize:13,lineHeight:19,color:walletColors.text},actions:{flexDirection:'row',gap:8},unavailable:{borderTopWidth:1,borderTopColor:walletColors.border,paddingTop:12,marginTop:8},unavailableTitle:{fontSize:12,lineHeight:18,fontWeight:'600',color:walletColors.muted},unavailableDetail:{fontSize:12,lineHeight:18,color:walletColors.muted,marginTop:2}});

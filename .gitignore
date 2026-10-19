@@ -12,3 +12,7 @@ __pycache__/
 .DS_Store
 *.swp
 *.swo
+
+# Presentation working material and large media stay local; publish final assets separately.
+/lianum_pitch/
+/demo_video/

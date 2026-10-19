@@ -342,6 +342,16 @@ export async function readOriginalPagedPublicSepoliaDefiDeliveryV8(native,accoun
 export async function readOriginalPagedPublicSepoliaSourceRecoveryRowsV8(receiver){
  assert.equal(arguments.length,1);const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner,'SEPOLIA_SOURCE_READ_REQUIRED');const K=await import('../chains/public-testnet/key-store-v1.mjs');originalReceiver(receiver);return K.readOriginalPublicPagedSourceRecoveryRowsV8(r.sourceSigner,receiver);
 }
+/** The account issues the opaque retirement request; this port cannot create a
+ * grant, sign a replacement or send a transaction. */
+export async function retireOriginalPagedPublicExpiredDepositV18(receiver,token){
+ assert.equal(arguments.length,2);const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner,'SEPOLIA_SOURCE_READ_REQUIRED');
+ return serialized(r.s,async()=>{originalReceiver(receiver);const K=await import('../chains/public-testnet/key-store-v1.mjs');return K.retireOriginalPublicExpiredDepositV18(r.sourceSigner,token);});
+}
+export async function retireOriginalPagedPublicExpiredWithdrawalV32(receiver,token){
+ assert.equal(arguments.length,2);const r=originalReceiver(receiver);need(r.finalized&&r.sourceSigner,'SEPOLIA_SOURCE_READ_REQUIRED');
+ return serialized(r.s,async()=>{originalReceiver(receiver);const K=await import('../chains/public-testnet/key-store-v1.mjs');return K.retireOriginalPublicExpiredWithdrawalV32(r.sourceSigner,token);});
+}
 async function defiTargetKernelV8(protocol){
  need(['AAVE_STATIC','MORPHO_V2'].includes(protocol),'SEPOLIA_DEFI_PROTOCOL');
  return protocol==='AAVE_STATIC'?{module:await import('../operations/deployments/defi/aave-sepolia-target-v4.mjs'),name:'Aave'}:{module:await import('../operations/deployments/defi/morpho-v2-sepolia-target-v4.mjs'),name:'MorphoV2'};

@@ -1,5 +1,6 @@
+import {WalletText as Text,WalletTextInput as TextInput} from '../design/typography';
 import {useEffect,useRef,useState} from 'react';
-import {AppState,StyleSheet,Text,TextInput,View} from 'react-native';
+import {AppState,StyleSheet,View} from 'react-native';
 import {WalletButton,WalletCard,WalletScreenLayout,WalletStatus,walletColors} from '../components/wallet-ui';
 import {readDevicePublicKey,signDeviceDefiPositionAccessV1,signDeviceDefiPositionReadV1} from '../custody/key-store';
 import {createDeviceDefiPositionReadApiV1} from '../api/device-defi-position-read-api-v1.mjs';
@@ -96,4 +97,4 @@ export default function DefiPositionsScreen({onObservation,onOpenDefi,onOpenHold
  </WalletScreenLayout>;
 
 }
-const styles=StyleSheet.create({muted:{color:walletColors.muted,fontSize:14,lineHeight:22,marginVertical:8},label:{color:walletColors.muted,fontSize:13,marginTop:8},value:{color:walletColors.text,fontSize:16,lineHeight:24,marginBottom:5},balance:{color:walletColors.text,fontSize:23,fontWeight:'700',lineHeight:31,marginVertical:6},accountOrigin:{color:walletColors.muted,fontSize:12,lineHeight:18,marginBottom:10},holding:{paddingVertical:10,borderBottomWidth:1,borderBottomColor:walletColors.border},input:{backgroundColor:walletColors.surface,color:walletColors.text,borderWidth:1,borderColor:walletColors.border,borderRadius:12,padding:12,minHeight:120,marginBottom:12}});
+const styles=StyleSheet.create({muted:{color:walletColors.muted,fontSize:14,lineHeight:22,marginVertical:8},label:{color:walletColors.muted,fontSize:13,marginTop:8},value:{color:walletColors.text,fontSize:16,lineHeight:24,marginBottom:5},balance:{color:walletColors.text,fontSize:23,fontWeight:'700',lineHeight:31,marginVertical:6},accountOrigin:{color:walletColors.muted,fontSize:12,lineHeight:18,marginBottom:10},holding:{paddingVertical:10,borderBottomWidth:1,borderBottomColor:walletColors.border},input:{backgroundColor:walletColors.surface,color:walletColors.text,borderWidth:1,borderColor:walletColors.border,borderRadius:6,padding:12,minHeight:120,marginBottom:12}});

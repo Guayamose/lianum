@@ -7,6 +7,26 @@ import {assertOriginalPagedSepoliaCodeSetV6} from '../../../src/chains/public-te
 
 const genesis='0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9';
 const head={number:'0x100',hash:'0x'+'44'.repeat(32),parentHash:'0x'+'33'.repeat(32),timestamp:'0x6ac00000',gasLimit:'0xbebc200',baseFeePerGas:'0x10'};
+test('repeated Original code sets reuse only the same runtime and exact canonical block',async t=>{
+ const key=randomBytes(32),rows=Array.from({length:24},(_,i)=>({address:'0x'+(i+100).toString(16).padStart(40,'0'),expectedCode:'0x6001'}));let opened,codeReads=0,canonicalReads=0,reorg=false,current={...head};
+ try{
+  t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{
+   const q=JSON.parse(options.body);let result;
+   if(q.method==='eth_chainId')result='0xaa36a7';
+   else if(q.method==='eth_getBlockByNumber'){if(q.params[0]==='0x0')result={hash:genesis};else{canonicalReads++;result={...current,...(reorg?{hash:'0x'+'99'.repeat(32)}:{})};}}
+   else{assert.equal(q.method,'eth_getCode');codeReads++;result='0x6001';}
+   return Response.json({jsonrpc:'2.0',id:q.id,result});
+  });
+  opened=await createOriginalPagedSepoliaRpcV4({endpoint:'https://primary.invalid',account:publicProviderAccountFromKeyV1('ethereum-sepolia',key),keysetId:'ab'.repeat(32)});
+  for(let i=0;i<20;i++)await assertOriginalPagedSepoliaCodeSetV6(opened.runtime,rows.map(row=>({...row})),current);
+  assert.equal(codeReads,24);assert.ok(canonicalReads>=40,'every reused view still observes canonicality before and after');
+  reorg=true;await assert.rejects(assertOriginalPagedSepoliaCodeSetV6(opened.runtime,rows,current),/CANONICAL/);assert.equal(codeReads,24);reorg=false;
+  await assert.rejects(assertOriginalPagedSepoliaCodeSetV6(opened.runtime,[{...rows[0],expectedCode:'0x6002'}],current),/COMPILED_CODE_CHANGED/);
+  current={...head,number:'0x101',hash:'0x'+'55'.repeat(32)};const before=codeReads;await assertOriginalPagedSepoliaCodeSetV6(opened.runtime,rows,current);assert.equal(codeReads-before,24,'a different block cannot inherit the completed view');
+  await assert.rejects(assertOriginalPagedSepoliaCodeSetV6({...opened.runtime},rows,current),/SEPOLIA_RECEIVER_CLOSED/);
+  t.diagnostic(JSON.stringify({profile:'HOST_EXACT_BLOCK_CODE_REUSE_V20',repeatedChecks:20,contracts:24,uncachedCodeReads:480,observedCodeReads:24,financialTransactions:0}));
+ }finally{if(opened){opened.lifecycle.acknowledge();await opened.runtime.close();}key.fill(0);}
+});
 for(const fault of ['none','timeout','chain','genesis','canonical','reorg','code','revert'])test('compiled code reads preserve exact head and reject alternate facts: '+fault,async t=>{
  const key=randomBytes(32),calls=[];let opened,secondaryHeads=0;
  try{
@@ -18,7 +38,7 @@ for(const fault of ['none','timeout','chain','genesis','canonical','reorg','code
     if(q.params[0]==='0x0')result={hash:fallback&&fault==='genesis'?'0x'+'99'.repeat(32):genesis};
     else{if(fallback)secondaryHeads++;result=fallback&&(fault==='canonical'||fault==='reorg'&&secondaryHeads>1)?{...head,hash:'0x'+'99'.repeat(32)}:head;}
    }else if(q.method==='eth_getCode'){
-    assert.equal(q.params[1],head.number);
+    if(fallback)assert.deepEqual(q.params[1],{blockHash:head.hash,requireCanonical:true});else assert.equal(q.params[1],head.number);
     if(!fallback&&fault==='revert')error={code:3,message:'private provider error'};
     else if(!fallback&&fault!=='none'){const cause=new Error('private connection details');cause.code='ETIMEDOUT';throw new TypeError('private endpoint',{cause});}
     else result=fallback&&fault==='code'?'0x6002':'0x6001';
@@ -26,7 +46,10 @@ for(const fault of ['none','timeout','chain','genesis','canonical','reorg','code
    return Response.json({jsonrpc:'2.0',id:q.id,...(error?{error}:{result})});
   });
   opened=await createOriginalPagedSepoliaRpcV4({endpoint:'https://primary.invalid',account,keysetId:'ab'.repeat(32)});
-  const rows=[{address:'0x'+'11'.repeat(20),expectedCode:'0x6001'}],run=()=>assertOriginalPagedSepoliaCodeSetV6(opened.runtime,rows,head);
+  // Each fault describes a different chain scenario. A contract's code cannot
+  // change while retaining the same canonical block hash and address.
+  const fixtureAddress='0x'+(1+['none','timeout','chain','genesis','canonical','reorg','code','revert'].indexOf(fault)).toString(16).repeat(40);
+  const rows=[{address:fixtureAddress,expectedCode:'0x6001'}],run=()=>assertOriginalPagedSepoliaCodeSetV6(opened.runtime,rows,head);
   if(['none','timeout'].includes(fault))await run();else await assert.rejects(run());
   assert.equal(calls.some(row=>row.fallback),!['none','revert'].includes(fault));
   assert.ok(calls.every(row=>!row.method.startsWith('eth_send')));

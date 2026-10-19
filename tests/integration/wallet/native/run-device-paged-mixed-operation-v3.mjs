@@ -46,7 +46,7 @@ try{
  loadFundedPagedGraphArtifactsV3(manifestSHA256);
  const {openOriginalPagedMobileHostV3}=await canonicalModule('host'),{startOriginalPagedMixedNativeOperatorV3}=await canonicalModule('operator');
  host=await acquire(()=>openOriginalPagedMobileHostV3(attempt));live();
- product=await acquire(()=>startOriginalPagedMixedNativeOperatorV3({deployment:{manifestSHA256,consumerSHA256,deploymentDomain:config.deploymentDomain,policy:config.policy},journal:{path:join(attempt,'account.aead'),password:randomBytes(32).toString('hex')},nativeDirectory:join(attempt,'provider'),origin:config.origin,devicePublicKey:host.devicePublicKey,tls:config.tls,host:config.host}));live();
+ product=await acquire(()=>startOriginalPagedMixedNativeOperatorV3({deployment:{minimumDepositAtomic:'1',manifestSHA256,consumerSHA256,deploymentDomain:config.deploymentDomain,policy:config.policy},journal:{path:join(attempt,'account.aead'),password:randomBytes(32).toString('hex')},nativeDirectory:join(attempt,'provider'),origin:config.origin,devicePublicKey:host.devicePublicKey,tls:config.tls,host:config.host}));live();
  const {runOriginalPagedMixedOperationV3}=await canonicalModule('flow');live();runWork=runOriginalPagedMixedOperationV3(product,host,originalTLS);result=await runWork;live();
 }catch(cause){error=errorMetadata(cause);process.exitCode=1;}
 finally{

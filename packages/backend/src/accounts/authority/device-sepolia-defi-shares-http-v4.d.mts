@@ -7,6 +7,7 @@ export function createOriginalDeviceSepoliaDefiSharesRetainedHttpV8(runtime:obje
 export function mountOriginalDeviceSepoliaDefiSharesFinancialHttpV8(handler:OriginalSepoliaDefiSharesHttpV4):OriginalSepoliaDefiSharesHttpV4;
 export function startOriginalDeviceSepoliaDefiSharesApprovedWorkerV8(handler:OriginalSepoliaDefiSharesHttpV4):void;
 export function runOriginalDeviceSepoliaDefiSharesApprovedPendingV8(handler:OriginalSepoliaDefiSharesHttpV4):Promise<Readonly<{observed:number;redemptionsStarted:number;failures:number}>>;
+export function withOriginalDeviceSepoliaDefiSharesIdleV10<T>(handler:OriginalSepoliaDefiSharesHttpV4,operation:()=>Promise<T>):Promise<T>;
 export function quiesceOriginalDeviceSepoliaDefiSharesHttpV8(handler:OriginalSepoliaDefiSharesHttpV4):Promise<void>;
 
 export function mountOriginalDeviceSepoliaDefiPaegFinancialHttpV8(handler:OriginalSepoliaDefiSharesHttpV4,provider:object):Promise<OriginalSepoliaDefiSharesHttpV4>;

@@ -59,6 +59,15 @@
     "packages/sdk": [
       "packages/mobile-protocol",
       "packages/crypto"
+    ],
+    "packages/agent": [
+      "packages/mobile-protocol",
+      "packages/sdk"
+    ],
+    "services/agent": [
+      "packages/agent",
+      "packages/mobile-protocol",
+      "packages/sdk"
     ]
   },
   "legacyPrivateImports": {},

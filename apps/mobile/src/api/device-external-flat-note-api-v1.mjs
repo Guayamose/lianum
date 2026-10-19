@@ -8,7 +8,7 @@ import { DEVICE_EXTERNAL_FLAT_SHARE_V1, normalizeExternalFlatDescriptorV1, norma
   from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import { awaitDevicePagedIssuedTimeV3 } from '@lianum/mobile-protocol/device/paged-owner-v3';
 const rows = new WeakMap(), statuses = new WeakMap(), quotes = new WeakMap(), reviews = new WeakMap();
-const fail = () => { throw Error('MOBILE_EXTERNAL_FLAT_RESPONSE_REJECTED'); };
+const fail = (reason = '') => { throw Error('MOBILE_EXTERNAL_FLAT_RESPONSE_REJECTED' + (reason ? '_' + reason : '')); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const fields = ['action', 'jobId', 'rootId', 'noteRevision', 'recipient', 'statement', 'path', 'witnessSHA256'];
 function snapshot(raw) {
@@ -41,7 +41,7 @@ async function digest(bytes) {
 function freshStatus(value) {
   const now = Date.now();
   if (!Number.isSafeInteger(value.observedAt) || !Number.isSafeInteger(value.expiresAt)
-    || value.observedAt > now || value.expiresAt !== value.observedAt + 15000 || value.expiresAt <= now) fail();
+    || value.observedAt > now || value.expiresAt !== value.observedAt + 15000 || value.expiresAt <= now) fail('STATUS_TIME');
 }
 export function createDeviceExternalFlatNoteApiV1(options = {}) { return createNoteApi(options,false); }
 /** Same original proof/row parser with a fixed dedicated PUBLIC DeFi route. */
@@ -55,7 +55,7 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
   function live() { if (closed) fail(); }
   function accessScope(value, fresh = true) {
     live(); if (fresh) validateExternalFlatFreshV1(value);
-    for (const name of ['origin', 'pairingId', 'devicePublicKey']) if (value[name] !== original[name]) fail();
+    for (const name of ['origin', 'pairingId', 'devicePublicKey']) if (value[name] !== original[name]) fail('ACCESS_SCOPE');
   }
   function consentScope(value, fresh = true) {
     live(); if (!same(value.descriptor, original)) fail();
@@ -87,10 +87,10 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
         'Content-Type': 'application/json',...(sepoliaDefi?{'x-lianum-defi-pairing-id':original.pairingId,...(path==='reviews'&&sepoliaReviewReference?{'x-lianum-defi-review-reference':sepoliaReviewReference}:{})}:{}) }, body, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
       live();
       if (controller.signal.aborted || response.redirected || response.url && response.url !== target
-        || /^application\/json(?:;\s*charset=utf-8)?$/i.exec(response.headers.get('content-type') ?? '')?.[0] !== response.headers.get('content-type')) fail();
+        || /^application\/json(?:;\s*charset=utf-8)?$/i.exec(response.headers.get('content-type') ?? '')?.[0] !== response.headers.get('content-type')) fail('HTTP_METADATA');
       const length = response.headers.get('content-length');
-      if (length !== null && (/^(0|[1-9][0-9]{0,5})$/.exec(length)?.[0] !== length || Number(length) > 65536)) fail();
-      if (!response.body || typeof response.body.getReader !== 'function') fail();
+      if (length !== null && (/^(0|[1-9][0-9]{0,5})$/.exec(length)?.[0] !== length || Number(length) > 65536)) fail('HTTP_LENGTH');
+      if (!response.body || typeof response.body.getReader !== 'function') fail('HTTP_READER');
       reader = response.body.getReader(); bytes = new Uint8Array(65536); let used = 0;
       try {
         for (;;) {
@@ -99,9 +99,9 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
           if (!(part.value instanceof Uint8Array) || used + part.value.byteLength > bytes.length) fail();
           bytes.set(part.value, used); used += part.value.byteLength;
         }
-        if (length !== null && used !== Number(length)) fail();
+        if (length !== null && used !== Number(length)) fail('HTTP_BODY_LENGTH');
         const parsed=JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, used)));
-        if(!response.ok){if(sepoliaDefi){const error=externalFlatExactV1(parsed,['error']);if(error.error==='SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED')throw Error(error.error);}fail();}return parsed;
+        if(!response.ok){if(sepoliaDefi){const error=externalFlatExactV1(parsed,['error']);if(error.error==='SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED')throw Error(error.error);}fail('HTTP_STATUS_'+response.status);}return parsed;
       } finally { bytes.fill(0); }
     })();
     try { return await Promise.race([work, stop, timeout]); }
@@ -177,7 +177,7 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
       const entry = accesses.get(access); if (!entry || entry.consumed) fail(); accessScope(access);
       signature = normalizeExternalFlatSignatureV1(signature); entry.consumed = true;
       const parsed = normalizeExternalFlatStatusV1(await post('status', { access, signature })); live();
-      if (!same(parsed.descriptor, original)) fail();
+      if (!same(parsed.descriptor, original)) fail('STATUS_DESCRIPTOR');
       await awaitIssued(parsed.observedAt); live(); freshStatus(parsed);
       const value = Object.freeze({ ...parsed, jobs: Object.freeze(parsed.jobs.map(row => originalRow(row))) });
       statuses.set(value, { live, descriptor: original }); return value;

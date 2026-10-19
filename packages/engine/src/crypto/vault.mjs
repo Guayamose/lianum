@@ -20,7 +20,7 @@ import { open, lstat, rename, unlink } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { types } from 'node:util';
-import { canonical, encryptJson, decryptJson } from './privacy.mjs';
+import { canonical, encryptJsonAsync, decryptJsonAsync } from './privacy.mjs';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 
@@ -96,7 +96,7 @@ export class Vault {
   }
 
   async _write(record, password) {
-    const envelope = encryptJson(record, password);
+    const envelope = await encryptJsonAsync(record, password);
     const serialized = JSON.stringify(envelope);
     const temporary = `${this.path}.tmp-${randomBytes(16).toString('hex')}`;
     let handle;
@@ -133,7 +133,7 @@ export class Vault {
 
   async read(password) {
     const serialized = await boundedRead(this.path, MAX_FILE_BYTES);
-    const record = decryptJson(JSON.parse(serialized), password);
+    const record = await decryptJsonAsync(JSON.parse(serialized), password);
     if (!record || typeof record !== 'object' || Array.isArray(record) ||
         Object.keys(record).sort().join(',') !== 'data,revision' ||
         !Number.isSafeInteger(record.revision) || record.revision < 0) {

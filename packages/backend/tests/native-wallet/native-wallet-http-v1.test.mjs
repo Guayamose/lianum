@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeRpcV1,nativeEsploraV1} from '../../src/native-wallet/http-v1.mjs';
 
+test('a signed RPC rejection keeps only a bounded category and numeric code without retrying',async t=>{
+ let sends=0;const privateText='replacement transaction underpriced; private endpoint/key/signed payload';
+ t.mock.method(globalThis,'fetch',async(_url,options)=>{sends++;return Response.json({jsonrpc:'2.0',id:JSON.parse(options.body).id,error:{code:-32000,message:privateText,data:'private signed payload'}});});
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_sendRawTransaction',['host-signed-wire']),error=>{
+  assert.equal(error.rpcMethod,'eth_sendRawTransaction');assert.equal(error.rpcErrorCode,-32000);assert.equal(error.rpcWriteRejection,'REPLACEMENT_UNDERPRICED');assert.equal(error.message,'NATIVE_WALLET_RPC_FAILED');
+  assert.equal(JSON.stringify(error).includes('private'),false);assert.equal(error.cause,undefined);return true;
+ });assert.equal(sends,1);
+});
+
 test('RPC reads recover from a temporary HTTP response and release its body',async t=>{
  let calls=0,cancelled=false;const bodies=[];
  t.mock.method(globalThis,'fetch',async(_url,options)=>{
@@ -66,7 +75,7 @@ test('HTTP 400 from an RPC read is retried but a signed send is not',async t=>{
  assert.equal(await nativeRpcV1('https://rpc.invalid')('eth_getTransactionReceipt',['0x123']),null);assert.equal(calls,2);
  mocked.mock.mockImplementation(async()=>{calls++;return new Response('',{status:400,headers:{'retry-after':'0'}});});
  await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_getCode',['bad-params']),{code:'NATIVE_WALLET_HTTP_STATUS',httpStatus:400,rpcMethod:'eth_getCode'});assert.equal(calls,5);
- await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_sendRawTransaction',['signed-wire']),error=>{assert.equal(error.httpStatus,400);assert.equal(error.rpcMethod,undefined);return true;});assert.equal(calls,6);
+ await assert.rejects(nativeRpcV1('https://rpc.invalid')('eth_sendRawTransaction',['signed-wire']),error=>{assert.equal(error.httpStatus,400);assert.equal(error.rpcMethod,'eth_sendRawTransaction');return true;});assert.equal(calls,6);
 });
 
 test('nontransient HTTP failures and RPC errors do not repeat reads',async t=>{

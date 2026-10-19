@@ -1,5 +1,6 @@
+import {WalletText as Text} from '../design/typography';
 import {useEffect,useState} from 'react';
-import {Text,StyleSheet} from 'react-native';
+import {StyleSheet} from 'react-native';
 import type {DeviceSepoliaDefiReviewV4} from '@lianum/mobile-protocol/device/sepolia-defi-review-v4';
 import type {DeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
 import {presentDeviceSepoliaDefiReviewV7} from '../screens/sepolia-defi-review-presenter-v7.mjs';

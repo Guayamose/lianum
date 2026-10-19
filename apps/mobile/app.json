@@ -16,7 +16,18 @@
     },
     "android": {
       "package": "org.lianum.wallet",
-      "allowBackup": false
+      "allowBackup": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./src/design/assets/android-icon-foreground.png",
+        "backgroundImage": "./src/design/assets/android-icon-background.png",
+        "monochromeImage": "./src/design/assets/android-icon-monochrome.png",
+        "backgroundColor": "#F3F0E8"
+      },
+      "googleServicesFile": "./.local/firebase/google-services.json",
+      "blockedPermissions": [
+        "android.permission.CAMERA",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "plugins": [
       "./plugins/with-native-build-limits.cjs",
@@ -34,8 +45,33 @@
         {
           "faceIDPermission": "Confirma tu identidad antes de crear o utilizar tu clave de Lianum."
         }
+      ],
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Lianum necesita el micr\u00f3fono para hablar con tu agente.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "microphonePermission": "Lianum necesita el micr\u00f3fono para hablar con tu agente.",
+          "cameraPermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./src/design/assets/android-icon-monochrome.png",
+          "color": "#315C60",
+          "defaultChannel": "lianum-agent"
+        }
       ]
     ],
-    "backgroundColor": "#F4F7FB"
+    "backgroundColor": "#F3F0E8",
+    "icon": "./src/design/assets/icon.png"
   }
 }

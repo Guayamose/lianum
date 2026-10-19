@@ -24,4 +24,15 @@ config.resolver.nodeModulesPaths = [
   path.resolve(__dirname, 'node_modules'),
   path.resolve(__dirname, '../../node_modules'),
 ];
+// Same adapter as the original Lianum frontend. ECharts pins tslib 2.3,
+// whose default-import wrapper fails during native Metro initialization.
+// Use the directly exported helpers from the explicit current dependency.
+const tslibModule = require.resolve('tslib/tslib.es6.mjs');
+const priorResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const name = moduleName === 'tslib' ? tslibModule : moduleName;
+  return priorResolveRequest
+    ? priorResolveRequest(context, name, platform)
+    : context.resolveRequest(context, name, platform);
+};
 module.exports = config;

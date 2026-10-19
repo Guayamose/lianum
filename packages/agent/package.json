@@ -1,0 +1,15 @@
+{
+  "name": "@lianum/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./store": "./src/store.mjs",
+    "./runtime": "./src/runtime.mjs",
+    "./tools": "./src/tools.mjs"
+  },
+  "dependencies": {
+    "@lianum/sdk": "file:../sdk",
+    "@lianum/mobile-protocol": "file:../mobile-protocol"
+  }
+}

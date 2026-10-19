@@ -33,7 +33,7 @@ loadFundedPagedGraphArtifactsV3(manifestSHA256);
 const pair=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),publicJwk=pair.publicKey.export({format:'jwk'});
 let signingKey=pair.privateKey;
 const devicePublicKey='04'+Buffer.from(publicJwk.x,'base64url').toString('hex')+Buffer.from(publicJwk.y,'base64url').toString('hex');
-const configuration={deployment:{manifestSHA256,consumerSHA256,deploymentDomain:'0x'+randomBytes(32).toString('hex'),policy:'0x'+randomBytes(32).toString('hex')},
+const configuration={deployment:{minimumDepositAtomic:'1',manifestSHA256,consumerSHA256,deploymentDomain:'0x'+randomBytes(32).toString('hex'),policy:'0x'+randomBytes(32).toString('hex')},
  journal:{path:join(attempt,'authority/account.aead'),password:randomBytes(32).toString('hex')},
  nativeDirectory:join(attempt,'provider'),origin:'https://127.0.0.1:7454',devicePublicKey,tls,host:'127.0.0.1'};
 const path=join(attempt,'operator.json'),file=await open(path,'wx',0o600);

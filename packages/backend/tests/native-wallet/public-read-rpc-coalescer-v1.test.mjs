@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeRpcV1} from '../../src/native-wallet/http-v1.mjs';
 import {PUBLIC_SEPOLIA_RPC_ROUTE_V1 as route} from '../../src/native-wallet/public-testnet-rpc-route-v1.mjs';
+import {readPublicRpcMetricsV1} from '../../src/native-wallet/public-read-rpc-coalescer-v1.mjs';
 
 test('concurrent metadata readers share one wire but independent results; subsequent reads observe the network again',async t=>{
  let calls=0;t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{const r=JSON.parse(options.body);calls++;await new Promise(resolve=>setTimeout(resolve,5));return Response.json({jsonrpc:'2.0',id:r.id,result:{number:'0x'+calls,hash:'HOST header'}});});
@@ -39,4 +40,10 @@ test('metadata input is snapshotted once and a saturated group is bounded and ca
  let reads=0,seen;t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{const r=JSON.parse(options.body);seen=r.params;return Response.json({jsonrpc:'2.0',id:r.id,result:'0x6000'});});
  const rpc=nativeRpcV1(route.retainedEndpoint),params=['ignored','latest'];Object.defineProperty(params,0,{get(){reads++;return'0xaa';}});assert.equal(await rpc('eth_getCode',params),'0x6000');assert.equal(reads,1);assert.deepEqual(seen,['0xaa','latest']);
  const controls=Array.from({length:512},()=>new AbortController()),pending=controls.map((a,i)=>rpc('eth_getCode',['HOST '+i,'latest'],a.signal));const overflow=rpc('eth_getCode',['HOST overflow','latest']);for(const a of controls)a.abort();await assert.rejects(overflow,{code:'NATIVE_WALLET_RPC_METADATA_READ_BOUND'});const results=await Promise.allSettled(pending);assert.ok(results.every(r=>r.status==='rejected'&&r.reason.code==='NATIVE_WALLET_CANCELLED'));
+});
+
+test('method counters count logical invocations independently of sharing and exclude other endpoints and parameters',async t=>{
+ const before=readPublicRpcMetricsV1();t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{const request=JSON.parse(options.body);return Response.json({jsonrpc:'2.0',id:request.id,result:'0xaa36a7'});});
+ const rpc=nativeRpcV1(route.effectiveEndpoint);await Promise.all([rpc('eth_chainId'),rpc('eth_chainId')]);await rpc('eth_call',[{to:'HOST_PUBLIC_ADDRESS',data:'HOST_PARAMETER'}]);await nativeRpcV1('https://HOST.invalid')('eth_getBalance',['HOST_OTHER']);
+ const after=readPublicRpcMetricsV1();assert.equal(after.rpcCalls-before.rpcCalls,3);assert.equal(after.rpcCallsByMethod.eth_chainId-(before.rpcCallsByMethod.eth_chainId??0),2);assert.equal(after.rpcCallsByMethod.eth_call-(before.rpcCallsByMethod.eth_call??0),1);assert.equal(after.rpcCallsByMethod.eth_getBalance??0,before.rpcCallsByMethod.eth_getBalance??0);assert.ok(!JSON.stringify(after).includes('HOST_PARAMETER'));assert.ok(Object.isFrozen(after.rpcCallsByMethod));
 });

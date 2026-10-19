@@ -40,7 +40,7 @@ for(const expected of ['compileSdk = "36"','buildTools = "36.0.0"','ndkVersion =
 const abi = ['arm64-v8a','x86_64'];
 const gradleSHA256 = 'b266d5ff6b90eada6dc3b20cb090e3731302e553a27c5d3e4df1f0d76beaff06';
 const gradleJVMArgs = standaloneLocal
-  ? '-Xmx768m -XX:MaxMetaspaceSize=384m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -Dfile.encoding=UTF-8'
+  ? '-Xmx768m -XX:MaxMetaspaceSize=512m -XX:+UseSerialGC -XX:ActiveProcessorCount=2 -Dfile.encoding=UTF-8'
   : '-Xmx1024m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8';
 process.stdout.write(JSON.stringify({preflight:'PASS',javaMajor,architectures:abi,
   androidSDK:36,buildTools:'36.0.0',ndk:'27.1.12297006',gradle:'9.3.1',variant,standaloneLocal})+'\n');
@@ -94,7 +94,10 @@ const env={...process.env,ANDROID_HOME:sdk,ANDROID_SDK_ROOT:sdk,
   // Gradle's documented no-daemon mode requires the launcher and build JVM
   // options to match; otherwise --no-daemon still creates a separate session.
   JAVA_OPTS:gradleJVMArgs,GRADLE_OPTS:''};
-if (standaloneLocal) env.NODE_OPTIONS = '--max-old-space-size=384';
+// Metro's source-map composition exceeded the former 384 MiB heap. Keep
+// bundling bounded independently of Gradle and the native app's memory.
+const standaloneNodeHeapMiB=768;
+if (standaloneLocal) env.NODE_OPTIONS = '--max-old-space-size='+standaloneNodeHeapMiB;
 let active,ownedGroup,killTimer,cleanupUnconfirmed=false;
 function captureJVMProcesses(group) {
   for (const stat of group.processes) {
@@ -268,7 +271,7 @@ try {
       assert.ok(!gradle.includes('LIANUM STANDALONE LOCAL BUNDLE'),'MOBILE_BUILD_BUNDLE_WORKERS_CONFIG_CHANGED');
       writeFileSync(gradlePath,gradle.trimEnd()+'\n\n'+bundleWorkersBlock+'\n');
     }
-    report.bundlingWorkers=1;report.nodeHeapMiB=384;report.lintWorkerHeapMiB=192;
+    report.bundlingWorkers=1;report.nodeHeapMiB=standaloneNodeHeapMiB;report.lintWorkerHeapMiB=192;
     report.generatedStandaloneConfigSHA256=sha256(readFileSync(gradlePath));
     // Gradle's original bundle inputs omit .mjs and the external protocol.
     // Remove only the generated bundle so this task rebuilds current JS while

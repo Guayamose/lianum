@@ -53,12 +53,16 @@ cp -a -- "$destination" "$workspace"
 python3 - "$workspace" <<'PY'
 import json,os,pathlib,pwd,sys
 root=pathlib.Path(sys.argv[1]);user=pwd.getpwnam('lianum-testnet-signer')
-for relative in ['omnichain-product/.local/integrations','omnichain-product/evidence/paeg-proof-attempts','omnichain-flat-profile/flat-wallet/.local/proof-workers']:
+for relative in ['omnichain-product/.local/integrations','omnichain-product/evidence/paeg-proof-attempts','omnichain-product/evidence/m23-wallet-proof-attempts','omnichain-flat-profile/flat-wallet/.local/proof-workers']:
     path=root/'candidate/resources'/relative;path.mkdir(parents=True,exist_ok=True)
     for parent,dirs,files in os.walk(path,followlinks=False):
         directory=pathlib.Path(parent)
         if directory.is_symlink():raise SystemExit('PAEG_PUBLIC_INSTALL_STATE_ALIAS')
         os.chown(directory,user.pw_uid,user.pw_gid);directory.chmod(0o700)
+diagnostics=root/'candidate/evidence/device-paged-note-computation'
+diagnostics.mkdir(parents=True,exist_ok=True)
+if diagnostics.is_symlink():raise SystemExit('PAEG_PUBLIC_INSTALL_STATE_ALIAS')
+os.chown(diagnostics,user.pw_uid,user.pw_gid);diagnostics.chmod(0o700)
 manifest=json.loads((root/'candidate/source-bundle.json').read_bytes())
 prefix='resources/omnichain-flat-profile/flat-wallet/.local/proof-workers/'
 lines=['[Service]']

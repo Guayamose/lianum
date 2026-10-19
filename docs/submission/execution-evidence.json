@@ -1,0 +1,77 @@
+{
+  "profile": "LIANUM_SUBMISSION_EXECUTION_EVIDENCE_V1",
+  "assembledAtUTC": "2026-10-19T00:10:41.441818+00:00",
+  "freshNetworkVerificationPerformedInThisAudit": false,
+  "scope": "Previously recorded phone and public-testnet acceptance. These three self-transfers do not prove agent initiation, PAEG execution or a cross-chain plan.",
+  "transactions": [
+    {
+      "network": "ethereum-sepolia",
+      "transactionHash": "0xdd3c90b08fcb11cf6c33889b484e8e870876ababd78dae591c527642c1284a68",
+      "amountAtomic": "1000000000000",
+      "asset": "ETH",
+      "kind": "NATIVE_SELF_TRANSFER",
+      "recordedResult": "SUCCESS_FINALIZED_TWO_PROVIDERS",
+      "observedAtUTC": "2026-10-18T21:02:50.884Z",
+      "explorer": "https://sepolia.etherscan.io/tx/0xdd3c90b08fcb11cf6c33889b484e8e870876ababd78dae591c527642c1284a68",
+      "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/v29-native-eth-finality-sixth.json",
+      "manualIdenticalRetransmissions": 1,
+      "automaticRecoveryProven": false,
+      "agentInitiationProven": false
+    },
+    {
+      "network": "solana-devnet",
+      "transactionHash": "36iGX4DZYmpvSDHwpgu6jSzTMJcL7w7x5JnZmBKegdjWYCZogYUdbVPPNkw9vUiHLY3wWbZgiSXUFB7vLhSD8KaM",
+      "amountAtomic": "1000000",
+      "asset": "SOL",
+      "kind": "NATIVE_SELF_TRANSFER",
+      "recordedResult": "FINALIZED_AND_CONFIRMED_ON_PHONE",
+      "observedAtUTC": "2026-10-18T14:17:48.922388+00:00",
+      "explorer": "https://explorer.solana.com/tx/36iGX4DZYmpvSDHwpgu6jSzTMJcL7w7x5JnZmBKegdjWYCZogYUdbVPPNkw9vUiHLY3wWbZgiSXUFB7vLhSD8KaM?cluster=devnet",
+      "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/physical-v21-sol-send-finalized.json",
+      "agentInitiationProven": false
+    },
+    {
+      "network": "bitcoin-testnet3",
+      "transactionHash": "55a9c96bb3278777b99bbd17eee9ac7bfa65b59a5dedc356556e1ea62cc3bc70",
+      "amountAtomic": "1000",
+      "asset": "BTC",
+      "kind": "NATIVE_SELF_TRANSFER",
+      "recordedResult": "SEVEN_CONFIRMATIONS_TWO_PROVIDERS",
+      "observedAtUTC": "2026-10-18T20:28:10.387481+00:00",
+      "explorer": "https://mempool.space/testnet/tx/55a9c96bb3278777b99bbd17eee9ac7bfa65b59a5dedc356556e1ea62cc3bc70",
+      "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/v28-btc-depth.json",
+      "agentInitiationProven": false
+    }
+  ],
+  "localIntegration": {
+    "summary": {
+      "status": "PASS",
+      "scope": "Local synthetic EVM/Bitcoin/Solana, Uniswap and settlement; real SDK/custody/proofs/consumers; not phone or public acceptance.",
+      "sourceGeneration": "8cfdc73c4a9d703a0f795689fa5bdeb3161d34c1d4402130ac5c34be3f5efa68",
+      "nodes": 4,
+      "nativeDeliveries": 3,
+      "swapDeliveries": 1,
+      "proofsIncludingD27": 21,
+      "withdrawals": 5,
+      "depositAmount": "600",
+      "changeWithdrawnAmount": "200",
+      "providerPayoutAmount": "400",
+      "payoutCount": "4",
+      "heldAfter": "0",
+      "backedAfter": "0",
+      "receivedTokenAtomic": "100",
+      "tokenWithdrawn": false,
+      "publicNetwork": false,
+      "physicalPhone": false,
+      "originalResourcesClosed": true
+    },
+    "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/v32-campaign/mixed-financial-summary.json",
+    "eligibleAsPublicTransactionEvidence": false
+  },
+  "pending": [
+    "Agent-originated, mobile-authorized PAEG plan confirmed on public testnets",
+    "Public PAEG settlement and executor payout",
+    "Public Uniswap/Aave/Morpho acceptance for any corresponding demo claim"
+  ],
+  "unknownWithdrawalExcludedFromConfirmedTransactions": true
+}

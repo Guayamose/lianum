@@ -20,6 +20,9 @@ mock.module(keyURL,{exports:{...actualKeys,
  executeOriginalPublicUniswapMixedSourceCallV4:async(_signer,token)=>{assert.ok(mixedTokens.has(token),'HOST_UNRECOGNIZED_MIXED_COMMAND');routes.push('MIXED');return Object.freeze({namespace:'MIXED'});},
 }});
 mock.module(new URL('../../../src/operations/local/sepolia-uniswap-mixed-source-kernel-v4.mjs',import.meta.url).href,{exports:{isOriginalSepoliaUniswapMixedSourceCommandV4:token=>mixedTokens.has(token)}});
+// This fixture covers Root/Uniswap routing; DeFi commands have their own owner
+// test and must not load an unmocked deployment through the HOST RPC seam.
+mock.module(new URL('../../../src/operations/local/sepolia-defi-mixed-source-kernel-v8.mjs',import.meta.url).href,{exports:{isOriginalSepoliaDefiMixedSourceCommandV8:()=>false}});
 mock.module(new URL('../../../src/chains/public-testnet/adapters-v1.mjs',import.meta.url).href,{exports:{publicPagedNativeAdapterV1:()=>({identify:async()=>{}})}});
 mock.module(new URL('../../../src/chains/public-testnet/sepolia-receiver-rpc-v4.mjs',import.meta.url).href,{exports:{createOriginalPagedSepoliaRpcV4:async()=>{runtime=Object.freeze({async close(){closeRPC();await ack;}});return{runtime,lifecycle};}}});
 

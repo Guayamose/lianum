@@ -1,3 +1,5 @@
+import {withPublicCanonicalBlockReadsV25} from '../../native-wallet/http-v1.mjs';
+import {readOriginalPagedSepoliaRpcContextV4} from '../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
 /** ORIGINAL PUBLIC minimum-ledger target producer. Fixed compiler/contracts,
  * parent verifier lineage and original venue only; no caller artifact, address,
  * key, hash callback, LOCAL adoption or financial proof acceptance. */
@@ -109,6 +111,14 @@ export async function consumeOriginalSepoliaUniswapTargetInitializationV4(runtim
 function abiGetter(artifact,name,args=[]){const signature=name+'('+args.map(()=> 'address').join(',')+')',entries=artifact.abi.filter(entry=>entry.type==='function'&&entry.name===name&&entry.inputs.map(input=>input.type).join(',')===args.map(()=> 'address').join(','));assert.equal(entries.length,1,'PUBLIC_UNISWAP_FIXED_GETTER');assert.ok(['view','pure'].includes(entries[0].stateMutability));const id=artifact.evm.methodIdentifiers?.[signature]??publicKeccak256(Buffer.from(signature)).subarray(0,4).toString('hex');assert.match(id,/^[0-9a-f]{8}$/,'PUBLIC_UNISWAP_FIXED_GETTER');return '0x'+id+nativeStaticArguments(args.map(()=>({type:'address'})),args).slice(2);}
 const scalarWord=value=>typeof value==='string'&&/^0x[0-9a-f]{64}$/.test(value)?value:word(value);
 async function targetCodeAndGetters(p,head){
+ const {endpoint}=readOriginalPagedSepoliaRpcContextV4(p.runtime);
+ if(p.completedTargetReadV20===head.number+':'+head.hash)return targetCodeAndGettersAtHead(p,head);
+ return withPublicCanonicalBlockReadsV25(endpoint,head,()=>targetCodeAndGettersAtHead(p,head));
+}
+async function targetCodeAndGettersAtHead(p,head){
+ originalPlan(p.runtime,p.plan);await p.runtime.assertCanonical(head);
+ const viewKey=head.number+':'+head.hash;
+ if(p.completedTargetReadV20===viewKey){await p.runtime.assertCanonical(head);originalPlan(p.runtime,p.plan);return;}
  await checkParent(p.runtime,p.parent,head);const {target,router}=p.data;
  await Promise.all(p.data.constructors.map(async row=>assert.equal(await p.runtime.code(row.expectedAddress,head.number),row.expectedCode,'PUBLIC_UNISWAP_TARGET_CURRENT_CODE')));
  const views=[[target.hub.address,p.build.artifacts.hub,target.hub.immutableValues],...target.pools.map(pool=>[pool.address,p.build.artifacts.pool,pool.immutableValues]),[router.address,p.routerBuild.artifact,router.immutable]];
@@ -117,7 +127,7 @@ async function targetCodeAndGetters(p,head){
   (async()=>assert.equal(await p.runtime.call({to:target.hub.address,data:abiGetter(p.build.artifacts.hub,'poolDomain',[pool.address])},head.number),pool.domainCommitment,'PUBLIC_UNISWAP_TARGET_REGISTERED_DOMAIN'))(),
   (async()=>assert.equal(await p.runtime.call({to:target.hub.address,data:abiGetter(p.build.artifacts.hub,'isRegisteredPool',[pool.address])},head.number),word(1),'PUBLIC_UNISWAP_TARGET_REGISTERED_POOL'))(),
   (async()=>assert.equal(await p.runtime.call({to:target.hub.address,data:abiGetter(p.build.artifacts.hub,'pinnedPoolCodeHash',[pool.address])},head.number),pool.codeHash,'PUBLIC_UNISWAP_TARGET_PINNED_POOL'))()
- ]));await p.runtime.assertCanonical(head);
+ ]));await p.runtime.assertCanonical(head);originalPlan(p.runtime,p.plan);p.completedTargetReadV20=viewKey;
 }
 /** A ready target is issued only after all seven SAME canonical receipts are
  * finalized and the compiled code/getters/domain registrations are reread.
@@ -126,8 +136,15 @@ async function targetCodeAndGetters(p,head){
 export async function finalizeOriginalSepoliaUniswapTargetV4(runtime,plan){
  assert.equal(arguments.length,2);const p=originalPlan(runtime,plan);assert.equal(p.receipts.size,5,'PUBLIC_UNISWAP_TARGET_CONSTRUCTORS_INCOMPLETE');assert.equal(p.registrationReceipts.size,2,'PUBLIC_UNISWAP_TARGET_REGISTRATIONS_INCOMPLETE');
  const lane=readOriginalPagedSepoliaSourceLaneV4(runtime);assertOriginalPagedSepoliaSourcePolicyBirthV5(runtime,p.data.policySHA256);const head=await runtime.block('finalized');
+ // Reuse only a successful check of this exact finalized block and receipt set.
+ // The canonical head and current Source permission are still checked per call.
+ const finalizedKeyV10=sha(JSON.stringify([head.number,head.hash,[...p.receipts.values()],[...p.registrationReceipts.values()]]));
+ if(p.finalizedKeyV10!==finalizedKeyV10){
  for(const saved of [...p.receipts.values(),...p.registrationReceipts.values()]){assert.ok(rpcQuantity(head.number)>=rpcQuantity(saved.blockNumber),'PUBLIC_UNISWAP_TARGET_FINALITY_PENDING');const actual=await runtime.receipt(saved.transactionHash);assert.deepEqual(actual,saved,'PUBLIC_UNISWAP_TARGET_ORIGINAL_RECEIPT');await runtime.checkReceipt(actual);}
  await targetCodeAndGetters(p,head);originalPlan(runtime,plan);readOriginalPagedSepoliaSourceLaneV4(runtime);
+ p.finalizedKeyV10=finalizedKeyV10;
+ }
+ await runtime.assertCanonical(head);originalPlan(runtime,plan);readOriginalPagedSepoliaSourceLaneV4(runtime);
  if(p.system)return p.system;const system=freeze({profile:'ORIGINAL_PUBLIC_SEPOLIA_UNISWAP_TARGET_SYSTEM_V4',receiverProfile:runtime.profile,keysetId:p.data.keysetId,account:p.data.account,planSHA256:p.data.planSHA256,policySHA256:p.data.policySHA256,chainId:'11155111',router:p.data.router,target:p.data.target,minimum:p.data.minimum,rules:p.data.rules,rulesRoot:p.data.rulesRoot,constructors:p.data.constructors.map((row,index)=>({...row,receipt:p.receipts.get(index)})),registrations:p.data.postDeploymentCalls.map((row,index)=>({...row,receipt:p.registrationReceipts.get(index)})),finalizedHead:{hash:head.hash,number:head.number},trust:'RPC_PROVIDER',independentConsensus:false});if(p.reopening){const captured=p.reopening.system;await runtime.assertCanonical(captured.finalizedHead);assert.ok(rpcQuantity(head.number)>=rpcQuantity(captured.finalizedHead.number),'PUBLIC_UNISWAP_TARGET_CAPTURED_FINALITY');assert.deepEqual({...system,finalizedHead:captured.finalizedHead},captured,'PUBLIC_UNISWAP_TARGET_RECOMPILED_SYSTEM');const restored=freeze(structuredClone(captured));systems.set(restored,p);p.system=restored;return restored;}systems.set(system,p);p.system=system;return system;
 }
 export function assertOriginalSepoliaUniswapTargetSystemV4(runtime,system){assert.equal(arguments.length,2);const p=systems.get(system);assert.ok(p?.runtime===runtime&&p.system===system&&!p.closed,'PUBLIC_UNISWAP_ORIGINAL_TARGET_SYSTEM');originalPlan(runtime,p.plan);return system;}

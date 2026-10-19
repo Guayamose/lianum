@@ -38,7 +38,16 @@ test('HOST Source signing preserves SIGNED/UNKNOWN wire after lost POST, sponsor
   await assert.rejects(K.executeOriginalPublicPagedSourceV4(source,cap,request.label,{from:request.from,to:request.to,data:request.data,value:BigInt(request.value)}),/ORIGINAL_SEND_PENDING/);assert.equal(posts,1);assert.equal(nonce,1n);
   // Repeated canonical observations must not alter the durable checkpoint.
   // A real receipt loss still records UNKNOWN and a later receipt advances it.
+  const nextCap=grant(runtime,account.address);issued.get(nextCap).request.jobId='host-next-after-lost-reply';
+  await assert.rejects(K.preflightOriginalPublicPagedSourceV4(source,nextCap),/PRIOR_SEND_PENDING/);
+  assert.equal(posts,1);assert.equal(issued.get(nextCap).used,false);
+  assert.equal(JSON.parse(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8')).operations[0].phase,'UNKNOWN');
   receiptAvailable=true;finalizedNumber='0xff';
+  const ready=await K.preflightOriginalPublicPagedSourceV4(source,nextCap);
+  assert.equal(ready.signatureIssued,false);assert.equal(ready.broadcasts,0);assert.equal(posts,1);
+  const reconciled=JSON.parse(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8'));
+  assert.equal(reconciled.operations.length,1);assert.equal(reconciled.operations[0].phase,'CONFIRMED');
+  assert.deepEqual(reconciled.operations[0].signed,disk.operations[0].signed,'the original signature is retained; no replacement send');
   const confirmed=await K.observeOriginalPublicPagedSourceV4(source);assert.equal(confirmed.rows[0].status,'CONFIRMED');
   const checkpoint=K.readOriginalPublicPagedSourceCheckpointV4(source),unchangedBytes=await readFile(join(directory,'source-operations','native-wallet.json'));
   await K.observeOriginalPublicPagedSourceV4(source);await K.observeOriginalPublicPagedSourceV4(source);

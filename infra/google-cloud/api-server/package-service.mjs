@@ -11,20 +11,37 @@ async function copy(path,expected){const source=join(root,path),bytes=await read
 for(const p of policy.packages)for(const file of p.files)await copy(p.path+'/'+file.path,file);
 const {readdir}=await import('node:fs/promises');for(const folder of ['packages/backend/src/public-wallet','packages/backend/src/native-wallet','packages/backend/src/fiat'])for(const name of await readdir(join(root,folder))){if(name.endsWith('.d.mts'))continue;if(!name.endsWith('.mjs'))throw Error('DEPLOYMENT_UNEXPECTED_SOURCE');await copy(folder+'/'+name);}
 for(const path of ['packages/crypto/src/native-wallet-v1.mjs','packages/crypto/src/native-wallet-auth-v1.mjs','packages/crypto/package.json','packages/backend/package.json'])await copy(path);
+await copy('packages/backend/src/operations/recovery/paged-original-process-fence-v4.mjs');
+// Package the independent agent alongside its loopback gateway. Credentials
+// and SQLite state are provisioned separately and never enter this artifact.
+async function copyTree(folder,accept){
+ for(const row of await readdir(join(root,folder),{withFileTypes:true})){
+  const path=folder+'/'+row.name;
+  if(row.isSymbolicLink())throw Error('DEPLOYMENT_DEPENDENCY_SYMLINK');
+  if(row.isDirectory())await copyTree(path,accept);
+  else if(row.isFile()&&accept(path))await copy(path);
+ }
+}
+for(const folder of ['packages/agent/src','packages/sdk/src','services/agent/src'])await copyTree(folder,path=>path.endsWith('.mjs')||path.endsWith('.json'));
+for(const path of ['packages/agent/package.json','packages/sdk/package.json','services/agent/package.json','services/agent/package-lock.json'])await copy(path);
+await copyTree('services/agent/node_modules/openai',()=>true);
+await copyTree('services/agent/node_modules/ws',()=>true);
 // Public routing now includes typed private-share/Source7 descriptors. Copy
 // the public protocol library rather than leaving their relative imports out
 // of the deployment; the independent smoke import below checks the closure.
 for(const name of await readdir(join(root,'packages/mobile-protocol/src')))if(name.endsWith('.mjs'))await copy('packages/mobile-protocol/src/'+name);
 await copy('packages/mobile-protocol/package.json');
 await copy('services/api-server/src/wallet-entry.mjs');
-for(const name of ['bootstrap.sh','install-release.sh','config.example.json','Caddyfile.example','lianum-public-wallet.service'])await copy('infra/google-cloud/api-server/'+name);
+for(const name of ['bootstrap.sh','install-release.sh','config.example.json','Caddyfile.example','lianum-public-wallet.service','lianum-agent.service'])await copy('infra/google-cloud/api-server/'+name);
 await copy('infra/google-cloud/paeg-engine/Caddyfile.example');
 await mkdir(join(out,'node_modules/@lianum'),{recursive:true});await symlink('../../packages/crypto',join(out,'node_modules/@lianum/crypto'));
 await symlink('../../packages/backend',join(out,'node_modules/@lianum/backend'));
 await symlink('../../packages/mobile-protocol',join(out,'node_modules/@lianum/mobile-protocol'));
+await symlink('../../packages/agent',join(out,'node_modules/@lianum/agent'));
+await symlink('../../packages/sdk',join(out,'node_modules/@lianum/sdk'));
 await mkdir(join(out,'bin'));await copyFile(process.execPath,join(out,'bin/node'));await chmod(join(out,'bin/node'),0o755);
 await writeFile(join(out,'package.json'),JSON.stringify({name:'lianum-public-wallet-deployment',private:true,type:'module'})+'\n');
-const smoke=execFileSync(join(out,'bin/node'),['--input-type=module','-e',"await import('./packages/backend/src/public-wallet/http-service-v1.mjs');console.log('IMPORT_OK')"],{cwd:out,encoding:'utf8',env:{PATH:'/usr/bin:/bin'}});if(smoke.trim()!=='IMPORT_OK')throw Error('DEPLOYMENT_IMPORT_FAILED');
+const smoke=execFileSync(join(out,'bin/node'),['--input-type=module','-e',"await import('./packages/backend/src/public-wallet/http-service-v1.mjs');await import('./services/agent/src/openai-provider.mjs');await import('./services/agent/src/live-provider.mjs');await import('./services/agent/src/fcm-push.mjs');await import('@lianum/agent/runtime');console.log('IMPORT_OK')"],{cwd:out,encoding:'utf8',env:{PATH:'/usr/bin:/bin'}});if(smoke.trim()!=='IMPORT_OK')throw Error('DEPLOYMENT_IMPORT_FAILED');
 const report={profile:'LIANUM_PUBLIC_WALLET_DEPLOYMENT_V1',node:process.version,nodeSHA256:sha(await readFile(process.execPath)),files:rows,containsPrivateKeys:false,mainnetBroadcastTested:false,moonpayLiveTested:false};
 await writeFile(join(out,'manifest.json'),JSON.stringify(report,null,2)+'\n');
 process.stdout.write(JSON.stringify({directory:out,files:rows.length,node:process.version,import:'PASS'})+'\n');

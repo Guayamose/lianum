@@ -1,0 +1,28 @@
+[Unit]
+Description=Lianum persistent agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lianum
+Group=lianum
+WorkingDirectory=/opt/lianum/current
+EnvironmentFile=/etc/lianum/agent.env
+ExecStart=/opt/lianum/current/bin/node --max-old-space-size=384 /opt/lianum/current/services/agent/src/entry.mjs
+StateDirectory=lianum-agent
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lianum-agent
+LimitNOFILE=1024
+MemoryMax=512M
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

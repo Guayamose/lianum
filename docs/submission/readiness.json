@@ -1,0 +1,203 @@
+{
+  "profile": "LIANUM_FINTECHATHON_DELIVERY_READINESS_V1",
+  "auditedAtUTC": "2026-10-19T00:28:45.250676+00:00",
+  "registration": {
+    "status": "CONFIRMED",
+    "evidence": "User explicitly confirmed registration in this conversation.",
+    "emailConfirmationInspected": false
+  },
+  "requirements": "requirements.json",
+  "executionEvidence": "execution-evidence.json",
+  "claimsReview": "claims-review.json",
+  "assets": [
+    {
+      "pathFromWorkspace": "lianum-project/demo_video/lianum-demo-captions.mp4",
+      "kind": "captioned_video",
+      "bytes": 164617188,
+      "sha256": "72a77b3cbcb578993682190e0a776ac092b125852a8fcc104f52639e315f4cc9",
+      "durationSeconds": 280.733333,
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "withinFiveMinuteLimit": true,
+      "livePhoneRecording": false,
+      "exampleInterfaceAndDemoData": true
+    },
+    {
+      "pathFromWorkspace": "lianum-project/demo_video/lianum-demo-clean.mp4",
+      "kind": "clean_video",
+      "bytes": 173812323,
+      "sha256": "805a874d947d649cb5e4e9129d173dbc1a941add1baf32901753eb501b6164bc",
+      "durationSeconds": 280.733333,
+      "width": 1920,
+      "height": 1080,
+      "fps": 60,
+      "withinFiveMinuteLimit": true,
+      "livePhoneRecording": false,
+      "exampleInterfaceAndDemoData": true
+    },
+    {
+      "pathFromWorkspace": "lianum-project/apps/mobile/android/app/build/outputs/apk/release/app-release.apk",
+      "kind": "prepared_apk",
+      "bytes": 85729145,
+      "sha256": "07fbc929920acc39d03d4bb5f9a208c4378e1265510fdfa75dff514f2b00420a",
+      "newBuildInstalled": false,
+      "publicAcceptancePending": true
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/Guayamose/lianum",
+    "readAccessVerified": true,
+    "branch": "limpieza-estructura",
+    "localAndRemoteHead": "286dbc77a35110ca3588030c312839f1e848e87e",
+    "trackedUncommittedChangesAtAudit": 153,
+    "latestWorkingChangesPublished": false,
+    "anonymousJuryAccessVerified": false,
+    "readmeLanguage": "Spanish",
+    "readmeAudience": "Developers",
+    "cleanCloneReproductionVerified": false,
+    "untrackedFilesAtAudit": 722,
+    "totalPendingPathsAtAudit": 875,
+    "untrackedPitchPaths": 570,
+    "untrackedVideos": 2
+  },
+  "deliverables": [
+    {
+      "id": "technical",
+      "status": "SOURCE_MATERIAL_EXISTS_FINAL_REPORT_MISSING",
+      "available": [
+        "docs/MODULES.md",
+        "docs/STRUCTURE.md",
+        "packages/backend/docs/LOCAL-ACCEPTANCE.md"
+      ],
+      "next": "Consolidate the reader-facing material into a small English documentation set; retain historical records separately and correct stale deployment statements."
+    },
+    {
+      "id": "deck",
+      "status": "PDF_AND_PPTX_EXIST_CONTENT_COMPLETION_PENDING",
+      "next": "Keep the existing design, complete factual fields and align implemented-versus-planned capabilities with current evidence.",
+      "available": [
+        "lianum_pitch/presentacion/Lianum_Pitch_v43.pdf",
+        "lianum_pitch/presentacion/Lianum_Pitch_v43.pptx"
+      ],
+      "slides": 17,
+      "visibleLanguage": "English",
+      "notesContainSpanish": true,
+      "remaining": [
+        {
+          "slide": 10,
+          "issue": "Demo placeholder has no embedded video or final link"
+        },
+        {
+          "slide": 11,
+          "issue": "Results/evidence/time/cost/coverage placeholders"
+        },
+        {
+          "slide": 15,
+          "issue": "Team role and experience placeholders"
+        },
+        {
+          "slide": 8,
+          "issue": "Target Cloud Run/Jobs architecture needs clear distinction from the current VM deployment"
+        }
+      ]
+    },
+    {
+      "id": "video",
+      "status": "RENDERED_CLAIM_REVIEW_PENDING",
+      "next": "Review narrative against evidence. Explain illustrated sequences and provide a recorded real flow with transaction evidence when ready."
+    },
+    {
+      "id": "source",
+      "status": "REMOTE_EXISTS_CURRENT_WORKTREE_NOT_PUBLISHED",
+      "next": "Review and package current changes, provide English judge-facing README, deployment/test instructions and a clean-clone check."
+    },
+    {
+      "id": "security",
+      "status": "FINAL_REPORT_MISSING_EXISTING_DOC_HAS_STALE_OPERATIONAL_CLAIMS",
+      "available": [
+        "docs/PRIVACY-AND-OPERATIONS.md",
+        "services/agent/README.md"
+      ],
+      "next": "Document actual permission tiers and trust boundaries. Correct obsolete no-GCP/web-wallet passages; record privacy, recovery, latency and financial limitations."
+    },
+    {
+      "id": "execution",
+      "status": "THREE_NATIVE_TESTNET_TRANSFERS_INDEXED_PAEG_AGENT_FLOW_PENDING",
+      "next": "Add a completed real agent-to-wallet-to-PAEG flow with hashes, network, outcome and evidence of user authorization."
+    }
+  ],
+  "demoReadiness": {
+    "engineState": "UPDATE_STARTED_READINESS_PENDING",
+    "engineStateSource": ".local/maintenance/20261019-engine-v32-update/deployment-result.json",
+    "engineStateIsCurrentProbe": false,
+    "newApkInstallationPending": true,
+    "allFinancialFamiliesConfirmed": false,
+    "flowToValidate": [
+      "User asks the agent for an explicitly bounded native-testnet payment plan",
+      "Agent returns a signed proposal with dependencies, budget and deadlines",
+      "Mobile reviews, prepares and authorizes with original custody",
+      "Engine completes the approved operations",
+      "Agent observes under read-only authorization and reports confirmed results",
+      "Present actual public transaction hashes and settled outcome"
+    ],
+    "lastEngineObservation": {
+      "atUTC": "2026-10-19T00:27:49.802350+00:00",
+      "state": "active",
+      "completedMilestones": 9,
+      "totalMilestones": 21,
+      "ready": false
+    }
+  },
+  "remainingProductGaps": [
+    "Personal-wallet funding into PAEG",
+    "Complete incoming-transfer history",
+    "Unified PAEG/DeFi valuation",
+    "Automatic native ETH retransmission"
+  ],
+  "preparationOrder": [
+    "English repository and reproducible judge setup",
+    "Technical report and security self-assessment",
+    "Pitch deck using verified claims",
+    "Phone/public-chain evidence after engine READY",
+    "Final video review and delivery bundle/link checks"
+  ],
+  "finalSubmissionSent": false,
+  "newPaidGenerationOrInferenceCalls": 0,
+  "remoteFilesPublished": false,
+  "documentationAudit": {
+    "coreMarkdownFiles": 73,
+    "coreMarkdownBytes": 784593,
+    "markdownFilesIncludingPitch": 251,
+    "statusMarkdownLines": 3913,
+    "statusMarkdownBytes": 277623,
+    "knownStaleDocument": "docs/PRIVACY-AND-OPERATIONS.md",
+    "recommendedReaderFacingDocuments": [
+      "README",
+      "Architecture and PAEG",
+      "Setup and deployment",
+      "Security and limitations",
+      "Tests and execution evidence",
+      "Demo guide"
+    ]
+  },
+  "mobileLanguageAudit": {
+    "mainUi": "Hard-coded Spanish strings in screens, financial review and biometric prompts",
+    "centralTranslationSystemLocated": false,
+    "agentUsesDeviceLocale": true,
+    "recommended": "Centralize English and Spanish messages, use English for judging, include formatting, accessibility, notifications and biometric prompts; preserve custody and operation logic."
+  },
+  "pitchResearchAudit": {
+    "untrackedPitchPaths": 570,
+    "researchSourceFiles": 511,
+    "includesCopiedHistoricalCode": true,
+    "deliveryPdfBytes": 2350838,
+    "deliveryPptxBytes": 1183163
+  },
+  "deliveryMediaDistribution": {
+    "ordinaryGitSuitable": false,
+    "reason": "Both MP4 files exceed GitHub regular Git per-file limit of 100 MiB.",
+    "preferred": "GitHub Release attachments or delivery links; keep local originals.",
+    "reference": "https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github"
+  }
+}

@@ -1,0 +1,11 @@
+export type AgentScreenV1='wallet'|'operations'|'permissions'|'plan'|'approvals';
+export type AgentToolV1='read_wallet'|'read_operations'|'read_permissions'|'offer_screen';
+export type AgentAmountsV1={total:string|null;available:string|null;reserved:string|null;occupied:string|null};
+export type AgentContextV1={network?:'mainnet'|'testnet';currency:'EUR'|'USD';observedAt:number|null;marketObservedAt:number|null;reading:boolean;totals:AgentAmountsV1;assets:(AgentAmountsV1&{symbol:'BTC'|'ETH'|'SOL'})[];operations:{pendingTransfers:number;plan:{state:'idle'|'running'|'observing'|'pending'|'paused'|'complete'|'error';completed:number;total:number}|null}};
+export type AgentRequestV1={message:string;history:{role:'you'|'agent';text:string}[];context:AgentContextV1};
+export type AgentReplyV1={profile:'LIANUM_AGENT_REPLY_V1';text:string;facts:{label:string;value:string}[];checks:{label:string;complete:boolean}[];action:{label:string;target:AgentScreenV1}|null;tools:AgentToolV1[]};
+export const AGENT_SCREENS_V1:readonly AgentScreenV1[];
+export const AGENT_TOOLS_V1:readonly AgentToolV1[];
+export function normalizeAgentContextV1(value:unknown):AgentContextV1;
+export function normalizeAgentRequestV1(value:unknown):AgentRequestV1;
+export function normalizeAgentReplyV1(value:unknown):AgentReplyV1;

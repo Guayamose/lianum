@@ -1,6 +1,7 @@
+import {WalletText as Text,WalletTextInput as TextInput} from '../design/typography';
 import {originalFlatIngressFailureMessageV3} from './flat-ingress-feedback-v3.mjs';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { fetch as expoFetch } from 'expo/fetch';
 import type { OriginalAccountAccessV2, OriginalAccountReviewV2, OriginalAccountActionV2 } from '@lianum/mobile-protocol/original-account-v2';
 import type { OriginalPrivateStateObservationV1 } from '@lianum/mobile-protocol/original-account-v2';
@@ -219,17 +220,17 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
       </>}
       {privateState.status !== 'LIVE' && <Text style={styles.muted}>Saldo no disponible: hace falta una lectura vigente.</Text>}
     </View>}
-    <View accessibilityLiveRegion="polite" style={styles.card}>{busy && <ActivityIndicator color="#9de3be" />}
+    <View accessibilityLiveRegion="polite" style={styles.card}>{busy && <ActivityIndicator color="#253746" />}
       <Text style={styles.muted}>{notice}</Text></View>
   </ScrollView></SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#101c22' }, content: { padding: 24, paddingBottom: 48, gap: 18 },
-  title: { color: '#f3f5ee', fontSize: 28, fontWeight: '600' }, heading: { color: '#eff5ef', fontSize: 18, fontWeight: '600' },
-  card: { backgroundColor: '#192a31', borderRadius: 18, padding: 20, gap: 12 },
-  muted: { color: '#b8c8cd', fontSize: 14, lineHeight: 21 }, label: { color: '#cbd9db', fontSize: 12, fontWeight: '600' },
-  value: { color: '#e5efe8', fontSize: 12, lineHeight: 19 },
-  input: { color: '#eff5ef', backgroundColor: '#112129', borderColor: '#42565d', borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 46 },
-  button: { backgroundColor: '#9de3be', borderRadius: 10, padding: 14, alignItems: 'center' },
-  buttonText: { color: '#14271e', fontWeight: '700', fontSize: 14 }, disabled: { opacity: 0.42 },
+  safe: { flex: 1, backgroundColor: '#F3F0E8' }, content: { padding: 24, paddingBottom: 48, gap: 18 },
+  title: { color: '#253746', fontSize: 28, fontWeight: '600' }, heading: { color: '#253746', fontSize: 18, fontWeight: '600' },
+  card: { backgroundColor: '#FAF8F3', borderRadius:6, padding: 20, gap: 12 },
+  muted: { color: '#50616D', fontSize: 14, lineHeight: 21 }, label: { color: '#253746', fontSize: 12, fontWeight: '600' },
+  value: { color: '#253746', fontSize: 12, lineHeight: 19 },
+  input: { color: '#253746', backgroundColor: '#FAF8F3', borderColor: '#89877E', borderWidth: 1, borderRadius: 10, padding: 12, minHeight: 46 },
+  button: { backgroundColor: '#253746', borderRadius: 10, padding: 14, alignItems: 'center' },
+  buttonText: { color: '#F3F0E8', fontWeight: '700', fontSize: 14 }, disabled: { opacity: 0.42 },
 });

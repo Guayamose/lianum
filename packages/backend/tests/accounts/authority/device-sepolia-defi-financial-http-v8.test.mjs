@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import {fixture} from '../../providers/fixtures/paged-mixed-host-v7.mjs';
 const descriptor=fixture().flatAuthority.entries[0].descriptor,account=Object.freeze({descriptor,reviewNote(payload,reference){calls.reviewNote.push({payload,reference});return {consent:{reference}};},async operation(){return {stage:'PROVED',jobId:hex(900)};},async close(){}}),runtime=Object.freeze({async block(){return {number:'0x1',timestamp:'1000'};},async assertCanonical(){}}),target=Object.freeze({}),bindings={protocol:'AAVE_STATIC',target,uniswapTarget:Object.freeze({})};
 const scopes=new Map(),slots=new WeakMap(),commands=new WeakMap(),accesses=new Set(),calls={execute:[],observe:[],reviewNote:[]};let sequence=0;
+let pendingReadGate=null;
 const hex=n=>n.toString(16).padStart(64,'0');
 function original(value){assert.strictEqual(value,account,'HOST_ORIGINAL_ACCOUNT');}
 function data(id){const row=scopes.get(id);assert.ok(row,'HOST_JOB_REQUIRED');return row;}
@@ -23,7 +24,7 @@ const Authority={
  async challengeOriginalDeviceSepoliaDefiWithdrawalV4(slot){assert.ok(slots.has(slot));return {jobId:slots.get(slot).job.jobId,action:'WITHDRAW_W39',original:true};},
  async armOriginalDeviceSepoliaDefiWithdrawalCommandV4(slot,consent,signature){assert.equal(consent.original,true);assert.equal(signature,'HOST_FRESH_WITHDRAWAL_POP');return command(slot,'WITHDRAW');},
  async prepareOriginalDeviceSepoliaDefiRedeemCommandV4(slot,hash){assert.equal(hash,'0x'+hex(300));return command(slot,'REDEEM');},
- async readOriginalDeviceSepoliaDefiPendingV8(a){original(a);return structuredClone([...scopes.values()]);},
+ async readOriginalDeviceSepoliaDefiPendingV8(a){original(a);const gate=pendingReadGate;if(gate){gate.entered.resolve();await gate.hold.promise;}return structuredClone([...scopes.values()]);},
 };
 const Native={
  async executeOriginalPagedPublicSepoliaDefiCommandV8(r,token){assert.strictEqual(r,runtime);const c=commands.get(token);assert.ok(c,'HOST_ORIGINAL_COMMAND');commands.delete(token);calls.execute.push(c.kind);const row=c.data;if(c.kind==='REDEEM')row.financial.redemption={dispatchLatched:true,transactionHash:'0x'+hex(400)};else{row.financial.submission={dispatchLatched:true,transactionHash:'0x'+hex(c.kind==='INVEST'?200:300)};row.job.stage=c.kind==='INVEST'?'DELIVERY_UNKNOWN':'WITHDRAWAL_UNKNOWN';}return status(row,c.kind,'SUBMITTED');},
@@ -76,4 +77,21 @@ test('PROVED response waits for the genuine mounted Source7 warmup without issui
  const H=await import('../../../src/accounts/authority/device-sepolia-defi-shares-http-v4.mjs'),handler=H.createOriginalDeviceSepoliaDefiSharesRetainedHttpV8(runtime,account);let release,settled=false;const before=calls.execute.length;
  try{await H.mountOriginalDeviceSepoliaDefiPaegFinancialHttpV8(handler,sourceProvider);warming=new Promise(resolve=>{release=resolve;});const beforeWarm=warmCalls,pending=handler.dispatch(path('private-operations'),{consent:{action:'PROVE_D27'}},descriptor.pairingId).then(row=>{settled=true;return row;});await new Promise(resolve=>setImmediate(resolve));assert.equal(settled,false);assert.equal(warmCalls,beforeWarm+1);release();assert.equal((await pending).stage,'PROVED');assert.equal(calls.execute.length,before,'preflight cannot execute INVEST or mint a chain permission');await H.quiesceOriginalDeviceSepoliaDefiSharesHttpV8(handler);
  }finally{release?.();warming=null;await handler.close();}
+});
+
+test('live retention drains an active approved worker and holds later worker reads until the snapshot finishes',async()=>{
+ const H=await import('../../../src/accounts/authority/device-sepolia-defi-shares-http-v4.mjs'),handler=H.createOriginalDeviceSepoliaDefiSharesRetainedHttpV8(runtime,account),gate={entered:Promise.withResolvers(),hold:Promise.withResolvers()},snapshotEntered=Promise.withResolvers(),snapshotHold=Promise.withResolvers();
+ let snapshotStarted=false,laterWorkerFinished=false;scopes.clear();const before=calls.execute.length;
+ try{
+  await H.mountOriginalDeviceSepoliaDefiPaegFinancialHttpV8(handler,sourceProvider);pendingReadGate=gate;
+  const worker=H.runOriginalDeviceSepoliaDefiSharesApprovedPendingV8(handler);await gate.entered.promise;
+  const snapshot=H.withOriginalDeviceSepoliaDefiSharesIdleV10(handler,async()=>{snapshotStarted=true;snapshotEntered.resolve();await snapshotHold.promise;return 'retained';});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(snapshotStarted,false,'retention must wait while the worker owns the authority');
+  gate.hold.resolve();await worker;await snapshotEntered.promise;pendingReadGate=null;
+  const laterWorker=H.runOriginalDeviceSepoliaDefiSharesApprovedPendingV8(handler).then(()=>{laterWorkerFinished=true;});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(laterWorkerFinished,false,'a later worker must wait while retention owns the queue');
+  snapshotHold.resolve();assert.equal(await snapshot,'retained');await laterWorker;assert.equal(laterWorkerFinished,true);assert.equal(calls.execute.length,before);
+  await assert.rejects(H.withOriginalDeviceSepoliaDefiSharesIdleV10({...handler},async()=>{}),/ORIGINAL_HTTP/);
+  await H.quiesceOriginalDeviceSepoliaDefiSharesHttpV8(handler);await assert.rejects(H.withOriginalDeviceSepoliaDefiSharesIdleV10(handler,async()=>{}),/MOUNT_PENDING/);
+ }finally{gate.hold.resolve();snapshotHold.resolve();pendingReadGate=null;await handler.close();}
 });

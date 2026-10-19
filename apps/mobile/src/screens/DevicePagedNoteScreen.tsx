@@ -1,5 +1,6 @@
+import {WalletText as Text} from '../design/typography';
 import {useEffect,useRef,useState} from 'react';
-import {AppState,Text} from 'react-native';
+import {AppState} from 'react-native';
 import {WalletButton,WalletCard,WalletField,WalletScreenLayout,WalletStatus,walletColors} from '../components/wallet-ui';
 import {createDevicePagedConnectionTransportV3,parseDevicePagedConnectionProfileV3,readDevicePagedConnectionClipboardV3} from '../api/device-paged-connection-transport-v3';
 import {createDevicePagedOwnerApiV3} from '../api/device-paged-owner-api-v3.mjs';

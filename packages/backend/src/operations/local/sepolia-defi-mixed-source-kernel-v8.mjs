@@ -157,6 +157,8 @@ export const armOriginalSepoliaDefiMixedSourceAutomationCutoffV8=(...args)=>reta
 export function isOriginalSepoliaDefiMixedSourceCommandV8(token){return sourceCommands.has(token);}
 export const readOriginalSepoliaDefiMixedSourceCommandV8=(...args)=>sourceJournal.readCommand(...args);
 export const consumeOriginalSepoliaDefiMixedSourceCommandV8=(...args)=>sourceJournal.consumeCommand(...args);
+export const armOriginalSepoliaDefiExpiredDepositRetirementV18=(...args)=>sourceJournal.armExpiredDepositRetirementV18(...args);
+export const consumeOriginalSepoliaDefiExpiredDepositRetirementV18=(...args)=>sourceJournal.consumeExpiredDepositRetirementV18(...args);
 export const closeOriginalSepoliaDefiMixedSourceJournalV8=(...args)=>sourceJournal.close(...args);
 
 /** Retained compiled Mixed Source DATA; only a later Original Sup consumer may reopen. */
@@ -191,3 +193,7 @@ export const readOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJ
 export const publishOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.publishExpiredWithdrawalV10(...args);
 export async function reopenOriginalSepoliaDefiMixedExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,token){assert.equal(arguments.length,5);assertOriginalSepoliaDefiMixedSourceV8(runtime,system);const S=await import('../recovery/sepolia-defi-retention-v8.mjs'),saved=await S.consumeOriginalSepoliaDefiExpiredMixedWithdrawalV10(runtime,system,token);return sourceJournal.reopenExpiredWithdrawalV10(runtime,system,sourceBundle,ownerCheckpoint,saved);}
 export const openOutputOwnerOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...args)=>sourceJournal.openExpiredWithdrawalOutputOwnerV10(...args);
+
+export const isOriginalSepoliaDefiExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.isExpiredWithdrawalRetirementV32(...args);
+export const armOriginalSepoliaDefiExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.armExpiredWithdrawalRetirementV32(...args);
+export const consumeOriginalSepoliaDefiExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.consumeExpiredWithdrawalRetirementV32(...args);

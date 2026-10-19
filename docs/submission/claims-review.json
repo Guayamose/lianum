@@ -1,0 +1,100 @@
+{
+  "profile": "LIANUM_SUBMISSION_CLAIM_REVIEW_V1",
+  "reviewedAtUTC": "2026-10-19T00:28:45.250676+00:00",
+  "scope": "Initial evidence audit; pending items are not findings that the underlying implementation is false.",
+  "items": [
+    {
+      "id": "v01",
+      "claim": "Privately. Atomically.",
+      "status": "SCOPE_EXPLANATION_REQUIRED",
+      "action": "Define settlement atomicity and privacy observer model. A completed external-chain transfer cannot be rolled back by recovering a note.",
+      "evidence": "docs/PRIVACY-AND-OPERATIONS.md"
+    },
+    {
+      "id": "v02",
+      "claim": "It does not hold a single key.",
+      "status": "WORDING_TOO_BROAD",
+      "action": "Specify wallet private keys. The agent retains a separate proposer signing identity.",
+      "evidence": "packages/agent/src/tools.mjs"
+    },
+    {
+      "id": "v12-v18",
+      "claim": "The demonstrated agent proposal completes the cross-chain payment flow.",
+      "status": "REAL_END_TO_END_RECORDING_PENDING",
+      "action": "Label the rendered sequence as illustrated and add verified public execution evidence. Current native transfers do not prove that entire flow.",
+      "evidence": "docs/submission/execution-evidence.json"
+    },
+    {
+      "id": "v21",
+      "claim": "Observers cannot link payments back to the user.",
+      "status": "SYSTEM_WIDE_UNLINKABILITY_NOT_ESTABLISHED",
+      "action": "Explain what the on-chain proof hides and what API/RPC/operator metadata remains visible.",
+      "evidence": "docs/PRIVACY-AND-OPERATIONS.md"
+    },
+    {
+      "id": "v24",
+      "claim": "Uniswap, Aave and Morpho work in the same system.",
+      "status": "LOCAL_AND_HOST_ACCEPTANCE_PUBLIC_ACCEPTANCE_PENDING",
+      "action": "State which flows passed local real-cryptography tests and which have completed public transactions.",
+      "evidence": ".local/maintenance/20261018-mobile-core-acceptance/v32-campaign/operation-matrix.json"
+    },
+    {
+      "id": "v26",
+      "claim": "A missed deadline gives a full refund.",
+      "status": "PRECISE_SCOPE_AND_ACCOUNTING_REQUIRED",
+      "action": "Verify the original recovery flow and explain reserved-note recovery, native deliveries, fees and executor losses separately; avoid an unconditional guarantee.",
+      "evidence": "docs/PRIVACY-AND-OPERATIONS.md"
+    },
+    {
+      "id": "v27",
+      "claim": "Four shutdowns during one operation recover without repeated proof or payment.",
+      "status": "EXACT_SUPPORTING_RUN_NOT_YET_LOCATED",
+      "action": "Locate the matching test report and specify local/public scope before using this exact figure.",
+      "evidence": null
+    },
+    {
+      "id": "proof-count",
+      "claim": "21 proofs in one plan.",
+      "status": "SUPPORTED_FOR_LOCAL_MIXED_RUN",
+      "action": "State local synthetic EVM/Bitcoin/Solana with genuine cryptography; do not label it the completed phone/public run.",
+      "evidence": ".local/maintenance/20261018-mobile-core-acceptance/v32-campaign/mixed-financial-summary.json"
+    },
+    {
+      "id": "documentation-currentness",
+      "claim": "Existing privacy/operations document says there is no GCP deployment.",
+      "status": "STALE_DOCUMENTATION",
+      "action": "Update the operational status from current release and acceptance records while preserving actual privacy limitations.",
+      "evidence": "docs/PRIVACY-AND-OPERATIONS.md"
+    },
+    {
+      "id": "deck-target-architecture",
+      "claim": "Cloud Run application/agent and Cloud Run proof jobs",
+      "status": "TARGET_ARCHITECTURE_NOT_CURRENT_DEPLOYMENT",
+      "action": "Keep it explicitly as future architecture or replace with current API/agent and financial-engine VM deployment.",
+      "evidence": "lianum_pitch/presentacion/vistas/Lianum_Pitch_v43_Slide_08.png"
+    },
+    {
+      "id": "deck-delegated-swaps",
+      "claim": "Swaps-only agent spending allowance, 500 USDC, 24 hours",
+      "status": "ILLUSTRATIVE_FUTURE_PERMISSION_NOT_CURRENT_AGENT_CAPABILITY",
+      "action": "Label the example as planned; explain current signed-proposal, mobile-authorization and read-only-observer model.",
+      "evidence": "packages/agent/src/tools.mjs"
+    },
+    {
+      "id": "deck-seven-networks",
+      "claim": "One wallet across seven networks",
+      "status": "SEPARATE_TARGET_SCOPE_FROM_CONFIRMED_NATIVE_TESTNET_SCOPE",
+      "action": "Identify ETH/SOL/BTC public-testnet evidence and label other networks as targets unless separately evidenced.",
+      "evidence": "docs/submission/execution-evidence.json"
+    }
+  ],
+  "videoSourcesFromWorkspace": [
+    "lianum_demo_video/script/lines.json",
+    "lianum_demo_video/README.md"
+  ],
+  "evidencePathsRelativeTo": "lianum-project repository root",
+  "deckSourcesFromRepositoryRoot": [
+    "lianum_pitch/presentacion/Lianum_Pitch_v43.pdf",
+    "lianum_pitch/presentacion/Lianum_Pitch_v43.pptx"
+  ]
+}

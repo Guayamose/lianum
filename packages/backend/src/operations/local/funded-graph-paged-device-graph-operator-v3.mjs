@@ -185,6 +185,11 @@ async function createOriginalGraphOperator(raw,provider,tokens,deferListen=false
     retiredEmptyAccountsV9.push(oldAccount);account=next;descriptor=storageDescriptor(next);Object.assign(entry,{account:next,descriptor,journalPath:actual.journalPath,published:false});
     const state=owned.get(service);Object.assign(state,{account:next});providerGuard=()=>Core.assertOriginalPagedNativeProviderV3(provider,{runtime,system:providerBirthSystem??system,account:providerBirthAccount});
     application.close();for(const app of sourceApplications.values())app.close();sourceApplications.clear();for(const port of agentTransports.values())port.close();agentTransports.clear();
+    // Rebinding is complete. Platform construction checks isLive immediately;
+    // release the transition fence only for this synchronous handover. The
+    // parent remains fenced until it has replaced the child's routing key.
+    assert.ok(!fenced&&!closing,'PAGED_EMPTY_REPLACEMENT_CHILD_CLOSED');
+    emptyReplacingV9=false;
     application=createDevicePagedPlatformApplicationV3({descriptor,nativePreparation,isLive,async dispatch(method,args){assert.ok(['challenge','submit','graphChallenge','graphSubmit'].includes(method));assert.ok(isLive());const result=await Core.dispatchOriginalPagedNativeAccountContextV4(provider,account,method,args);assert.ok(isLive());return result;}});
     return descriptor;
    }finally{emptyReplacingV9=false;}
@@ -366,6 +371,13 @@ export async function replaceOriginalDevicePagedEmptyMixedGraphSourceV9(parentSe
 }
 export function readOriginalDevicePagedMixedJournalLocationV9(service){assert.equal(arguments.length,1);assertOriginalDevicePagedSepoliaGraphOperatorV4(service);const state=owned.get(service);assert.ok(state.mixedSource&&state.independentEntries.length===1);return state.independentEntries[0].journalPath;}
 
+/** Storage capture reads after the listener fence. It authenticates the same
+ * still-open authority/system without reopening ingress or issuing a grant. */
+export function readOriginalDevicePagedRetainedMixedWithdrawalAccountsV17(service){
+ assert.equal(arguments.length,1);const s=owned.get(service);assert.ok(s?.publicReceiver&&s.mixedSource,'PAGED_RETAINED_MIXED_ORIGINAL_SERVICE');
+ assertOriginalDevicePagedGraphNoteAuthorityV3(s.account,s.runtime,s.system);s.selectedPublicOwner.assertOriginalFundedPagedGraphSepoliaWalletV4(s.runtime,s.system);
+ return Object.freeze(s.expiredWithdrawalsV10.map(row=>row.account));
+}
 export function readOriginalDevicePagedExpiredMixedWithdrawalAccountsV10(service){assert.equal(arguments.length,1);assertOriginalDevicePagedSepoliaGraphOperatorV4(service);const s=owned.get(service);assert.ok(s.mixedSource);return Object.freeze(s.expiredWithdrawalsV10.map(row=>row.account));}
 export async function registerOriginalDevicePagedExpiredMixedWithdrawalV10(service,broker){assert.equal(arguments.length,2);assertOriginalDevicePagedSepoliaGraphOperatorV4(service);return owned.get(service).registerExpiredWithdrawalV10(broker);}
 export async function restoreOriginalDevicePagedExpiredMixedWithdrawalsV10(service,tokens){assert.equal(arguments.length,2);assertOriginalDevicePagedSepoliaGraphOperatorV4(service);return owned.get(service).restoreExpiredWithdrawalsV10(tokens);}

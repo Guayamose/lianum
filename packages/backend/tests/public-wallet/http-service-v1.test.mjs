@@ -51,6 +51,18 @@ test('public HTTP service authenticates the exact real account and isolates owne
  await assert.rejects(service.listen({host:'0.0.0.0'}),/NATIVE_SERVICE_LOOPBACK/);
 });
 
+test('authenticated prepare failure logs bounded diagnostics without request or provider secrets',async t=>{
+ const logs=[];t.mock.method(console,'error',(...args)=>logs.push(args));let known=false;
+ const {url}=await fixture(t,async()=>({prepareSend:async()=>{throw Error(known?'NATIVE_WALLET_BTC_FEE_ESTIMATE':'PRIVATE_PROVIDER_TEXT_WITH_SECRET');},close:async()=>{}}));
+ const own=identity(13),path='/v1/native/prepare',body={account:account(13),recipient:account(14).address,amountAtomic:'1'};
+ for(const expected of ['NATIVE_SERVICE_UNAVAILABLE','NATIVE_WALLET_BTC_FEE_ESTIMATE']){
+  const payload=await signedRequest(url,own,path,body),response=await fetch(url+path,{method:'POST',headers:jsonHeaders,body:JSON.stringify(payload)});
+  assert.deepEqual(await response.json(),{error:expected});known=true;
+ }
+ assert.equal(logs.length,2);
+ for(const [tag,raw]of logs){assert.equal(tag,'LIANUM_NATIVE_REQUEST_FAILURE_V24');const d=JSON.parse(raw);assert.equal(d.path,path);assert.deepEqual(Object.keys(d).sort(),['code','httpStatus','locations','path','rpcCode']);assert.ok(d.locations.every(s=>/^[a-z0-9-]+\.mjs:\d+:\d+$/.test(s)));assert.ok(!raw.includes('PRIVATE_PROVIDER_TEXT')&&!raw.includes(body.recipient)&&!raw.includes(own.devicePublicKey));}
+});
+
 test('HTTP rejects body/client/global capacity before reading or creating a journal',async t=>{
  let created=0;const {directory,service,url}=await fixture(t,async()=>{created++;return{close:async()=>{}};});
  const post=body=>fetch(url+'/v1/auth/challenge',{method:'POST',headers:jsonHeaders,body});

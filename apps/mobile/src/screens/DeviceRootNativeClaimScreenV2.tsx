@@ -1,7 +1,8 @@
+import {WalletText as Text,WalletTextInput as TextInput} from '../design/typography';
 /** Device note custody and native local quorum are deliberately separate.
  * Every operation uses the SAME RootNote and fixed original paired intake. */
 import {useEffect,useRef,useState} from 'react';
-import {AppState,Pressable,SafeAreaView,ScrollView,Text,TextInput,StyleSheet} from 'react-native';
+import {AppState,Pressable,SafeAreaView,ScrollView,StyleSheet} from 'react-native';
 import {fetch as expoFetch} from 'expo/fetch';
 import {readDevicePublicKey,signDeviceRootNativeClaimPermissionV2,signDeviceRootNativeClaimExitPermissionV3} from '../custody/key-store';
 import {inspectLocalRootNoteVaultV1,createLocalRootNoteVaultV1,openLocalRootNoteVaultV1} from '../custody/local-root-note-vault-v1';
@@ -73,15 +74,15 @@ export default function DeviceRootNativeClaimScreenV2({onObservation,onBack}:{on
   finally{request?.close();abort.current=null;running.current=false;if(live.current)setBusy(false);}
  }
  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}>
-  <Pressable disabled={busy} onPress={()=>{revoke();onBack();}} style={styles.button}><Text>Volver a claims custodiados</Text></Pressable>
+  <Pressable disabled={busy} onPress={()=>{revoke();onBack();}} style={styles.button}><Text style={styles.buttonText}>Volver a claims custodiados</Text></Pressable>
   <Text style={styles.title}>Nota privada BTC / SOL / SPL</Text>
   <Text style={styles.text}>La nota y su clave permanecen en RootNote. Los activos nativos y el quórum siguen bajo custodia del laboratorio original; no es autocustodia BTC/SOL ni operación de operadores independientes.</Text>
   <TextInput multiline value={pairing} onChangeText={v=>{revoke();setPairing(v);}} editable={!busy} autoCapitalize="none" autoCorrect={false} accessibilityLabel="Emparejamiento DEVICE_ROOT original" style={styles.input}/>
   <TextInput value={amount} onChangeText={setAmount} editable={!busy} keyboardType="numeric" accessibilityLabel="Importe de la nota en unidades atómicas originales" style={styles.input}/>
-  {(['D27','FUND_NATIVE_CLAIM','CI51','ISSUE_CLAIM','READ'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text>{action==='D27'?'Preparar y probar D27':action==='CI51'?'Probar CI51 del ingreso observado':action==='READ'?'Leer y conciliar el mismo claim':action==='FUND_NATIVE_CLAIM'?'Autorizar ingreso original una vez':'Autorizar emisión original una vez'}</Text></Pressable>)}
-  {(['PROVE_W39','WITHDRAW_W39','OBSERVE_W39','REDEEM_NATIVE','PAYOUT_NATIVE','OBSERVE_NATIVE'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text>{({PROVE_W39:'Preparar W39 de la misma nota',WITHDRAW_W39:'Enviar W39 una vez',OBSERVE_W39:'Conciliar el mismo W39',REDEEM_NATIVE:'Solicitar entrega nativa original',PAYOUT_NATIVE:'Autorizar entrega nativa una vez',OBSERVE_NATIVE:'Conciliar la misma entrega nativa'})[action]}</Text></Pressable>)}
+  {(['D27','FUND_NATIVE_CLAIM','CI51','ISSUE_CLAIM','READ'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text style={styles.buttonText}>{action==='D27'?'Preparar y probar D27':action==='CI51'?'Probar CI51 del ingreso observado':action==='READ'?'Leer y conciliar el mismo claim':action==='FUND_NATIVE_CLAIM'?'Autorizar ingreso original una vez':'Autorizar emisión original una vez'}</Text></Pressable>)}
+  {(['PROVE_W39','WITHDRAW_W39','OBSERVE_W39','REDEEM_NATIVE','PAYOUT_NATIVE','OBSERVE_NATIVE'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text style={styles.buttonText}>{({PROVE_W39:'Preparar W39 de la misma nota',WITHDRAW_W39:'Enviar W39 una vez',OBSERVE_W39:'Conciliar el mismo W39',REDEEM_NATIVE:'Solicitar entrega nativa original',PAYOUT_NATIVE:'Autorizar entrega nativa una vez',OBSERVE_NATIVE:'Conciliar la misma entrega nativa'})[action]}</Text></Pressable>)}
   <Text style={styles.text}>{notice}</Text>
   {view&&<Text style={styles.text}>{view.descriptor.claim.claimSymbol}: {view.note?.state??view.deposit?.status??'UNKNOWN'} · Disponible: {view.note?.state==='LIVE'?view.note.available:'sin lectura vigente'} unidades de claim privado; activo nativo bajo custodia local.</Text>}
  </ScrollView></SafeAreaView>;
 }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:'#101c22'},content:{padding:20,gap:16},title:{color:'#eef7f1',fontSize:22},text:{color:'#b8c8cd'},input:{color:'#eef7f1',borderColor:'#b8c8cd',borderWidth:1,padding:12,minHeight:70},button:{padding:12,backgroundColor:'#9de3be',borderRadius:8}});
+const styles=StyleSheet.create({buttonText:{color:'#F3F0E8',fontWeight:'600',textAlign:'center'},safe:{flex:1,backgroundColor:'#F3F0E8'},content:{padding:20,gap:16},title:{color:'#253746',fontSize:22},text:{color:'#50616D'},input:{color:'#253746',borderColor:'#50616D',borderWidth:1,padding:12,minHeight:70},button:{padding:12,backgroundColor:'#253746',borderRadius:8}});

@@ -7,7 +7,7 @@
  */
 import {
   createHash, createHmac, randomBytes, generateKeyPairSync, createPrivateKey,
-  createPublicKey, sign as cryptoSign, verify as cryptoVerify, scryptSync,
+  createPublicKey, sign as cryptoSign, verify as cryptoVerify, scryptSync, scrypt,
   createCipheriv, createDecipheriv,
 } from 'node:crypto';
 import { types } from 'node:util';
@@ -146,6 +146,24 @@ function passwordKey(password, salt) {
   return scryptSync(password, Buffer.from(salt, 'hex'), 32, { N: KDF.N, r: KDF.r, p: KDF.p, maxmem: 64 * 1024 * 1024 });
 }
 
+// Leave capacity in Node's shared worker pool for filesystem work. Existing
+// envelopes and KDF strength stay identical; only scheduling changes.
+let deriving = 0;
+const derivationWaiters = [];
+async function passwordKeyAsync(password, salt) {
+  validString(password, 'password', 1024, 1);
+  if (deriving >= 2) await new Promise(resolve => derivationWaiters.push(resolve));
+  else deriving++;
+  try {
+    return await new Promise((resolve, reject) => scrypt(password, Buffer.from(salt, 'hex'), 32,
+      { N: KDF.N, r: KDF.r, p: KDF.p, maxmem: 64 * 1024 * 1024 },
+      (error, key) => error ? reject(error) : resolve(key)));
+  } finally {
+    const next = derivationWaiters.shift();
+    if (next) next(); else deriving--;
+  }
+}
+
 function exactKeys(object, expected, label) {
   if (!object || typeof object !== 'object' || types.isProxy(object) || Array.isArray(object) ||
       (Object.getPrototypeOf(object) !== Object.prototype && Object.getPrototypeOf(object) !== null)) throw new TypeError(`Invalid ${label}`);
@@ -183,35 +201,52 @@ function validateEnvelope(envelope) {
   return bytes;
 }
 
-export function encryptJson(value, password) {
-  const plaintext = Buffer.from(canonical(value), 'utf8');
-  const envelope = {
+function newEnvelope() {
+  return {
     version: 1,
     kdf: { ...KDF, salt: randomBytes(32).toString('hex') },
     cipher: { name: 'aes-256-gcm', iv: randomBytes(12).toString('hex'), tag: '' },
     ciphertext: '',
   };
+}
+function encryptWithKey(plaintext, envelope, key) {
+  const cipher = createCipheriv('aes-256-gcm', key, Buffer.from(envelope.cipher.iv, 'hex'), { authTagLength: 16 });
+  cipher.setAAD(associatedData(envelope));
+  envelope.ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]).toString('base64url');
+  envelope.cipher.tag = cipher.getAuthTag().toString('hex');
+  return envelope;
+}
+export function encryptJson(value, password) {
+  const plaintext = Buffer.from(canonical(value), 'utf8');
+  const envelope = newEnvelope();
   let key;
   try {
     key = passwordKey(password, envelope.kdf.salt);
-    const cipher = createCipheriv('aes-256-gcm', key, Buffer.from(envelope.cipher.iv, 'hex'), { authTagLength: 16 });
-    cipher.setAAD(associatedData(envelope));
-    envelope.ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]).toString('base64url');
-    envelope.cipher.tag = cipher.getAuthTag().toString('hex');
-    return envelope;
+    return encryptWithKey(plaintext, envelope, key);
   } finally {
     key?.fill(0);
     plaintext.fill(0);
   }
 }
 
-export function decryptJson(envelope, password) {
-  const ciphertext = validateEnvelope(envelope);
+export async function encryptJsonAsync(value, password) {
+  // Snapshot caller-owned data before yielding to the worker pool.
+  const plaintext = Buffer.from(canonical(value), 'utf8');
+  const envelope = newEnvelope();
   let key;
+  try {
+    key = await passwordKeyAsync(password, envelope.kdf.salt);
+    return encryptWithKey(plaintext, envelope, key);
+  } finally {
+    key?.fill(0);
+    plaintext.fill(0);
+  }
+}
+
+function decryptWithKey(envelope, ciphertext, key) {
   let partial;
   let plaintext;
   try {
-    key = passwordKey(password, envelope.kdf.salt);
     const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(envelope.cipher.iv, 'hex'), { authTagLength: 16 });
     decipher.setAAD(associatedData(envelope));
     decipher.setAuthTag(Buffer.from(envelope.cipher.tag, 'hex'));
@@ -226,8 +261,28 @@ export function decryptJson(envelope, password) {
     if (canonical(value) !== text) throw new TypeError('Decrypted payload is not canonical JSON');
     return value;
   } finally {
-    key?.fill(0);
     partial?.fill(0);
     plaintext?.fill(0);
   }
+}
+
+export function decryptJson(envelope, password) {
+  const ciphertext = validateEnvelope(envelope);
+  let key;
+  try {
+    key = passwordKey(password, envelope.kdf.salt);
+    return decryptWithKey(envelope, ciphertext, key);
+  } finally { key?.fill(0); }
+}
+
+export async function decryptJsonAsync(envelope, password) {
+  validateEnvelope(envelope);
+  // A caller cannot change the authenticated header during derivation.
+  const snapshot = { version: envelope.version, kdf: { ...envelope.kdf }, cipher: { ...envelope.cipher }, ciphertext: envelope.ciphertext };
+  const ciphertext = validateEnvelope(snapshot);
+  let key;
+  try {
+    key = await passwordKeyAsync(password, snapshot.kdf.salt);
+    return decryptWithKey(snapshot, ciphertext, key);
+  } finally { key?.fill(0); }
 }

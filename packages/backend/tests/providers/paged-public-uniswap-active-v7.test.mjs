@@ -11,7 +11,12 @@ import {tmpdir} from 'node:os';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {descriptor,fixture} from './fixtures/paged-mixed-host-v7.mjs';
 
-mock.module(new URL('../../src/operations/recovery/paged-public-active-current-data-v4.mjs',import.meta.url).href,{exports:{readPagedPublicActiveCurrentDataV4:async base=>structuredClone(base)}});
+mock.module(new URL('../../src/operations/recovery/paged-public-active-current-data-v4.mjs',import.meta.url).href,{exports:{
+ readPagedPublicActiveCurrentDataV4:async base=>structuredClone(base),
+ readPagedPublicActiveCurrentMixedDataV10:async base=>structuredClone(base),
+ readPagedPublicDeadActiveCurrentStorageV8:async()=>assert.fail('HOST_UNEXPECTED_STORAGE_RECOVERY'),
+ assertOriginalPagedPublicDeadStorageCurrentV8:async()=>assert.fail('HOST_UNEXPECTED_STORAGE_RECOVERY'),
+}});
 const M=await import('../../src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs');
 const P=await import('../../src/operations/recovery/paged-runtime-recovery-authority-v3.mjs');
 

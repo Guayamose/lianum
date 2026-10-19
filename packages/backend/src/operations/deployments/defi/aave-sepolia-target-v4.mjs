@@ -1,3 +1,5 @@
+import {withPublicCanonicalBlockReadsV25} from '../../../native-wallet/http-v1.mjs';
+import {readOriginalPagedSepoliaRpcContextV4} from '../../../chains/public-testnet/sepolia-receiver-rpc-v4.mjs';
 /** Separate Original Aave target producer. Reuses the reviewed minimum ledger
  * planner and SAME original parent verifiers/libraries; USDC and static shares
  * have distinct assets, policies, note pools and output custody.
@@ -89,9 +91,16 @@ export async function advanceOriginalAaveSepoliaInitializationV4(runtime,plan,to
 }
 export async function finalizeOriginalAaveSepoliaTargetV4(runtime,plan){
  assert.equal(arguments.length,2);const p=original(runtime,plan);assert.equal(p.receipts.size,7,'AAVE_SEPOLIA_TARGET_INITIALIZATION_INCOMPLETE');const head=await runtime.block('finalized');
+ await assertOriginalSepoliaUniswapTargetReadyV4(runtime,p.uniswapTarget);
+ const finalizedKeyV10=sha(JSON.stringify([head.number,head.hash,[...p.receipts.values()]]));
+ if(p.finalizedKeyV10!==finalizedKeyV10){
+ await withPublicCanonicalBlockReadsV25(readOriginalPagedSepoliaRpcContextV4(runtime).endpoint,head,async()=>{
  for(const saved of p.receipts.values()){assert.ok(BigInt(head.number)>=BigInt(saved.blockNumber),'AAVE_SEPOLIA_TARGET_FINALITY_PENDING');assert.deepEqual(await runtime.receipt(saved.transactionHash),saved,'AAVE_SEPOLIA_ORIGINAL_INITIALIZATION_RECEIPT');await runtime.checkReceipt(saved);}
- await assertOriginalSepoliaUniswapTargetReadyV4(runtime,p.uniswapTarget);await readOriginalAaveSepoliaVenueV4(p.venue,head.number);for(const row of p.data.constructors)assert.equal(await runtime.code(row.expectedAddress,head.number),row.expectedCode,'AAVE_SEPOLIA_FULL_TARGET_CURRENT_CODE');
+ await readOriginalAaveSepoliaVenueV4(p.venue,head.number);for(const row of p.data.constructors)assert.equal(await runtime.code(row.expectedAddress,head.number),row.expectedCode,'AAVE_SEPOLIA_FULL_TARGET_CURRENT_CODE');
  for(const row of p.data.postDeploymentCalls){const encoded=row.pool.slice(2).padStart(64,'0'),hub=p.build.artifacts.hub.evm.methodIdentifiers;assert.equal(await runtime.call({to:row.to,data:'0x'+hub['isRegisteredPool(address)']+encoded},head.number),'0x'+'0'.repeat(63)+'1','AAVE_SEPOLIA_ORIGINAL_REGISTERED_POOL');const pool=p.data.target.pools.find(pool=>pool.address===row.pool);assert.equal(await runtime.call({to:row.to,data:'0x'+hub['poolDomain(address)']+encoded},head.number),pool.domainCommitment,'AAVE_SEPOLIA_ORIGINAL_REGISTERED_DOMAIN');}
+ });
+ await runtime.assertCanonical(head);original(runtime,plan);p.finalizedKeyV10=finalizedKeyV10;
+ }
  await runtime.assertCanonical(head);original(runtime,plan);if(p.system)return p.system;
  const system=freeze({profile:'ORIGINAL_AAVE_SEPOLIA_TARGET_SYSTEM_V4',chainId:'11155111',account:p.data.account,keysetId:p.data.keysetId,planSHA256:p.data.planSHA256,policySHA256:p.data.policySHA256,target:p.data.target,delivery:p.data.delivery,exit:p.data.exit,receipts:[...p.receipts.values()],finalizedHead:{number:head.number,hash:head.hash},trust:'RPC_PROVIDER',independentConsensus:false,privateProofAcceptance:false,financialAcceptance:false});systems.set(system,p);p.system=system;return system;
 }

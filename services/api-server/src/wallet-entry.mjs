@@ -1,7 +1,14 @@
 import {readFile} from 'node:fs/promises';
 import {createPublicWalletHttpServiceV1} from '@lianum/backend/public-wallet/http-service';
+import {createAgentGatewayV1} from '@lianum/backend/public-wallet/agent-gateway';
 const file=process.env.LIANUM_PUBLIC_WALLET_CONFIG;if(!file)throw Error('Set LIANUM_PUBLIC_WALLET_CONFIG to the server configuration file.');
-const config=JSON.parse(await readFile(file,'utf8'));const service=await createPublicWalletHttpServiceV1(config);
+const config=JSON.parse(await readFile(file,'utf8'));
+const agentURL=process.env.LIANUM_AGENT_URL,agentToken=process.env.LIANUM_AGENT_GATEWAY_TOKEN;
+if(Boolean(agentURL)!==Boolean(agentToken))throw Error('NATIVE_AGENT_GATEWAY_CONFIGURATION');
+const agent=agentURL?createAgentGatewayV1({url:agentURL,token:agentToken}):null;
+const agentBackendToken=process.env.LIANUM_AGENT_BACKEND_TOKEN;
+const service=await createPublicWalletHttpServiceV1({...config,agent,...(agentBackendToken?{agentBackendToken}:{})});
 await service.listen({host:'127.0.0.1',port:Number(process.env.PORT??8788)});
+if(agentBackendToken)await service.listenAgentBackend({port:Number(process.env.LIANUM_AGENT_BACKEND_PORT??8791)});
 process.stdout.write('Lianum public-wallet service is listening behind the configured HTTPS ingress.\n');
 let stopping=false;const close=async()=>{if(stopping)return;stopping=true;await service.close();};process.once('SIGTERM',close);process.once('SIGINT',close);

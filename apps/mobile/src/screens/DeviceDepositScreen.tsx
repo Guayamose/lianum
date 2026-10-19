@@ -1,6 +1,7 @@
+import {WalletText as Text,WalletTextInput as TextInput} from '../design/typography';
 import type {DeviceRecoveryArmConsentV1,DeviceRecoveryArmStatusV1} from '../../../../packages/mobile-protocol/src/device-recovery-arm-consent-v1.mjs';
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet} from 'react-native';
 import { fetch as nativeFetch } from 'expo/fetch';
 import { createOriginalAccountApiV2 } from '../api/original-account-api-v2.mjs';
 import { createDeviceOwnerDepositApiV1 } from '../api/device-owner-deposit-api-v1';
@@ -448,8 +449,8 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
   return <ScrollView contentContainerStyle={styles.body}>
     <Text style={styles.title}>Financiar tu nota local</Text>
     <Text style={styles.text}>La raíz y la clave de nota permanecen en el dispositivo. Revisa cómo se envía esta única apertura al generar la prueba. Este flujo requiere un backend original instalado por el operador y TLS de confianza.</Text>
-    <TextInput style={styles.input} value={origin} onChangeText={value => edit(setOrigin, value)} autoCapitalize="none" placeholder="https://origen privado" placeholderTextColor="#9cb0b8" />
-    <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Identificador de vinculación del operador" placeholderTextColor="#9cb0b8" />
+    <TextInput style={styles.input} value={origin} onChangeText={value => edit(setOrigin, value)} autoCapitalize="none" placeholder="https://origen privado" placeholderTextColor="#50616D" />
+    <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Identificador de vinculación del operador" placeholderTextColor="#50616D" />
     <Pressable disabled={busy} onPress={() => void run(connect)}><Text style={styles.button}>Abrir nota y vinculación</Text></Pressable>
     <Pressable disabled={busy} onPress={() => void run(resume)}><Text style={styles.button}>Reabrir la misma operación guardada</Text></Pressable>
     <Text style={styles.text}>Reabrir usa el origen y la vinculación retenidos en la custodia cifrada. No restablece permisos vencidos ni crea autoridad en el servidor. Cada consulta o acción siguiente requiere su firma específica.</Text>
@@ -542,7 +543,7 @@ Estado local {exitIntent.receipt ? 'Retirada confirmada por el recibo original' 
 Destinatario retenido {exitIntent.statement.recipient}
 {exitIntent.receipt?.transactionHash ?? 'Sin recibo local confirmado. No se autoriza otro trabajo ni un reenvío.'}</Text>}
       <TextInput style={styles.input} value={exitRecipient} onChangeText={value => edit(setExitRecipient, value)}
-        autoCapitalize="none" placeholder="Destinatario EVM exacto: 40 caracteres hex, sin 0x" placeholderTextColor="#9cb0b8" />
+        autoCapitalize="none" placeholder="Destinatario EVM exacto: 40 caracteres hex, sin 0x" placeholderTextColor="#50616D" />
       <Pressable disabled={busy || exitJob !== null} onPress={() => void run(prepareExit)}><Text style={styles.button}>Consultar inclusión y salida original</Text></Pressable>
       <Pressable disabled={busy || !exitJob || !!exitIntent?.receipt} onPress={() => void run(held => reviewExit('WITHDRAW_W39', held))}><Text style={styles.button}>Revisar única retirada W39</Text></Pressable>
       <Pressable disabled={busy || !exitJob} onPress={() => void run(held => reviewExit('OBSERVE_W39', held))}><Text style={styles.button}>Consultar trabajo/salida original</Text></Pressable>
@@ -589,6 +590,6 @@ Destinatario {exitConsent.statement.recipient}
     <Text style={styles.text}>{message}</Text><Pressable onPress={clear}><Text style={styles.button}>Cerrar y ocultar</Text></Pressable>
   </ScrollView>;
 }
-const styles = StyleSheet.create({ body: { padding: 20, gap: 12 }, title: { color: '#e4f1ef', fontSize: 22, fontWeight: '700' },
-  text: { color: '#bed0d3', lineHeight: 21 }, input: { color: '#e4f1ef', borderColor: '#486069', borderWidth: 1, padding: 12 },
-  button: { color: '#9de3be', paddingVertical: 12 } });
+const styles = StyleSheet.create({ body: { padding: 20, gap: 12 }, title: { color: '#253746', fontSize: 22, fontWeight: '700' },
+  text: { color: '#50616D', lineHeight: 21 }, input: { color: '#253746', borderColor: '#89877E', borderWidth: 1, padding: 12 },
+  button: { color: '#253746', paddingVertical: 12 } });

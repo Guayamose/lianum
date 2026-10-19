@@ -29,6 +29,7 @@ ADDITIONAL = ['packages/proofs/src/jobs/worker.mjs',
 # These are loaded by the delivered service helpers through a fixed candidate
 # locator, rather than an import reachable from PUBLIC_ENTRY.
 PUBLIC_RUNTIME_ROOTS = [
+    'packages/backend/src/operations/recovery/paged-public-startup-preflight-v16.mjs',
     'packages/backend/src/operations/recovery/paged-public-full-storage-financial-review-v9.mjs',
     'packages/backend/src/operations/recovery/paged-public-source-financial-window-v5.mjs',
     'packages/backend/src/operations/recovery/paged-uniswap-flat-read-recovery-v8.mjs',
@@ -76,6 +77,8 @@ def delivery_module_bytes(source):
     # lookup tree. Resolve this public DATA export to the same candidate file
     # rather than creating another package or permitting new release symlinks.
     candidate_imports = {
+        '@lianum/backend/chains/public-testnet/sepolia-operation-window-data-v17':
+            'packages/backend/src/chains/public-testnet/sepolia-operation-window-data-v17.mjs',
         '@lianum/engine/crypto/vault':
             'packages/engine/src/crypto/vault.mjs',
         '@lianum/engine/crypto/privacy':
