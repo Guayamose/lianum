@@ -34,7 +34,7 @@ export default function WalletSettingsScreen({identity,blocked,recoveryBusy,work
   <WalletCard title="Your agent" subtitle="Receive a proposal, review its payments and approve once. The agent can then observe the approved operation.">
    <WalletButton label="View agent proposals" tone="secondary" disabled={blocked} onPress={()=>onNavigate('agent')}/>
   </WalletCard>
-  <WalletCard title="Evidence investments" subtitle="View and manage your Aave and Morpho investments on Sepolia."><WalletButton label="Open investments" tone="secondary" disabled={blocked} onPress={()=>onNavigate('investment')}/></WalletCard>
+  <WalletCard title="Testnet investments" subtitle="View and manage your Aave and Morpho investments on Sepolia."><WalletButton label="Open investments" tone="secondary" disabled={blocked} onPress={()=>onNavigate('investment')}/></WalletCard>
   <WalletButton label={advanced?"Hide Advanced Tools":"Advanced Tools and Recovery"} tone="secondary" onPress={onToggleAdvanced}/>
   {advanced&&<WalletCard title="Connections and tools" subtitle="The app retains connections. Each balance requires a query of your service.">
    <WalletButton label="Payment connection" tone="secondary" disabled={blocked} onPress={()=>onNavigate('pagedGraph')}/>

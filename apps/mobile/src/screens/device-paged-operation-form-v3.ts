@@ -87,7 +87,7 @@ export function pagedPaymentPresentationV3(step:{intent?:any},configuration:any)
 }
 
 export function pagedOperationPhaseV3(phase:string):string{
- return({BUILDING:"Preparing your payments",SIGNING:"Pending review",PREPARED:"Roster for authorization",RESERVED:"Payments in progress",FULFILLED:"Payments completed",RECOVERED:"Funds recovered",UNKNOWN:"Awaiting confirmation",REQUIRES_OBSERVATION:"Checking your payments",STALE:"Status to be updated",FAILED:"Detained operation"} as Record<string,string>)[phase]??phase;
+ return({BUILDING:"Preparing your payments",SIGNING:"Pending review",PREPARED:"Ready for approval",RESERVED:"Payments in progress",FULFILLED:"Payments completed",RECOVERED:"Funds recovered",UNKNOWN:"Awaiting confirmation",REQUIRES_OBSERVATION:"Checking your payments",STALE:"Status to be updated",FAILED:"Operation stopped"} as Record<string,string>)[phase]??phase;
 }
 
 export function pagedOperationStageV3(stage:string):string{

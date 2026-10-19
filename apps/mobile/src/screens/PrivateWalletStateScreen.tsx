@@ -37,7 +37,7 @@ function assetUnit(asset:WalletPortfolioAssetV1){
  if(asset.decimals===null)return asset.unit==='POSITION_SHARES'?"Share base units":"Minimum units · conversion not available";
  return asset.unit==='POSITION_SHARES'?'participaciones':asset.label;
 }
-const phases:Record<string,string>={BUILDING:"Preparing Payments",SIGNING:"Roster for authorization",FAILED:"Requires revision",PREPARED:"Ready to review",SEALED:"Roster for authorization",RESERVED:"Reserved budget",EXECUTING:"Sending Payments",FULFILLED:"Payments executed",RECOVERED:"Funds recovered",REQUIRES_OBSERVATION:"Checking result",UNKNOWN:"Outstanding result",STALE:"Updating Status",BEGIN_PREPARED:"Saved preparation"};
+const phases:Record<string,string>={BUILDING:"Preparing Payments",SIGNING:"Ready for approval",FAILED:"Requires revision",PREPARED:"Ready to review",SEALED:"Ready for approval",RESERVED:"Reserved budget",EXECUTING:"Sending Payments",FULFILLED:"Payments executed",RECOVERED:"Funds recovered",REQUIRES_OBSERVATION:"Checking result",UNKNOWN:"Outstanding result",STALE:"Updating Status",BEGIN_PREPARED:"Saved preparation"};
 function operationPhase(row:PrivateWalletRowV1){return (row.state==='LIVE'?row.pagedProgress:row.lastConfirmed?.pagedProgress)?.phase??'UNKNOWN';}
 function operationDone(row:PrivateWalletRowV1){return ['FULFILLED','RECOVERED'].includes(operationPhase(row));}
 
