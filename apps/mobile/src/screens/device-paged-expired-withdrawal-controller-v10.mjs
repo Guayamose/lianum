@@ -44,7 +44,7 @@ export async function runDevicePagedExpiredWithdrawalV10({rawProfile,selection=n
   progress("Confirm once to authorize this withdrawal.");approval=await approveWalletSessionPagedNoteWithdrawalV10(connection.descriptor,draft,signal);current();
   if(job?.stage==='PROVED')bindWalletSessionPagedNoteWithdrawalV10(approval,status);
   else{progress("Preparing proof of your withdrawal...");try{row=await sendDraft(draft,witness);}catch(error){if(signal.aborted||!unconfirmed.has(error))throw error;return await result('PENDING');}finally{P.pagedOwnerWipeV3(witness);heldWitness=null;}if(row.stage!=='PROVED')return await result('PENDING');bindWalletSessionPagedNoteWithdrawalV10(approval,row);}
-  progress("Sending the retreat and waiting for confirmation...");const effect=await vault.effectDraft('WITHDRAW_W39',draft.jobId);try{row=await sendDraft(effect);}catch(error){if(signal.aborted||!unconfirmed.has(error))throw error;return await result('PENDING');}
+  progress("Sending your withdrawal and waiting for confirmation...");const effect=await vault.effectDraft('WITHDRAW_W39',draft.jobId);try{row=await sendDraft(effect);}catch(error){if(signal.aborted||!unconfirmed.has(error))throw error;return await result('PENDING');}
   status=await readStatus();return await result(row.stage==='CONFIRMED'&&status.note?.state==='SPENT'?'CONFIRMED':'PENDING');
  }finally{P.pagedOwnerWipeV3(heldWitness);if(approval)closeWalletSessionAuthorizationV1(approval);await Promise.allSettled([api?.close(),transport?.close(),sourceApi?.close(),sourceTransport?.close(),vault?.close(),sourceVault?.close()]);}
 }

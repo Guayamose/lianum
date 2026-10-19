@@ -9,15 +9,15 @@ export function WalletActions({onAction,disabled=false}:{onAction:(action:Wallet
  return <View style={styles.container}>
   <View style={styles.context}>
    <Text style={styles.badge}>DEMO · TESTNET FUNDS</Text>
-   <Text style={styles.contextText}>Prepare ETH, BTC or SOL payments with demo balance and change the tokens of your connection. Networks are local.</Text>
+   <Text style={styles.contextText}>Prepare ETH, BTC or SOL payments and swap tokens using test funds. Review the network, amount and recipient before authorizing.</Text>
   </View>
   <View style={styles.actions}>
    <WalletQuickAction label="Send" symbol="↗" disabled={disabled} onPress={()=>onAction('send')}/>
-   <WalletQuickAction label="Change" symbol="⇄" disabled={disabled} onPress={()=>onAction('swap')}/>
+   <WalletQuickAction label="Swap" symbol="⇄" disabled={disabled} onPress={()=>onAction('swap')}/>
    <WalletQuickAction label="Invest" symbol="◈" disabled={disabled} onPress={()=>onAction('invest')}/>
    <WalletQuickAction label="Add Balance" symbol="↓" disabled={disabled} onPress={()=>onAction('deposit')}/>
   </View>
-  <View style={styles.unavailable}><Text style={styles.unavailableTitle}>Buy and sell with euros</Text><Text style={styles.unavailableDetail}>Not available in this version. Change tokens uses cryptocurrencies as input and output.</Text></View>
+  <View style={styles.unavailable}><Text style={styles.unavailableTitle}>Buy and sell with euros</Text><Text style={styles.unavailableDetail}>Not available in this version. Swaps exchange one cryptocurrency for another.</Text></View>
  </View>;
 }
 

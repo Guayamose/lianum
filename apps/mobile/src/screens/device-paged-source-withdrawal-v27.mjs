@@ -50,11 +50,11 @@ export async function runDevicePagedSourceWithdrawalV27({descriptor,vault,api,si
   status=await read();need(status.epoch===draft.publicInputs[16],'MOBILE_PAGED_NOTE_EPOCH_CHANGED');
   if(job?.stage==='PROVED')authorization.bind(approval,status);
   else{
-   progress("Preparing your retreat...");let row;
+   progress("Preparing your withdrawal...");let row;
    try{row=await send(draft,witness);}catch(error){if(!signal.aborted&&unknownReplies.has(error))return result('PENDING',draft);throw error;}
    P.pagedOwnerWipeV3(witness);witness=null;if(row.stage!=='PROVED')return result('PENDING',row);authorization.bind(approval,row);
   }
-  progress("Sending the retreat...");let row;
+  progress("Sending your withdrawal...");let row;
   try{row=await send(await vault.effectDraft('WITHDRAW_W39',draft.jobId));}catch(error){if(!signal.aborted&&unknownReplies.has(error))return result('PENDING',draft);throw error;}
   status=await read();return result(row.stage==='CONFIRMED'&&status.note?.state==='SPENT'?'CONFIRMED':'PENDING',row);
  }finally{P.pagedOwnerWipeV3(witness);if(approval)authorization.close(approval);}

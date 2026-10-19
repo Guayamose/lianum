@@ -9,5 +9,5 @@ test('SDK only exposes the exact typed short-epoch refusal; no private backend e
  for(const [body,expected]of [[{error:'PAGED_DEVICE_NOTE_EPOCH_TOO_SHORT'},'MOBILE_PAGED_NOTE_EPOCH_TOO_SHORT'],[{error:'PAGED_DEVICE_NOTE_EPOCH_CHANGED'},'MOBILE_PAGED_NOTE_EPOCH_CHANGED'],[{error:'PRIVATE_BACKEND_DETAILS'},'MOBILE_PAGED_SERVICE_UNAVAILABLE'],[{error:'PAGED_DEVICE_NOTE_EPOCH_TOO_SHORT',extra:'untrusted'},'MOBILE_PAGED_SERVICE_UNAVAILABLE']]){
   const api=createDevicePagedOwnerApiV3({descriptor,fetchImpl:async()=>new Response(JSON.stringify(body),{status:403})});try{await assert.rejects(api.challenge(draft),error=>error.message===expected);}finally{await api.close();}
  }
- assert.match(deviceSepoliaDefiFeedbackV7(Error('MOBILE_PAGED_NOTE_EPOCH_TOO_SHORT')),/no ha empezado/);
+ assert.match(deviceSepoliaDefiFeedbackV7(Error('MOBILE_PAGED_NOTE_EPOCH_TOO_SHORT')),/Preparation has not started/);
 });

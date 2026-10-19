@@ -5,7 +5,7 @@ import type {NativeWalletEnvironmentV2} from '../native-wallet/native-wallet-ui-
 
 export function WalletEnvironmentChoice({network,onChange,disabled=false,changing=false}:{network:NativeWalletEnvironmentV2;onChange:(network:NativeWalletEnvironmentV2)=>void;disabled?:boolean;changing?:boolean}){
  return <View style={s.bar}>
-  <View style={s.labels}><Text style={s.title}>{changing?"Changing environment...":network==='testnet'?"Evidence environment":"Main networks"}</Text><Text style={s.caption}>{network==='testnet'?"Test funds · no real value":"Your real assets"}</Text></View>
+  <View style={s.labels}><Text style={s.title}>{changing?"Changing environment...":network==='testnet'?"Test environment":"Mainnet environment"}</Text><Text style={s.caption}>{network==='testnet'?"Test funds · no real value":"Your real assets"}</Text></View>
   <View style={s.choice} accessibilityRole="radiogroup" accessibilityLabel="wallet environment">{([['mainnet',"Mainnet"],['testnet',"Testnet"]] as const).map(([value,label])=><Pressable key={value} accessibilityRole="radio" accessibilityLabel={`Use environment ${label}`} accessibilityState={{checked:network===value,disabled}} aria-checked={network===value} aria-disabled={disabled} disabled={disabled} onPress={()=>onChange(value)} style={[s.button,network===value&&s.selected,disabled&&s.disabled]}><Text style={[s.buttonText,network===value&&s.selectedText]}>{label}</Text></Pressable>)}</View>
  </View>;
 }

@@ -17,6 +17,6 @@ test('native cost network labels use the exact configured networkId and matching
 });
 
 test('atomic cost stays 600 wei; missing or conflicting units cannot be rendered as 600 ETH',()=>{
- assert.equal(devicePagedNativeCostPresentationDataV4(native(),null).fee,'600 wei · activo '+asset.slice(0,12)+'…');
- for(const fee of [{...native().fee,unit:'ETH'},{...native().fee,status:'UNKNOWN',amount:null},{...native().fee,amount:'6e2'},{...native().fee,amount:'0.0006'},{...native().fee,asset:'ETH'}])assert.equal(devicePagedNativeCostPresentationDataV4({...native(),fee},null).fee,'sin dato confirmado');
+ assert.equal(devicePagedNativeCostPresentationDataV4(native(),null).fee,'600 wei · asset '+asset.slice(0,12)+'…');
+ for(const fee of [{...native().fee,unit:'ETH'},{...native().fee,status:'UNKNOWN',amount:null},{...native().fee,amount:'6e2'},{...native().fee,amount:'0.0006'},{...native().fee,asset:'ETH'}])assert.equal(devicePagedNativeCostPresentationDataV4({...native(),fee},null).fee,'no confirmed data');
 });
