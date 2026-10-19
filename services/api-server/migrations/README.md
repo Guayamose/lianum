@@ -1,67 +1,36 @@
-# Migraciones del registro de permisos
+# Migrations of the permit register
 
-La lista ejecutable está fijada en `src/storage/schema-migrations.mjs`. Cada versión une
-un nombre de archivo y su SHA256. El runner verifica esos bytes antes de abrir
-una conexión; no escanea la carpeta ni acepta rutas, SQL o un plan alternativo.
+The executable list is set to `src/storage/schema-migrations.mjs`. Each version unites a file name and its SHA256. The runner checks those bytes before opening a connection; it does not scan the folder or accept routes, SQL or an alternative plan.
 
-| Versión | Archivo | SHA256 |
+| Version | File | SHA256 |
 | --- | --- | --- |
 | 1 | `001_mobile_authorizations.sql` | `cabd8655911a0fb317096be2b28806ab4175f79e9af2549f157ed5a850022251` |
 
-V1 conserva el esquema original de `public.mobile_challenges`,
-`public.mobile_operations` y `public.mobile_authorizations`. Crea las tres tablas
-en una base nueva o registra un esquema antiguo compatible. No altera ni borra
-filas, claves, permisos o respuestas. Un esquema antiguo parcial, tipos/columnas,
-defaults o claves incompatibles se rechazan; no se reparan automáticamente.
+V1 retains the original scheme of `public.mobile_challenges`, `public.mobile_operations` and `public.mobile_authorizations`. Create the three tables on a new base or register a compatible old scheme. Do not alter or delete rows, keys, permissions or answers. A partial old scheme, types/columns, defaults or incompatible keys are rejected; they are not automatically repaired.
 
-## Ejecutar y comprobar
+## Run and check
 
-Con `DATABASE_URL` ya disponible en el entorno del proceso, desde la raíz:
+Con `DATABASE_URL` already available in the process environment, from the root:
 
 ```sh
 ./dev npm --prefix services/api-server run db:migrate
 ./dev npm --prefix services/api-server start
 ```
 
-El primer comando imprime sólo estado, versión y versiones aplicadas. No muestra
-la credencial, el SQL ni detalles del servidor. La imagen Docker incluye el
-mismo comando `node src/storage/migrate.mjs`. Compose local ejecuta su servicio `migrate`
-una vez después de que SQL esté sano y espera su éxito antes de iniciar la API.
+The first command prints only status, version and applied versions. It does not show the credentials, SQL or server details. The Docker image includes the same command `node src/storage/migrate.mjs`. Local Compose executes your service `migrate` once after SQL is healthy and expects its success before starting the API.
 
-El arranque normal y `store.ready()` sólo leen el historial y la forma del esquema.
-`createPostgresAuthorizationStore(pool)` conserva su constructor async y crea
-el acceso sin DDL: quien prepare una base nueva debe migrarla explícitamente.
-Las consultas del store apuntan siempre a `public`, aunque el URL SQL cambie el
-`search_path`. Las fixtures de pruebas migran sus propias bases aisladas.
+Normal booting and `store.ready()` They only read the history and shape of the scheme. `createPostgresAuthorizationStore(pool)` preserves its async builder and creates access without DDL: whoever prepares a new base must explicitly migrate it. The store’s queries always point to `public`, even if the SQL URL changes the `search_path`. Test fixtures migrate their own isolated bases.
 
-## Concurrencia y errores
+## Concurrence and errors
 
-Una transacción incluye el lock común `pg_advisory_xact_lock`, la creación o
-adopción del esquema y la fila de `public.platform_schema_migrations`. Dos
-migradores concurrentes se serializan y cada versión queda registrada una vez.
-La fecha de aplicación no cambia al repetir un comando ya completado.
+A transaction includes the common lock `pg_advisory_xact_lock`, the creation or adoption of the schema and row of `public.platform_schema_migrations`. Two concurrent migrators are serialized and each version is registered once. The application date does not change when repeating an already completed command.
 
-El lock espera como máximo 4 segundos y las sentencias 4,5 segundos. El cliente
-mantiene su plazo de 5 segundos ante silencio TCP. Ante un error se intenta
-ROLLBACK y se descarta la conexión. Si el transporte agota el plazo, no se
-encola ese ROLLBACK. Perder la respuesta de COMMIT no demuestra rollback:
-el runner falla, descarta la conexión incierta y la siguiente ejecución consulta
-el historial conservado antes de decidir qué falta. No reescribe checksums ni
-asume que una versión ausente o desconocida se puede sustituir.
+The lock waits at most 4 seconds and statements 4.5 seconds. The client maintains its 5-second time limit against TCP silence. Faced with an error, ROLLBACK is tried and the connection is discarded. If the transport runs out of time, that ROLLBACK is not attached. Losing COMMIT's response does not show rollback: the runner fails, discards the uncertain connection, and the following execution consults the preserved history before deciding what is missing. Do not rewrite checksums or assume that an absent or unknown version can be replaced.
 
-Una versión futura, un hueco o un nombre/checksum distinto bloquean migración
-y disponibilidad. No hay comando `down`, borrado del historial ni migración
-automática durante una petición HTTP. Añadir una versión requiere código y SQL
-revisados, checksum nuevo y pruebas de compatibilidad con las filas existentes.
+A future version, a hole or a different name/checksum block migration and availability. No command `down`, deleted from history or automatic migration during an HTTP request. Adding a version requires revised code and SQL, new checksum and compatibility tests with existing rows.
 
-Estas migraciones sólo administran el registro de admisiones. No vinculan el
-keeper económico, no crean fondos ni ejecutan operaciones o Google Cloud.
+These migrations only manage the admissions register. They don't link economic keeper, they don't create funds, they don't run operations, or Google Cloud.
 
-Las pruebas de host validan bytes, CLI y transporte; la suite PostgreSQL real
-valida adopción de filas UNKNOWN/ACCEPTED, arranques concurrentes, rollback DDL,
-lock ocupado, terminación del proceso y respuesta de COMMIT perdida.
+Tests of valid host bytes, CLI and transport; the actual PostgreSQL suite validates adoption of rows UNKNOWN/ACCEPTED, concurrent booting, rollback DDL, occupied lock, process completion and lost COMMIT response.
 
-Referencias: [locks transaccionales PostgreSQL](https://www.postgresql.org/docs/17/explicit-locking.html#ADVISORY-LOCKS),
-[IF NOT EXISTS y compatibilidad del esquema](https://www.postgresql.org/docs/17/sql-createtable.html),
-[plazos del cliente pg](https://node-postgres.com/apis/client) y
-[dependencias de Compose](https://docs.docker.com/compose/how-tos/startup-order/).
+References: [PostgreSQL transactional blocks](https://www.postgresql.org/docs/17/explicit-locking.html#ADVISORY-LOCKS), [IF NOT EXISTS and schema compatibility](https://www.postgresql.org/docs/17/sql-createtable.html), [client time pg](https://node-postgres.com/apis/client) and [Compose dependencies](https://docs.docker.com/compose/how-tos/startup-order/).

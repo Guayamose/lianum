@@ -1,324 +1,132 @@
-# Módulos y dependencias
+# Modules and dependencies
 
-Cada paquete JavaScript declara sus entradas públicas en `package.json` mediante
-`exports`. Los consumidores usan esas entradas y las dependencias declaradas:
+Each JavaScript package declares its public entries in `package.json` by `exports`. Consumers use these entries and stated dependencies:
 
 ```js
 import { createFlatAccountSession } from '@lianum/backend/accounts/session';
 import { createRoleProofClient } from '@lianum/proofs/client';
 ```
 
-Las entradas apuntan a una única implementación. Las fachadas públicas que siguen teniendo consumidores reexportan las mismas
-funciones; las fachadas privadas sustituidas se retiran. No crean otra custodia,
-estado ni registro de identidad. Los paquetes son módulos del producto, no servicios que deban
-desplegarse por separado.
+The entries point to a single implementation. Public facades that continue to have consumers re-export the same functions; replaced private facades are removed. Don't create another custody, state, or identity record. Packages are product modules, not services to be deployed separately.
 
-## Responsabilidades y dirección de las dependencias
+## Responsibilities and direction of dependencies
 
-| Paquete | Propietario de | Entradas públicas orientativas |
+| Package | Owner of | Representative public exports |
 | --- | --- | --- |
-| `@lianum/backend` | Composición de cuentas, custodia y redes; API, ejecución, recuperación y despliegues | `accounts/session`, `accounts/durable-keeper`, `wallet/http-service`, `claims/session`, `defi/withdrawal` |
-| `@lianum/proofs` | Jobs, workers, herramientas y verificación criptográfica | `client`, `catalog`, `execution/proof-process`, `toolchain/wallet-prover`, `verification` |
-| `@lianum/custody` | Custodia del propietario, autorización de firmas y bindings | `owner`, `signing/authorized-envelope`, `preparation/flat-owner-manual-binding` |
-| `@lianum/engine` | Estado, coordinación genérica, almacenamiento, codecs y mecanismos compartidos | `accounts/keeper`, `accounts/journal`, `crypto/vault`, `execution/inputs/funding-witness`, `storage/records` |
-| `@lianum/mobile-protocol` | Contratos entre clientes y backend; cliente wallet sin DOM | entrada principal, `original-account-v2`, `wallet/client` |
-| `@lianum/components` | Formatos públicos, integridad, política de recursos y CRS | `encoding/commitments`, `encoding/statements`, `verification/wrapped-installation`, `file-integrity` |
-| `@lianum/crypto` | Circuitos candidatos y Poseidon portátil | `framing`, `portable-poseidon2` |
-| `@lianum/environment` | Ubicaciones de fuentes y recursos declarados | `sourcePath`, `sourceURL`, `resourceRoot`, `resourcePath`, `legacyDataRoot` |
-| `@lianum/protocol` | Generación histórica congelada | Referencias para reproducción histórica, fuera de consumidores activos |
+| `@lianum/backend` | Composition of accounts, custody and networks; APIs, execution, recovery and deployments | `accounts/session`, `accounts/durable-keeper`, `wallet/http-service`, `claims/session`, `defi/withdrawal` |
+| `@lianum/proofs` | Jobs, workers, tools and cryptographic verification | `client`, `catalog`, `execution/proof-process`, `toolchain/wallet-prover`, `verification` |
+| `@lianum/custody` | Custody of the owner, authorization of signatures and bindings | `owner`, `signing/authorized-envelope`, `preparation/flat-owner-manual-binding` |
+| `@lianum/engine` | State, generic coordination, storage, codecs and shared mechanisms | `accounts/keeper`, `accounts/journal`, `crypto/vault`, `execution/inputs/funding-witness`, `storage/records` |
+| `@lianum/mobile-protocol` | Contracts between clients and backend; wallet client without DOM | root export, `original-account-v2`, `wallet/client` |
+| `@lianum/components` | Public formats, integrity, resource policy and CRS | `encoding/commitments`, `encoding/statements`, `verification/wrapped-installation`, `file-integrity` |
+| `@lianum/crypto` | Candidate circuits and portable Poseidon | `framing`, `portable-poseidon2` |
+| `@lianum/environment` | Locations of declared sources and resources | `sourcePath`, `sourceURL`, `resourceRoot`, `resourcePath`, `legacyDataRoot` |
+| `@lianum/protocol` | Frozen historical generation | References for historical reproduction, outside active consumers |
 
-La dirección principal es `backend → proofs → custody → engine`. Cada capa
-puede consumir también las capas inferiores que necesite. Engine consume
-contratos de `mobile-protocol`, `components`, `crypto` y `environment`;
-no importa backend, proofs ni custody. Los formatos públicos compartidos están
-en esos paquetes inferiores y no necesitan levantar cuentas o procesos para
-poder importarse. El detalle completo está en los manifiestos y en
-[`scripts/module-boundaries.json`](../scripts/module-boundaries.json).
+The main dependency direction is `backend → proofs → custody → engine`. Each layer may also consume the lower layers it needs. Engine consumes contracts of `mobile-protocol`, `components`, `crypto` and `environment`; it does not import backend, proofs or custody. Shared public formats are in those lower packages and do not construct accounts or processes when imported. The complete detail is in the manifests and in [`scripts/module-boundaries.json`](../scripts/module-boundaries.json).
 
-Los procesos del propietario, los observadores que necesitan redes y las
-preparaciones que componen cuentas pertenecen a `backend/src/custody/`. La
-custodia de claves y sus bindings permanecen en `packages/custody`. Asimismo,
-backend compone la ejecución económica que necesita un prover; engine conserva
-sus mecanismos compartidos y proofs el proceso de prueba. El driver Java de
-`packages/chains/` mantiene su compilación propia.
+Owner processes, network-dependent observers and account preparation belong to `backend/src/custody/`. Key custody and its bindings remain in `packages/custody`. Also, backend composes economic execution requiring a prover; engine retains its shared mechanisms and proofs owns the proof process. The Java driver of `packages/chains/` retains its separate build.
 
-La aplicación web monta los recursos visuales en
-`packages/backend/tests/fixtures/api/wallet/application.mjs` y usa `@lianum/backend/wallet/http-service`
-para HTTP, sesiones y autorización. El backend puede utilizar ese servicio sin
-importar la aplicación. Los contratos y el cliente sin DOM pertenecen a
-`mobile-protocol`; el DOM, las pantallas y los recursos estáticos siguen en apps.
+The retained web fixture mounts visual resources in `packages/backend/tests/fixtures/api/wallet/application.mjs` and uses `@lianum/backend/wallet/http-service` for HTTP, sessions and authorization. The backend can use that service regardless of the application. Shared contracts and the DOM-free client belong to `mobile-protocol`; DOM, screens and static resources are still in apps.
 
-## Implementaciones compartidas y autoridad
+## Shared implementations and authority
 
-| Código | Lugar donde se edita | Compatibilidad |
+| Code | Place of editing | Compatibility |
 | --- | --- | --- |
-| Contratos y cliente compartido de wallet | `packages/mobile-protocol/src/wallet/` | Wallet importa los exports compartidos; se retiraron sus fachadas duplicadas |
-| Servicio HTTP de wallet y controles de petición | `packages/backend/src/api/wallet/` | La app añade su lista cerrada de recursos web |
-| Poseidon2 portátil | `packages/crypto/src/portable/poseidon2-bn254-v1.mjs` | Reexport desde custodia móvil |
-| Registro segmentado cifrado | `packages/engine/src/storage/segmented-record-store.mjs` | Reexport desde backend claims/storage |
-| Coordinador genérico y checkpoints | `packages/engine/src/execution/accounts/generic-account-keeper-core.mjs` | Backend compone la persistencia duradera |
-| Keeper duradero y validación SOURCE | `packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs` | Su registro de identidad vive junto a su fábrica |
-| Toolchain wallet/assembly y validadores de claves | `packages/proofs/src/toolchain/` y `src/verification/` | Entradas experimentales anteriores reexportan estos propietarios |
-| Despliegues DeFi y composición local wrapped | `packages/backend/src/operations/` | Los fixtures anteriores remiten a la implementación operativa |
-| Identidad de procesos y observación RSS | `packages/proofs/src/host/` | Helpers de tests reexportan la implementación |
-| Mecánica de runtime EVM y custodia por instancia | `packages/backend/src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs` | La fachada `owned-evm-v2-runtime.mjs` conserva las funciones del propietario original |
-| Journal SOURCE y composición original de runtime | `packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs` | La fachada de cápsula anterior está retirada como evidencia `.source`; los consumidores usan este propietario |
+| Wallet contracts and shared client | `packages/mobile-protocol/src/wallet/` | Wallet imports shared exports; its duplicate facades were removed |
+| HTTP Wallet Service and Request Controls | `packages/backend/src/api/wallet/` | The app adds its closed list of web resources |
+| Portable Poseidon2 | `packages/crypto/src/portable/poseidon2-bn254-v1.mjs` | Reexport from mobile custody |
+| Encrypted segmented record | `packages/engine/src/storage/segmented-record-store.mjs` | Re-export from backend claims/storage |
+| Generic Coordinator and Checkpoints | `packages/engine/src/execution/accounts/generic-account-keeper-core.mjs` | Backend composes durable persistence |
+| Durable Keeper and SOURCE Validation | `packages/backend/src/accounts/storage/durable-generic-account-keeper.mjs` | Its identity registry lives beside its factory. |
+| Toolchain wallet/assembly and key validators | `packages/proofs/src/toolchain/` and `src/verification/` | Previous experimental entries re-export these owners |
+| DeFi deployments and typed local composition | `packages/backend/src/operations/` | Former fixtures re-export the operational implementation |
+| Process identity and RSS observation | `packages/proofs/src/host/` | Test helpers re-export the implementation |
+| EVM runtime mechanics and instance-scoped custody | `packages/backend/src/chains/evm/runtime/owned-evm-runtime-backend-v1.mjs` | The facade `owned-evm-v2-runtime.mjs` retains the functions of the original owner |
+| Journal SOURCE and original composition of runtime | `packages/backend/src/operations/recovery/native-original-source-lifecycle-v1.mjs` | The former capsule facade is retained as `.source` evidence; consumers use this owner |
 
-Las pruebas importan implementaciones operativas. Los imports literales activos
-ya no apuntan a conductores de pruebas ni módulos ejecutables de `experiments/`.
-Las aserciones, los fallos de transporte simulados y las campañas permanecen en
-pruebas. Las fuentes y artefactos retenidos que valida una generación siguen
-siendo recursos explícitos: separar el código no elimina esos requisitos.
+Tests import operational implementations. Active literal imports no longer target test drivers or executable modules of `experiments/`. Assertions, simulated transport failures and campaigns remain in tests. The retained sources and artifacts that validate a generation remain explicit resources: separating the code does not eliminate those requirements.
 
-Los tokens de custodia, recuperación y envío dependen de identidad en memoria.
-Mover un consumidor exige conservar conjuntamente el emisor, su registro privado
-y su validador. Por ejemplo, el kernel de operadores posee la procedencia de las
-observaciones health EVM/TRON; los lectores RPC separados no pueden emitir una
-observación acreditada por sí solos. La custodia económica local de EVM tiene
-una instancia fija creada por el kernel de runtime. Otra instancia del mecanismo
-no comparte sus handles ni permisos de firma.
+Custody, recovery and broadcast tokens depend on identity in memory. Moving a consumer requires the joint preservation of the issuer, its private registry and its validator. For example, the operator kernel owns the provenance of EVM/TRON health observations; separate RPC readers cannot issue a self-certified observation. Local EVM economic custody has a fixed instance created by the runtime kernel. Another instance of the mechanism does not share its handles or signing permissions.
 
-El backend mecánico de EVM recibe seis contratos concretos: journal,
-recuperación, SOURCE de dispositivo, reorg, dispatch y observación. No importa
-sus consumidores de cuentas, sesiones o controladores. La composición fija
-enlaza esos contratos con los propietarios originales; no ofrece configuración
-para sustituirlos en la instancia real. El journal conserva AEAD, CAS, tokens
-de un uso y sus registros privados. Las pruebas comprueban que otra instancia,
-incluso con un proceso local real, no obtiene autoridad del singleton original.
+The EVM mechanism backend receives six specific contracts: journal, recovery, device SOURCE, reorg, dispatch and observation. It does not import its account consumers, sessions or controllers. The fixed composition links these contracts with the original owners; it does not offer configuration to replace them in the actual instance. The journal retains AEAD, CAS, single-use tokens and their private records. Regression tests check that another instance, even with a real local process, does not obtain authority from the original singleton.
 
-## Interfaces Paged compartidas
+## Shared paged interfaces
 
-Estas entradas de `@lianum/mobile-protocol` conservan implementación y tipos
-compartidos para móvil y SDK:
+These entries from `@lianum/mobile-protocol` maintain implementation and shared types for mobile and SDK:
 
-| Entrada | Interfaz | Responsabilidad |
+| Export | Interface | Responsibility |
 | --- | --- | --- |
-| `device/paged-operation-runner-v3` | `runDevicePagedOperationV3({command, isUnconfirmedReply, onProgress, onActivity, signal, maxCommands})` | Pide `NEXT_COMMAND` y consume el siguiente comando original; informa finalización, espera o resultado adverso. El puerto acepta la respuesta SDK en custodia antes de devolver su copia privada; el clasificador sólo identifica errores de esa misma instancia SDK. |
-| `device/paged-economic-view-v3` | `normalizeDevicePagedEconomicRequestV3`, `normalizeDevicePagedEconomicViewV3` | Valida DATA de costes, beneficiario, salidas y ledger. Sus tipos incluyen `DevicePagedEconomicViewV3` y `DevicePagedEconomicLedgerV3`; no emite una marca SDK ni un permiso. |
-| `device/paged-payout-settlement-v3` | `runDevicePagedPayoutSettlementV3({plan, command, readState, readOutputs, prepareWithdrawal, approve, onProgress, signal})` | Tras la retirada del cambio, compone W39 originales y comprueba por salida NF, destinatario, importe y conservación del ledger. Los costes nativos quedan separados de los pagos en unidades de la nota. |
-| `device/paged-wallet-portfolio-v3` | `normalizeDevicePagedPortfolioRequestV3`, `normalizeDevicePagedWalletPortfolioV3` | Valida DATA de salidas, emisión, gasto y reserva del mismo bloque; no emite permisos ni autoridad SDK. |
+| `device/paged-operation-runner-v3` | `runDevicePagedOperationV3({command, isUnconfirmedReply, onProgress, onActivity, signal, maxCommands})` | Requests `NEXT_COMMAND` and consumes the following original command; reports completion, waiting or an adverse outcome. The port accepts the SDK response in custody before returning its private copy; the classifier only recognizes errors from that same SDK instance. |
+| `device/paged-economic-view-v3` | `normalizeDevicePagedEconomicRequestV3`, `normalizeDevicePagedEconomicViewV3` | Validates cost, beneficiary, output and ledger DATA. Their types include: `DevicePagedEconomicViewV3` and `DevicePagedEconomicLedgerV3`; does not issue an SDK brand or permission. |
+| `device/paged-payout-settlement-v3` | `runDevicePagedPayoutSettlementV3({plan, command, readState, readOutputs, prepareWithdrawal, approve, onProgress, signal})` | After the change is withdrawn, it composes original W39 and checks the output NF, recipient, amount and retained ledger. The native costs are separated from payments in units of the note. |
+| `device/paged-wallet-portfolio-v3` | `normalizeDevicePagedPortfolioRequestV3`, `normalizeDevicePagedWalletPortfolioV3` | Validates output, issuance, spending and reservation DATA at the same block; it does not issue permits or SDK authority. |
 
-Estos codecs y helpers no importan backend ni poseen RPC, claves, custodia o
-capacidad de envío. Los puertos suministrados por la composición autorizada
-mantienen las firmas, permisos frescos y aceptación originales; un callback o
-un plan normalizado no sustituye esas fronteras.
+These codecs and helpers do not import backend or possess RPC, keys, custody or broadcast capability. The ports supplied by the authorized composition maintain the original signatures, permits and acceptance; a callback or normalized plan cannot substitute for those boundaries.
 
-El runner recupera una respuesta de estado caducada, adelantada o identificada
-como perdida por esa misma instancia del SDK mediante un máximo de dos
-`OBSERVE_GRAPH` y una nueva planificación con `NEXT_COMMAND`.
-No repite a ciegas la prueba, el efecto ni el envío nativo que perdió respuesta;
-las demás guardas de consentimiento y caducidad conservan sus errores originales.
+The runner recovers state replies marked expired, advanced or lost by the same SDK instance using at most two `OBSERVE_GRAPH` reads and fresh `NEXT_COMMAND` planning. It does not blindly repeat the proof, effect or native broadcast whose response was lost; the other consent and expiration guards retain their original errors.
 
-`READ_PORTFOLIO` compone un canal cifrado de sólo lectura con la autoridad de
-notas original. Une el mismo bloque, grafo, ROOT y revisión con los CM/NF/valores
-de SOURCE, CHANGE, RECOVERY y PAYOUT abiertos por el Vault del dispositivo. Una
-salida PAYOUT emitida exige tanto la entrega MINED original del proveedor como
-la inclusión en la raíz de salidas aceptada. No genera pruebas, firmas nativas
-ni retiradas, y conserva el permiso original de quince segundos.
+`READ_PORTFOLIO` composes a read-only encrypted channel with the original note authority. It binds the same block, graph, ROOT and revision with the CM/NF/SOURCE, CHANGE, RECOVERY and PAYOUT values opened by the device's Vault. An issued PAYOUT output requires both the provider’s original MINED delivery and inclusion in the accepted output root. It does not generate proofs, native signatures or withdrawals, and retains the original fifteen-second permit.
 
-El actor móvil agrupa DATA verificada por activo, dominio, contrato, política,
-unidad y precisión. Excluye duplicados, salidas no emitidas y valoraciones de
-subyacente; informa de cobertura sólo de las conexiones y custodias registradas.
-Su ventana de observación conserva el corte original al cerrar un transporte,
-pero caduca a los quince segundos y se revoca al escribir la custodia. Esa DATA
-no conserva autorizaciones ni constituye permiso de gasto.
+The mobile actor groups DATA verified by asset, domain, contract, policy, unit and precision. It excludes duplicates and unissued outputs and underlying valuations; reports coverage only of registered connections and custody instances. Its observation window retains the original snapshot when transport closes, expires after fifteen seconds and is revoked by a custody write. This DATA does not retain authorizations and does not constitute a permit for expenditure.
 
-Mixed añade una composición de retención autenticada de cinco runtimes y
-cuatro componentes. Uniswap captura su fixture original de cinco contratos,
-router, autoridad privada D27 y configuración, con formato y tokens propios.
-La composición Native de siete tokens y el fixture histórico de siete
-contratos conservan sus formatos. La captura requiere ambos listeners drenados,
-proveedor quieto y lecturas canónicas; la reapertura sólo admite tokens originales
-del mismo supervisor y mantiene los mismos ledgers y journals. Es cierre ordenado.
+The Mixed path adds authenticated retained composition of five runtimes and four components. Uniswap captures its original five-contract fixture, router, private authority D27 and configuration, with its own framing and tokens. The Native composition of seven tokens and the historical fixture of seven contracts retain their formats. Capture requires both listeners drained, a quiescent provider and canonical reads; reopening only supports original tokens from the same supervisor and maintains the same leadgers and journal. This is orderly closure, not arbitrary process-loss recovery.
 
-`READ_ECONOMIC_SETTLEMENT` sólo se admite con grafo FULFILLED, sin trabajo ni
-pendiente. El backend lo entrega cifrado por
-[`createDevicePagedNativeEconomicChannelV3`](../packages/backend/src/operations/local/device-paged-native-economic-channel-v3.mjs),
-con un lector privado enlazado al proveedor y a la autoridad originales. Ese
-callback consulta hechos y ledger en la misma cabeza del status; no prueba,
-firma ni ejecuta una retirada.
+`READ_ECONOMIC_SETTLEMENT` is only supported with FULFILLED graph, with no active work or pending result. The backend delivers it encrypted by [`createDevicePagedNativeEconomicChannelV3`](../packages/backend/src/operations/local/device-paged-native-economic-channel-v3.mjs) with a private reader linked to the original provider and authority. That callback consults facts and ledger at the same state head; it does not prove, sign or execute a withdrawal.
 
-El móvil obtiene `graphEconomicRequest()` y `graphEconomicReview(reply)` desde
-su [Vault original](../apps/mobile/src/custody/device-paged-note-vault-v3.ts).
-La revisión exige respuesta Original SDK y une descriptor, ROOT, revisión,
-grafo, raíz de autorización, CM, valor, NF y beneficiario con su propia custodia.
-El historial confirmado comprueba el destinatario de las salidas retiradas.
-[`wallet-session-v1.ts`](../apps/mobile/src/custody/wallet-session-v1.ts) emite
-`approveWalletSessionPagedSettlementV3(review, signal)` tras aprobación fuerte;
-`walletSessionPagedSettlementLeafV3(parent, id)` limita cada hoja a su salida,
-y `closeWalletSessionPagedSettlementV3(parent)` la revoca. El alcance máximo es
-30 minutos en primer plano; cada comando conserva su permiso de 15 segundos.
+The mobile gets `graphEconomicRequest()` and `graphEconomicReview(reply)` from its [Original Vault](../apps/mobile/src/custody/device-paged-note-vault-v3.ts). The review requires an original SDK response and binds descriptor, ROOT, revision, graph, root authorization, CM, value, NF and beneficiary with their own custody. Confirmed history checks the recipient of withdrawn outputs. [`wallet-session-v1.ts`](../apps/mobile/src/custody/wallet-session-v1.ts) issues `approveWalletSessionPagedSettlementV3(review, signal)` after strong approval; `walletSessionPagedSettlementLeafV3(parent, id)` limits each leaf to its exit, and `closeWalletSessionPagedSettlementV3(parent)` revokes it. The maximum scope is 30 minutes in the foreground; each command retains its 15-second permission.
 
-La salida Uniswap conserva su D27 y su custodia ExternalFlat independiente.
-[`observeDeviceExternalFlatReceptionV1`](../apps/mobile/src/api/device-external-flat-reception-observer-v1.mjs)
-compone el SDK y el Vault originales para una sola `OBSERVE_D27` de la misma
-recepción en `DELIVERY_UNKNOWN`, seguida de STATUS fresco. Comprueba descriptor,
-trabajo, ROOT, statement y hashes de prueba; no modifica una preparación PROVED,
-genera pruebas ni envía fondos. El resultado Paged abre el perfil de destino
-exacto después de drenar su transporte y exige la custodia ya existente. La
-cartera publica la lectura original de ese token; la terminación del grafo y el
-registro público de conexiones no acreditan saldo disponible ni permiso de gasto.
+The Uniswap exit retains its D27 and its independent ExternalFlat custody. [`observeDeviceExternalFlatReceptionV1`](../apps/mobile/src/api/device-external-flat-reception-observer-v1.mjs) composes the original SDK and Vault for a single `OBSERVE_D27` of the same reception in `DELIVERY_UNKNOWN`, followed by fresh STATUS. It checks descriptor, work, ROOT, statement and proof hashes. It does not change PROVED preparation, generate proofs or send funds. The Paged result opens the exact destination profile after draining its transport and requires existing custody. The portfolio publishes the original reading of that token; the completion of the graph and the public connection directory do not credit available balance or spending permit.
 
-Los agentes externos sólo pueden consumir un puerto autorizado de ese mismo
-recorrido. DTOs, perfiles públicos, semillas, plantillas y ciphertexts no se
-convierten en grants ni permiten reconstruir tokens. El `executor:null` de
-[`services/api-server/src/admission/run.mjs`](../services/api-server/src/admission/run.mjs) pertenece al perfil
-de admisión V1 TOP_UP/EXIT, distinto del executor Paged ligado a su cuenta
-original. Esta sección describe interfaces, no acredita aceptación financiera.
+External agents can only consume an authorized port from that same route. DTOs, public profiles, seeds, templates and ciphertexts cannot become branded capabilities or reconstruct tokens. The `executor:null` of [`services/api-server/src/admission/run.mjs`](../services/api-server/src/admission/run.mjs) belongs to the V1 TOP_UP/EXIT admission profile, other than the paged executor linked to its original account. These interfaces do not by themselves establish financial acceptance.
 
-## Comprobación y deuda pendiente
+## Verification and outstanding debt
 
 ```sh
 ./dev boundaries
 python3 -B scripts/development/module_boundaries.py --json
 ```
 
-El comprobador inspecciona imports literales, reexports e imports dinámicos con
-ruta literal en `apps/*/src` y `packages/*/src`. Rechaza entradas no exportadas,
-dependencias no declaradas, direcciones no permitidas y nuevos accesos privados
-entre paquetes. También controla ciclos entre paquetes y entre archivos. No
-carga el producto ni arranca redes; los imports calculados requieren revisión.
+The checker inspects literal imports, re-exports and literal-path dynamic imports in `apps/*/src` and `packages/*/src`. It rejects unexported entries, undeclared dependencies, forbidden dependency directions and new private accesses between packages. It also controls cycles between packages and between files. It does not load the product or start networks. Computed imports require review.
 
-El grafo de imports literales deja **cero ciclos entre paquetes, cero imports
-privados activos entre paquetes y cero enlaces activos hacia tests/experiments**.
-Los **13 enlaces de soporte históricos** pertenecen a `packages/protocol`,
-congelado y excluido del producto activo. Esos resultados describen el grafo
-inspeccionado, no el porcentaje de funcionalidad terminada.
+The literal import graph leaves **zero cycles between packages, zero active private imports between packages and zero active links to tests/experiments**. The **13 historical support links** belong to the frozen `packages/protocol` tree, and excluded from the active product. These results describe the graph inspected, not the percentage of functionality completed.
 
-Los launchers activos de assembly y pagos pertenecen a proofs, con entrypoints
-fijos y URLs literales. La política, recursos y CRS se implementan en
-`components/src/resources/`; los cargadores conservan su API y comprueban su
-ubicación. Los inventarios de ejecución leen y calculan hashes sobre listas
-fijas de fuentes reales, sin aceptar los hashes devueltos por esas mismas
-implementaciones. Las cargas calculadas que no son literales siguen requiriendo
-revisión y una declaración de recursos para su empaquetado.
+Active assembly and payout launchers belong to proofs, with fixed entrypoints and literal URLs. The policy, resources and CRS are implemented in `components/src/resources/`; Loaders keep their APIs and check their location. The execution inventories read and calculate hashes on fixed lists from real sources, without accepting the hashes returned by those same implementations. Computed loads still require review and explicit packaging resources.
 
-El gateway paginado usa tres imports canónicos declarados en
-`scripts/layout.json`, para conservar una sola autoridad también desde
-compatibilidad. Las fuentes experimentales fijadas por esa generación
-permanecen intactas como evidencia y no se ejecutan desde ese gateway.
+The paged gateway uses three declared canonical imports in `scripts/layout.json` to to maintain a single authority also from compatibility. The experimental sources fixed by that generation remain intact as evidence and are not executed from that gateway.
 
-Queda **un componente cíclico interno de 133 archivos y 756 imports**, frente a
-los 154 archivos y 845 imports del corte anterior. Están fuera de él la mecánica
-EVM, el reloj SOURCE, los tres mecanismos de bridges, el actor móvil y la sesión
-nativa: cada familia conserva sus registros privados y recibe contratos fijos.
-La composición original conserva las funciones públicas y no acepta sustitutos.
-La implementación SOURCE (`native-original-source-lifecycle-backend-v1.mjs`)
-también está fuera del SCC; su composición canónica sigue dentro. Sus mapas son
-privados por instancia. La composición fija dieciséis loaders diferidos y diez
-dependencias originales; los 185 miembros públicos conservan sus firmas y guardas.
+**An internal cyclical component of 133 files and 756 imports** remains, compared to 154 files and 845 imports from the previous cut. The mechanics of EVM, the SOURCE journal, the three bridge mechanisms, the mobile actor and the native session are outside of it: each family retains its private records and receives fixed contracts. The original composition retains public functions and does not accept substitutes. The SOURCE implementation (`native-original-source-lifecycle-backend-v1.mjs`) is also outside the SCC; its canonical composition is still inside. Their maps are private by instance. The composition sets sixteen deferred loaders and ten original dependencies; the 185 public members retain their signatures and guards.
 
-Las implementaciones `wrapped-recovery-backend-v1.mjs`,
-`external-defi-catalogue-recovery-backend-v1.mjs` y
-`device-external-flat-source-graph-backend-v1.mjs` también están fuera del SCC.
-Sus composiciones conservan los propietarios originales y los registros privados
-por instancia. Las partes/checkpoints GRAPH, términos de preparación y nacimiento
-retenido Aave/Uniswap tienen contratos inferiores completos bajo tipado estricto.
-Las guardas usan snapshots separados de los objetos del llamador durante sus
-lecturas asíncronas. La implementación grande de GRAPH sigue recibiendo muchos
-contratos; esta separación no acredita que toda su cohesión o tipado estén cerrados.
+Implementations `wrapped-recovery-backend-v1.mjs`, `external-defi-catalogue-recovery-backend-v1.mjs` and `device-external-flat-source-graph-backend-v1.mjs` are also outside the strongly connected component (SCC). Their compositions retain the original owners and private records by instance. GRAPH parts/checkpoints, preparation terms and retained Aave/Uniswap birth records have complete lower-level contracts under strict typing. The guards use snapshots separated from the caller objects during their asynchronous readings. The large implementation of GRAPH continues to receive many contracts; this separation does not establish complete cohesion or typing.
 
-La implementación `native-value-account-backend-v2.mjs` también está fuera
-del SCC. La entrada canónica conserva los 103 miembros públicos y los siete
-loaders originales; el comprobador estático sigue la binding congelada concreta
-hasta su import literal. La regresión usa almacenamiento cifrado real y rechaza
-handles copiados y de otras familias, sin recursos ni pruebas financieras.
+Implementation `native-value-account-backend-v2.mjs` is also outside the SCC. The canonical entry retains the 103 public members and the seven original loaders; the static checker follows the concrete frozen binding until its literal import. Regression uses actual encrypted storage and rejects copied handlers and other families, without financial resources or financial acceptance.
 
-El lector acotado de archivos, la cola física GRAPH y la lectura de portfolio
-tienen cuerpos completos bajo tipado estricto. No poseen claves ni autoridad de
-cuenta: el almacén conserva AEAD/CAS, el bootstrap selecciona las entradas físicas
-originales y la autoridad de portfolio conserva su bloqueo y sus hijos registrados.
-Las pruebas importan estos propietarios completos, sin extraer sus funciones.
+The scoped record reader, physical GRAPH queue and portfolio reader have complete bodies under strict typing. They have no keys or account authority: the store retains AEAD/CAS, the bootstrap selects the original physical entries and the portfolio authority retains its lock and its registered children. Tests import these complete implementations rather than extracting individual functions.
 
-La retención de certificados (`original-facts-retention-v2.mjs`) conserva las
-comparaciones antes y después de cobertura, pero su emisión y WeakMap siguen en
-el operador. La preparación de vaults (`vault-preparation.mjs`) conserva nonce,
-referencia, quote history y bloqueo de envío; la custodia y el serial lock siguen
-en el adaptador. Sus pruebas importan los cuerpos completos.
+The retention of attestations (`original-facts-retention-v2.mjs`) retains comparisons before and after coverage, but their issuance and WeakMap remain in the operator. Vault preparation (`vault-preparation.mjs`) retains nonce, reference, quote history and broadcast lock; custody and serial lock remain in the adapter. Tests import the complete implementations.
 
-Los lectores `inputUint`/`inputPath` están junto a los snapshots en
-`components/plain-input`. Los clientes de datos no necesitan cargar preparación
-de witnesses ni validación de jobs. Las reexports de preparación conservan su
-API. Los consumidores migrados conservan sus algoritmos y la prueba con permisos
-Node permite leer únicamente el componente común.
+Readers `inputUint`/`inputPath` are next to the snapshots in `components/plain-input`. Data clients do not need to load witness preparation or job validation. Preparation re-exports preserve the API. Migrated consumers retain their algorithms and the Node permission test allows you to read only the common component.
 
-El grupo restante reúne cinco familias principales: recuperación wrapped
-(`wrapped-recovery-authority-v1.mjs`), composición SOURCE
-(`native-original-source-lifecycle-v1.mjs`), autoridad nativa
-(`native-value-account-authority-v2.mjs`), servicio GRAPH del dispositivo
-(`device-external-flat-source-graph-service-v1.mjs`) y recuperación del catálogo
-DeFi (`external-defi-catalogue-recovery-v1.mjs`). Sus relaciones bidireccionales
-siguen visibles; no son cinco componentes independientes ni deuda resuelta.
+The remaining group brings together five main families: wrapped recovery (`wrapped-recovery-authority-v1.mjs`), SOURCE composition (`native-original-source-lifecycle-v1.mjs`), native authority (`native-value-account-authority-v2.mjs`), device GRAPH service (`device-external-flat-source-graph-service-v1.mjs`) and recovery of the DeFi catalogue (`external-defi-catalogue-recovery-v1.mjs`). Their two-way relationships remain visible; they are not five independent components or resolved dependency debt.
 
-La selección estricta tiene **100 entradas explícitas**. Se comprueban los cuerpos
-completos nuevos de actor, sesión nativa, depósitos y ejecución de cuenta, además
-de los mecanismos de journal, recuperación, observación y formatos extraídos.
-El lector I84 y el validador de autorizaciones retenidas tienen cuerpos completos
-tipados. También están tipados el cierre BTC y los recibos SOURCE de datos,
-que no emiten autoridad de cuenta. Los números canónicos y hashes de claims pertenecen a `value-codecs`;
-sus consumidores no necesitan importar el protocolo/quorum para decodificar bytes.
-Siguen fuera los cuerpos superiores de autoridad nativa, keeper duradero,
-sesión general, estado económico, composición SOURCE y recuperación GRAPH/DeFi.
-Un contrato tipado de un puerto no acredita el tipado de su implementación.
+Strict selection has **100 explicit entries**. We check the new complete bodies of actor, native session, deposits and account execution, in addition to the mechanisms of journal, recovery, observation and extracted formats. Reader I84 and the validator of retained authorizations have complete typed implementations. BTC closure and SOURCE receipts of data, which do not issue account authority, are also typed. Canonical claim integers and hashes belong to `value-codecs`; their consumers do not need to import the protocol/quorum to decode bytes. Higher-level native authority, durable keeper, general session, economic state, SOURCE composition and GRAPH/DeFi recovery implementations remain outside that strict selection. A typed contract of a port does not prove the type of its implementation.
 
-SOURCE conserva la emisión y consumo de sus tokens privados de checkpoint y
-llama directamente al reconciliador de datos del journal. Ya no delega esa
-lectura a la autoridad de cuenta. Las entradas wrapped de cuenta, ejecutor,
-terminal, claims y sesión tienen consumidores directos a sus propietarios.
-Las nueve fachadas privadas retiradas se conservan como `.source` con hash
-en `packages/proofs/evidence/retired-facades`, fuera de `src` y sin copias de
-ejecución. Los nombres antiguos de sus publicaciones se resuelven como evidencia;
-sus imports históricos no se siguen ni se ejecutan.
+SOURCE retains the emission and consumption of its private checkpoint tokens and calls directly the journal data reconciler. It no longer delegates that read to account authority. Typed account, executor, terminal, claim and session entry points have direct consumers to their owners. The nine private facades removed are preserved as `.source` with hash in `packages/proofs/evidence/retired-facades`, outside `src` and without copies of execution. Historical publication names resolve to evidence; their historical imports are neither followed nor executed.
 
-Las excepciones identifican consumidor y destino exactos. Las reubicaciones
-conservan su procedencia; no conceden permiso para añadir nuevas dependencias.
-`python3 -B scripts/development/module_boundaries.py --prune` retira únicamente
-excepciones que ya no se usan. No aprueba los nuevos ciclos detectados.
+Exceptions identify exact consumers and destinations. The relocations retain their origin; they do not grant permission to add new dependencies. `python3 -B scripts/development/module_boundaries.py --prune` removes only exceptions that are no longer used. It does not approve newly detected cycles.
 
-## Fuentes activas, recursos e histórico
+## Active sources, resources and history
 
-[`historical-module-inventory.json`](../scripts/historical-module-inventory.json)
-identifica las 42 parejas conservadas de engine/protocol y los 63 archivos de
-`packages/protocol/src`. `active` indica dónde desarrollar; `historical`
-conserva el original con su SHA-256. La comprobación detecta modificaciones,
-ausencias y nuevas fuentes dentro del histórico.
+[`historical-module-inventory.json`](../scripts/historical-module-inventory.json) identifies the 42 conserved pairs of engine/protocol and the 63 files of `packages/protocol/src`. `active` indicates where to develop; `historical` retains the original with its SHA-256. The check detects modifications, absences and new sources within the historical.
 
-Las aplicaciones no consumen protocol. Las pruebas históricas pueden hacerlo,
-pero siguen faltando algunos destinos del material original, enumerados en
-[`static-check-exceptions.json`](../scripts/development/static-check-exceptions.json).
-Conservar ese inventario no implica que toda la generación histórica sea ejecutable.
+Applications do not consume protocol. Historical evidence may do so, but some original targets are missing, as recorded in [`static-check-exceptions.json`](../scripts/development/static-check-exceptions.json). Keeping that inventory does not mean that the entire historical generation is executable.
 
-`environment` distingue fuentes editables y recursos. `ROOT`, `FLAT` y `GOLDEN`
-del catálogo describen ubicaciones retenidas; no son rutas donde editar código.
-Un bundle candidato lleva su descriptor `runtime-resources.json`, cierre de
-fuentes y recursos declarados con hashes. Cuando existe ese descriptor, no usa
-como respaldo el runtime histórico de la máquina. Los verificadores originales
-siguen decidiendo si las herramientas, claves, fuentes y pruebas son aceptables.
+`environment` differentiates editable sources and resources. `ROOT`, `FLAT` and `GOLDEN` of the catalog describe retained locations; they are not routes to edit code. A portable candidate carries its `runtime-resources.json` descriptor, source closure and hash-declared resources. When that descriptor exists, it does not fall back to the host’s historical runtime. Original verifiers continue to decide whether tools, keys, sources and proofs are acceptable.
 
-El lector I84 actual usa una cápsula pública sellada por SHA-256 y vuelve a
-autenticar los 244 archivos originales desde los recursos declarados. El código
-del lector histórico se conserva como `.source`, sin ejecutarlo. El bundle
-paginado/wrapped/I84 pasa con Node autorizado a leer solo dentro del candidato;
-su traslado no valida por sí solo el arranque de todos los workers económicos.
+The current I84 reader uses a public capsule sealed by SHA-256 and reauthenticates the original 244 files from declared resources. The code of the historical reader is preserved as `.source`, without execution. The paged/wrapped/I84 bundle passes with Node authorized to read only within the candidate; its transfer does not in itself validate the start of all economic workers.
 
-Los comandos `./dev bundle build`, `verify` y `run` están en
-[COMMANDS.md](COMMANDS.md). Preparar o trasladar un bundle no publica una release
-ni acredita una ejecución económica. La compatibilidad de generaciones previas
-sigue disponible de forma explícita; consulta [STRUCTURE.md](STRUCTURE.md).
+Commands `./dev bundle build`, `verify` and `run` are at [COMMANDS.md](COMMANDS.md). Preparing or transferring a bundle does not publish a release or certify an economic execution. The compatibility of previous generations remains explicitly available; consult [STRUCTURE.md](STRUCTURE.md).
 
-El recorrido fijo BTC→SOL para SPL SOURCE pertenece a
-`operations/recovery/device-root-spl-source-execution-v4.mjs`; HTTP compone los
-recursos originales y delega el ciclo completo. Su prueba importa el propietario
-real, con puertos financieros inferiores explícitamente inertes. El cifrado de
-estados de SOURCE pertenece a `source-journal/native-state-cipher-v1.mjs`, bajo
-tipado estricto; no tiene autoridad, registro ni acceso al sistema de archivos.
-La orquestación SOURCE conserva sus guardas y funciones, ahora formateadas; su
-composición superior sigue pendiente de separación y tipado completo.
+The fixed route BTC→SOL for SPL SOURCE belongs to `operations/recovery/device-root-spl-source-execution-v4.mjs`; HTTP composes the original resources and delegates the entire cycle. Its test imports the actual implementation with explicitly inert lower financial ports. SOURCE state encryption belongs to `source-journal/native-state-cipher-v1.mjs`, under strict typing; has no authority, registry or filesystem access. The orchestration SOURCE retains its guards and functions, now formatted; its higher-level composition is still pending separation and complete typing.
 
-La carga de Solc pertenece a
-`packages/engine/src/execution/local/solidity-compiler-v1.mjs`. El compilador
-genérico y los perfiles Blue/Aave delegan sus comprobaciones y API C en este dueño,
-con los mismos pins originales y sin callbacks/imports remotos. El lector ABI
-oficial conserva la autenticación del árbol completo del SDK mediante el manifest
-original; ambos cargadores funcionan desde recursos trasladados, bajo Node sin
-permiso para leer fuera del paquete. Esto no acredita ejecución económica.
+Solc loading belongs to `packages/engine/src/execution/local/solidity-compiler-v1.mjs`. The generic compiler and Blue/Aave profiles delegate their checks and C API to this owner, with the same original pins and no remote callbacks/imports. The official ABI reader retains the authentication of the entire SDK tree using the original manifest; both loaders operate from transferred resources, under Node without permission to read outside the package. This does not prove economic execution.

@@ -1,78 +1,56 @@
-# Estructura del proyecto
+# Repository map
 
-## Aplicación y servicios
+Lianum separates the mobile application, independently deployed services, shared libraries, contracts and validation tools. Start with [the architecture](ARCHITECTURE.md) for the relationship between them.
+
+## Application and services
 
 ```text
-apps/
-  mobile/                         Aplicación Android/iOS
-services/
-  api-server/
-    src/
-      entry.mjs                   Selección de perfil de API
-      wallet-entry.mjs            Entrada de la API pública de wallet
-      admission/                  HTTP de admisión
-      authorization/              Autorizaciones y privacidad de sus registros
-      storage/                    PostgreSQL y migraciones
-      original/                   Puentes y recuperación de generaciones anteriores
-    migrations/                   SQL versionado
-    tests/                        Pruebas del servicio y de persistencia
-  paeg-engine/
-    src/
-      entry.mjs                   Perfiles explícitos del motor local
-      bootstrap/                  Preparación y reapertura de estados retenidos
-      local/                      Arranques locales y del entorno remoto de preparación
-      public/                     Operador de testnets, lectura y control de permisos
-    tests/
+apps/mobile/                 React Native/Expo wallet and agent interface
+services/api-server/         Authenticated public API and deployment composition
+services/agent/              Persistent conversation, model/voice and push adapters
+services/paeg-engine/         Financial startup, execution and retained-state recovery
+infra/google-cloud/          API/agent and engine deployment tooling
 ```
 
-La API publicada en Google Cloud se instala con la configuración de `infra/google-cloud/api-server`. El motor remoto tiene su instalación independiente en `infra/google-cloud/paeg-engine`. Que exista código de arranque no acredita que un servicio desplegado esté operativo.
+The gateway and agent are separate processes on the wallet API host. The engine has an independent host and service. `services/paeg-engine/src/entry.mjs` selects explicit profiles; `bootstrap`, `local` and `public` own preparation, local composition and public-testnet operation. A deployment bundle's `candidate/` and `infra/` layout does not change source ownership.
 
-El empaquetador del motor conserva una estructura de entrega estable (`candidate/` e `infra/`). La ubicación de un fichero en esa entrega no cambia su responsabilidad en el árbol de desarrollo: los módulos ejecutables del operador se mantienen en `services/paeg-engine/src`.
+## Shared libraries
 
-## Bibliotecas
+| Package | Responsibility |
+| --- | --- |
+| `backend` | Account composition, reusable APIs, network adapters, providers, execution and DeFi |
+| `engine` | Graph rules, notes, dependencies, settlement, recovery and shared mechanisms |
+| `agent` | Durable conversation, tools, memory, followups, observation and voice coordination |
+| `sdk` | Agent proposals, preparation/read contracts and shared client entry points |
+| `proofs` | Proof workers, verification, toolchains and authenticated cryptographic resources |
+| `crypto` | Keys, signatures, addresses, cryptographic encoding and portable primitives |
+| `components` | Circuit components, codecs, integrity and resource policy |
+| `custody` | Ownership and authorized transitions of claims |
+| `mobile-protocol` | Shared wire messages, authorization types and client models |
+| `environment` | Explicit source/resource roots and portable bundle resolution |
+| `chains` | Retained native Tron driver |
+| `protocol` | Frozen compatibility generation, verified by inventory; not an active application |
 
-| Paquete | Contenido |
-|---|---|
-| `backend` | Cuentas, APIs reutilizables, proveedores, conectores de redes, ejecución y DeFi. |
-| `engine` | Reglas de operaciones, notas, dependencias, cierre, recuperación y SDK. |
-| `proofs` | Procesos de prueba ZK, verificadores y control de los recursos criptográficos. |
-| `crypto` | Claves, firmas, direcciones y codificación criptográfica. |
-| `components` | Componentes de circuitos, codificación e integridad. |
-| `custody` | Propiedad y transiciones de reclamaciones. |
-| `mobile-protocol` | Mensajes, autorizaciones, tipos y modelos compartidos por clientes. |
-| `environment` | Rutas y selección explícita de recursos. |
-| `chains` | Driver nativo de Tron. |
-| `protocol` | Compatibilidad de generaciones anteriores. Sus fuentes congeladas se verifican por inventario. |
+Circuit projects live under `packages/proofs/programs`. Required retained sources and artifacts live under `packages/proofs/evidence`; `.source` files are authenticated data, not alternative executable implementations. See [module ownership](MODULES.md) and [source generations](SOURCE-GENERATIONS.md).
 
-Los proyectos de circuitos y sus herramientas están en `packages/proofs/programs`. Los circuitos de la generación anterior están junto a `packages/protocol`. Las mediciones de rendimiento están en `scripts/engine/diagnostics`, fuera de los programas del producto.
+## Contracts and validation
 
-## Contratos, infraestructura y validación
+- `contracts/engine`: engine contracts and supported compatibility paths.
+- `contracts/wallet`: custody, deposits, withdrawals, DeFi and Solana programs.
+- `contracts/protocol`: contracts from the historical generation.
+- `scripts/development`: `./dev`, environment setup, integrity checks and maintenance.
+- `scripts/validation`: deposit, claim and SDK validation.
+- `scripts/engine/demos`: maintained simulations and their small auxiliary client.
+- `scripts/engine/diagnostics`: performance and diagnostic tools.
+- `tests/integration`: composed workflows across components and networks.
+- Package/service `tests` directories: focused regressions owned by each component.
 
-- `contracts/engine`: contratos del motor y recorridos compatibles.
-- `contracts/wallet`: custodia, ingresos, retiradas, DeFi y programas Solana.
-- `contracts/protocol`: contratos de la generación anterior.
-- `infra/google-cloud/api-server`: máquina y entrega de la API pública.
-- `infra/google-cloud/paeg-engine`: máquina, entrega y herramientas de operación del motor.
-- `infra/google-cloud/network`: configuración compartida de red.
-- `scripts/development`: comando `./dev`, comprobaciones y mantenimiento del entorno.
-- `scripts/development/profiles`: arranques de desarrollo para redes y recorridos específicos.
-- `scripts/validation`: validaciones de ingresos, reclamaciones y SDK.
-- `scripts/engine/demos`: simulaciones mantenidas y su pequeño cliente auxiliar.
-- `tests/integration`: recorridos completos entre componentes.
-- `packages/backend/tests/api/wallet`: cobertura HTTP y SDK conservada tras retirar la interfaz web local.
+The old local web application has been retired. Its retained HTTP/browser fixtures test compatibility; they are not a second current product UI.
 
-## Evidencia y recursos
+## Generated resources and history
 
-`archive` y `experiments` ya no forman parte del árbol. El historial general está en Git.
+`.internal/dev` holds verified tools, retained public objects and reports. `.internal/runtime` contains resources required by compatibility readers. `.local` contains private state, recovery data, development networks, reports and backups. Dependencies live in `node_modules`. These directories are excluded from Git.
 
-`packages/proofs/evidence` contiene sólo material que aún consumen lectores o preparadores: fuentes originales autenticadas por hash, metadatos de compilación y evidencia necesaria para compatibilidad. Los archivos `.source` se leen como datos; no crean rutas alternativas para ejecutar código histórico.
+The resource inventory is [`scripts/development/resources/public-resources.json`](../scripts/development/resources/public-resources.json). Use `./dev resources status` to inspect classification and `./dev clean` for explicitly regenerable paths. Never assume an entire `.local` tree is disposable.
 
-Los nombres anteriores pueden seguir apareciendo como etiquetas dentro de manifiestos inmutables. Los lectores verifican sus bytes y resuelven su ubicación actual de forma explícita. Cambiar una etiqueta histórica no equivale a conservar su identidad.
-
-- `.internal/dev`: herramientas, objetos públicos retenidos e informes de comprobación.
-- `.internal/runtime`: recursos e instalación compatible requerida por algunos lectores.
-- `.local`: estados privados, recuperación, redes de desarrollo, resultados y respaldos.
-- `node_modules`: dependencias instaladas.
-- `scripts/development/resources/public-resources.json`: inventario de recursos públicos que todavía necesita la preparación.
-
-El editor oculta los directorios generados. `./dev resources status` permite inspeccionar su clasificación sin leer el contenido de la custodia. `./dev clean` utiliza rutas de caché explícitas; no considera prescindible todo un directorio por llamarse `.local`.
+Current documentation starts at [docs/README.md](README.md). Dated engineering records live in [docs/history](history/README.md). Earlier archive labels can remain inside immutable manifests as provenance; they do not imply those historical directories are active source roots. Presentation working files and large videos remain local until final delivery packaging.

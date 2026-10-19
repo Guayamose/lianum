@@ -1,6 +1,3 @@
-# Herramientas del protocolo
+# Protocol Tools
 
-`proofs/` contiene compilación, claves y workers; `integration/` los
-recorridos de cuenta y grafo; `diagnostics/` las comprobaciones; y `lib/`
-las utilidades compartidas. Elige un archivo concreto y ejecútalo desde la
-raíz mediante `./dev node`.
+`proofs/` contains compilation, keys and workers; `integration/` account and graph journeys; `diagnostics/` checks; and `lib/` shared profits. Choose a specific file and run it from the root using `./dev node`.

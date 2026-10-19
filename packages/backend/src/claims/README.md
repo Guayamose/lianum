@@ -1,12 +1,5 @@
-# Reclamaciones nativas
+# Native claims
 
-`authorization/` reúne admisiones, permisos y autoridades;
-`controller/` compone llamadas y estado del controlador;
-`ingress/` trata la entrada y el registro;
-`payouts/` controla pagos y quorum;
-`storage/` conserva registros y sesiones de vault;
-`operations/` agrupa operadores, auditoría y vistas de cartera;
-y `protocol/` define ABI, framing y datos de entrada.
+`authorization/` owns admission, permissions and authorities; `controller/` composes controller calls and state; `ingress/` handles incoming value and registration; `payouts/` controls payouts and quorum; `storage/` retains records and vault sessions; `operations/` contains operators, audits and portfolio views; `protocol/` defines ABI, framing and input data.
 
-`wrapped/` contiene las variantes wrapped con la misma separación funcional,
-incluida su recuperación. Pruebas en `packages/backend/tests/claims/`.
+`wrapped/` contains wrapped variants with the same separation, including recovery. Tests live in `packages/backend/tests/claims/`.

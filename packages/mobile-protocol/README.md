@@ -1,113 +1,76 @@
-# Protocolo público móvil
+# Mobile public protocol
 
-Contratos compartidos entre móvil, wallet, platform y backend. No contienen
-claves, dependencias de Node ni autoridad para acreditar fondos.
+Shared contracts for mobile, wallet clients, platform and backend. They contain no private keys, Node-only dependencies or authority to credit funds.
 
-`src/wallet/contracts/` contiene esquemas, validadores y revisiones que antes
-vivían en la app web. `src/wallet/client/view-model.mjs` contiene la proyección y
-el transporte manual compartido; usa un `fetchImpl` inyectado y conserva tokens
-solo en memoria. Está separado de los contratos y no accede al DOM. Las rutas
-anteriores de wallet son reexports de estas implementaciones, no otra copia.
+`src/wallet/contracts/` owns the schemas, validators and reviews previously located in the web client. `src/wallet/client/view-model.mjs` provides shared projection and explicit transport with an injected `fetchImpl`. Tokens stay in memory; it does not access the DOM. Former wallet paths re-export these implementations.
 
-`POST /v1/mobile/challenges` recibe `{ ownerPublicKey, intent }`. El `intent`
-contiene exactamente:
+## Authorize one operation
+
+`POST /v1/mobile/challenges` accepts `{ ownerPublicKey, intent }`. The intent has exactly these fields:
 
 ```js
 {
-  requestId,       // ID original ASCII de 16–64 caracteres
+  requestId,       // Original ASCII ID, 16–64 characters
   action,          // prepare | execute | reconcile | recover
   kind,            // TOP_UP | EXIT
   chain,           // ethereum | base | arbitrum | bnb | solana | bitcoin | tron
-  assetId,         // Identidad de activo: 32 bytes hex lowercase
-  amountAtomic,    // Decimal canónico u64 positivo
-  recipient,       // Destino ASCII de 1–128 caracteres
-  maxFeeAtomic     // Decimal canónico u64
+  assetId,         // Asset identity: 32 bytes, lowercase hex
+  amountAtomic,    // Canonical positive u64 decimal
+  recipient,       // ASCII destination, 1–128 characters
+  maxFeeAtomic     // Canonical u64 decimal
 }
 ```
 
-El destino queda acotado en bytes; su formato, identidad nativa y asociación
-con una operación original deben verificarse en el adaptador económico real.
-El catálogo de redes no acredita soporte económico integrado en esas redes.
+The destination is byte-bounded. Its network format, native identity and binding to the original operation must be checked by the actual economic adapter. Inclusion in the chain enum does not establish end-to-end financial support.
 
-El servidor genera y conserva este challenge y devuelve `{ challenge }`:
+The server creates and retains the challenge, returning `{ challenge }`:
 
 ```js
 {
   version: 1,
   profile: 'LIANUM_MOBILE_AUTHORIZATION_V1',
-  origin,          // Origen HTTPS exacto del servicio
-  challengeId,     // 32 bytes hex
-  nonce,           // 32 bytes hex
-  expiresAt,       // Unix milliseconds; como máximo 300000 ms en el futuro
-  ownerPublicKey,  // secp256k1 sin comprimir: 04 + 64 bytes hex
+  origin,          // Exact HTTPS service origin
+  challengeId,     // 32 bytes, hex
+  nonce,           // 32 bytes, hex
+  expiresAt,       // Unix milliseconds; at most 300000 ms ahead
+  ownerPublicKey,  // Uncompressed secp256k1: 04 + 64 bytes, hex
   intent
 }
 ```
 
-`mobileAuthorizationMessage()` normaliza el orden de todos los campos y devuelve
-los bytes ASCII de `profile + '\n' + JSON.stringify(challenge)`. Se firma
-**SHA256 de esos bytes** con ECDSA secp256k1, formato compacto IEEE-P1363 de
-64 bytes, lowS. Es una autorización móvil con dominio propio; la compatibilidad
-de firma con el encoder histórico no autoriza a tratarla como una firma del
-frame de un grafo o de una nota Noir.
+`mobileAuthorizationMessage()` canonicalizes field order and returns the ASCII bytes of `profile + '\n' + JSON.stringify(challenge)`. Sign their **SHA256** with ECDSA secp256k1, compact 64-byte IEEE-P1363, lowS. This has its own authorization domain. Encoding compatibility does not make it a graph-frame or Noir-note signature.
 
-`POST /v1/mobile/authorizations` recibe sólo `{ challenge, signature }`.
-`normalizeMobileAuthorization()` valida formato y lowS, pero **no verifica la
-firma**. El servidor debe verificar el punto público y la firma, origen, caducidad,
-challenge original inalterado, términos y permisos del executor, y consumir la
-autorización duraderamente antes de un efecto. La idempotencia abarca propietario,
-ID original y acción; una repetición idéntica devuelve el resultado guardado,
-sin repetir el efecto. Un cambio de términos no sustituye una operación original.
+`POST /v1/mobile/authorizations` accepts only `{ challenge, signature }`. `normalizeMobileAuthorization()` checks format and lowS but **does not verify the signature**. Before any effect, the server must verify the public point/signature, origin, expiry, unchanged original challenge, executor terms and permissions, then consume authorization durably. Idempotency binds owner, original ID and action. An identical repeat returns the retained result without repeating the effect; changed terms cannot replace the original operation.
 
-La respuesta exacta contiene `{ status, requestId, operationState, retryAllowed }`:
+The response is exactly `{ status, requestId, operationState, retryAllowed }`:
 
-| status | operationState | Significado |
-|---|---|---|
-| ACCEPTED | ADMITTED | Autorización admitida, sin afirmar liquidación |
-| UNKNOWN | UNKNOWN | Resultado que requiere observación del original |
-| REJECTED | REJECTED | Rechazo declarado por el servicio |
+| status | operationState | Meaning |
+| --- | --- | --- |
+| ACCEPTED | ADMITTED | Authorization admitted; settlement is not asserted |
+| UNKNOWN | UNKNOWN | Observe the original operation to resolve the outcome |
+| REJECTED | REJECTED | Rejection declared by the service |
 
-`retryAllowed` siempre es `false`. No hay reenvíos automáticos ni deducciones de
-saldo a partir de esas respuestas. La clave privada nunca pertenece al contrato.
+`retryAllowed` is always `false`. These responses do not trigger automatic resubmission or establish a balance. The private key is never part of the contract.
 
-## Consulta del permiso original
+## Read an original authorization receipt
 
-`POST /v1/mobile/authorization-receipts` recibe exactamente:
+`POST /v1/mobile/authorization-receipts` accepts exactly:
 
 ```js
 {
-  authorization: { challenge, signature }, // Permiso original, conservado sin cambios
-  nonce,                                  // 32 bytes aleatorios hex lowercase
-  expiresAt,                              // Unix milliseconds: máximo 60000 ms
-  signature                               // Firma nueva de la consulta
+  authorization: { challenge, signature }, // Unchanged original permission
+  nonce,                                  // 32 random bytes, lowercase hex
+  expiresAt,                              // Unix milliseconds; maximum 60000 ms ahead
+  signature                               // New signature authorizing this read
 }
 ```
 
-`mobileReceiptMessage()` normaliza `{authorization,nonce,expiresAt}` y devuelve
-los bytes de `LIANUM_MOBILE_AUTHORIZATION_RECEIPT_V1 + '\n' + JSON.stringify(review)`.
-Se firman con el mismo SHA256/secp256k1/IEEE-P1363/lowS. El nonce debe ser distinto
-del nonce y challengeId originales. El servidor verifica ambas firmas, el origen
-y propietario originales y la caducidad de esta consulta nueva.
+`mobileReceiptMessage()` canonicalizes `{authorization,nonce,expiresAt}` and returns `LIANUM_MOBILE_AUTHORIZATION_RECEIPT_V1 + '\n' + JSON.stringify(review)` as bytes. It uses the same SHA256/secp256k1/IEEE-P1363/lowS signing convention. The new nonce must differ from both the original nonce and challengeId. The server checks both signatures, original origin/owner and the new read's expiry.
 
-La consulta admite un permiso original caducado **sólo para leer** una respuesta
-ya conservada. Debe coincidir con el desafío consumido, propietario, requestId,
-acción y términos originales. No crea ni consume desafíos, no llama al adaptador
-y no permite ejecutar una autorización caducada. Puede funcionar con el
-adaptador económico desconectado si PostgreSQL está disponible.
+An expired original permission is accepted **only to read an already retained admission response**. It must match the consumed challenge, owner, requestId, action and original terms. This read neither creates/consumes challenges nor calls the economic adapter. It cannot execute expired authorization, and can work with the adapter disconnected while PostgreSQL remains available.
 
-La respuesta exacta es
-`{version:1,profile,nonce,challengeId,action,authorization}`. `profile` es el dominio
-de consulta y `authorization` contiene la respuesta de admisión original de la
-tabla anterior. No contiene un saldo ni un resultado económico. Un 404, una
-caída de red o un timeout no acreditan rechazo ni ausencia de efectos: el cliente
-conserva la operación pendiente. Repetir una consulta válida sólo vuelve a leer;
-el cliente exige consentimiento nuevo y no inicia consultas automáticas.
+The response is exactly `{version:1,profile,nonce,challengeId,action,authorization}`. `profile` is the receipt domain; `authorization` is the original admission response above, not a balance or economic result. A 404, connection failure or timeout does not prove rejection or absence of effects. The client keeps the operation pending. A repeated valid read remains read-only; the client requires fresh consent and does not poll automatically.
 
-`GET /v1/mobile/state` sólo publica disponibilidad y capacidades. Su versión
-actual exige `privatePortfolio: null`; un futuro estado privado autenticado
-necesitará ampliar el contrato y sus verificaciones.
+`GET /v1/mobile/state` publishes availability and capabilities. Its current contract requires `privatePortfolio: null`; authenticated private state needs a separate contract extension and checks.
 
-Los tests en `apps/mobile/tests` y `services/api-server/tests` cubren framing, firma y
-admisión. La validación en dispositivo, recuperación, auditoría criptográfica y
-la conexión con operaciones económicas reales siguen siendo responsabilidades
-separadas.
+Tests in `apps/mobile/tests` and `services/api-server/tests` cover framing, signatures and admission. Device acceptance, recovery, cryptographic audit and actual financial integration have separate scopes.

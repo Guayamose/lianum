@@ -73,5 +73,7 @@
     "Public PAEG settlement and executor payout",
     "Public Uniswap/Aave/Morpho acceptance for any corresponding demo claim"
   ],
-  "unknownWithdrawalExcludedFromConfirmedTransactions": true
+  "unknownWithdrawalExcludedFromConfirmedTransactions": true,
+  "provenanceFilesAreLocal": true,
+  "provenanceNote": "sourceEvidence paths identify private local reports; this versioned file is the curated public summary. The hashes are public testnet transactions."
 }

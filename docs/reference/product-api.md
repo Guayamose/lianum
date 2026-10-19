@@ -1,342 +1,170 @@
-# API y SDK del producto
+# Product API and SDK
 
-## Entrada de SDK
+This reference describes the implemented wallet and financial contracts. Versioned DTO names do not imply a new URL with the same version suffix. For the conversational service's separate chat, streaming, voice, memory and notification API, see [the agent service](../../services/agent/README.md).
 
-`@lianum/sdk` reutiliza la implementación remota real de propuesta y lectura del
-agente. Las entradas `@lianum/sdk/agent`, `@lianum/sdk/agent/operation`,
-`@lianum/sdk/agent/preparation` y `@lianum/sdk/contracts` conservan nombres y
-versiones de protocolo. El paquete depende de protocolo/criptografía, nunca de
-`apps/mobile`. Los paths móviles anteriores reexportan la misma instancia para
-no duplicar brands privados del SDK. Por ahora es un paquete privado del
-workspace; no se ha publicado un paquete npm ni un SDK financiero universal.
+## SDK entry points
+
+`@lianum/sdk/agent`, `@lianum/sdk/agent/operation`, `@lianum/sdk/agent/preparation` and `@lianum/sdk/contracts` expose the existing proposal and read implementations. They depend on protocol/cryptography, not `apps/mobile`. Older mobile paths re-export the same instance so private SDK brands retain their identity. The SDK is a private workspace package, not a published universal financial SDK.
 
 ```js
 import {createDevicePagedAgentNativeProposalV4, createDevicePagedAgentApiV4}
   from '@lianum/sdk/agent';
 import {createDevicePagedAgentProposalLinkV4} from '@lianum/sdk/agent/operation';
 
-// agentKey es la clave del agente; descriptor fue compartido por la wallet.
+// The agent owns agentKey; the wallet shared the authenticated descriptor.
 const proposal = createDevicePagedAgentNativeProposalV4(agentKey, descriptor, terms, nodes);
 const link = createDevicePagedAgentProposalLinkV4(proposal);
-// Entregar link a la wallet: recibirlo no inicia ni autoriza pagos.
+// Receiving this link neither starts nor authorizes a payment.
 
-// Después de la autorización, la wallet comparte un readerGrant finito.
-// pinnedFetch es un transporte del host que verifica el certificado original.
+// After approval, the wallet shares a finite readerGrant.
+// pinnedFetch verifies the original endpoint certificate.
 const reader = createDevicePagedAgentApiV4({descriptor, agentKey, grant: readerGrant, fetchImpl: pinnedFetch});
 try { const progress = await reader.observe(); } finally { reader.close(); }
 ```
 
-Los DTO de `@lianum/sdk/contracts` documentan rutas de wallet; no dan esos
-permisos al agente. No se importa `@lianum/engine/api/sdk` para enviar operaciones
-reales: esa clase declara expresamente **SIMULATION_ONLY**.
+Wallet DTOs describe routes; importing them does not grant an agent wallet permissions. `@lianum/engine/api/sdk` explicitly declares **SIMULATION_ONLY** and is not the entry point for real financial submission.
 
-## Roles y autoridad
+## Roles and authority
 
-| Rol | Puede hacer | La autoridad procede de |
+| Role | Capabilities | Authority |
 | --- | --- | --- |
-| Wallet del usuario | Consultar, preparar, revisar, firmar los términos exactos y recuperar su operación | Custodia original del móvil y permisos firmados, con límites de destino, importe, plazo y presupuesto |
-| Agente externo | Firmar una propuesta DATA y consultar el progreso autorizado | Su propia clave más un permiso de lectura firmado por la wallet |
-| Motor remoto | Continuar el grafo ya aprobado y comprobar resultados | START_AUTOMATION original y sus límites; una propuesta o un estado JSON no autorizan a gastar |
-| MoonPay futuro | Checkout, identidad/eligibilidad y estado del proveedor | Configuración del comerciante y webhooks verificados; su estado no sustituye confirmación onchain |
+| User wallet | Read, prepare, review, sign exact terms and recover its operation | Original device custody and signed recipient, amount, deadline and budget limits |
+| External agent | Sign a data proposal and observe approved progress | Its own key plus a wallet-signed read grant |
+| Remote engine | Continue an approved graph and check results | Original START_AUTOMATION and its limits |
+| Future MoonPay integration | Checkout, eligibility and provider status | Merchant configuration and verified webhooks; separate on-chain confirmation |
 
-Las claves personales del usuario permanecen en su móvil. El SDK externo no
-importará custodia móvil ni aceptará callbacks genéricos que emitan permisos de
-gasto. La clave propia del agente sólo firma propuestas y pruebas de posesión de
-su permiso de lectura. `revoke()` del agente revoca **lectura**, no detiene el grafo;
-STOP_AUTOMATION pertenece al usuario y al recorrido ya existente.
+Personal wallet keys stay on the phone. The external SDK does not import mobile custody or accept generic callbacks that mint spending authority. The agent key signs proposals and proof of possession for its read grant. Agent `revoke()` revokes **reading**; stopping a graph requires the owner's existing STOP_AUTOMATION path.
 
-## Transportes y autenticación existentes
+## Authentication and transport
 
-1. API pública de wallet: HTTPS, `POST /v1/auth/challenge`, cuerpo exacto
-   `{origin,path,bodySHA256,devicePublicKey}`. La siguiente petición lleva
-   `{challenge,signature,body}`; `body` es la cadena JSON exacta cuyo hash se
-   firmó. Challenge de 60 s, ligado a origen/ruta/cuerpo/identidad y de un uso.
-2. Motor emparejado: descriptor, identidad, génesis, vencimiento, pairing y
-   certificado fijados. No sustituir endpoint, certificado o pairing por datos
-   recibidos con una propuesta. Graph y agente usan
-   `x-lianum-paged-pairing-id`; DeFi usa `x-lianum-defi-pairing-id`.
-3. Comandos privados de graph: challenge firmado ligado a acción, graphId,
-   jobId, rootId, revisión, hash del comando y destinatario de respuesta. El
-   contenido del comando y la respuesta privada usan el transporte cifrado
-   existente. Los objetos originales del SDK se conservan como tales; copiar
-   JSON no restaura sus capacidades.
-4. Lectura externa: grant V4/V5 firmado por la wallet y PoP de 15 s firmado por
-   la clave del agente. Nunca se comparte la clave de la wallet. El consumidor
-   necesita un transporte que verifique el certificado recibido originalmente;
-   no se recomendará desactivar TLS para usar el SDK.
+1. **Public wallet API:** HTTPS, `POST /v1/auth/challenge`, exact body `{origin,path,bodySHA256,devicePublicKey}`. The next request carries `{challenge,signature,body}`, where `body` is the exact JSON string whose hash was signed. The one-use challenge lasts 60 seconds and binds origin, route, body and identity.
+2. **Paired engine:** the descriptor fixes identity, genesis, expiry, pairing and certificate. A proposal cannot replace the endpoint, certificate or pairing. Graph/agent requests use `x-lianum-paged-pairing-id`; DeFi uses `x-lianum-defi-pairing-id`.
+3. **Private graph commands:** the signed challenge binds action, graphId, jobId, rootId, revision, command hash and reply recipient. Commands and private responses use the existing encrypted transport. Copying JSON does not restore an original SDK object's capabilities.
+4. **External observation:** a wallet-signed V4/V5 grant plus a 15-second proof of possession signed by the agent key. The transport verifies the original certificate. Wallet keys are never shared.
 
-Fuentes: `packages/crypto/src/native-wallet-auth-v1.mjs:4`,
-`packages/backend/src/public-wallet/http-service-v1.mjs:126`,
-`apps/mobile/src/api/device-paged-graph-api-v3.mjs:19`,
-`packages/backend/src/api/mobile/device-paged-agent-read-v4.mjs:31`.
+Sources: `packages/crypto/src/native-wallet-auth-v1.mjs`, `packages/backend/src/public-wallet/http-service-v1.mjs`, `apps/mobile/src/api/device-paged-graph-api-v3.mjs`, `packages/backend/src/api/mobile/device-paged-agent-read-v4.mjs`.
 
-## Rutas actuales
+## Routes
 
-Todas las rutas siguientes son existentes. Los sufijos de versión de los DTO y
-módulos no implican que haya una URL nueva con ese sufijo.
+Paths abbreviated after the first entry in a row use that row's prefix.
 
-| Grupo | Rutas | Consumidor |
+| Group | Routes | Consumer |
 | --- | --- | --- |
-| Servicio | GET `/health`, GET `/v1/fiat/capabilities` | Consulta pública limitada |
-| Descubrimiento | POST `/v1/wallet/connections` | Wallet autenticada; devuelve sólo perfiles de su misma identidad |
-| Wallet nativa | POST `/v1/native/account`, `/prepare`, `/submit`, `/status`, `/cancel` | Wallet autenticada; envío requiere transacción firmada localmente |
-| Graph | POST `/v1/mobile/paged-owner/graph/pairing`, `/challenges`, `/operations` | Wallet original emparejada |
-| Agente | POST `/v1/mobile/paged-owner/agent/challenges`, `/observations`, `/revocations` | Agente con grant de lectura |
-| Salida privada Uniswap | POST `/v1/mobile/external-flat-share/challenges`, `/status`; el listener activo original admite `/operations` sólo con OBSERVE_D27 | Wallet emparejada; las rutas de recuperación capturada son sólo challenges/status |
-| DeFi | POST `/v1/mobile/sepolia-defi-shares/challenges`, `/defi-proposals`, `/defi-reviews`, `/defi-read-review`, `/defi-authorizations`, `/reviews`, `/private-operations`, `/operations`, `/status` | Wallet DeFi original; propuestas requieren ACCESS firmado |
-| DeFi financiero | Mismo prefijo + `/financial-submit`, `/financial-observe`, `/withdrawal-review`, `/withdrawal-arm`, `/redeem-submit` | Wallet y job ya revisados; continuación original en el servidor |
-| MoonPay futuro | POST `/v1/fiat/sessions`, `/v1/fiat/orders/read`, `/v1/fiat/orders/reconcile`, `/v1/fiat/moonpay/webhook` | Wallet autenticada, excepto webhook crudo firmado por proveedor |
+| Service | GET `/health`, GET `/v1/fiat/capabilities` | Limited public reads |
+| Discovery | POST `/v1/wallet/connections` | Authenticated wallet; returns profiles for that identity |
+| Native wallet | POST `/v1/native/account`, `/prepare`, `/submit`, `/status`, `/cancel` | Authenticated wallet; submission requires a locally signed transaction |
+| Graph | POST `/v1/mobile/paged-owner/graph/pairing`, `/challenges`, `/operations` | Original paired wallet |
+| Financial agent reader | POST `/v1/mobile/paged-owner/agent/challenges`, `/observations`, `/revocations` | Agent with a read grant |
+| Private Uniswap output | POST `/v1/mobile/external-flat-share/challenges`, `/status`; the original active listener accepts `/operations` only for OBSERVE_D27 | Paired wallet; captured recovery exposes challenges/status only |
+| DeFi | POST `/v1/mobile/sepolia-defi-shares/challenges`, `/defi-proposals`, `/defi-reviews`, `/defi-read-review`, `/defi-authorizations`, `/reviews`, `/private-operations`, `/operations`, `/status` | Original DeFi wallet; proposals need signed ACCESS |
+| Financial DeFi | Same prefix plus `/financial-submit`, `/financial-observe`, `/withdrawal-review`, `/withdrawal-arm`, `/redeem-submit` | Reviewed wallet/job and original server continuation |
+| Fiat/MoonPay scaffolding | POST `/v1/fiat/sessions`, `/v1/fiat/orders/read`, `/v1/fiat/orders/reconcile`, `/v1/fiat/moonpay/webhook` | Authenticated wallet, except the raw provider-signed webhook |
 
-`GET /v1/fiat/orders/:id` aparece en el dispatcher interno de MoonPay, pero el
-servidor público actual sólo admite POST para órdenes. **No se ofrece ese GET
-como contrato publicado**. Para leer se usa `/v1/fiat/orders/read`.
+The internal MoonPay dispatcher contains `GET /v1/fiat/orders/:id`; the current public server accepts POST for order reads. Use `/v1/fiat/orders/read`, not that internal GET as a published contract.
 
-Fuentes: `packages/backend/src/public-wallet/http-service-v1.mjs:130`,
-`packages/backend/src/api/mobile/device-paged-agent-transport-v4.mjs:7`,
-`packages/backend/src/accounts/authority/device-sepolia-defi-shares-http-v4.mjs:12`,
-`packages/backend/src/accounts/authority/device-sepolia-defi-financial-http-v8.mjs:14`,
-`packages/backend/src/fiat/moonpay-http-v1.mjs:5`.
+Route owners: `packages/backend/src/public-wallet/http-service-v1.mjs`, `packages/backend/src/api/mobile/device-paged-agent-transport-v4.mjs`, `packages/backend/src/accounts/authority/device-sepolia-defi-shares-http-v4.mjs`, `packages/backend/src/accounts/authority/device-sepolia-defi-financial-http-v8.mjs`, `packages/backend/src/fiat/moonpay-http-v1.mjs`.
 
-## Recorrido nativo individual
+## A native transfer
 
-1. `/native/account` recibe la cuenta pública validada de la wallet y devuelve
-   saldo, disponible, reservado y bloque observado de la red configurada.
-2. `/native/prepare` recibe `{operationId?,account,recipient,amountAtomic}` y
-   devuelve la cotización exacta con máximo de comisión y vencimiento de 120 s.
-   El integrador conserva su `operationId` UUID antes de pedirla.
-3. La wallet muestra términos y firma la transacción con su custodia real.
-4. `/native/submit` recibe `{quoteId,rawTransaction}`. El servidor persiste la
-   transacción y su hash antes de transmitir; una repetición de los mismos bytes
-   **observa** el original. Otros bytes para esa cotización se rechazan.
-5. `/native/status` recibe `{id}`; acepta el identificador de operación o hash
-   retenido. `/native/cancel` sólo cancela una cotización todavía sin firmar.
+1. `/native/account` takes a validated public wallet account and returns observed balance, available/reserved amounts and the network block.
+2. `/native/prepare` takes `{operationId?,account,recipient,amountAtomic}` and returns an exact quote with a maximum fee and 120-second expiry. Retain the operation UUID before requesting it.
+3. The wallet displays the terms and signs with its real custody.
+4. `/native/submit` takes `{quoteId,rawTransaction}`. The server persists the bytes and hash before broadcasting. Repeating identical bytes observes the original; different bytes for that quote are rejected.
+5. `/native/status` takes `{id}`, accepting the retained operation identifier or hash. `/native/cancel` cancels only an unsigned quote.
 
-Estados del API: PREPARED, EXPIRED, SUBMITTED, UNKNOWN, CONFIRMED, FINALIZED,
-FAILED; `terminal` distingue observación definitiva. CANCELLED interno se muestra
-FAILED con su código de cancelación. La UI tiene una proyección más pequeña;
-no debe sustituir los estados del API al publicar el contrato.
+API states are PREPARED, EXPIRED, SUBMITTED, UNKNOWN, CONFIRMED, FINALIZED and FAILED. `terminal` identifies a definitive observation. Internal CANCELLED projects to FAILED with its cancellation code. The UI's smaller projection does not replace these API states. Source: `packages/backend/src/native-wallet/index.mjs`.
 
-Fuente: `packages/backend/src/native-wallet/index.mjs:16-47`.
+## A private plan and its agent
 
-## Operación privada y futuro agente
+The flow is: signed data proposal → local preparation and real quote → original economic review → user authorization → SIGN_GRAPH → START_AUTOMATION → server execution, payment and observation → result or original recovery. BEGIN/PREPARE/APPEND/SEAL do not authorize spending.
 
-Flujo actual: propuesta DATA firmada → preparación local y cotización real →
-revisión económica original → autorización del usuario → SIGN_GRAPH →
-START_AUTOMATION → ejecución/remuneración/observación en servidor → resultado o
-recuperación original. BEGIN/PREPARE/APPEND/SEAL no son una autorización de pago.
+The V4 wire proposal supports `ethereum-sepolia`, `bitcoin-testnet` and `solana-devnet`, up to 256 ordered nodes whose dependencies refer to earlier nodes. Each node fixes its recipient, delivered asset amount and agreed provider payout. The deployed conversational tool applies a smaller bounded proposal profile; the wire maximum is not a promise of unlimited agent execution.
 
-La propuesta V4 admite sólo `ethereum-sepolia`, `bitcoin-testnet` y
-`solana-devnet`, hasta 256 nodos ordenados con dependencias a nodos anteriores.
-Cada nodo fija destino, importe del activo y remuneración acordada al proveedor.
-El servidor obtiene la cotización y el usuario revisa los términos completos.
-El grafo paga al proveedor según su liquidación original; no se promete deshacer
-una entrega ya confirmada en otra red. Presupuesto y activo entregado no se suman.
+The server obtains the quote and the user reviews the full budget, deadlines, destinations, amounts, dependencies and quotes. Settlement pays the provider under the original terms. Confirmed delivery on another chain is not reversible; the note budget and delivered asset must not be added as if they were one unit.
 
-La revisión tiene que conservar presupuesto, plazos, destinos, importes,
-dependencias y cotizaciones. El grant de lectura queda ligado a descriptor,
-graphId, rootId, revisión y términos de automatización. Cambiar esos términos
-exige otra revisión/autorización. El agente no puede introducir más pagos durante
-la ejecución de una operación ya aprobada.
+The read grant binds descriptor, graphId, rootId, revision and automation terms. Changing those terms requires another review/authorization. The agent cannot append payments to an already approved operation.
 
-Graph admite comandos existentes: BEGIN_GRAPH, PREPARE_NATIVE_PAGE, APPEND_PAGE,
-SEAL_GRAPH, SIGN_GRAPH, OBSERVE_GRAPH, START_AUTOMATION, STOP_AUTOMATION y los
-comandos originales de prueba/reserva/recuperación/consulta económica. El SDK
-externo mínimo no publica un `submit(action, arbitraryBody)` que se haga pasar
-por la wallet.
+Graph commands include BEGIN_GRAPH, PREPARE_NATIVE_PAGE, APPEND_PAGE, SEAL_GRAPH, SIGN_GRAPH, OBSERVE_GRAPH, START_AUTOMATION, STOP_AUTOMATION and original proof/reservation/recovery/economic-read commands. The external SDK does not expose an arbitrary wallet-impersonating `submit(action, arbitraryBody)`.
 
-Progreso de lectura externo: PREPARED, RESERVED, FULFILLED, RECOVERED, `pending`,
-automatización y número de pasos completados/total. No devuelve todos los
-recibos ni permite ejecutar recuperación. `snapshot()` es una copia histórica
-con `current` calculado y `financialPermission:false`; guardarlo no renueva su
-vigencia. Un error o una lectura vencida no equivalen a operación fallida.
+External progress includes PREPARED, RESERVED, FULFILLED, RECOVERED, `pending`, automation and completed/total steps. It neither returns every receipt nor grants recovery authority. `snapshot()` is historical data with computed `current` and `financialPermission:false`; saving it does not renew its validity. An expired read or transport error does not mean the operation failed.
 
-La wallet guarda la asociación firmada con su fuente **antes de BEGIN**. Al
-reabrir, compara propuesta, root/revisión y páginas originales; consulta el
-servidor y continúa su cursor. Una respuesta perdida de BEGIN/APPEND/SEAL no
-crea otra operación. No firma START automáticamente. La consulta previa y la
-revisión original siguen siendo obligatorias; un registro público no restaura
-claves ni permisos. La prueba de orquestación usa límites HOST declarados; no
-se presenta como una nueva ejecución en las redes públicas.
+The wallet saves its signed source association **before BEGIN**. On reopening it compares proposal, root/revision and original pages, observes the server and continues the cursor. A lost BEGIN/APPEND/SEAL response does not create another operation. START is not automatically signed again. Original observation and review remain required; a public record cannot restore keys or permissions. Host orchestration tests retain their stated scope rather than becoming public-network acceptance.
 
-Fuentes: `packages/mobile-protocol/src/device-paged-agent-v4.mjs:21-45`,
-`apps/mobile/src/api/device-paged-agent-owner-v4.ts:21-39`,
-`apps/mobile/src/api/device-paged-agent-ui-controller-v4.ts:25-27`.
+Sources: `packages/mobile-protocol/src/device-paged-agent-v4.mjs`, `apps/mobile/src/api/device-paged-agent-owner-v4.ts`, `apps/mobile/src/api/device-paged-agent-ui-controller-v4.ts`.
 
-## Uniswap existente
+## Uniswap
 
-No se propone un endpoint `/swap`. La wallet recibe de su pairing original
-`nativePreparation.uniswap`, prepara la recepción D27 con su custodia y produce
-el intent existente `UNISWAP_V3_EXACT_OUTPUT_SINGLE`. Ese intent fija el job,
-root y compromiso de salida, máximo de entrada, importe de salida, ventana y,
-en la versión pública, destinatario. Su aprobación y ejecución siguen el graph
-original; la página no obtiene permiso de gasto de la nota ERC20 recibida por
-el mero hecho de que una dependencia haya terminado.
+The existing route does not introduce a generic `/swap` endpoint. The wallet receives `nativePreparation.uniswap` from its original pairing, prepares D27 reception under its custody and creates `UNISWAP_V3_EXACT_OUTPUT_SINGLE`. That intent binds job, root, output commitment, maximum input, output amount, validity window and, in the public version, recipient.
 
-El helper original exige conservar/verificar la copia de recuperación de esa
-recepción antes de completar su nodo. El listener activo y el de recuperación
-capturada tienen superficies distintas: no anunciar indiscriminadamente las
-rutas de preparación de un helper local como si todas estuvieran montadas en
-el servicio público actual. La publicación de cada perfil es la que determina
-su recorrido real permitido.
+Approval/execution follow the original graph. A completed dependency does not grant spending authority over the received ERC20 note. The original helper requires retaining and verifying the reception's recovery backup before completing its node.
 
-Uniswap conserva su Source4 original, independiente del Source7 de
-Aave/Morpho. Compartir identidad del usuario no unifica pools, roots, activos
-ni saldos. Tampoco la propuesta externa nativa V4 del agente describe swaps;
-esa capacidad futura necesita su propio esquema revisado.
+Active and captured-recovery listeners have different surfaces. A local helper's preparation routes are not automatically public endpoints; the deployed profile determines the available path. Uniswap's Source4 remains separate from Source7 for Aave/Morpho. A shared user identity does not merge pools, roots, assets or balances. Native V4 agent proposals do not describe swaps; that extension needs its own reviewed schema.
 
-Fuentes: `apps/mobile/src/api/device-paged-uniswap-preparation-v3.ts:26-90`,
-`packages/mobile-protocol/src/device-paged-uniswap-public-v4.d.mts`,
-`packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs:210-211`,
-`packages/backend/src/api/mobile/device-paged-uniswap-flat-read-http-v8.mjs:5`.
+Sources: `apps/mobile/src/api/device-paged-uniswap-preparation-v3.ts`, `packages/mobile-protocol/src/device-paged-uniswap-public-v4.d.mts`, `packages/backend/src/operations/local/funded-graph-paged-device-graph-operator-v3.mjs`, `packages/backend/src/api/mobile/device-paged-uniswap-flat-read-http-v8.mjs`.
 
-## Aave/Morpho existentes
+## Aave and Morpho
 
-1. Wallet prepara su página Source7 y conserva localmente `receiptSecret`.
-2. `defi-proposals` recibe ACCESS más protocolo, acción, rootId/revisión de la
-   nota de participaciones, sharesAtomic, máximo/mínimo, destinatarios y
-   `receiptCommitment`. INVEST exige compromiso no cero; REDEEM exige null.
-3. El servidor consulta el protocolo real, fija ventana y cotización y devuelve
-   `{review}`. No se acepta una cotización inventada por móvil/agente.
-4. La wallet vincula revisión, prueba D27 y recepción privada. Esa preparación
-   de INVEST no autoriza un gasto por sí sola.
-5. `financial-submit` registra `{access,signature,reference,jobId,capitalNodeId}`
-   sobre el mismo job. Source7 vincula la reserva y el presupuesto ETH con la
-   recepción de participaciones; el usuario autoriza los términos económicos
-   finales mediante el recorrido normal del graph.
-6. El servidor ejecuta la inversión aprobada, comprueba recibo canónico y
-   liquida según los términos autorizados. `financial-observe` consulta el
-   mismo job; PROVED/PREPARED no significan inversión confirmada.
-7. REDEEM conserva revisión explícita: prueba W39 → `withdrawal-review` devuelve
-   `{consent}` → firma → ACCESS nuevo → `withdrawal-arm` → `redeem-submit`.
-   Puede devolver WITHDRAW pendiente mientras espera; el worker continúa la
-   misma revisión hasta sus límites. La consulta no solicita huella adicional.
+1. The wallet prepares its Source7 page and retains `receiptSecret` locally.
+2. `defi-proposals` takes ACCESS plus protocol, action, share-note rootId/revision, sharesAtomic, maximum/minimum, recipients and `receiptCommitment`. INVEST requires a nonzero commitment; REDEEM requires null.
+3. The server reads the actual protocol, fixes the window/quote and returns `{review}`. A quote invented by the phone or agent is rejected.
+4. The wallet binds review, D27 proof and private reception. Preparing INVEST does not by itself authorize a spend.
+5. `financial-submit` records `{access,signature,reference,jobId,capitalNodeId}` for the same job. Source7 binds the reservation and ETH budget to share reception; the user approves final economic terms through the graph path.
+6. The server executes the approved investment, checks its canonical receipt and settles under the approved terms. `financial-observe` reads the same job. PROVED/PREPARED is not confirmed investment.
+7. REDEEM uses explicit review: W39 proof → `withdrawal-review` returns `{consent}` → signature → fresh ACCESS → `withdrawal-arm` → `redeem-submit`. It may return pending WITHDRAW while the worker continues the same review within its limits. Observation requires no additional fingerprint.
 
-Respuesta financiera V7: exactamente `jobId`, `reference`, `phase`,
-`transactionHash`, `canonical`, `protocol`, `kind`. `phase` es PREPARED,
-SUBMITTED, UNKNOWN o CONFIRMED; `kind` es INVEST, WITHDRAW o REDEEM. La retirada
-de shares confirmada no equivale todavía a USDC recibido: hace falta REDEEM
-confirmado. Nunca añadir campos a este DTO exacto sin versionarlo.
+The exact V7 financial response fields are `jobId`, `reference`, `phase`, `transactionHash`, `canonical`, `protocol`, `kind`. `phase` is PREPARED, SUBMITTED, UNKNOWN or CONFIRMED; `kind` is INVEST, WITHDRAW or REDEEM. A confirmed share withdrawal is not yet received USDC: REDEEM must be confirmed. Adding fields requires a versioned contract.
 
-El presupuesto Source7 ETH y la nota de participaciones tienen **roots y
-revisiones distintos**. Se unen por la entrega comprometida y los permisos
-originales. USDC de Aave y de Morpho en Sepolia se distingue por dirección e
-identidad del activo. La remuneración ETH demo es precio acordado, no FX.
+The Source7 ETH budget and share note have **different roots and revisions**, joined through committed delivery and original permissions. Aave and Morpho USDC on Sepolia are distinguished by asset address/identity. Demo ETH compensation is an agreed price, not an FX rate.
 
-Límites de propuesta demo: máximo 10 USDC de entrada, máximo 10 shares Aave
-(6 decimales) o 10 shares Morpho (18), margen máximo configurado 1%, ventana
-máxima 900 s además de los caps y vencimientos originales. No son límites
-prometidos para mainnet. La cuenta D27 actual no debe anunciarse como una
-cuenta ilimitada/reutilizable para cualquier número de inversiones.
+Demo proposal limits: maximum 10 USDC input, 10 Aave shares at six decimals or 10 Morpho shares at eighteen decimals, configured maximum margin 1%, and maximum window 900 seconds within the original caps/expiries. These are not promised mainnet limits. The current D27 account is not an unlimited reusable investment account.
 
-No hay propuesta de agente V4 para estas acciones: su esquema sólo admite pagos
-nativos. Una futura extensión necesitará DTO firmado versionado y revisión
-original, no pasar DeFi por `networkId` ni por un envío nativo arbitrario.
+V4 agent proposals support native payments, not these DeFi actions. Extension requires a versioned signed DTO and original review; it cannot disguise DeFi as a `networkId` or arbitrary native transfer.
 
-Fuentes: `apps/mobile/src/api/device-sepolia-defi-paeg-investment-v8.ts:36-38`,
-`apps/mobile/src/api/device-sepolia-defi-financial-api-v7.mjs:38-94`,
-`packages/backend/src/accounts/authority/device-sepolia-defi-proposals-v8.mjs:12`,
-`packages/mobile-protocol/src/device-sepolia-defi-financial-status-v7.mjs`.
+Sources: `apps/mobile/src/api/device-sepolia-defi-paeg-investment-v8.ts`, `apps/mobile/src/api/device-sepolia-defi-financial-api-v7.mjs`, `packages/backend/src/accounts/authority/device-sepolia-defi-proposals-v8.mjs`, `packages/mobile-protocol/src/device-sepolia-defi-financial-status-v7.mjs`.
 
-## Idempotencia, pérdida de respuesta y límites
+## Idempotency and lost responses
 
-| Acción | Identificador retenido | Tras perder respuesta |
+| Action | Retained identity | Recovery after a lost response |
 | --- | --- | --- |
-| Cotización nativa | operationId/quoteId y términos exactos | Consultar o recuperar esa cotización; cambiar términos no reutiliza el ID |
-| Envío nativo | quoteId, bytes firmados y hash | Consultar `/native/status`; no producir otra firma/transacción |
-| Preparación graph | descriptor, graphId, rootId/revisión, jobs/cursor local | Observar graph original; no BEGIN nuevo; continuación agente pendiente indicada arriba |
-| START | automatización original y grant guardado antes del envío | Reentrada de lectura verifica START; no firmarlo automáticamente otra vez |
-| Inversión DeFi | reference, jobId, capitalNodeId y compromiso de recepción | Consultar trabajo; continuación explícita sólo con observación original nueva |
-| W39/redeem | reference, jobId, prueba, consentimiento y hash retenidos | Observar esa retirada; no cambiar receptor ni repetir con otro job |
-| MoonPay futuro | propietario + requestId + términos normalizados | Recuperar misma sesión; otro cuerpo con igual ID da conflicto |
-| Lectura agente | grantId, contador de lecturas y challenge de un uso | Puede pedir otro challenge de lectura dentro de cuota/plazo; nunca repetir efectos |
+| Native quote | operationId/quoteId and exact terms | Read/recover that quote; changed terms do not reuse the ID |
+| Native submission | quoteId, signed bytes and hash | Read `/native/status`; do not create another signature/transaction |
+| Graph preparation | descriptor, graphId, rootId/revision, jobs/local cursor | Observe the original graph and continue it; no new BEGIN |
+| START | Original automation and grant saved before sending | Read back START; never automatically sign it again |
+| DeFi investment | reference, jobId, capitalNodeId and reception commitment | Observe the job; explicit continuation needs a fresh original observation |
+| W39/redeem | reference, jobId, proof, consent and hash | Observe that withdrawal; do not change its receiver or repeat with a new job |
+| Fiat session | Owner, requestId and normalized terms | Recover the same session; a different body with the same ID conflicts |
+| Agent observation | grantId, read counter and one-use challenge | Request another read challenge within quota/deadline; never repeat financial effects |
 
-No existe hoy un encabezado universal `Idempotency-Key`, ni un endpoint genérico
-`/operations/:id` para todos los productos. El contrato conserva los IDs de
-cada recorrido en vez de inventar esos servicios.
+There is no universal `Idempotency-Key` header or generic `/operations/:id` for every product. Each route preserves its own original identifiers.
 
-Timeouts actuales del cliente: API pública 20 s; challenge/Graph preparación,
-firma y START 15 s; pruebas ZK 900 s; EXECUTE_NATIVE/consultas económicas 60 s;
-DeFi financiero 30 s. El trabajo costoso debe prepararse antes de emitir el PoP
-corto y antes de devolver PROVED cuando corresponda. No ampliar permisos ni
-convertir un timeout en autorización/reenvío. No hay reintento automático
-general de escrituras. Para lectura, petición nueva y autorización de lectura
-nueva; observar las cuotas y aplicar espera, sin conservar la firma expirada.
+Client deadlines: public API 20 seconds; challenge/graph preparation, signature and START 15 seconds; ZK proofs 900 seconds; EXECUTE_NATIVE/economic reads 60 seconds; financial DeFi 30 seconds. Prepare expensive work before issuing the short PoP, and before returning PROVED where applicable. A timeout is not authorization to extend permissions or resend. There is no general automatic write retry. A new read uses a fresh request and read permission, respects quotas and does not retain an expired signature.
 
-Límites externos agente: hasta 4096 lecturas por grant y plazo V4/V5 firmado;
-hasta 16 grants retenidos por canal, 32 challenges pendientes, cuerpo 8192 B y
-respuesta cliente de observación 256 KiB (el plan V5 puede incluir 256 cobros); challenges y revocaciones 32 KiB. La petición de challenge V5 conserva el grant completo y exige un límite de transporte compatible; no se omiten sus términos para encajar en el límite antiguo de 8192 B. Datos de propuesta hasta 256 nodos, página 64.
-API pública actual: 16 solicitudes concurrentes globales, 8 por cliente,
-120 peticiones/60 s y 60 challenges/60 s por cliente. Son límites de la demo,
-no un SLA ni una capacidad multitenant ilimitada.
+External reader limits: up to 4,096 reads per signed V4/V5 grant; 16 retained grants per channel; 32 pending challenges; 8,192-byte standard bodies; 256 KiB observation responses; 32 KiB challenges/revocations. A V5 plan may contain 256 payouts. Its challenge retains the complete grant and requires a compatible transport limit; terms must not be removed to fit the older 8,192-byte limit. Wire proposals allow 256 nodes, with pages of 64.
 
-Los errores Graph HTTP quedan hoy reducidos en el SDK a SERVICE_UNAVAILABLE;
-DeFi sólo preserva seis códigos públicos de propuesta/capital. Por ello aún no
-se promete una taxonomía externa completa de BUSY/retryAfter/failed. Una revisión
-de contrato deberá mantener compatibilidad o versionar esa mejora; el cliente
-actual conserva el trabajo y muestra respuesta sin confirmar.
+Public API limits are 16 concurrent requests globally, eight per client, 120 requests/60 seconds and 60 challenges/60 seconds per client. These are demo controls, not an SLA or unlimited multitenant capacity. Graph HTTP errors currently reduce to SERVICE_UNAVAILABLE in the SDK; DeFi preserves six public proposal/capital codes. A richer BUSY/retryAfter/failed taxonomy requires compatible or versioned changes. The client retains the job and represents an unconfirmed response honestly.
 
-## Cobro del ejecutor: nuevo consentimiento V5
+## Executor payout: V5 consent
 
-Los grafos nuevos usan V5 sólo cuando el pairing autenticado anuncia
-`nativePreparation.executorPayoutsV5:true`. El seed conserva esta elección;
-abrir un grafo histórico no lo convierte en V5. Se preparan por el canal cifrado
-existente `PREPARE_EXECUTOR_PAYOUTS_V5` y después `PREPARE_NATIVE_PAGE`.
-El proveedor custodia una clave independiente por resultado y devuelve un
-certificado firmado por su identidad y por la clave de esa nota. El móvil
-verifica las dos firmas, origen, compromiso, nullifier, grafo, importe y plazos;
-no recibe la clave privada del cobro.
+New graphs use V5 only when the authenticated pairing advertises `nativePreparation.executorPayoutsV5:true`. The seed retains that choice; reopening an older graph does not upgrade it. Preparation uses the encrypted `PREPARE_EXECUTOR_PAYOUTS_V5` channel, then `PREPARE_NATIVE_PAGE`.
 
-Tras firmar el OWNER original, `SIGN_EXECUTOR_PAYOUT_INVOICES_V5` devuelve las
-facturas firmadas para su página original. El móvil verifica cada firma contra
-el frame derivado de sus propias páginas antes de enviarla con `SIGN_GRAPH`.
-Estas acciones usan la sesión de aprobación ya abierta, sin otra huella por
-factura. Una respuesta perdida se consulta antes de continuar con la misma
-preparación/página y las mismas notas; nunca genera otro cobro.
+The provider holds an independent key for each output and returns a certificate signed by both its identity and that note key. The phone checks both signatures, origin, commitment, nullifier, graph, amount and deadlines. It does not receive the payout private key.
 
-`START_AUTOMATION` V5 firma también `executorPayouts`: beneficiario, compromiso,
-nullifier e importe de cada nota, certificados, quoteRoot, `collectBy` y techo
-de gas por nota y total. El plazo de cobro no amplía el plazo de entrega. La
-cuota de comandos suma cuatro por cobro (prueba, envío y dos comandos de
-reserva para reproof tras cambio de epoch) a la cuota real del grafo y conserva el
-máximo de 4096. La revisión muestra estos términos antes de la huella. Las
-notas del proveedor se excluyen de las opciones de retirada de la wallet.
+After the original OWNER signature, `SIGN_EXECUTOR_PAYOUT_INVOICES_V5` returns invoices for the original page. The phone verifies each signature against a frame derived from its own pages before sending it with `SIGN_GRAPH`. The existing approval session covers these actions without another fingerprint per invoice. A lost response is reconciled before continuing the same preparation/page and notes; it never creates another charge.
 
-El gasto de gas de cobro corresponde al proveedor; su límite no es un precio
-estimado ni un cargo adicional. V4 conserva su liquidación manual. Los lectores
-Any V5 preservan todos los términos firmados; los normalizadores V4 originales
-siguen rechazando V5. Un grafo FULFILLED no prueba por sí solo que los cobros
-hayan confirmado: cada retirada necesita su recibo y nullifier canónicos.
+V5 `START_AUTOMATION` also signs `executorPayouts`: beneficiary, each note's commitment/nullifier/amount, certificates, quoteRoot, `collectBy`, per-note gas ceilings and the total ceiling. Collection time does not extend delivery time. The command allowance adds four per payout—proof, submission and two reserved commands for reproof after an epoch change—to the graph's actual allowance, capped at 4,096. Review shows these terms before biometric approval. Provider notes are excluded from owner withdrawal options.
 
-## MoonPay: integración futura, separada del cierre del motor
+Collection gas is paid by the provider. Its cap is neither a price estimate nor an extra debit to the owner. V4 keeps manual settlement. V5-capable readers preserve every signed term; original V4 normalizers still reject V5. FULFILLED alone does not prove confirmed collection: each withdrawal needs its canonical receipt and nullifier.
 
-Solicitud de sesión existente: `{requestId,flow,asset,network,fiatCurrency,
-amount,walletAddress}`; BUY/SELL, BTC/ETH/SOL, EUR. El importe de BUY está en EUR;
-SELL en unidades decimales del activo. Las redes y configuración SANDBOX o
-PRODUCTION deben concordar con la cuenta original de la wallet.
+## MoonPay integration boundary
 
-El checkout usa URL fija del proveedor firmada en servidor. El retorno del
-navegador no autoriza envíos ni acredita fondos. El webhook crudo se verifica
-con HMAC y ventana temporal; después se consulta el proveedor por el ID original.
-La venta requiere revisión y firma independiente del depósito nativo concreto.
+Existing session scaffolding accepts `{requestId,flow,asset,network,fiatCurrency,amount,walletAddress}`: BUY/SELL, BTC/ETH/SOL and EUR. BUY amount is in EUR; SELL amount is decimal asset units. Network and SANDBOX/PRODUCTION configuration must match the original wallet account.
 
-Estados actuales: CHECKOUT_READY, PROVIDER_PENDING, PROVIDER_FAILED,
-PROVIDER_COMPLETED, UNKNOWN. El DTO declara `chainConfirmation:'UNVERIFIED'` y
-`privateBalanceCredited:false`. Es correcto: una notificación del proveedor no
-demuestra recepción onchain ni crea una nota privada.
+Checkout uses a fixed provider URL signed on the server. Browser return neither authorizes a transfer nor proves receipt. The raw webhook is checked with HMAC and a time window, then the provider is queried using the original ID. Selling requires separate review/signing of the exact native deposit.
 
-El móvil conserva y reutiliza `fiatRequests` cuando se pierde una respuesta;
-`resumeFiatSession` recupera esa misma orden. El store usa el fence Original
-existente (exclusión flock, boot ID y start ticks) para reabrir después de una
-muerte del proceso y rechazar otro writer vivo. Un `writer.lock` antiguo que
-sólo contenga PID se rechaza y exige recuperación administrativa: no se borra
-a ciegas. La prueba de SIGKILL conserva la misma orden y no accede a la red.
+States are CHECKOUT_READY, PROVIDER_PENDING, PROVIDER_FAILED, PROVIDER_COMPLETED and UNKNOWN. The DTO explicitly returns `chainConfirmation:'UNVERIFIED'` and `privateBalanceCredited:false`: provider notification is not on-chain receipt and does not create a private note.
 
-Trabajo posterior de MoonPay: alta/credenciales, compatibilidad real de sandbox
-y verificación de recepción en cadena si se presenta como recibida. El estado
-del proveedor sigue sin acreditar saldo privado. Estas tareas pertenecen a
-MoonPay y no se cuentan como fallos pendientes del motor.
+The phone retains `fiatRequests`; `resumeFiatSession` recovers the same order after a lost response. The store uses the original process fence—flock exclusion, boot ID and start ticks—to reopen after a process dies and reject another live writer. An old PID-only `writer.lock` requires administrative recovery; it is not blindly removed. The SIGKILL regression preserves the order without network access.
 
-Fuentes: `packages/backend/src/fiat/moonpay-gateway-v1.mjs:39-49,144-184`,
-`packages/backend/src/fiat/moonpay-order-store-v1.mjs:19,41`,
-`apps/mobile/src/native-wallet/native-wallet-controller.ts:34-39`,
-`apps/mobile/src/screens/NativeWalletScreen.tsx:61`.
+Merchant onboarding/credentials, actual sandbox compatibility and on-chain receipt verification remain follow-up work. Provider status does not prove private balance. These are fiat-integration tasks, separate from engine acceptance.
+
+Sources: `packages/backend/src/fiat/moonpay-gateway-v1.mjs`, `packages/backend/src/fiat/moonpay-order-store-v1.mjs`, `apps/mobile/src/native-wallet/native-wallet-controller.ts`, `apps/mobile/src/screens/NativeWalletScreen.tsx`.

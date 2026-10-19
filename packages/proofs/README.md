@@ -1,47 +1,25 @@
-# Pruebas criptográficas
+# Cryptographic proofs
 
-Este paquete posee clientes, workers, herramientas y verificación de pruebas.
-Consume engine, custody y contratos compartidos; la composición de operaciones
-que necesitan cuentas, redes y recuperación pertenece a backend.
+This package owns proof clients, workers, tooling and tests. It consumes engine, custody and shared contracts. Compositions requiring accounts, networks and recovery belong to backend.
 
-| Carpeta | Contenido |
+| Location | Responsibility |
 | --- | --- |
-| `src/catalog.mjs` | Catálogo de perfiles y ubicaciones de recursos |
-| `src/jobs/` | Clientes, workers y límites de jobs compartidos |
-| `src/execution/` | Procesos y workers de prueba, recursos y ejecución de notas |
-| `src/host/` | Archivos, identidad de procesos, RSS y límites de ejecución |
-| `src/toolchain/` | Provers wallet/assembly, cliente y worker paginados, lectura de artefactos y recursos |
-| `src/tooling/` | Herramientas de compilación y generación |
-| `src/verification/` | Validadores de claves y fuentes ligados a sus pines |
-| `src/native-value/`, `src/native-ingress/`, `src/wrapped-claims/` | Perfiles y metadatos de esos recorridos |
-| `circuits/` | Circuitos Noir actuales |
-| `shared/`, `vendor/` | Bibliotecas compartidas y fuentes externas |
-| `tests/` | Pruebas de jobs, toolchain y sus contratos |
+| `src/catalog.mjs` | Profile catalog and resource locations |
+| `src/jobs/` | Shared job clients, workers and boundaries |
+| `src/execution/` | Proof processes, workers, resources and note execution |
+| `src/host/` | Files, process identity, RSS and execution limits |
+| `src/toolchain/` | Wallet/assembly provers, paged clients/workers and artifact readers |
+| `src/tooling/` | Compilation and generation tools |
+| `src/verification/` | Key and source validators bound to pinned identities |
+| `src/native-value/`, `src/native-ingress/`, `src/wrapped-claims/` | Route profiles and metadata |
+| `circuits/` | Current Noir circuits |
+| `shared/`, `vendor/` | Shared libraries and external sources |
+| `tests/` | Job, toolchain and contract tests |
 
-La integración económica de esos recorridos se edita en
-`packages/backend/src/proving/`. La herramienta criptográfica compartida se
-edita aquí. Los anteriores módulos ejecutables de experimentos y helpers de
-tests reexportan las implementaciones operativas cuando necesitan conservar
-una entrada compatible.
+Economic integration lives in `packages/backend/src/proving/`; shared cryptographic tooling is edited here. Earlier experimental entry points and test helpers re-export operational implementations when compatibility requires them.
 
-Los recursos retenidos incluyen circuitos, claves, bibliotecas y herramientas
-con identidades fijadas. Sus verificaciones no desaparecen al mover el módulo.
-Los consumidores importan los validadores de `@lianum/components/resources/`;
-la ubicación de datos se obtiene de
-`@lianum/environment`. Los inventarios fijan los cuerpos actuales de esos
-módulos, además de los registros históricos. Importar el catálogo
-o preparar un bundle no genera una prueba ni acredita una release.
+Retained circuits, keys, libraries and tools have fixed identities. Moving a module does not remove its integrity checks. Consumers import validators from `@lianum/components/resources/` and obtain resource locations from `@lianum/environment`. Inventories bind current validator source as well as historical records. Importing a catalog or preparing a bundle neither generates a proof nor certifies a release.
 
-El gateway paginado importa los módulos activos de `toolchain/` y conserva una
-única identidad de Graph y cliente, también desde la copia de compatibilidad.
-El lector conserva los hashes y las verificaciones de fuente de la generación
-original; una divergencia sigue bloqueando su uso y requiere una nueva
-generación revisada. Los originales experimentales fijados se leen como
-evidencia, sin convertirlos en otra implementación activa.
+The paged bridge imports active `toolchain/` modules and preserves a single Graph/client identity, including through compatibility copies. Artifact readers retain original hashes and source checks; a mismatch blocks reuse until a reviewed generation is adopted. Pinned experimental originals remain evidence, not a second active implementation.
 
-Los candidatos trasladables y la compatibilidad histórica se preparan de forma
-explícita; consulta [COMMANDS.md](../../docs/COMMANDS.md) y
-[STRUCTURE.md](../../docs/STRUCTURE.md). Las APIs públicas están en
-[package.json](package.json); `./dev boundaries` y
-[MODULES.md](../../docs/MODULES.md) describen sus dependencias y la deuda interna
-pendiente del conjunto.
+Portable candidates and historical compatibility are prepared explicitly. See [commands](../../docs/COMMANDS.md), [repository structure](../../docs/STRUCTURE.md) and [source generations](../../docs/SOURCE-GENERATIONS.md). Public APIs are in [package.json](package.json); [module boundaries](../../docs/MODULES.md) and `./dev boundaries` describe dependencies and remaining internal cycles.

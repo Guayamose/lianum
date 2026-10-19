@@ -1,17 +1,15 @@
-# Integración
+# Integration
 
-| Carpeta | Escenarios |
+| Directory | Stages |
 | --- | --- |
-| `wallet/` | Wallet manual, nativa y wrapped |
-| `accounts/`, `portfolio/` | Recuperación de cuentas y cartera |
-| `chains/` | Flujos específicos de EVM y Solana |
-| `claims/` | Ingreso, inventario, salud, grafo y pagos de reclamaciones |
-| `native/`, `claims/graph/policies/` | Flujos nativos y políticas de grafo |
-| `pools/`, `deployments/` | Generaciones de pools y despliegues |
-| `proofs/` | Compilación y verificación de pruebas |
-| `fixtures/` | Datos y runtimes de soporte |
-| `runners/` | Catálogo, tareas y lanzadores comunes |
+| `wallet/` | Wallet manual, native and wrapped |
+| `accounts/`, `portfolio/` | Recovery of accounts and portfolio |
+| `chains/` | Specific flows of EVM and Solana |
+| `claims/` | Income, inventory, health, graph and claims payments |
+| `native/`, `claims/graph/policies/` | Native flows and graph politics |
+| `pools/`, `deployments/` | Pool Generations and Deployments |
+| `proofs/` | Compilation and verification of evidence |
+| `fixtures/` | Support Data and Runtimes |
+| `runners/` | Catalogue, tasks and common launchers |
 
-Esta carpeta mezcla pruebas Node y flujos de aceptación con requisitos de
-laboratorio. No toda ella forma parte de la selección rápida de `npm test`.
-Los nombres `run-*` identifican lanzadores y `*.test.mjs` pruebas Node.
+This folder mixes Node testing and acceptance flows with laboratory requirements. Not all of it is part of the rapid selection of `npm test`. Names `run-*` identify launchers and `*.test.mjs` identifies Node tests.

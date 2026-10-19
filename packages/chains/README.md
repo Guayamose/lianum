@@ -1,5 +1,3 @@
-# Driver nativo de Tron
+# Tron Native Driver
 
-`drivers/owned-tron-native-value/` contiene el driver Java.
-Los adaptadores JavaScript de EVM, Bitcoin, Solana y Tron se encuentran en
-`packages/backend/src/chains/`; aquí se conserva su dependencia Java.
+`drivers/owned-tron-native-value/` contains the Java driver. The JavaScript adapters of EVM, Bitcoin, Solana and Tron are available in `packages/backend/src/chains/`; their Java dependency is preserved here.

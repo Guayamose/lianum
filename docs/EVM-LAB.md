@@ -1,218 +1,80 @@
-# Laboratorio EVM de desarrollo
+# EVM development laboratory
 
-Desde la raíz del proyecto:
+From the root of the project:
 
 ```bash
-./dev lab prepare  # Artefactos públicos, sin nodos ni pruebas de usuario
-./dev lab          # Laboratorio nuevo, pruebas reales y cierre de procesos
+./dev lab prepare  # Public artifacts; no nodes or user proofs
+./dev lab          # Fresh laboratory, real proofs and process closure
 ./dev lab recovery # Otro laboratorio nuevo: entrega real y devolución F tras vencimiento
-./dev lab browser  # Wallet DOM real, quince pruebas y salidas en estado nuevo
-./dev lab browser-recovery # Recuperación F desde el DOM; siete pruebas nuevas
-./dev lab osaka    # Despliegues y límite de gas; no genera pruebas privadas
+./dev lab browser  # Real wallet DOM, fifteen proofs and fresh-state withdrawals
+./dev lab browser-recovery # F recovery through the DOM; seven new proofs
+./dev lab osaka    # Deployments and gas limit; no private proofs generated
 ```
 
-El segundo comando crea cuentas de prueba nuevas, arranca Anvil exclusivamente
-local y usa PALT/BLTV ficticios. Financia una nota privada, revisa y confirma el
-grafo con la API/SDK real de la wallet y permisos exactos de un solo uso, reserva
-el pago, genera las pruebas de las relaciones PAEG y liquida contra una entrega
-real en la bóveda. Luego reinicia la custodia de los propietarios, reabre el mismo
-journal del coordinador, retira las notas y redime las participaciones.
+The second command creates new test accounts, starts Anvil exclusively locally and uses fictional PALT/BLTV. It finances a private note, reviews and confirms the graph with the actual wallet API/SDK and accurate single-use permissions, reserves payment, generates evidence of PAEG relationships and liquidates against actual delivery to the vault. Then restart the custody of the owners, reopen the coordinator's same journal, withdraw the notes and redeem the participations.
 
-La confirmación inicial de financiación descarta deliberadamente la respuesta
-HTTP después de que el servidor real la admite. El SDK conserva la incertidumbre,
-no reenvía y la comprobación lee el journal original. También se comprueban los
-permisos consumidos, permisos de un listener sustituido, reconciliación terminal
-y rechazo del segundo pago. La pérdida de respuesta es una inyección controlada
-en el cliente; no simula una partición física de la red.
+The initial funding confirmation deliberately discards the HTTP response after the actual server supports it. The SDK retains uncertainty, does not forward and the check reads the original journal. It also checks the permits consumed, permissions of a substitute listener, terminal reconciliation and rejection of the second payment. Loss of response is a controlled injection into the client; it does not simulate a physical network partition.
 
-El script revisa y confirma con el SDK, HTTP y el modelo compartido de la wallet.
-Después de verificar la admisión exacta detiene la custodia de destino antes de
-la entrega. No hay una persona navegando una pantalla durante esta aceptación:
-`walletSdkEvmFlowCompleted` y `manualConsentContractVerified` describen el contrato
-de software comprobado; `browserVisualAcceptance` permanece falso.
+The script checks and confirms with the SDK, HTTP and the Wallet shared model. After verifying the exact admission, it stops the custody of destination prior to delivery. There is no person browsing a screen during this acceptance: `walletSdkEvmFlowCompleted` and `manualConsentContractVerified` describe the verified software contract; `browserVisualAcceptance` permanece falso.
 
-El perfil `browser` es independiente: conserva ese mismo núcleo y sus
-autoridades, pero financiación, revisión, ejecución, reconciliación y salida se
-confirman mediante la interfaz web real en Chrome con sandbox. El driver compara
-cada término original y comprueba que la casilla empieza sin marcar antes de
-importar el permiso de un solo uso. Al descartar una respuesta HTTP ya admitida,
-la interfaz conserva UNKNOWN y consulta la operación original sin reenviarla.
-Los replays negativos se prueban por HTTP y no realizan acciones financieras.
+The profile `browser` It is independent: it retains the same core and its authorities, but funding, review, execution, reconciliation and output are confirmed through the real web interface in Chrome with sandbox. The driver compares each original term and checks that the box starts unchecked before importing the permission for a single use. By discarding an already supported HTTP response, the interface retains UNKNOWN and consults the original operation without forwarding it. Negative replays are tested by HTTP and do not perform financial actions.
 
-La custodia Linux prepara importe, destino y testigo fuera del navegador. Este
-perfil no convierte la wallet web en custodia móvil autónoma. Fija la distribución
-de Chrome y Playwright y verifica identidad, grupo, UID, sandbox y cierre de
-cada proceso propio. El contrato DOM sintético y el recorrido financiero nuevo
-de quince pruebas genuinas ya pasaron; sus evidencias se distinguen más abajo.
+Linux custody prepares amount, destination and witness outside the browser. This profile does not turn the web wallet into autonomous mobile custody. Sets the distribution of Chrome and Playwright and verifies identity, group, UID, sandbox and closure of each process of its own. The synthetic DOM contract and the new financial journey of fifteen genuine tests have already passed; their evidence is distinguished below.
 
-Los presupuestos originales permanecen: al menos 2,5 GiB de RAM disponible,
-5 GiB libres, máximo 3 GiB de RSS por worker pesado y un único worker pesado.
-El supervisor conserva un plazo máximo de 90 minutos con reserva para cierre.
-Ctrl+C pide el cierre al supervisor, que verifica sus procesos propietarios.
+The original budgets remain: at least 2,5 GiB of RAM available, 5 free GiB, maximum 3 GiB of RSS by heavy worker and a single heavy worker. The supervisor retains a maximum period of 90 minutes with reservation for closure. Ctrl+C requests closure from the supervisor, who verifies its proprietary processes.
 
-## Compilación revisada, distinta de la evidencia histórica
+## Revised compilation, other than historical evidence
 
-Faltaban la compilación del ledger, los fixtures de activos/router y los informes
-históricos de la compilación conjunta de verificadores. No se fabrican esos
-informes. El bootstrap crea `.local/development-evm/v1/` dentro del runtime
-ignorado por Git, con un manifiesto determinista identificado como una compilación
-nueva. El loader exige el hash literal revisado en
-`packages/backend/src/operations/deployments/system/development-evm-build.mjs`.
+The compilation of the leadger, asset fixtures/router and the historical reports of the joint compilation of verifiers were missing. These reports are not produced. The bootstrap creates `.local/development-evm/v1/` within the runtime ignored by Git, with a deterministic manifest identified as a new compilation. The loader requires the revised literal hash in `packages/backend/src/operations/deployments/system/development-evm-build.mjs`.
 
-Se conservan los hashes originales de fuentes, AST, ABI y artefactos del ledger
-y del router. Las once compilaciones de verificadores recuperadas coinciden
-exactamente en fuentes, AST, contratos, compilador y ajustes con las nuevas.
-La relación de admisión ausente se compila y prepara con el circuito real,
-Noir/Barretenberg y CRS originales. La cadena completa de sus nuevos informes
-se verifica antes de usar su clave; no se reemplaza la comprobación por una
-clave, hash o ruta proporcionados por el llamador.
+The original hashes of sources, AST, ABI and leadger and router artifacts are preserved. The eleven compilations of recovered verifiers match exactly in sources, AST, contracts, compiler and adjustments with new ones. The absent admission ratio is compiled and prepared with the actual circuit, Noir/Barretenberg and CRS original. The full string of your new reports is checked before using your key; the check is not replaced by a key, hash or path provided by the caller.
 
-Los IDs y tiempos de generación no forman parte de la identidad determinista
-nueva: se fijan ABI, ACIR, clave, Solidity y artefactos compilados. Los loaders
-siguen validando los recibos auténticos de cada generación. El verificador de
-retirada de outputs usa la copia pública M15, cuyo hash coincide exactamente con
-la copia M23 perdida. Su linaje histórico sigue siendo de fuente; la aceptación
-actual debe comprobar su uso realmente.
+IDs and generation times are not part of the new deterministic identity: ABI, ACIR, key, Solidity and compiled artifacts are fixed. Loaders continue to validate authentic receipts for each generation. The output recall verifier uses the public copy M15, whose hash matches exactly the lost copy M23. Its historical lineage remains of source; the current acceptance must prove its actual use.
 
-## Evidencia y límites
+## Evidence and limits
 
-La última ejecución SDK retuvo quince pruebas reales y llegó a las tres
-retiradas originales, pero fue rechazada al preparar la redención: el puente
-DeFi llamaba a una ruta heredada incompatible con el keeper manual. El fallo
-se corrigió y MetaMorpho validó el puente con D26/W39 reales. Después se aceptó
-un recorrido completo nuevo desde el DOM real de la wallet, descrito más abajo.
-El intento SDK anterior conserva su rechazo; no se reutilizaron sus pruebas.
-La recuperación F está aceptada en su propio escenario separado.
+The last SDK execution retained fifteen real proofs and reached the three original withdrawals, but was rejected when preparing for redemption: the DeFi bridge called an inherited route incompatible with the manual keeper. The ruling was corrected and MetaMorpho validated the bridge with real D26/W39. A new complete tour was then accepted from the actual wallet DOM, described below. The previous SDK attempt remains rejected; its evidence was not reused. Recovery F is accepted in its own separate scenario.
 
-El resultado resumido queda en `.internal/dev/reports/evm-lab.json`. Los hashes
-permiten relacionarlo con los resultados y mediciones originales de esta NUEVA
-ejecución. Las claves y journals privados quedan en directorios con permisos
-restringidos dentro de `.internal/`; no se añaden a Git. El arranque no escribe
-al laboratorio público archivado en `/workspace`.
+The summary result is as follows: `.internal/dev/reports/evm-lab.json`. Hashes allow you to relate it to the original results and measurements of this NEW execution. Private keys and journals are left in directories with restricted permissions within `.internal/`; do not add to Git. The boot does not write to the public laboratory archived in `/workspace`.
 
-El perfil de navegador retiene su resumen separado en
-`.internal/dev/reports/evm-browser-lab.json`. No reutiliza un intento SDK o F.
-Una ejecución fallida conserva su fallo y no cuenta como aceptación del
-navegador, aunque haya generado pruebas válidas antes de fallar.
+The browser profile retains your separate summary in `.internal/dev/reports/evm-browser-lab.json`. Do not reuse an attempt SDK or F. A failed execution retains its failure and does not count as browser acceptance, even if it has generated valid evidence before failure.
 
-Esta aceptación cubre una EVM sintética y una generación de cuenta. No demuestra
-finalidad de una red pública, privacidad de metadatos, operadores independientes,
-interfaz visual móvil, reinicio completo del backend o aceptación de siete redes.
-La recuperación de `./dev lab` observa un grafo ya liquidado. `./dev lab recovery`
-comprueba una devolución F real en su propio escenario. `fullWalletAcceptance` permanece falso
-incluso cuando este recorrido concreto termina correctamente.
+This acceptance covers a synthetic EVM and an account generation. It does not demonstrate the finality of a public network, metadata privacy, independent operators, mobile visual interface, full restart of the backend or acceptance of seven networks. Recovery of `./dev lab` Look at a graph that's already cleared. `./dev lab recovery` checks a real F return on your own stage. `fullWalletAcceptance` remains false even when this particular route ends correctly.
 
-El escenario de recuperación interrumpe deliberadamente después de una única
-entrega nativa verificada y antes de la prueba/liquidación global. Conserva el
-error original, reabre el mismo journal del coordinador y sustituye el listener
-con ambos procesos owner ausentes. Adelanta sólo el reloj del Anvil propietario
-al cutoff originalmente autorizado; la wallet revisa y confirma la recuperación
-original, genera la prueba F y comprueba que una segunda recuperación y una
-reconciliación no crean otra prueba, pago ni entrega. Reinicia después los owners
-y recupera las notas originales. El error público sigue filtrado como
-`FLAT_ACCOUNT_OPERATION_FAILED`; no se amplía el contrato público para exponer
-el código privado de la inyección. El resumen separado queda en
-`.internal/dev/reports/evm-recovery-lab.json`.
+The recovery scenario deliberately interrupts after a single verified native delivery and before the global test/liquidation. It retains the original error, reopens the coordinator's same journal and replaces the lister with both owner processes absent. Forwards only the owner's Anvil watch to the originally authorized cutoff; the wallet reviews and confirms the original recovery, generates proof F and checks that a second recovery and reconciliation do not create another proof, payment or delivery. Restart your owners later and recover the original notes. The public error remains filtered as `FLAT_ACCOUNT_OPERATION_FAILED`; the public contract is not extended to set out the private code of injection. The separate summary is set out below. `.internal/dev/reports/evm-recovery-lab.json`.
 
-El escenario exige siete pruebas reales y conserva la pérdida de 100 del solver:
-su entrega queda como 100 participaciones privadas de destino, no recibe el pago
-reservado de 120. La admisión del catálogo permanece cercada tras el fallo; no se
-desbloquea, retira o vuelve a enviar nada para fabricar un recorrido completo.
-La aceptación sólo se declara después de comprobar hashes, métricas, fuentes y
-cierre de procesos de esa ejecución; la policy host por sí sola no es evidencia.
+The scenario demands seven real proofs and retains the loss of 100 of the solver: its delivery is like 100 private shares of destination, it does not receive the reserved payment of 120. The catalog admission remains enclosed after failure; nothing is unlocked, removed or sent back to make a complete journey. Acceptance is only declared after checking hashes, metrics, sources and process closure of that execution; host policy alone is not evidence.
 
-La vista de custodia del escenario F conserva los dos importes:
-`available=500` incluye la devolución de `recovery=120`. El segundo campo indica
-procedencia de una parte del saldo; no se suma otra vez. El total recuperado es
-500: cambio 380 más devolución 120. Reabrir ese journal y sustituir el listener
-mantiene `coordinatorProcessRestart=false`; el backend original sigue vivo.
+The custody hearing in scenario F retains the two amounts: `available=500` including the return of `recovery=120`. The second field indicates the origin of a portion of the balance; it is not added again. The total recovered is 500: 380 change plus 120 return. Reopen that journal and replace the listener maintains `coordinatorProcessRestart=false`; the original backend is still alive.
 
-## Recorrido web EVM nuevo aceptado
+## New EVM Web tour accepted
 
-El 8 de octubre de 2026, `./dev lab browser` completó el intento nuevo
-`87c263aa-32a0-4832-9f30-67147fc552f4` con quince pruebas genuinas:
-deposit_balance, deposit_intent, authorization, reservation, dependency, ready,
-admission, cuatro node, settlement y tres withdraw_balance. Las pruebas se
-generaron en este intento con claves de custodia, cuentas, journals y Anvil nuevos; los
-artefactos públicos compilados y verificados se reutilizan conforme a sus pines.
+On October 8, 2026, `./dev lab browser` completed the new attempt `87c263aa-32a0-4832-9f30-67147fc552f4` with fifteen genuine tests: deposit_balance, deposit_intent, authorization, reservation, dependence, ready, admission, four node, settlement and three withdraw_balance. The evidence was generated in this attempt with new custody keys, accounts, journal and Anvil; the public artifacts compiled and verified are reused according to their pins.
 
-La wallet web real financió, revisó y confirmó el grafo con una capability exacta
-y la casilla visible. Se descartó una respuesta HTTP realmente admitida; el DOM
-mostró UNKNOWN y concilió el journal original con un solo POST y sin reenvío.
-Ambos titulares estuvieron ausentes durante la entrega y liquidación. Después
-se cerró el primer navegador, se sustituyó el listener y se reabrió el mismo
-journal del coordinador: el permiso del listener anterior se rechazó y la
-conciliación/recuperación del grafo cumplido no agregó pagos, pruebas o envíos.
-Los titulares reiniciaron sus procesos y recuperaron sus notas originales.
+The real web wallet funded, revised and confirmed the graph with an exact capability and visible box. A truly supported HTTP response was discarded; the DOM showed UNKNOWN and conciliated the original journal with a single POST and no forwarding. Both incumbents were absent during delivery and liquidation. After the first browser was closed, the listener was replaced and the coordinator's same journal was reopened: the previous listener's permission was rejected and the reconciliation/recovery of the completed graph did not add payments, tests or shipments. The headlines restarted their processes and retrieved their original notes.
 
-Las salidas originales desde la interfaz retiraron 380 PALT de cambio y
-100 BLTV. La custodia reiniciada del solver retiró su único pago de 120 PALT;
-el replay nativo fue rechazado y conservó nullifier y contabilidad. La interfaz
-redimió las 100 participaciones por 100 PALT mediante el puente DeFi original,
-reabrió y concilió esa operación y rechazó cualquier segundo efecto. Revisar el
-EXIT confirmado mantuvo idéntico el estado privado original de esa cuenta.
-Los destinatarios quedaron con 380/120/100 PALT; BLTV, activos y shares del vault,
-respaldo de ambos pools y reservas terminaron en cero. El padding no se volvió
-saldo ni capacidad reutilizable; no se acepta rollover ilimitado.
+The original outputs from the interface removed 380 PALT change and 100 BLTV. Restarted custody of the solver withdrew its sole payment of 120 PALT; native replay was rejected and retained nullifier and accounting. The interface redeemed the 100 shares per 100 PALT via the original DeFi bridge, reopened and conciliated that operation and rejected any second effect. Reviewing the confirmed EXIT kept the original private statement of that account identical. The recipients were 380/120/100 PALT; BLTV, Vault assets and shares, backup of both pools and reserves ended in zero. Padding did not become a reusable balance or capacity; unlimited rollover is not accepted.
 
-El supervisor y el resumen aceptaron el resultado con los 16 checks de identidad,
-bytes y fuentes positivos y el cierre íntegro sin señales. Una auditoría
-independiente verificó de nuevo los 15 archivos de prueba y los 15 de inputs,
-los recibos originales cerrados de 11 jobs y las métricas retenidas de las otras
-cuatro pruebas. Los 55 PID del grupo propio y el PID del supervisor estaban
-ausentes en `/proc` después del cierre. Los dos Chrome conservaron
-sandbox de kernel (`NoNewPrivs=1`, `Seccomp=2`), UID/grupo/sesión originales,
-salida 0 y ningún proceso huérfano. Sus máximos de RSS fueron 886173696 y
-889397248 bytes, por debajo de 1 GiB. El worker tardó 1167784.6 ms; el mayor
-prover alcanzó 3033706496 bytes, por debajo de 3 GiB, y la RAM disponible mínima
-fue 14165032960 bytes. Las 402 fuentes capturadas no cambiaron durante el intento.
-`keeperRestart=false`, `nodeRestart=false` y `coordinatorProcessRestart=false`:
-se sustituyó el listener y se reabrió el journal del mismo coordinador; el
-reinicio en procesos de los titulares se comprueba por separado.
+The supervisor and the summary accepted the result with the 16 identity checks, bytes and positive sources and full closure without signals. An independent audit re-checked the 15 test files and 15 input files, the original closed receipts of 11 jobs and the retained metrics of the other four tests. The 55 PIDs of the own group and the supervisor's PID were absent from `/proc` after the closure. The two Chromes kept kernel sandbox (`NoNewPrivs=1`, `Seccomp=2`), original UID/group/session, output 0 and no orphan process. Its RSS maximums were 886173696 and 889397248 bytes, below 1 GiB. The worker took 1167784.6 ms; the largest project reached 3033706496 bytes, below 3 GiB, and the minimum available RAM was 14165032960 bytes. The 402 sources captured did not change during the attempt. `keeperRestart=false`, `nodeRestart=false` and `coordinatorProcessRestart=false`: the lister was replaced and the coordinator's journal was reopened; the restart in process of the incumbents is checked separately.
 
-| Evidencia del intento nuevo | SHA256 |
+| Evidence of the new attempt | SHA256 |
 | --- | --- |
 | `result.json` original | `9c4497ee98b76599e75cb455911af6cd766e1b60cdec26dc80a7dfcdc19fc001` |
 | `resources.json` original | `3ea033d43e3e4279dc1d5c48b03bfdd7cc000e58a806112254fea5a82a5253ed` |
-| Cierre de fuentes capturado | `41e2c8143da24ffd80804fc277fbd670f8240040be91e143243f798a9135b3b6` |
+| Closing of captured sources | `41e2c8143da24ffd80804fc277fbd670f8240040be91e143243f798a9135b3b6` |
 | Resumen `evm-browser-lab.json` | `ad69723c5209caa6d8488405754409f4f6754ee6da2927f14a8d1122f6dda3a0` |
 
-Los originales están en
-`.internal/runtime/omnichain-flat-profile/flat-wallet/.local/manual-wallet-browser-acceptance/attempt-87c263aa-32a0-4832-9f30-67147fc552f4/`.
-El envoltorio Python revisado en `2c0d8e5` se capturó aparte del cierre financiero:
-19220 bytes, SHA256 `7c33576af7d86798301fcb8cde12008c850dae1311ade4055f9609b9f6dfcac4`.
+The originals are in `.internal/runtime/omnichain-flat-profile/flat-wallet/.local/manual-wallet-browser-acceptance/attempt-87c263aa-32a0-4832-9f30-67147fc552f4/`. The Python wrapper reviewed in `2c0d8e5` captured apart from the financial closure: 19220 bytes, SHA256 `7c33576af7d86798301fcb8cde12008c850dae1311ade4055f9609b9f6dfcac4`.
 
-`walletBrowserEvmFlowCompleted=true` y `manualConsentContractVerified=true`
-describen automatización que verifica el DOM y confirma explícitamente; no una
-persona operando el navegador. `walletSdkEvmFlowCompleted=false` conserva la
-distinción respecto al intento SDK rechazado. La preparación de importes,
-destinos y testigos sigue en la custodia Linux original. Móvil, custodia autónoma
-del navegador, siete redes públicas, operadores independientes, privacidad y
-rendimiento de producto siguen fuera de esta aceptación; `fullWalletAcceptance`
-permanece falso.
+`walletBrowserEvmFlowCompleted=true` and `manualConsentContractVerified=true` describe automation that verifies the DOM and explicitly confirms; not a person operating the browser. `walletSdkEvmFlowCompleted=false` retains the distinction with respect to the rejected SDK attempt. The preparation of amounts, destinations and witnesses continues in original Linux custody. Mobile, autonomous browser custody, seven public networks, independent operators, privacy and product performance remain outside this acceptance; `fullWalletAcceptance` permanece falso.
 
-Los intentos DOM previos permanecen rechazados. Se corrigieron y probaron la
-espera de lectura inicial del catálogo y la comparación del orden fijo de
-campos del formulario. Otro intento cerró el segundo Chrome por un guard cuya
-causa exacta no se retuvo entonces; no se afirma haber corregido ni identificado
-esa causa. Se añadió su captura y cuatro ciclos dobles sintéticos pasaron antes
-de este recorrido nuevo, sin relajar el guard ni reutilizar las pruebas previas.
+Previous DOM attempts remain rejected. The initial reading of the catalogue and the comparison of the fixed order of fields of the form were corrected and tested. Another attempt closed the second Chrome for a guard whose exact cause was not retained then; it is not claimed to have corrected or identified that cause. It was added its capture and four synthetic double cycles passed before this new route, without relaxing the guard or reusing previous tests.
 
-La tabla de medición fría por relación se conserva en
-`.internal/dev/reports/evm-browser-cold-proof-timings.json`, calculada sólo desde
-esos recibos originales; no se lanzó un benchmark nuevo. Distingue inicialización,
-prueba, total del worker y tiempo del supervisor. Las cuatro pruebas heredadas
-sólo registran tiempo total: sus columnas init/prove quedan `null`, sin inferirlas.
-Los once jobs PAEG inicializaron workers nuevos. Cualquier propuesta de reutilizar
-inicialización necesitaría volver a verificar límites, clausura de fuentes,
-aislamiento de rol, testigos, inputs, claves, ZK y cierre antes de aceptar una mejora.
+The cold measurement table by ratio is preserved in `.internal/dev/reports/evm-browser-cold-proof-timings.json`, calculated only from those original receipts; no new benchmark was launched. Distinguish initialization, testing, total worker and supervisor time. The four inherited tests only record total time: their init/provide columns remain `null`Without inferring them. The 11 PAEG jobs initialized new workers. Any proposal to re-use initialization would need to re-check boundaries, source closure, role isolation, witnesses, inputs, keys, ZK and closure before accepting an improvement.
 
-Esta es la medición fría del mismo intento, en segundos por prueba. Las filas
-con varias pruebas muestran su media; el total externo lo midió el supervisor
-de cada prueba e incluye más trabajo que init + prove. Los guiones indican que
-el recibo original no separó esas etapas.
+This is the cold measurement of the same attempt, in seconds per test. The rows with multiple tests show their average; the external total was measured by the supervisor of each test and includes more work than init + provides. The scripts indicate that the original receipt did not separate those stages.
 
-| Relación | Pruebas | Init (s) | Prove (s) | Total externo (s) |
+| Relationship | Proofs | Init (s) | Prove (s) | External total (s) |
 | --- | ---: | ---: | ---: | ---: |
 | `deposit_balance` | 1 | — | — | 38.700 |
 | `deposit_intent` | 1 | 29.494 | 6.974 | 37.076 |
@@ -225,155 +87,54 @@ el recibo original no separó esas etapas.
 | `settlement` | 1 | 30.279 | 11.206 | 42.274 |
 | `withdraw_balance` | 3 | — | — | 51.516 |
 
-La autorización A consumió 127.219 s externos, de los cuales 95.628 s fueron
-proving. Los once jobs inicializaron de nuevo el runtime, con unos 30 s en cada
-init. Estos datos permiten investigar el coste de inicialización y después la
-autorización, conservando ZK y las verificaciones. No se midió una ejecución
-caliente, ni se cumplen o certifican aquí los objetivos de rendimiento del
-producto. Esta única ejecución fría tampoco mide concurrencia o latencia móvil.
+Authorization A consumed 127.219 s external, of which 95.628 s were proving. The eleven jobs re-initialized the runtime, with about 30 s in each init. These data allow you to investigate the initialization cost and then the authorization, retaining ZK and verifications. No hot execution was measured, nor are the product performance objectives met or certified here. This only cold execution also does not measure continuance or mobile latency.
 
-## Recuperación F nueva aceptada
+## New recovery F accepted
 
-Intento `59fba9ff-2298-449a-b825-393c002b57e0`: siete pruebas reales (financiación, D27, autorización,
-reserva, dependencia, readiness y F). Tras una única entrega real queda la
-admisión FAILED original; F se incluye al cutoff que había autorizado el titular.
-Repetir F/reconcile, reabrir el journal y sustituir el listener no añade pruebas,
-entregas, pagos ni créditos; el permiso del listener antiguo se rechaza.
+I'm trying `59fba9ff-2298-449a-b825-393c002b57e0`: seven real proofs (financing, D27, authorization, reservation, dependency, readiness and F). After a single actual delivery the original FAILED admission is left; F is included the cutoff that the holder had authorized. Repeat F/reconcile, reopen the journal and replace the listener does not add evidence, deliveries, payments or credits; the permission of the old listener is rejected.
 
-Tras reiniciar los dos titulares, el origen tiene 500 disponibles, con los
-120 devueltos incluidos; el destino tiene 100 shares y las reservas son cero.
-El solver pierde su entrega de 100, sin recibir el pago reservado. La cerca del
-catálogo permanece activa. No se realizan retiradas para ocultar ese estado.
+After restarting the two headlines, the origin has 500 available, with 120 returned included; the destination has 100 shares and the reserves are zero. The solver loses its delivery of 100, without receiving the reserved payment. The close of the catalog remains active. There are no withdrawals to conceal this state.
 
-El supervisor acepta fuentes sin cambios y cierre completo sin señales:
-514,386.8 ms; siete pruebas genuinas. Resultado SHA256 `b6736a5eb09a0ce6f90379ba12e6fc850cf0d8e274b885e8654f7d817b911313`,
-recursos `b065c3a10bc23ebb518ad6d1bb0081843c597878142da589ba6c994f69cddd7e`, fuentes `74512f9fb832f88c202fc9a360d4733edb94c7f8070bdc96e2debc4acf411c1b`.
-El resumen está en `.internal/dev/reports/evm-recovery-lab.json`.
+The supervisor accepts unchanged sources and complete closure without signals: 514,386.8 ms; seven genuine tests. Result SHA256 `b6736a5eb09a0ce6f90379ba12e6fc850cf0d8e274b885e8654f7d817b911313`resources `b065c3a10bc23ebb518ad6d1bb0081843c597878142da589ba6c994f69cddd7e`, sources `74512f9fb832f88c202fc9a360d4733edb94c7f8070bdc96e2debc4acf411c1b`. The summary is in `.internal/dev/reports/evm-recovery-lab.json`.
 
-Es aceptación SDK/HTTP de recuperación local, no navegador, red pública,
-reinicio del keeper/nodo ni wallet completa. El coordinador original sobrevive;
-se reabre su journal y se sustituyen los listeners.
+It is SDK/HTTP acceptance of local recovery, not browser, public network, restart of keeper/node or wallet complete. The original coordinator survives; his journal is reopened and the listeners are replaced.
 
-## Recuperación F desde la wallet web aceptada
+## F Recovery from accepted web wallet
 
-El 8 de octubre de 2026, `./dev lab browser-recovery` completó el intento nuevo
-`0b44fe86-23a2-4297-bff4-abb4e604d3e4`, iniciado sobre `5a0c544`, con siete
-pruebas genuinas: deposit_balance, deposit_intent, authorization, reservation,
-dependency, ready y recovery. Son pruebas nuevas en cuentas, claves de custodia,
-journals y Anvil nuevos; los artefactos y claves de verificación públicas se
-reutilizan conforme a sus pines y loaders.
+On October 8, 2026, `./dev lab browser-recovery` completed the new attempt `0b44fe86-23a2-4297-bff4-abb4e604d3e4`, started on `5a0c544`, with seven genuine tests: deposit_balance, deposit_intent, authorization, reservation, dependence, ready and recovery. They are new evidence in accounts, custody keys, new journal and Anvil; public artifacts and verification keys are reused according to their pins and loaders.
 
-La financiación, confirmación del grafo y devolución F pasaron por los
-formularios de la wallet web real. La automatización verificó los términos y
-que la casilla estuviera desmarcada antes de importar y confirmar cada permiso
-exacto. La pérdida de una respuesta HTTP realmente admitida dejó UNKNOWN en
-el navegador, con un solo POST y conciliación del journal original sin reenvío.
-Después de la reserva S, ambos propietarios estuvieron ausentes durante una
-única entrega real al vault. El execute conservó su admisión FAILED original,
-filtrada públicamente como `FLAT_ACCOUNT_OPERATION_FAILED`, y la interrupción
-controlada privada `MANUAL_ACCEPTANCE_CONTROLLED_AFTER_DELIVERY`.
+Funding, graph confirmation and return F went through the forms of the real web wallet. Automation checked the terms and the box was unchecked before importing and confirming each exact permission. Loss of a truly supported HTTP response left UNKNOWN in the browser, with a single POST and reconciliation of the original journal without forwarding. After booking S, both owners were absent during a single actual delivery to the Vault. The execute retained its original FAILED admission, publicly filtered as `FLAT_ACCOUNT_OPERATION_FAILED`, and private controlled interruption `MANUAL_ACCEPTANCE_CONTROLLED_AFTER_DELIVERY`.
 
-Se cerró el primer Chrome, se sustituyó el listener y se reabrió el mismo
-journal autenticado. El permiso anterior recibió rechazo y las identidades
-originales permanecieron iguales. La interfaz confirmó F al cutoff autorizado,
-con ambos propietarios todavía ausentes. Repetir recuperación y conciliación
-no generó otra prueba, entrega, pago o crédito. Después se reiniciaron los
-procesos de los propietarios y se leyeron sus notas originales.
+The first Chrome was closed, the listener was replaced and the same authenticated journal reopened. The previous permit was rejected and the original identities remained the same. The interface confirmed F to the authorized cutoff, with both owners still absent. Repeating recovery and reconciliation did not generate another proof, delivery, payment or credit. The owners' processes were then restarted and their original notes were read.
 
-El origen terminó con `available=500`, incluyendo `recovery=120` como parte
-de ese mismo saldo; el destino conserva 100 participaciones privadas. El vault
-conserva 100 activos/100 shares, los pools mantienen respaldo 500/100 y las
-reservas son cero. El solver perdió sus 100 de entrega y no recibió el pago
-reservado. No se intentó ninguna salida; la cerca de admisión del catálogo
-permanece activa. Esto conserva el resultado económico original de F y su
-incertidumbre anterior, sin fabricar una liquidación global o un recorrido
-feliz posterior.
+The origin ended with `available=500`including `recovery=120` as part of the same balance; the destination retains 100 private shares. The Vault retains 100 assets/100 shares, pools maintain 500/100 backup and reserves are zero. The solver lost his 100 delivery and did not receive the reserved payment. No output was attempted; the catalog entry fence remains active. This retains the original economic result of F and its previous uncertainty, without manufacturing a global settlement or a later happy journey.
 
-Los 16 checks del resumen pasaron. La auditoría de archivos comprobó los siete
-proofs y sus inputs reales: seis joins de manifests/resultados/recursos originales
-cerrados y una telemetría heredada almacenada/devuelta idéntica, con ZK y
-verificación habilitados y salida 0. Los objetos sourcePins del archivo, worker
-y supervisor coinciden; los 410 archivos locales también se comprobaron de
-nuevo por longitud y hash. Las fuentes permanecieron iguales durante el intento.
+The 16 checks in the summary passed. The file audit verified the seven proofs and their actual inputs: six joints of manifests/results/concluded original resources and an identical legacy telemetry stored/returned, with ZK and verification enabled and output 0. The sourcePins objects in the file, worker and supervisor match; the 410 local files were also checked again by length and hash. The sources remained the same during the attempt.
 
-Las dos instancias Chrome cerraron con guard PASS, sandbox de kernel
-(`NoNewPrivs=1`, `Seccomp=2`), UID/grupo/sesión originales, salida 0, ninguna
-señal ni procesos restantes. Sus máximos RSS fueron 883273728 y 888233984 bytes,
-por debajo de 1 GiB. Los 36 PID retenidos del grupo y el supervisor estaban
-ausentes tras el cierre; los locks de flujo/proving también desaparecieron.
-El worker tardó 593999.5 ms y el supervisor 595515.4 ms, unos 9 minutos 56
-segundos. El mayor prover alcanzó 2975383552 bytes, por debajo de 3 GiB; la
-RAM disponible mínima fue 13222424576 bytes. Estos tiempos pertenecen a este
-intento frío y no certifican los objetivos de rendimiento del producto.
+The two Chrome instances closed with guard PASS, kernel sandbox (`NoNewPrivs=1`, `Seccomp=2`), original UID/group/session, output 0, no remaining signals or processes. Its maximum RSS were 883273728 and 888233984 bytes, below 1 GiB. The 36 PIDs retained from the group and the supervisor were absent after closure; the flow/proving locks also disappeared. The worker took 593999.5 ms and supervisor 595515.4 ms, about 9 minutes 56 seconds. The largest prover reached 2975383552 bytes, below 3 GiB; the minimum available RAM was 13222424576 bytes. These times belong to this cold attempt and do not certify the product performance objectives.
 
-| Evidencia del intento F DOM | SHA256 |
+| Evidence of attempt F DOM | SHA256 |
 | --- | --- |
 | `result.json` original | `cdaed0f6504a4702f79ae694338380b6275505c04a63802c00e9c7ac90f3d977` |
 | `resources.json` original | `4f822733c86f42c95d65bcab801d657f94bb2119ccec49786e37cb965a5581bd` |
 | Bytes de `source-pins.json` original | `09e62a69a29b499b9f590e1ac28211d37d426f4e50379985c649848839b38640` |
-| SourcePins como JSON compacto | `38c7476f0b92745d54baba7617c88eaf5aa67d96d19fb20978998e6020929ddc` |
+| SourcePins as JSON Compact | `38c7476f0b92745d54baba7617c88eaf5aa67d96d19fb20978998e6020929ddc` |
 | Resumen `evm-browser-recovery-lab.json` | `0ff6e8c1419b5f822c2fd8339c761742171d0599a282a0dd66d8d4406bc60d06` |
 
-Los dos hashes sourcePins describen el mismo objeto: el primero corresponde al
-archivo JSON indentado con newline, y el segundo a su serialización compacta,
-comprobada idéntica al inicio y al cierre. Esa diferencia de formato no es un
-cambio de fuentes. Los originales están en
-`.internal/runtime/omnichain-flat-profile/flat-wallet/.local/manual-wallet-browser-timeout-recovery/attempt-0b44fe86-23a2-4297-bff4-abb4e604d3e4/`;
-la auditoría está en `.internal/dev/reports/evm-browser-recovery-proof-audit.json`.
-El envoltorio Python se capturó antes aparte: 20261 bytes, SHA256
-`6214c9ac96e2bb2c12660fe72efd8ec30a5ed344e43fcce6ef5674a342e96035`,
-sin cambios al terminar.
+The two hashes sourcePins describe the same object: the first corresponds to the JSON file indented with newline, and the second to its compact serialization, proven identical to the beginning and closing. That difference in format is not a change in sources. The originals are in `.internal/runtime/omnichain-flat-profile/flat-wallet/.local/manual-wallet-browser-timeout-recovery/attempt-0b44fe86-23a2-4297-bff4-abb4e604d3e4/`; the audit is in `.internal/dev/reports/evm-browser-recovery-proof-audit.json`. The Python wrapper was first captured separately: 20261 bytes, SHA256 `6214c9ac96e2bb2c12660fe72efd8ec30a5ed344e43fcce6ef5674a342e96035`No change at the end.
 
-`walletBrowserTimeoutFRecoveryCompleted=true`,
-`actualTimeoutFRecoveryAcceptance=true` y `manualConsentContractVerified=true`
-describen este recorrido específico. `walletBrowserEvmFlowCompleted=false`,
-`walletSdkEvmFlowCompleted=false` y `fullWalletAcceptance=false` evitan
-confundirlo con el recorrido feliz, la aceptación SDK o el producto completo.
-Se automatizó el DOM real; no fue una persona navegando. La preparación de
-testigos sigue en custodia Linux, el reloj local de Anvil se adelantó
-explícitamente, y no se demuestra una caída física de red, custodia móvil,
-operadores independientes, privacidad certificada o redes públicas.
-`keeperRestart=false`, `nodeRestart=false` y
-`coordinatorProcessRestart=false`: se reabrió el journal del mismo coordinador
-y se reemplazó su listener, conservando el reinicio real de los propietarios
-como una comprobación separada.
+`walletBrowserTimeoutFRecoveryCompleted=true`, `actualTimeoutFRecoveryAcceptance=true` and `manualConsentContractVerified=true` describe this specific route. `walletBrowserEvmFlowCompleted=false`, `walletSdkEvmFlowCompleted=false` and `fullWalletAcceptance=false` avoid confusing it with the happy tour, SDK acceptance or the complete product. The real DOM was automated; it wasn't a person sailing. Witness preparation remains in Linux custody, Anvil's local clock was explicitly advanced, and there is no evidence of a physical network crash, mobile custody, independent operators, certified privacy or public networks. `keeperRestart=false`, `nodeRestart=false` and `coordinatorProcessRestart=false`: the journal of the same coordinator was reopened and its lister replaced, retaining the real restart of the owners as a separate check.
 
-## Despliegues Osaka comprobados
+## Osaka deployments verified
 
-`./dev lab osaka` comprueba un perfil local nuevo y fijo. Activa explícitamente
-el límite de 16.777.216 gas por transacción de
-[EIP-7825](https://eips.ethereum.org/EIPS/eip-7825); el límite de bloque permanece
-en 30 millones. Las aceptaciones privadas anteriores usaron Cancun y conservan
-sus fuentes y resultados originales.
+`./dev lab osaka` checks a new and fixed local profile. Explicitly activates the limit of 16.777.216 gas per transaction [EIP-7825](https://eips.ethereum.org/EIPS/eip-7825); the block limit remains at 30 million. Previous private acceptances used Cancun and retain their original sources and results.
 
-Intento `63e7918a-994e-44af-a766-86171c68ce90`: aceptado con 47 transacciones,
-44 CREATE, dos registros de pool y una transferencia pública de una unidad.
-Se despliegan los doce verificadores, librerías, hub, dos pools, activos y router
-fijados, con comprobación completa de código, constructores y almacenamiento.
-Todas las transacciones declaran como máximo 16.777.216 gas; el máximo consumido
-fue 12.211.265. El mayor código tiene 24.558 bytes y el mayor initcode 30.924,
-dentro de [EIP-170](https://eips.ethereum.org/EIPS/eip-170) y
-[EIP-3860](https://eips.ethereum.org/EIPS/eip-3860).
+I'm trying `63e7918a-994e-44af-a766-86171c68ce90`: accepted with 47 transactions, 44 CREATE, two pool records and a public transfer of one unit. The twelve checkers, libraries, hubs, two pools, assets and routers are deployed, with complete code check, builders and storage. All transactions declare maximum 16.777.216 gas; the maximum consumed was 12.211.265. The largest code has 24.558 bytes and the largest initcode 30.924, within [EIP-170](https://eips.ethereum.org/EIPS/eip-170) and [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860).
 
-El runtime rechaza gas cero, cap+1 y 30 millones antes de registrar o enviar.
-Una única petición cap+1 al nodo original también fue rechazada; cabeza,
-nonces, balances, mempool y journal quedaron idénticos. La revisión independiente
-unió las 47 transacciones y recibos, sus hashes y las 390 fuentes. Se cerraron
-los tres PID originales y ambos locks, sin señales ni force y con scratch
-eliminado. Cero pruebas privadas; 5,49 s en el worker y 5,71 s en el supervisor.
+The runtime rejects zero gas, cap+1 and 30 million before registering or sending. A single cap+1 request to the original node was also rejected; heads, nonces, balances, mempool and journal remained identical. The independent review brought together the 47 transactions and receipts, their hashes and the 390 sources. The original three PIDs and both locks were closed, with no signals or force and scratch removed. Zero private tests; 5,49 s in the worker and 5,71 s in the supervisor.
 
-Resultado SHA256 `a53a8beaa1a285ebb2fc4739fff6a13f84cb983ff9cabd62c034131b1db3e551`,
-recursos `2ad2878653d6a6439b03f8ca1b942b8ca67493555aa9a8c7d308750dd1af8da4`,
-fuentes `db5aa70ce21d42e5c8047578e05db6a213b5f283c3a880e8c6cdc4c137fefed7`.
-Resumen: `.internal/dev/reports/osaka-smoke-lab.json`.
+Result SHA256 `a53a8beaa1a285ebb2fc4739fff6a13f84cb983ff9cabd62c034131b1db3e551`resources `2ad2878653d6a6439b03f8ca1b942b8ca67493555aa9a8c7d308750dd1af8da4`, Sources `db5aa70ce21d42e5c8047578e05db6a213b5f283c3a880e8c6cdc4c137fefed7`. Resumen: `.internal/dev/reports/osaka-smoke-lab.json`.
 
-El primer intento `cc834a62-4247-433d-ab24-66e0b9ced1ce` sigue rechazado,
-sin despliegues: el nodo rechazó gas excesivo, pero el mock esperaba el mensaje
-de otra rama RPC. La corrección compara el mensaje auténtico exacto y conserva
-el fence y las comprobaciones de estado; ocho regresiones host pasan.
+The first attempt `cc834a62-4247-433d-ab24-66e0b9ced1ce` remains rejected, without deployments: the node rejected excessive gas, but the mock waited for the message from another RPC branch. Correction compares the exact authentic message and retains the fence and status checks; eight host regressions pass.
 
-Este smoke no llama a los verificadores con pruebas privadas ni demuestra el
-coste de MODEXP o de settlement bajo Osaka. Tampoco acredita un cliente de
-producción, consenso público, firma wire real, recorrido de wallet o rendimiento
-del producto. La liquidación privada necesita su aceptación separada bajo ese
-perfil antes de usarlo en producción.
+This smoke does not call the verifiers with private testing nor does it demonstrate the cost of MODEXP or settlement under Osaka. It also does not credit a production client, public consensus, real wire signature, wallet tour or product performance. Private settlement needs its separate acceptance under that profile before using it in production.

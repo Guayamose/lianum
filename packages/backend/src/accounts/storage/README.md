@@ -1,28 +1,16 @@
-# Persistencia de cuentas
+# Account persistence
 
-`durable-generic-account-keeper.mjs` compone el coordinador genérico del motor con
-el registro padre cifrado, la sesión SOURCE y el registro de vida wrapped. Es el
-único propietario de la marca privada de un keeper durable.
+`durable-generic-account-keeper.mjs` composes the generic engine coordinator with the encrypted parent record, SOURCE session and typed lifecycle record. It alone owns the private durable-keeper brand.
 
-El motor recibe tres operaciones de persistencia: estado inicial (`opening`),
-retención de checkpoints (`retain`) y cierre (`close`). No recibe verificadores
-de sesión ni callbacks capaces de otorgar pertenencia durable. Conserva el mismo
-objeto keeper, su bloqueo de operaciones, el proceso hijo y la marca genérica de
-cuenta. El backend conserva sus propias comprobaciones de objeto original antes
-de enlazar o consultar una sesión.
+The engine receives three persistence operations: initial state (`opening`), checkpoint retention (`retain`) and closure (`close`). It receives no session verifier or callback that could mint durable membership. The same keeper object, operation lock, child process and generic-account brand remain intact. Backend checks its own original objects before binding or reading a session.
 
-Flujo de checkpoint SOURCE:
+SOURCE checkpoint sequence:
 
-1. Comprobar sesión y keeper originales y publicar el candidato.
-2. Actualizar el registro padre mediante CAS y verificar su lectura.
-3. Confirmar el checkpoint y comprobar el proceso hijo original.
-4. Actualizar el registro de vida, cuando exista.
+1. Validate the original session/keeper and publish the candidate.
+2. Update the parent record through CAS and verify readback.
+3. Confirm the checkpoint and check the original child process.
+4. Update the lifecycle record, when present.
 
-Cualquier fallo bloquea el coordinador. Copiar un objeto, implementar el puerto
-o crear un keeper genérico no lo convierte en un keeper durable. La captura
-sigue cerrando el proceso hijo; la reapertura exige el checkpoint retenido y
-conserva el marcador de admisión de un solo uso.
+Any failure blocks the coordinator. Copying an object, implementing the port or creating a generic keeper cannot create a durable keeper. Capture still closes the child process; reopening requires the retained checkpoint and preserves single-use admission.
 
-La API se importa desde `@lianum/backend/accounts/durable-keeper`. Para un
-coordinador sin integración SOURCE/wrapped, usar `@lianum/engine/accounts/keeper`.
-No hay un segundo registro ni una copia de la implementación en engine.
+Import `@lianum/backend/accounts/durable-keeper`. For coordination without SOURCE/wrapped integration, use `@lianum/engine/accounts/keeper`. There is no second registry or duplicate engine implementation.

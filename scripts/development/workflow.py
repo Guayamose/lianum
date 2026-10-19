@@ -310,12 +310,12 @@ def main(arguments=None):
     if args.command in {'help', 'docs-check'}:
         lines = [f"{row['usage']:<39} {row['description']}" for row in data['commands']]
         if args.command == 'help':
-            print('Lianum — ejecutar desde la raíz del proyecto\n' + '\n'.join(lines))
+            print('Lianum — run from the repository root\n' + '\n'.join(lines))
             return 0
         path = ROOT / 'docs/COMMANDS.md'
-        expected = '# Comandos de desarrollo\n\nGenerado desde `scripts/development/workflows.json`; `./dev help` usa el mismo catálogo.\n\n```text\n' + '\n'.join(lines) + '\n```\n'
+        expected = '# Development commands\n\nGenerated from `scripts/development/workflows.json`; `./dev help` uses the same catalog.\n\n```text\n' + '\n'.join(lines) + '\n```\n'
         if not path.is_file() or path.read_text() != expected:
-            print('docs/COMMANDS.md no coincide con workflows.json.', file=sys.stderr)
+            print('docs/COMMANDS.md does not match workflows.json.', file=sys.stderr)
             return 1
         print('Command documentation matches the executable help catalog.')
         return 0

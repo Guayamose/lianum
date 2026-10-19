@@ -1,5 +1,5 @@
-# Herramientas de la wallet
+# Wallet tooling
 
-`contracts/` compila contratos; `preparation/` prepara activos y claves
-de integración; `validation/` comprueba resultados y conformidad de hashes.
-El arranque cotidiano utiliza `npm run dev` desde la raíz.
+`contracts/` compiles contracts; `preparation/` prepares integration assets and keys;
+`validation/` checks results and hash integrity. Run commands from the repository
+root through the [development workflow](../../docs/WORKFLOW.md).

@@ -1,47 +1,72 @@
-# Trabajar con cambios pequeños
+# Development workflow
 
-La rutina de desarrollo comienza en las fuentes de `apps/` y `packages/`.
-Las pruebas del componente y los laboratorios completos tienen comandos
-distintos. La [referencia de comandos](COMMANDS.md), `./dev help` y el
-catálogo de comprobaciones se generan o leen desde
-[`scripts/development/workflows.json`](../scripts/development/workflows.json).
+Edit the real sources in `apps/`, `packages/` and `services/`. Use the smallest relevant check first, then run the repository check once when closing a code change. A documentation or UI edit does not require reopening the financial engine.
 
-## Preparar y comprobar el entorno
+The command catalog is [`scripts/development/workflows.json`](../scripts/development/workflows.json). It drives `./dev help`, [COMMANDS.md](COMMANDS.md), component selection and declared entry points.
 
-En Linux/WSL x64, con Python 3.12 o superior y Git:
+## Prepare the environment
+
+On Linux/WSL x64 with Git and Python 3.12+:
 
 ```sh
 ./dev prepare host
 ./dev status
 ./dev workflows
+./dev prepare mobile
 ```
 
-`prepare host` reutiliza el instalador existente: instala o comprueba Node
-24.19.0 mediante su archivo oficial y los hashes fijados. `status` tarda unos
-segundos: consulta versiones de herramientas y presencia de dependencias.
-Devuelve código 1 si faltan las herramientas del host. Los marcadores de
-dependencias indican presencia, no integridad de toda una instalación.
-El arranque y las pruebas preparan los enlaces npm de los módulos del
-workspace según el lock, sin copiar las fuentes al runtime histórico.
+`prepare host` installs or verifies Node 24.19.0 using the pinned official archive. `status` checks tool versions and dependency presence; missing host tools produce exit code 1. Presence is not an integrity guarantee. Application dependency preparation uses its lockfile and `npm ci --ignore-scripts`, requiring registry access.
 
-Para instalar las dependencias de una aplicación concreta:
+`./dev doctor` performs the fuller restored-resource/tool/pin checks. Use it after restoration or while investigating integrity failures. Neither `status` nor `doctor` proves financial readiness. Startup and tests link workspace packages without copying editable source into historical runtime trees.
+
+## Choose the check
 
 ```sh
-./dev prepare mobile
-./dev prepare platform
+# Explain the proposed selection without executing it.
+./dev test --changed --plan
+
+# Run the changed-file selection or an explicit component.
+./dev test --changed
+./dev test --component mobile
+./dev test --component wallet
+
+# Include committed changes relative to an existing local reference.
+./dev test --changed --base main --plan
+
+# Run a specific regression.
+./dev test packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs
+
+# Close a code change with the bounded repository checks.
+./dev check
 ```
 
-Estas dos variantes ejecutan `npm ci --ignore-scripts` con el lock de la
-aplicación seleccionada. La instalación necesita acceso a los registros
-públicos. El arranque de aplicaciones, las compilaciones Android y los
-laboratorios se solicitan con sus comandos propios.
+The base reference must exist; the tool does not assume the default branch is named `main`. Changed-file selection includes staged/unstaged edits, removals and nonignored new files. It follows literal imports among cataloged tests. If no direct relationship is found, it reports a component smoke fallback rather than claiming line-by-line coverage.
 
-`./dev doctor` conserva la comprobación completa de integridad de los
-materiales restaurados. Se utiliza después de restaurar o cambiar esos
-materiales, o al investigar un fallo de integridad; `status` cubre la consulta
-diaria de preparación. Ninguno de ambos acredita una operación económica.
+Computed imports, contracts, circuits and uncataloged paths need explicit validation. A documentation-only change selects no tests. Unmapped code and `--component contracts` return code 2 so the appropriate check can be chosen. The frozen `packages/protocol` tree is outside the ordinary import graph and `rg` search; inspect it explicitly with `rg --no-ignore` when required.
 
-## Preparar solo el laboratorio necesario
+Default limits are 24 test files and 120 seconds for the complete selection. `--max-files` and `--timeout` can adjust them explicitly. Timeout returns 124, output above 8 MiB per process returns 125, and cancellation returns 130/143 while closing owned child processes. TIMEOUT, CANCELLED, OUTPUT_LIMIT, ORPHANED_PROCESS and SOURCE_CHANGED are not passing results. Reports retain selection, timing, commit and the source-diff SHA256. Tests must not detach processes.
+
+Do not repeat a successful suite unless code changed, a failure appeared or an unresolved concern justifies it. `--changed` never adds an economic laboratory automatically.
+
+## Static analysis
+
+```sh
+./dev static
+./dev static --changed
+```
+
+The TypeScript parser checks syntax and declared imports/exports without loading the product or creating custody. Strict incremental checkJs covers the explicit files in `scripts/development/tsconfig.checkjs.json`; the rest of the JavaScript core is not claimed to be fully typed.
+
+Additional checks verify declared lexical bindings and seven operation-port contracts by AST. Ports declare exactly the members their consumers use and do not forward a generic context, writer or account record. Structural checks complement behavioral tests; they do not prove callback behavior. The twelve explicitly missing historical references remain in `static-check-exceptions.json`, barred from active imports. New broken imports fail, and a recovered exception must be removed.
+
+`./dev check` includes these controls. Keep the executable help and generated reference synchronized:
+
+```sh
+python3 -B scripts/development/workflow.py docs-check
+python3 -B scripts/development/test_workflow.py
+```
+
+## Prepare only the necessary laboratory
 
 ```sh
 ./dev lab profiles
@@ -50,232 +75,40 @@ diaria de preparación. Ninguno de ambos acredita una operación económica.
 ./dev lab check evm
 ```
 
-Los perfiles `host`, `wallet`, `platform`, `evm`, `btc-sol`, `defi` y
-`mobile-original` declaran sus dependencias. Plan y check son de lectura;
-prepare instala únicamente dependencias ausentes o desactualizadas y prepara
-la compatibilidad cuando el perfil la necesita. No arranca redes ni crea
-cuentas o pruebas criptográficas. Un original ausente sigue apareciendo como
-ausente; no se fabrica para aprobar el inventario. El alcance de cada perfil
-está en [LAB-PROFILES.md](LAB-PROFILES.md).
+Profiles declare their dependencies. Planning/checking is read-only; preparation installs missing/outdated resources and required compatibility. It does not start a network, create accounts or generate proofs. Missing originals remain missing. See [laboratory profiles](LAB-PROFILES.md), [the EVM guide](EVM-LAB.md) and [network/DeFi acceptance](../packages/backend/docs/LOCAL-ACCEPTANCE.md).
 
-## Actualizar hashes de las fuentes actuales
+| Level | What it demonstrates |
+| --- | --- |
+| Host/component | Logic, formats, errors and bounded behavior using declared fixtures |
+| Integration | Interaction between components or actual test services |
+| Economic/proof laboratory | The selected financial flow with its networks, custody and original proofs |
+| Public/phone acceptance | The actual operation against the installed release and physical device |
+
+Real PostgreSQL validation uses `./dev npm --prefix services/api-server run test:postgres` and needs Docker. A successful APK build does not demonstrate biometric or financial behavior on a phone. Keep each result's source generation and scope.
+
+## Update pins and adopt source deliberately
 
 ```sh
 ./dev pins check
 ./dev pins update --profile mobile
-git diff
+./dev sources status
+./dev sources prepare
+./dev sources verify --generation <digest>
+./dev sources adopt --generation <digest>
 ```
 
-El comando sustituye la edición manual de las tres tablas actuales declaradas:
-`mobile`, `platform` y `callers` (`all` las incluye). Muestra cada cambio y
-verifica las dependencias públicas fijadas antes de escribir. Platform actualiza
-también su referencia en callers. No cambia originales, publicaciones ni
-recibos históricos, ni acepta automáticamente archivos nuevos en la política. El perfil `runtime` gestiona también los pins actuales de los clientes rollup, sus dispatchers y el guard SOURCE, declarados en `source-pins.json`. Los hashes de binarios, fixtures y publicaciones originales conservan su significado histórico.
-Los consumidores económicos conservan su paso explícito de aceptación de
-generación. [Detalle y límites](SOURCE-GENERATIONS.md).
+The declared `mobile`, `platform`, `callers` and `runtime` profiles update current pins while authenticating immutable public dependencies. Platform includes its callers reference. New paths require an explicit policy review; hashes of historical binaries, fixtures and publications retain their original meaning.
 
-## Elegir qué comprobar
+After reviewing changes, `./dev sources prepare --adopt` prepares and verifies the same current generation before recording its adoption. Preparation/adoption does not deploy, recompile identical circuits or grant financial acceptance. A code change invalidates the prior source association for consumers that enforce it. [Source generations](SOURCE-GENERATIONS.md) documents manifests, original-artifact reuse and verification in detail.
 
-Para un fix pequeño, ejecutar primero su regresión y las pruebas de los
-componentes afectados. Ejecutar `./dev check` una vez al cerrar el cambio;
-repetir comprobaciones ya aprobadas sólo si cambia su código o queda un fallo
-sin resolver. La documentación por sí sola no requiere pruebas.
+`./dev bundle` packages an entry point's source closure and declared resources into a portable candidate. It verifies their hashes and resolves paths from the bundle location rather than requiring a copy of the accumulated `.internal/runtime` tree. See [environment packaging](../packages/environment/README.md).
 
-Una reapertura completa en cloud es una operación de despliegue, no una prueba
-por defecto para cada edición. Agrupar las correcciones comprobadas antes de
-publicar una versión y verificar después el comportamiento público afectado.
-Repetir un laboratorio económico o ZK sólo cuando el cambio afecte al recorrido
-que demuestra o exista un fallo nuevo que lo justifique. Conservar siempre la
-generación y el alcance de la evidencia anterior: reutilizarla no convierte una
-versión nueva en una nueva aceptación financiera.
+## Deploy and observe separately
 
-La entrada pública normal puede completar la renovación pendiente de Source4/7
-en el mismo producto Original y el mismo epoch ya firmado, conservándolo abierto
-para servir. Este recorrido evita abrir administrativamente, capturar y volver
-a abrir el servicio. Su recibo vivo no acredita `CAPTURED`: el despliegue sigue
-exigiendo `READY` de la invocación instalada y la comprobación de las rutas públicas.
-Durante el arranque desde almacenamiento capturado, V16 conserva en SQLite
-lecturas públicas de historia finalizada y puede reutilizarlas tras reiniciar el
-proceso. Comprueba de nuevo la red, su génesis y el bloque finalizado guardado;
-si cambia ese anclaje, invalida las lecturas anteriores. El almacenamiento tiene
-límites de tamaño y se cierra antes de servir operaciones financieras. Los
-saldos, nonces, permisos y demás estado actual se consultan de nuevo. Esta
-caché recupera lecturas históricas, no la composición criptográfica en memoria
-ni una aceptación financiera anterior.
+Group verified financial fixes before publishing a release. A full cloud reopen is a deployment action, not the default test for a small edit. The current public entry can complete pending Source4/7 renewal in the same Original product and signed epoch while keeping it open. A live receipt does not certify CAPTURED; deployment still requires READY for the installed invocation and public-route verification.
 
-El seguimiento registra hitos de arranque, métodos RPC, lotes y ritmo de lectura.
-El número de hitos pendientes no es un porcentaje de tiempo ni el total de
-consultas pendientes. En la primera ejecución del recorrido nuevo, el tiempo
-restante figura como desconocido mientras no haya una base medida para estimarlo.
+Startup can reuse finalized public reads from an anchored SQLite cache after rechecking the network, genesis and retained finalized block. An anchor change invalidates those reads. The store is size-bounded and closed before serving financial operations. Mutable balances, nonces and permissions are read afresh. Historical caching does not restore the entire live cryptographic composition or transfer a previous financial acceptance to new code.
 
-```sh
-# Ver qué comprobaciones propone el cambio actual; no ejecuta pruebas.
-./dev test --changed --plan
+Progress records milestones, RPC methods, batches and reading rate. Remaining milestone count is neither a time percentage nor a remaining RPC count. Report unknown time estimates honestly until measured data supports one.
 
-# Ejecutar esa selección de comprobaciones host/componentes.
-./dev test --changed
-
-# Incluir también commits realizados desde una rama o commit base.
-./dev test --changed --base main --plan
-
-# Seleccionar expresamente un componente.
-./dev test --component wallet
-./dev test --component crypto --component components
-
-# Ejecutar la regresión concreta de un defecto.
-./dev test packages/backend/tests/execution/account/execution/native-value-terminal-first.test.mjs
-```
-
-`--changed` incluye modificaciones preparadas para commit, modificaciones sin
-preparar, eliminaciones y archivos nuevos que Git no ignore. `--base` añade los
-cambios respecto al ancestro común con la referencia indicada; debe existir
-esa referencia localmente. No presupone que la rama principal se llame `main`.
-
-La selección recorre imports literales para encontrar pruebas afectadas entre
-los archivos del catálogo. El archivo original y `packages/protocol` congelado
-quedan fuera de ese grafo y de las búsquedas habituales con `rg`; se consultan
-explícitamente con `rg --no-ignore`. Sus comprobaciones de integridad permanecen
-separadas. Cuando no puede vincular un cambio con una prueba,
-propone las comprobaciones básicas de su componente y lo indica como
-`component smoke fallback`. Esa selección comprueba comportamiento general:
-no acredita automáticamente cada línea modificada. Los imports calculados en
-ejecución, contratos Solidity, circuitos y otros archivos sin comprobación
-catalogada requieren seleccionar la validación correspondiente.
-
-Una modificación exclusivamente documental no ejecuta pruebas. Los archivos
-sin selección automática aparecen explícitamente y la ejecución devuelve
-código 2. `--component contracts` también devuelve código 2: hay que elegir la
-compilación y prueba del contrato modificado; las pruebas host no validan su
-bytecode.
-
-El límite habitual es 24 archivos de prueba. Una selección mayor se muestra y
-devuelve código 2 antes de arrancar pruebas. Puede acotarse por componente o
-ampliarse expresamente con `--max-files 40`. Además, la selección completa
-tiene un presupuesto de 120 segundos, configurable con `--timeout 30` o un
-valor explícito mayor. Python y Node comparten ese presupuesto. Al agotarlo
-se detiene el grupo de procesos propio y se devuelve 124. La cancelación
-devuelve 130/143 y también cierra los hijos. Los comandos de pruebas no deben
-desacoplar procesos; los laboratorios tienen su propia gestión explícita.
-
-La salida de las pruebas se muestra y guarda conforme llega. Cada proceso
-tiene un límite de 8 MiB de salida; excederlo devuelve 125. Los informes host
-incluyen fecha de comienzo/final, duración, selección, commit y SHA256 de las
-modificaciones de código. `TIMEOUT`, `CANCELLED`, `OUTPUT_LIMIT`,
-`ORPHANED_PROCESS` y `SOURCE_CHANGED` no son aprobaciones. Una ejecución sin
-pruebas aprobadas tampoco se etiqueta PASS. Un fallo detiene la selección.
-
-`./dev test` sin opciones mantiene la selección habitual de pruebas host.
-`--component` permite pedir varios componentes concretos, mientras que
-`--changed` utiliza el cambio en Git. `--plan --json` proporciona la selección
-para herramientas del editor sin ejecutar pruebas.
-
-## Análisis estático sin ejecutar el producto
-
-```sh
-./dev static
-./dev static --changed
-```
-
-El parser de TypeScript comprueba sintaxis y nombres importados/exportados
-en las declaraciones estáticas del núcleo, sin cargar sus módulos ni crear
-custodia. `--changed` limita ese análisis a los archivos modificados y nuevos.
-No infiere imports calculados ni demuestra comportamiento económico.
-
-`scripts/development/tsconfig.checkjs.json` aplica checkJs estricto a las
-implementaciones de rutas, errores, integridad de archivos, autorizaciones y
-consentimientos móviles, revisión y estado privado de cuenta, acciones de
-recuperación y ciclo de vida de procesos propios. Las entradas exactas están
-enumeradas en esa configuración. Es una adopción incremental: el resto del
-núcleo JavaScript no se declara tipado.
-La configuración no usa `@ts-ignore` ni desactiva errores para hacerla pasar.
-Además se comprueban nombres sin binding léxico en la fábrica de autoridad y
-los módulos de operaciones y diario enumerados en `static-bindings.json`. Este control
-detecta referencias como un `account` que no se haya pasado ni declarado;
-analiza esos archivos sin cargar su grafo de dependencias y no equivale a
-tipar todas sus estructuras dinámicas.
-Los siete contratos de operaciones enumerados en `static-operation-ports.json`
-se contrastan por AST con su composición: cada puerto declara miembros
-explícitos y recibe exactamente los que utiliza, sin campos sobrantes, spreads
-ni reenvío del puerto completo. El control impide pasar capacidades generales
-llamadas `context`, `record`, `password` o `write`; el acceso al registro y al
-writer permanece en la fábrica y su diario privado. Este control estructural
-no demuestra por sí solo el comportamiento de los callbacks.
-Las doce referencias históricas ausentes de `protocol` están enumeradas
-exactamente en `static-check-exceptions.json`, visibles en la salida y
-prohibidas como dependencias activas por el control de módulos. Un import
-roto nuevo falla; una excepción cuyo archivo ya se recuperó también falla
-hasta retirarla. No se redirigen esas identidades históricas a otro módulo.
-
-`./dev check` incluye estos controles. La CI verifica además que la referencia
-de comandos coincide con el catálogo: `python3 -B scripts/development/workflow.py docs-check`.
-
-## Qué demuestra cada nivel
-
-| Nivel | Comprueba | Ejemplo explícito |
-| --- | --- | --- |
-| Host | Lógica, formatos y errores con fixtures locales | `./dev test` |
-| Componente | Comprobaciones acotadas de una parte de la aplicación | `./dev test --component wallet` |
-| Integración | Relación entre componentes o servicios reales de prueba | `./dev test tests/integration/mobile/paired-original-account-http-v2.test.mjs` |
-| Económico | Operación y recuperación en un laboratorio con redes, custodia y pruebas originales | `./dev lab run` o `./dev lab recovery` |
-
-Las dos últimas filas necesitan preparación específica. PostgreSQL real,
-por ejemplo, se comprueba con `./dev npm --prefix services/api-server run
-test:postgres` y necesita Docker. Los recorridos económicos se documentan en
-[EVM-LAB.md](EVM-LAB.md) y las guías del dominio correspondiente.
-`./dev test --changed` nunca añade un comando `lab` a su selección.
-
-Con Google Chrome instalado, el navegador real comprueba los imports del
-cliente, HTTP, estado desconectado y retirada de tokens del DOM:
-
-```sh
-./dev npm run test:browser
-```
-
-Esta comprobación utiliza un perfil temporal de Chrome con sandbox y cierra
-su servidor al terminar. Su aceptación corresponde a la wallet desconectada;
-los recorridos con fondos tienen sus laboratorios específicos.
-
-## Entradas actuales y compatibilidad
-
-`./dev workflows` muestra la ruta de entrada, el comando y el alcance de cada
-recorrido registrado. Se mantiene en el mismo catálogo que la selección de
-pruebas; sus rutas se comprueban con una regresión corta. El catálogo apunta a
-las entradas actuales, no copia números de releases ni declara aceptadas
-generaciones nuevas por el hecho de que existan sus archivos.
-
-Los nombres históricos siguen apareciendo en los recorridos que requieren
-compatibilidad con artefactos originales. Su identificación y preparación
-se consultan con `./dev sources status` y se documentan en
-[SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md). `./dev sources prepare` prepara
-una instantánea de fuentes; no equivale a compilar, publicar o aprobar una
-operación económica. `./dev sources adopt --generation <huella>` registra su
-adopción por los consumidores migrados tras verificar las fuentes y los
-artefactos originales. Esa gestión se solicita independientemente de las
-pruebas rápidas.
-
-Para trasladar una entrada fuera de este checkout se utiliza `./dev bundle`:
-reúne su cierre de fuentes y los recursos declarados, verifica sus hashes y
-genera un lanzador que resuelve las rutas desde la ubicación del paquete.
-No requiere copiar el árbol acumulado de `.internal/runtime`. El formato del
-manifiesto y los ejemplos están en [la guía de environment](../packages/environment/README.md).
-El paquete es
-un candidato de ejecución: la aceptación económica de su consumidor sigue
-siendo un paso separado.
-
-El estado de implementación sigue en [STATUS.md](../STATUS.md); aprobar una
-selección host no incrementa por sí solo un porcentaje de producto.
-
-## Mantener el catálogo
-
-Cuando se añade un componente, se declara su prefijo en `watch` y una pequeña
-selección de regresiones host en `tests`. Para nuevos recorridos se añade una
-entrada con nivel y alcance explícitos. Las campañas con redes o pruebas
-originales pertenecen a `entrypoints`, no a la selección automática de
-`components`. Una revisión del catálogo debe confirmar ese alcance antes de
-añadir pruebas a la rutina automática.
-
-Validación del selector:
-
-```sh
-python3 -B scripts/development/test_workflow.py
-```
+The [current status](../STATUS.md) tracks acceptance. The [detailed workflow record](reference/development-workflow-record.md) retains the earlier implementation notes; the [command reference](COMMANDS.md) remains generated from the executable catalog.

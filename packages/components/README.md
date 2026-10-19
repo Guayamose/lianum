@@ -1,15 +1,7 @@
-# Componentes de circuito
+# Circuit components
 
-`src/` contiene framing, fixtures y herramientas de componentes.
-`circuits/` contiene los circuitos Noir y `test/` sus pruebas.
-Sus lanzadores están en `scripts/components/`.
+`src/` contains framing, fixtures and component tools. `circuits/` contains Noir circuits and `test/` their tests. Launchers live in `scripts/components/`.
 
-`src/encoding/` es propietario de los contratos públicos de statements y
-commitments. Solo codifica, valida y une datos: no crea custodia ni autoridad.
-Custody, proofs y backend consumen sus APIs explícitas `encoding/statements`
-y `encoding/commitments`. Las rutas antiguas del backend conservan reexports
-de los mismos objetos para los consumidores existentes.
+`src/encoding/` owns the public statement and commitment contracts. It encodes, validates and binds data; it does not create custody or authority. Custody, proofs and backend consume its explicit `encoding/statements` and `encoding/commitments` APIs. Former backend paths re-export the same objects for existing consumers.
 
-Las entradas públicas de `@lianum/components` están en
-[`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
-para consumirlas y comprobar los límites entre componentes.
+Public exports are declared in [`package.json`](package.json). [Modules and dependencies](../../docs/MODULES.md) explains their consumers and component boundaries.

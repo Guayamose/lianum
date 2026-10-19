@@ -1,13 +1,7 @@
-# Adaptadores de cadenas
+# Chain adapters
 
-`evm/`, `bitcoin/`, `solana/` y `tron/` contienen la implementación
-específica de cada cadena. `shared/` conserva contratos comunes entre cadenas.
+`evm/`, `bitcoin/`, `solana/` and `tron/` contain chain-specific implementations. `shared/` owns common contracts.
 
-Dentro de cada cadena, `runtime/` gestiona sus recursos;
-`observations/` recoge observaciones; `transfers/` maneja transferencias;
-`health/` expone salud; `dispatch/` valida envíos; `contracts/` comprueba
-contratos; y `vault/` adapta entregas por vault cuando existe esa función.
-`shared/portfolio/` concentra el registro y la lectura de cartera.
+Within each chain, `runtime/` manages resources; `observations/` gathers network observations; `transfers/` handles transfers; `health/` exposes health; `dispatch/` validates broadcasts; `contracts/` checks contracts; and `vault/` adapts vault deliveries where supported. `shared/portfolio/` owns portfolio registration and reads.
 
-Pruebas en `packages/backend/tests/chains/`; fixtures en
-`packages/backend/tests/fixtures/chains/`.
+Tests live in `packages/backend/tests/chains/`; fixtures in `packages/backend/tests/fixtures/chains/`.

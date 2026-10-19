@@ -1,15 +1,10 @@
-# Desarrollo y comprobaciones
+# Development and verification
 
-El código se edita en `apps`, `packages` y `contracts`. La wallet y las pruebas
-host ejecutan directamente esas fuentes. `./dev build` comprueba los manifiestos
-y el lock e instala las dependencias cuando cambian; no materializa otra copia
-del código. Consulta [STRUCTURE.md](STRUCTURE.md) para encontrar cada dominio y
-[WORKFLOW.md](WORKFLOW.md) para elegir comprobaciones por cambio o componente.
+The code is edited in `apps`, `packages` and `contracts`. Wallet and host tests directly execute those sources. `./dev build` checks manifests and locks and installs dependencies when they change; does not materialize another copy of the code. Consultation [STRUCTURE.md](STRUCTURE.md) to find each domain and [WORKSFLOW.md](WORKFLOW.md) to choose checks by change or component.
 
-## Copia limpia sin materiales de restauración
+## Clean copy without restoration materials
 
-Desde Linux/WSL x64, con Git y Python 3.12 o superior, en la raíz de una copia
-del repositorio:
+From Linux/WSL x64, Git and Python 3.12 or higher, at the root of a copy of the repository:
 
 ```sh
 ./dev prepare host
@@ -18,19 +13,11 @@ del repositorio:
 ./dev start
 ```
 
-El primer comando descarga Node 24.19.0 desde su distribución oficial, verifica
-el SHA256 fijado del archivo y el binario instalado. No modifica Node global.
-La selección habitual comprueba transporte HTTP, consentimiento y
-reconciliación. No requiere los binarios nativos ni el CRS. Los resultados de
-host utilizan fixtures y no acreditan por sí solos una operación económica.
+The first command downloads Node 24.19.0 from its official distribution, checks the fixed SHA256 file and the installed binary. Does not modify Global Node. The usual selection checks HTTP transport, consent and reconciliation. It doesn't require native binaries or CRS. Host results use fixtures and do not credit for an economic operation alone.
 
-Cuando cambies fuentes usadas por lectores económicos, prepara y adopta su
-nuevo cierre con `./dev sources prepare --adopt`. El comando verifica los
-originales y la misma generación antes de seleccionar; no hay que escribir su
-hash a mano ni regenerar pruebas. Su alcance está en
-[SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md).
+When you change sources used by economic readers, prepare and adopt its new closure with `./dev sources prepare --adopt`. The command checks the originals and the same generation before selecting; you do not have to write your hash by hand or regenerate tests. Its scope is at [SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md).
 
-Para verificar expresamente la conservación histórica:
+To specifically verify historical conservation:
 
 ```sh
 ./dev build --legacy
@@ -38,87 +25,39 @@ python3 -B scripts/development/verify_layout.py --tracked-delivery
 python3 -B scripts/development/test_workspace.py
 ```
 
-La verificación `--tracked-delivery` comprueba los 1.716 originales versionados
-y declara 933 archivos locales de referencias, paquetes revisados y borradores
-fuera de su alcance. Verifica bytes, SHA256 y el permiso de ejecución que Git
-conserva; Git no conserva diferencias como `0600` frente a `0644`. Rechaza
-fuentes originales obligatorias sin versionar.
-`./dev legacy check` añade la comprobación completa de los archivos restaurados
-y necesita además las dependencias de Solidity/Noir para sus diagnósticos.
-`./dev check` verifica los contratos entre módulos, sintaxis/imports, las APIs
-de checkJs declaradas, documentación de comandos, ejecución desde fuentes y
-la selección habitual host. Las pruebas muestran salida en directo y tienen
-120 segundos por selección (`--timeout N`), con cierre de hijos y resultado
-explícito al agotar el plazo. Los informes incluyen revisión y huella de cambios.
-Consulta [WORKFLOW.md](WORKFLOW.md) para el alcance y [COMMANDS.md](COMMANDS.md)
-para la referencia generada desde el mismo catálogo que `./dev help`.
+Verification `--tracked-delivery` checks the 1.716 original versions and declares 933 local reference files, revised packages and drafts out of reach. Check bytes, SHA256 and Git's remaining execution permit; Git retains no differences such as `0600` against `0644`. Rejects mandatory original sources without versioning. `./dev legacy check` adds complete checking of restored files and also needs Solidity/Noir dependencies for your diagnoses. `./dev check` verifies contracts between modules, syntax/imports, declared checkJs APIs, command documentation, execution from sources and the usual host selection. Tests show live output and have 120 seconds per selection (`--timeout N`), with child closure and explicit result when the deadline is exhausted. Reports include review and footprint change. Consult [WORKFLOW.md](WORKFLOW.md) for scope and [COMMANDS.md](COMMANDS.md) for the reference generated from the same catalogue as `./dev help`.
 
-Para cerrar un bloque con toda la batería mantenida, utiliza:
+To close a block with all the battery held, use:
 
 ```sh
 ./dev block-check --plan
 ./dev block-check --timeout 7200 --stage-timeout 600
 ```
 
-El plan enumera todos los archivos `*.test.mjs`, `*.test.cjs`, `*.test.js`,
-`*.test.ts`, `*.test.mts` y `*.test.cts` de `packages/*/tests`,
-`apps/*/tests`, `tests` y `scripts/development`, junto con sus pruebas
-`unittest` `test_*.py`. No utiliza la selección habitual de 35 archivos ni
-los componentes curados. Registra las exclusiones de dependencias instaladas,
-archivos generados, enlaces, estado privado y evidencia histórica. Un formato
-de prueba no soportado se declara como bloqueo en lugar de desaparecer del plan.
+The plan lists all files `*.test.mjs`, `*.test.cjs`, `*.test.js`, `*.test.ts`, `*.test.mts` and `*.test.cts` of `packages/*/tests`, `apps/*/tests`, `tests` and `scripts/development`along with your tests `unittest` `test_*.py`. It does not use the usual selection of 35 files or cured components. It records the exclusions of installed dependencies, generated files, links, private status and historical evidence. An unsupported test format is declared as blocking rather than disappearing from the plan.
 
-La ejecución es secuencial: auditoría de imports runtime —incluido Mobile—,
-fronteras, análisis estático existente, TypeScript móvil y cada archivo Node o
-Python. El auditor lee AST y exports de paquetes sin evaluar los módulos del
-producto; distingue los nombres disponibles en runtime de las declaraciones
-de tipos. Las dependencias calculadas y la interoperabilidad de paquetes
-externos/CommonJS que no puede demostrar quedan explícitas en el informe.
+The execution is sequential: audit of imports runtime—including Mobile—, borders, existing static analysis, Mobile TypeScript and each Node or Python file. The auditor reads AST and package exports without evaluating the product modules; it distinguishes the names available in runtime from type declarations. The calculated dependencies and interoperability of external/CommonJS packages that cannot be demonstrated are explicit in the report.
 
-Cada ejecución conserva un informe propio en
-`.internal/dev/reports/block-check-<id>/report.json`, con inventario, huella de
-contenido, revisión antes/después y resultados por archivo. Pruebas saltadas,
-`todo`, fallos esperados o cero pruebas no cuentan como cierre completo. Un
-fallo normal permite comprobar las familias siguientes; cancelación, procesos
-huérfanos, plazo agotado o cambios de fuentes impiden un resultado completo.
-El comando no instala dependencias ni prepara o adopta una generación: fija
-primero las fuentes y el entorno con los responsables del bloque. Los drivers
-económicos, el navegador y el teléfono sin nombre `*.test.*` conservan sus
-recorridos de aceptación separados; un PASS de host no los acredita.
+Each performance retains its own report in `.internal/dev/reports/block-check-<id>/report.json`, with inventory, content footprint, review before/after and results per file. Skip tests, `todo`, expected failures or zero tests do not count as complete closure. A normal failure allows to check the following families; cancellation, orphan processes, run-out time or changes in sources prevent a complete result. The command does not install dependencies or prepare or adopt a generation: first fix the sources and environment with those responsible for the block. Economic drivers, browser and nameless phone `*.test.*` keep their acceptance paths separate; a host PASS does not credit them.
 
-El workflow [host-tests.yml](../.github/workflows/host-tests.yml) ejecuta esos
-controles desde un checkout vacío, sin credenciales del producto. No hay remoto
-Git configurado actualmente: su ejecución en GitHub queda pendiente de subir
-el repositorio.
+El workflow [host-tests.yml](../.github/workflows/host-tests.yml) executes those controls from an empty checkout, without product credentials. There is no Git remote currently configured: its execution in GitHub is pending uploading the repository.
 
-El workflow [applications.yml](../.github/workflows/applications.yml) instala los
-locks públicos de móvil y API, verifica contratos/tipos y exporta los bundles.
-También comprueba PostgreSQL real en Docker y Terraform con proveedor simulado.
-No requiere claves, cuenta GCP ni estado privado del laboratorio.
+El workflow [applications.yml](../.github/workflows/applications.yml) installs the public mobile and API locks, verifies contracts/types and exports the bundles. Also check real PostgreSQL in Docker and Terraform with simulated supplier. It does not require keys, GCP account or private laboratory status.
 
-Las comprobaciones de la restauración anterior conservan sus informes en
-`.internal/dev/reports/clean-*-ci*.json`; corresponden a aquella revisión.
-GitHub Actions aún no se ha ejecutado en remoto. Los cambios de herramientas
-añaden regresiones pequeñas de rutas, instalación, selección y generaciones.
-No se publica ni configura un remoto como parte de preparar el entorno local.
+The previous restoration checks keep their reports in `.internal/dev/reports/clean-*-ci*.json`; correspond to that review. GitHub Actions has not yet been executed remotely. Tool changes add small regressions of routes, installation, selection and generations. A remote is not published or configured as part of preparing the local environment.
 
-Con Google Chrome instalado, se comprueba también el DOM real de la wallet
-desconectada:
+With Google Chrome installed, it also checks the real DOM of the disconnected wallet:
 
 ```sh
 ./dev npm ci --ignore-scripts
 ./dev npm run test:browser
 ```
 
-El lock fija Playwright Core sin descargar otro navegador. Chrome conserva su
-sandbox y utiliza un perfil temporal. Se verifican módulos, consultas locales,
-botones deshabilitados, ausencia de saldo ficticio, retirada de tokens del DOM
-y actualización explícita. Informe y captura quedan en `.internal/dev/reports/`.
-Este smoke no demuestra financiación ni aceptación del recorrido conectado.
+The Playwright Core lock is fixed without downloading another browser. Chrome retains its sandbox and uses a temporary profile. Modules, local queries, disabled buttons, absence of fictitious balance, removal of tokens from the DOM and explicit update are checked. Report and capture remain in `.internal/dev/reports/`. This smoke does not demonstrate funding or acceptance of the connected route.
 
-## Arranques Paged
+## Paged Boots
 
-Los arranques Paged disponibles desde la raíz son:
+Paged Boots available from the root are:
 
 ```sh
 ./dev platform paged-native-new     # Tres redes locales; entorno nuevo
@@ -127,22 +66,11 @@ Los arranques Paged disponibles desde la raíz son:
 ./dev platform paged-mixed-reopen   # Mismo entorno Mixed tras captura completa
 ```
 
-**Aceptados LOCAL con custodia software:** Cold13 completó trece pruebas, los
-tres pagos nativos, cambio de 300 unidades demo y tres reaperturas en cuatro
-procesos backend. Mixed21 completó Uniswap y los tres pagos nativos, veintiuna
-pruebas, cambio de 200 y cuatro pagos de 100 al proveedor. Sus cierres originales
-están comprobados; las evidencias y límites figuran en [STATUS.md](../STATUS.md).
+**Local accepted with software custody:** Cold13 completed thirteen proofs, the three native payments, change of 300 demo units and three reopenings in four backend processes. Mixed21 completed Uniswap and the three native payments, twenty-one proofs, change of 200 and four executor payouts of 100 each. Its original closures are verified; the evidence and limits appear in [VALIDATION.md](VALIDATION.md).
 
-Mixed conserva ahora la composición original mediante captura ordenada y
-`paged-mixed-reopen`; exige el mismo entorno y una captura autenticada completa.
-No migra entornos antiguos sin retención ni resuelve cualquier caída abrupta.
-La aceptación conjunta con reinicios y cartera se registra separadamente en
-STATUS. Los resultados financieros ejercitan las funciones originales; no
-acreditan por sí solos toda la interacción de los asistentes CLI ni el teléfono
-físico. El arranque no financia notas automáticamente. Conserva los directorios retenidos y consulta
-[la guía de plataforma](../services/api-server/README.md) antes de operar.
+Mixed now retains the original composition by orderly capture and `paged-mixed-reopen`; requires the same environment and a complete authenticated capture. Do not migrate old environments without retention or resolve any abrupt fall. Joint acceptance with restarts and portfolio is recorded separately in STATUS. The financial results exercise the original functions; they do not attest by themselves all the interaction of the CLI assistants or the physical phone. Booting does not automatically finance notes. Keeps the directories retained and consults [the platform guide](../services/api-server/README.md) before operating the service.
 
-## Laboratorios y pruebas adicionales
+## Additional laboratories and tests
 
 ```sh
 ./dev test packages/backend/tests/defi/withdrawals/private-vault-exit.test.mjs
@@ -156,25 +84,12 @@ físico. El arranque no financia notas automáticamente. Conserva los directorio
 ./dev lab
 ```
 
-Las selecciones explícitas escriben `selected-host-tests.json`; la selección
-habitual escribe `host-tests.json`. No se sobrescribe el resultado habitual
-al ejecutar pruebas de otro dominio. Los informes se guardan en
-`.internal/dev/reports`, sin incorporarse a Git.
+Explicit selections write `selected-host-tests.json`; the usual selection writes `host-tests.json`. The usual result is not overwritten when executing tests from another domain. Reports are kept in `.internal/dev/reports`outside Git.
 
-Los laboratorios con pruebas reales necesitan las dependencias públicas y los
-materiales de restauración descritos en [EVM-LAB.md](EVM-LAB.md). Crean génesis,
-identidades y claves sintéticas nuevos. El arranque desconectado de la wallet
-no acredita fondos ni habilita automáticamente esas operaciones.
+Actual testing laboratories need public dependencies and restoration materials described in [EVM-LAB.md](EVM-LAB.md). They create new genesis, identities, and synthetic keys. The disconnected booting of the wallet does not credit funds or automatically enable such operations.
 
-Los consumidores con rutas y hashes históricos usan `./dev legacy node …`
-o `./dev legacy test …`. Los comandos `lab` preparan su compatibilidad de forma
-explícita. [SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md) explica la captura de
-fuentes, la reutilización de artefactos y la diferencia entre preparar y publicar.
+Consumers with historic routes and hashes use `./dev legacy node …` or `./dev legacy test …`. Commands `lab` prepare their compatibility explicitly. [SOURCE-GENERATIONS.md](SOURCE-GENERATIONS.md) explains the capture of sources, the reuse of artifacts and the difference between preparing and publishing.
 
 ## Commits
 
-Un cambio funcional, su regresión y su documentación relevante forman una
-unidad. Usa títulos que identifiquen el componente y el comportamiento, con
-un cuerpo que explique el problema, la solución, la validación y su alcance.
-El historial de importación separa los componentes originales; las correcciones
-y las nuevas aplicaciones se añaden en commits propios.
+A functional change, its regression and its relevant documentation form a unit. It uses titles that identify the component and the behavior, with a body that explains the problem, the solution, the validation and its scope. The import history separates the original components; corrections and new applications are added to own commits.

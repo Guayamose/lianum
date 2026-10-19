@@ -1,43 +1,23 @@
-# Laboratorio privado de claims BTC/SOL
+# Private laboratory of claims BTC/SOL
 
-`./dev lab claims` crea un laboratorio nuevo con fondos sintéticos. Primero valida o reutiliza la compilación pública revisada de los circuitos CI51 y CO42 originales; después ejecuta el perfil fijo de ingreso y redención. Los runners históricos siguen cerrados y no se recupera una aceptación privada perdida.
+`./dev lab claims` creates a new lab with synthetic backgrounds. First it validates or reuses the revised public compilation of the original CI51 and CO42 circuits; then it executes the fixed income and redemption profile. Historical runners remain closed and a lost private acceptance is not recovered.
 
-El recorrido de cada activo es D27 → ingreso nativo original → CI51 → nota privada → EXIT por HTTP original (W39) → redención por HTTP original → payout original → CO42. Se esperan ocho pruebas reales para BTC y SOL. El sistema conserva los contratos, keys/VK, cuatro operadores registrados, el quorum V4 y las autoridades WeakMap originales. Los peers de graph participan en su cobertura original de fuentes, pero no envían transferencias de graph.
+The path of each asset is D27 → original native income → CI51 → private note → EXIT by original HTTP (W39) → redemption by original HTTP → original payout → CO42. Eight real proofs are expected for BTC and SOL. The system retains the contracts, keys/VK, four registered operators, the V4 quorum and the original WeakMap authorities. Graph peers participate in their original source coverage, but do not send out graph transfers.
 
-Se comprueban el reinicio limpio del keeper y controller originales; el reinicio del owner y coordinador de cuenta; una respuesta HTTP de admisión descartada; confirmación/resume original y duplicados sin segundo envío. Los procesos nativos y las credenciales originales permanecen vivos durante estos reinicios.
+The original keeper clean restart and controller are checked; the owner restart and account coordinator; a discarded HTTP admission response; original confirmation/summary and duplicates without second submission. The native processes and original credentials remain alive during these restarts.
 
-La aceptación queda en `.internal/dev/reports/native-claims-lab.json`, con hashes del resultado, recursos y pruebas. Sólo un intento nuevo puede producir ese resumen. La existencia del comando y las pruebas host no significan que el recorrido haya pasado: se requiere un resultado nuevo aceptado y el cierre confirmado por su supervisor.
+The acceptance remains in `.internal/dev/reports/native-claims-lab.json`with hashes of the result, resources and evidence. Only a new attempt can produce that summary. The existence of the command and host tests does not mean that the route has passed: a new result accepted and closure confirmed by your supervisor is required.
 
-Alcance: custodia local BTC regtest y Solana personalizado, EVM local, fondos de prueba y operadores en un mismo host. Quedan fuera redes públicas, autocustodia nativa, operadores independientes, graph completo, pérdida de keeper/keys, reinicio de nodos, certificación de privacidad y wallet completa.
+Scope: local custody BTC regtest and custom Solana, local EVM, trial funds and operators in the same host. Public networks, native autosecurity, independent operators, complete graph, loss of keeper/keys, reboot of nodes, privacy certification and full wallet remain.
 
-## Factura privada CBTC y entrega Solana
+## Private CBTC Bill and Delivery Solana
 
-`./dev lab btc-sol` prepara los mismos artefactos públicos CI51/CO42 y ejecuta
-un perfil nuevo, fijo y separado del recorrido de ocho pruebas. Es el comando
-desde la raíz; el wrapper entra al directorio original requerido y conserva
-la supervisión del padre, las señales y un único intento nuevo. No recibe
-endpoints, payloads ni una selección de intentos históricos.
+`./dev lab btc-sol` prepares the same public artefacts CI51/CO42 and executes a new, fixed and separate profile of the eight-test route. It is the command from the root; the wrapper enters the original directory required and retains parent supervision, signals and a single new attempt. It does not receive endpoints, payloads or a selection of historical attempts.
 
-El perfil financia una nota privada de 100.000 CBTC del laboratorio y usa el
-PAEG original para pagar 20.000 CBTC a un solver que entrega 1.000.000 lamports
-desde su liquidez Solana separada. Conserva el cambio de 80.000 CBTC, el mismo
-journal y sus autoridades originales. Se esperan dieciséis pruebas genuinas:
-D27 y CI51, diez del grafo, dos W39 y dos CO42.
+The profile funds a private note of 100,000 CBTC from the laboratory and uses the original PAEG to pay 20,000 CBTC to a solver that delivers 1,000,000 lamports from its separate Solana liquidity. It retains the change of 80,000 CBTC, the same journal and its original authorities. Sixteen genuine tests are expected: D27 and CI51, 10 of the graph, two W39 and two CO42.
 
-Las dos salidas privadas son distintas, pero ambas redenciones nativas Bitcoin
-usan el mismo destinatario fijo de custodia del fixture. No acredita dos wallets
-Bitcoin independientes, un puente del mismo activo ni descubrimiento de precio.
-La custodia y los nonces de Solana no se gastan en el grafo. La aceptación
-requiere entrega finalizada original, ambas redenciones DISCHARGED, duplicados
-sin otro envío, fuentes intactas y cierre del supervisor. La existencia del
-comando o sus tests host todavía no acredita ese resultado.
+The two private exits are different, but both Bitcoin native redemptions use the same fixed fixture custody recipient. It does not credit two independent Bitcoin Wallets, a bridge of the same asset or price discovery. The custody and the nonces of Solana are not spent on the graph. Acceptance requires original completed delivery, both DISCHARGED redemptions, duplicates without further shipment, intact sources and supervisor closure. The existence of the command or its host tests does not yet prove that result.
 
-El resumen privado queda en `.internal/dev/reports/btc-sol-lab.json`. Une
-los bytes originales de result/resources/source-pins, identidad de nacimiento
-y salida del supervisor/worker, matriz de pruebas y marcadores específicos de
-cada familia. Los diagnósticos de presupuestos sólo se conservan en los archivos
-privados del intento; no autorizan renovarlos ni repetir una firma incierta.
+The private summary is at `.internal/dev/reports/btc-sol-lab.json`. Join the original results/resources/source-pins bytes, birth and exit identity of the supervisor/worker, test matrix and family-specific markers. Budget diagnoses are kept only in the private archives of the attempt; they do not authorize renewal or repeat an uncertain signature.
 
-El alcance sigue siendo local con valor sintético: excluye móvil, navegador,
-recuperación F, pérdida de keeper/nodo/claves, operadores independientes, red
-pública y certificación de privacidad.
+The scope remains local with synthetic value: excluding mobile, browser, F recovery, keeper/node/key loss, independent operators, public network and privacy certification.

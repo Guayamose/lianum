@@ -1,70 +1,49 @@
-# Entorno local y limpieza
+# Local environment and cleanliness
 
-El código versionado está en las carpetas visibles de la raíz. Las dependencias
-instaladas, compilaciones, datos de redes locales y resultados de desarrollo
-ocupan mucho más espacio que ese código. Este archivo explica dónde están y
-cómo limpiar la acumulación sin retirar recursos necesarios para trabajar.
+The versioned code is in the visible root folders. Installed dependencies, compilations, local network data and development results occupy much more space than that code. This file explains where they are and how to clean up the build-up without removing resources needed to work.
 
-## Resultado de la limpieza del 10 de octubre
+## Result of the October 10 cleaning
 
-El proyecto pasó de **32.008.396.800 a 21.270.175.744 bytes**
-—de **29,8 a 19,8 GiB**—, liberando **10 GiB**. La medición cuenta el espacio
-ocupado en disco y cuenta una sola vez los archivos con enlaces duros.
+The project decreased from **32,008,396,800 to 21,270,175,744 bytes** — from **29.8 to 19.8 GiB** — releasing **10 GiB**. The measurement counts the space occupied on disk and counts only once the files with hard links.
 
-El historial retirado se conserva en tres archivos comprimidos y un manifiesto,
-con unos **2,1 GiB** en total. No hay 20 GiB de código: el código versionado
-ocupa unos 66 MB; el resto incluye herramientas, dependencias, artefactos
-criptográficos, bases de datos, compilaciones y ese respaldo.
+The retired history is preserved in three compressed files and a manifest, with about **2.1 GiB** in total. There is no 20 GiB code: the versioned code occupies about 66 MB; the rest includes tools, dependencies, cryptographic artifacts, databases, compilations and that backup.
 
-## Qué hay en cada carpeta
+## What is in each folder
 
-| Ubicación | Función |
+| Location | Function |
 | --- | --- |
-| `.internal/runtime/` | Rutas compatibles de ejecución, dependencias restauradas, artefactos originales y laboratorios asociados |
-| `.internal/dev/toolchains/` | Node, compiladores y otras herramientas locales utilizadas por los comandos |
-| `.internal/dev/drafts/` | Candidatos y parches pendientes de integración |
-| `.internal/dev/reports/` | Informes actuales y evidencias enlazadas por la documentación |
-| `.local/` | Configuraciones privadas, claves, bases de datos, Vaults, journals, estado de laboratorios y cachés |
-| `.local/history/` | Respaldos compactados por la limpieza; no forman parte del código del producto |
-| `.local/cache/npm/` | Caché compartida de npm para host, aplicaciones y perfiles; regenerable |
-| `apps/mobile/node_modules/` y compilaciones Android | Dependencias instaladas y salidas del cliente móvil |
+| `.internal/runtime/` | Compatible execution routes, restored dependencies, original artifacts and associated laboratories |
+| `.internal/dev/toolchains/` | Node, compilers and other local tools used by commands |
+| `.internal/dev/drafts/` | Candidates and patches pending integration |
+| `.internal/dev/reports/` | Current reports and evidence linked by documentation |
+| `.local/` | Private configurations, keys, databases, Vaults, journals, laboratory status and caches |
+| `.local/history/` | Backups compressed during cleanup; not part of the product code |
+| `.local/cache/npm/` | Npm shared cache for host, applications and profiles; regenerable |
+| `apps/mobile/node_modules/` and Android compilations | Installed dependencies and mobile client outputs |
 
-La preparación de `.internal/runtime/` se explica en
-[STRUCTURE.md](STRUCTURE.md). Una parte del proyecto todavía depende de sus
-rutas y hashes. La limpieza no elimina esa compatibilidad ni cambia sus
-verificaciones.
+Preparation of `.internal/runtime/` is explained in [STRUCTURE.md](STRUCTURE.md). Part of the project still depends on its routes and hashes. Cleaning does not eliminate such compatibility or change your verifications.
 
-La política ejecutable está en
-[`local-resources.json`](../scripts/development/local-resources.json): distingue
-herramientas, originales, dependencias, estado privado, copias, generaciones,
-informes, compilaciones, cachés y ayudantes heredados. Una ruta desconocida se
-señala y se conserva; no se convierte automáticamente en caché.
+Executable policy is at [`local-resources.json`](../scripts/development/local-resources.json): distinguishes tools, originals, dependencies, private status, copies, generations, reports, compilations, caches and inherited helpers. An unknown path is pointed out and preserved; it does not automatically convert to cache.
 
 ```sh
 ./dev resources status
 ./dev resources check
 ```
 
-El inventario cuenta bloques de disco, deduplica enlaces duros y no sigue
-enlaces simbólicos ni lee el contenido de claves o bases de datos. `check`
-devuelve código 1 si aparecen recursos sin clasificar. Esta clasificación no
-mueve el estado privado. Los originales bajo `.internal/dev/cache/public-crs/`
-se conservan aunque su ruta histórica contenga la palabra `cache`.
+The inventory counts disk blocks, deduplicates hard-linked files and does not follow symbolic links or read key content or databases. `check` returns code 1 if unclassified resources appear. This classification does not move the private state. Originals under `.internal/dev/cache/public-crs/` are preserved even if its historical route contains the word `cache`.
 
-La caché npm tiene una ubicación única. Para trasladar una instalación antigua:
+The npm cache has a unique location. To move an old installation:
 
 ```sh
 ./dev resources migrate-caches
 ./dev resources migrate-caches --apply
 ```
 
-El traslado conserva los archivos mediante rename, rechaza rutas con alias,
-archivos versionados y destinos existentes, y comprueba que no haya procesos
-usando las carpetas. Repetirlo después no mueve nada.
+The transfer retains the files by rename, rejects paths with aliases, versioned files and existing destinations, and checks that there are no processes using folders. Repeating a completed migration moves nothing.
 
-## Previsualizar y aplicar
+## Preview and apply
 
-Desde la raíz:
+From the root:
 
 ```sh
 ./dev clean
@@ -73,51 +52,32 @@ Desde la raíz:
 ./dev clean --apply
 ```
 
-Sin `--apply`, los comandos muestran la selección y su espacio sin modificar
-archivos. `--scope caches --apply` retira solo las cachés exactas de la política;
-`--scope history --apply` compacta solo el historial seleccionado. El alcance
-predeterminado `all` incluye también las copias temporales elegibles:
+Without `--apply`, the commands show the selection and its space without modifying files. `--scope caches --apply` removes only the exact caches declared by policy; `--scope history --apply` compacts only selected history. The default scope `all` also includes eligible temporary copies:
 
-- Clones temporales de comprobación y copias de trabajo antiguas.
-- Staging público I84 que ya está materializado y verificado en su destino.
-- Cachés regenerables de Gradle y Go, y salidas de compilaciones BSC fallidas;
-  conserva el entorno Python requerido.
-- Borradores e informes históricos seleccionados, después de compactarlos y
-  verificar su respaldo.
-- Capturas históricas grandes seleccionadas de `reopen-state*` y
-  `wrapped-runtime-capture`, también con respaldo restaurable.
+- Temporary check frames and old working copies.
+- Public Staging I84 which is already materialized and verified at its destination.
+- Regenerable Gradle and Go caches, and failed BSC compilation outputs;
+preserves the Python environment required.
+- Selected drafts and historical reports, after compacting them and
+verifying their backup.
+- Selected large historical captures of `reopen-state*` and
+`wrapped-runtime-capture`, also with restorable backups.
 
-Limpiar una caché puede hacer que la siguiente compilación vuelva a descargar
-dependencias o recompilar. La limpieza no reinstala paquetes ni ejecuta
-`npm ci`.
+Cleaning a cache can cause the next build to re-download dependencies or recompile. Cleaning does not reinstall packages or run `npm ci`.
 
-## Qué se conserva
+## What is conserved
 
-La selección conserva el código, las herramientas y binarios activos, las bases
-de datos BSC, las configuraciones y claves locales, Vaults, journals, locks,
-estado económico y el APK actual. Conserva también los originales fijados de
-compilación y pruebas —incluidos los conjuntos de 45 y 100 archivos y sus
-manifiestos—, los artefactos criptográficos y recursos necesarios para usarlos.
-Estos originales no se sustituyen por una regeneración durante la limpieza.
+The selection retains code, active tools and binaries, BSC databases, local configurations and keys, Vaults, journal, locks, economic status and current APK. It also retains the originals of compilation and testing, including the sets of 45 and 100 archives and their manifests, the cryptographic artifacts and the resources needed to use them. These originals are not replaced by regeneration during cleaning.
 
-Los candidatos SOURCE móvil todavía no integrados permanecen en
-`.internal/dev/drafts/continuous-networks-v1/spl-source-mobile-economic-v4/`
-y `spl-source-mobile-sdk-ui-v4/`. Los resúmenes actuales de diagnóstico y los
-archivos enlazados directamente por las guías también permanecen disponibles.
+Mobile SOURCE candidates not yet integrated remain in `.internal/dev/drafts/continuous-networks-v1/spl-source-mobile-economic-v4/` and `spl-source-mobile-sdk-ui-v4/`. Current diagnostic summaries and files linked directly by the guides are also available.
 
-Los datos locales de custodia, las claves y los checkpoints tienen una función
-distinta de una caché. No se recuperan instalando dependencias. El comando no
-los trata como material regenerable.
+Local custody data, keys and checkpoints have a function other than a cache. They do not recover by installing dependencies. The command does not treat them as regenerable material.
 
-## Historial compactado y restauración
+## Compacted history and restoration
 
-Cada limpieza que compacta historial crea una carpeta
-`.local/history/cleanup-*/`. Contiene `manifest.json` y los archivos
-`drafts.tar.gz`, `reports.tar.gz` y `snapshots.tar.gz` correspondientes a las
-clases seleccionadas. El manifiesto conserva rutas, hashes y modos; el respaldo
-se verifica antes de retirar los originales seleccionados.
+Every clean that compacts history creates a folder `.local/history/cleanup-*/`. Contains `manifest.json` and archives `drafts.tar.gz`, `reports.tar.gz` and `snapshots.tar.gz` corresponding to the classes selected. The manifest retains routes, hashes and modes; the backup is checked before removing the selected originals.
 
-Para recuperar una clase del último respaldo disponible:
+To recover one class of the last backup available:
 
 ```sh
 ./dev clean --restore drafts
@@ -125,12 +85,6 @@ Para recuperar una clase del último respaldo disponible:
 ./dev clean --restore snapshots
 ```
 
-La restauración devuelve los archivos a sus rutas originales y rechaza
-sobrescribir un archivo existente con contenido distinto. Recuperar un
-borrador lo devuelve al historial local: no lo integra en el código canónico.
-Las cachés regenerables eliminadas se reconstruyen mediante sus herramientas;
-estos tres archivos de respaldo corresponden al historial seleccionado.
+The restore returns the files to their original paths and refuses to overwrite an existing file with different content. Recovering a draft returns it to the local history: it does not integrate it into the canonical code. Deleted regenerable caches are rebuilt using their tools; these three backup files correspond to the selected history.
 
-La limpieza y su restauración no arrancan una campaña económica ni demuestran
-el cierre de un objetivo del producto. El estado funcional y los pendientes
-se mantienen en [STATUS.md](../STATUS.md).
+Cleaning and restoration do not start an economic campaign or demonstrate the closure of a product target. Functional status and remaining work are maintained at [STATUS.md](../STATUS.md).

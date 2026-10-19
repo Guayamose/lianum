@@ -1,6 +1,6 @@
-# Perfiles de preparación del laboratorio
+# Laboratory preparation profiles
 
-Los perfiles declaran qué necesita cada recorrido y preparan sus dependencias de forma separada de la ejecución. El catálogo editable es [`scripts/development/lab-profiles.json`](../scripts/development/lab-profiles.json).
+The profiles state what each route needs and prepare their dependencies separately from the execution. The editable catalogue is [`scripts/development/lab-profiles.json`](../scripts/development/lab-profiles.json).
 
 ```bash
 ./dev lab profiles
@@ -9,55 +9,55 @@ Los perfiles declaran qué necesita cada recorrido y preparan sus dependencias d
 ./dev lab prepare-profile wallet
 ```
 
-`profiles`, `plan` y `check` son de lectura. Inspeccionan rutas, manifiestos públicos, locks y fuentes; no ejecutan herramientas nativas, servicios ni pruebas. `--json` produce un resultado estructurado en cualquiera de los cuatro comandos.
+`profiles`, `plan` and `check` They're reading. They inspect routes, public manifests, locks and sources; they do not run native tools, services, or tests. `--json` produces a structured result in any of the four commands.
 
-| Perfil | Inventario mínimo | Ejecución existente, por separado |
+| Perfil | Minimum inventory | Existing implementation, separately |
 | --- | --- | --- |
-| `host` | Linux/WSL x64, Python 3.12+, Node fijado y dependencias/enlaces de workspaces | `./dev check` |
-| `wallet` | Entorno host y entrada de la wallet web | `./dev start` |
-| `platform` | Entorno host y dependencias de la API | `./dev platform admission` |
-| `evm` | Host, distribución compatible, Anvil y manifiestos públicos EVM/backed-assets | `./dev lab run`, `./dev lab recovery` |
-| `btc-sol` | Requisitos EVM, Bitcoin Core, candidato Solana original seleccionado y manifiesto público CI51/CO42 | `./dev lab btc-sol` |
-| `defi` | Requisitos EVM y entradas originales Uniswap/MetaMorpho | `./dev lab defi`, `./dev lab metamorpho` |
-| `mobile-original` | Requisitos EVM, dependencias móviles y entrada del cliente Node pareado original V2 | `./dev lab mobile-original` |
+| `host` | Linux/WSL x64, Python 3.12+, Fixed Node and Workspace Dependencies/Links | `./dev check` |
+| `wallet` | Host environment and web wallet entry | `./dev start` |
+| `platform` | Host environment and API dependencies | `./dev platform admission` |
+| `evm` | Host, compatible distribution, Anvil and public manifests EVM/backed-assets | `./dev lab run`, `./dev lab recovery` |
+| `btc-sol` | EVM requirements, Bitcoin Core, selected original Solana candidate and public manifesto IC51/CO42 | `./dev lab btc-sol` |
+| `defi` | EVM requirements and original Uniswap/MetaMorpho entries | `./dev lab defi`, `./dev lab metamorpho` |
+| `mobile-original` | EVM requirements, mobile dependencies and customer input Original pairing node V2 | `./dev lab mobile-original` |
 
-El catálogo cubre esos recorridos concretos. Las demás variantes de cadenas, dispositivos y DeFi mantienen sus comandos y requisitos específicos. `mobile-original` comprueba infraestructura para el recorrido Node: SecureStore, biometría, Hermes y teléfono físico necesitan sus propias comprobaciones. `platform` no inspecciona credenciales ni conecta a PostgreSQL.
+The catalogue covers these specific routes. The other variants of strings, devices and DeFi maintain their specific commands and requirements. `mobile-original` Check infrastructure for route Node: SecureStore, biometrics, Hermes and physical phone need their own checks. `platform` does not inspect credentials or connect to PostgreSQL.
 
-## Interpretar el resultado
+## Interpret the result
 
-- `available`: todos los elementos del inventario declarado están presentes y las comprobaciones indicadas coinciden.
-- `missing`: falta una herramienta, enlace, dependencia, entrada o manifiesto requerido.
-- `stale-dependencies`: los manifiestos/locks o las versiones instaladas de dependencias directas no coinciden.
-- `stale-generation`: la distribución compatible registrada difiere de las fuentes editables, de los imports traducidos o de sus archivos generados.
+- `available`: all elements of the declared inventory are present and the checks indicated coincide.
+- `missing`: missing a tool, link, dependency, input or manifest required.
+- `stale-dependencies`: manifests/locks or installed versions of direct dependencies do not match.
+- `stale-generation`: the registered compatible distribution differs from editable sources, translated imports or their generated files.
 
-Cada requisito conserva su propio estado, aunque el estado global muestre primero una carencia. `plan` termina con código 0 cuando puede elaborar el inventario; `check` y `prepare-profile` devuelven 1 si queda algún requisito pendiente. Un error de configuración o preparación devuelve 2.
+Each requirement retains its own state, even if the global state first shows a lack. `plan` ends with code 0 when you can compile the inventory; `check` and `prepare-profile` return 1 if there are any outstanding requirements. A configuration or preparation error returns 2.
 
-La comprobación de Node y herramientas nativas es de presencia y permisos de ejecución en sus rutas fijadas. La comprobación npm compara manifiestos/locks, enlaces y versiones directas; no autentica los bytes de todos los paquetes. Los artefactos se comprueban por presencia de sus manifiestos públicos, sin leer estado privado. Los loaders originales siguen comprobando hashes, perfiles y vinculaciones antes de utilizarlos.
+The check of Node and native tools is of presence and execution permissions on their fixed routes. The npm check compares manifests/locks, links and direct versions; it does not authenticate the bytes of all packages. The artifacts are checked by the presence of their public manifests, without reading private status. Original loaders continue to check hashes, profiles, and links before using them.
 
-`available` no acredita ejecución económica ni aceptación de una publicación de fuentes. El informe lo expresa mediante `artifactIntegrityChecked: false`, `financialSourceGeneration: "NOT_CHECKED"` y `financialAcceptance: false`. La generación compatible comprueba los archivos públicos registrados en el último build; las generaciones económicas conservan su flujo de preparación y validación propio.
+`available` does not prove economic performance or acceptance of a publication of sources. The report expresses this through `artifactIntegrityChecked: false`, `financialSourceGeneration: "NOT_CHECKED"` and `financialAcceptance: false`. The compatible generation checks the public archives registered in the latest build; economic generations retain their own preparation and validation flow.
 
-Los originales conservados fuera de las carpetas de código solo se admiten si su ruta y destino coinciden con el mapa original de `scripts/layout.json` y con el inventario público permitido. Hay una única excepción histórica: `packages/proofs/evidence/wrapped-key-preparation-bound-20261006/execution-receipts/ci-prepare-key-20261006/failure-preservation-e84fb980-fbaf-428d-b7b3-ab5080623921/active.lock`. El inspector excluye ese registro sin leerlo ni autenticar su hash y enumera su ruta exacta en el resultado. La excepción no permite otros archivos `.lock` ni otras rutas privadas del archivo histórico.
+Originals kept outside the code folders are only supported if their path and destination matches the original map of `scripts/layout.json` and with the public inventory allowed. There is only one historical exception: `packages/proofs/evidence/wrapped-key-preparation-bound-20261006/execution-receipts/ci-prepare-key-20261006/failure-preservation-e84fb980-fbaf-428d-b7b3-ab5080623921/active.lock`. The inspector excludes that record without reading it or authenticating its hash and lists its exact path in the result. The exception does not allow other files `.lock` or other private routes from the historical archive.
 
-## Qué prepara `prepare-profile`
+## What does he prepare? `prepare-profile`
 
-El comando reevalúa el inventario bajo un bloqueo exclusivo y ejecuta únicamente los pasos pendientes permitidos:
+The command re-evaluates the inventory under an exclusive lock and executes only the pending steps allowed:
 
-1. Instalar el Node oficial fijado si falta, mediante el bootstrap existente.
-2. Preparar enlaces y dependencias raíz con `source_runtime.py` si hacen falta. Esta herramienta valida el lock y conserva su bloqueo propio.
-3. Ejecutar `npm ci --ignore-scripts --no-audit --no-fund` para `services/api-server` o `apps/mobile` cuando el perfil necesita esas dependencias y el inventario está desfasado.
-4. Materializar la distribución compatible con `workspace.py` únicamente para los perfiles económicos que la necesitan.
+1. Install the official Node fixed if missing, using the existing bootstrap.
+2. Prepare root links and dependencies with `source_runtime.py` if necessary. This tool validates the lock and retains its own lock.
+3. Run `npm ci --ignore-scripts --no-audit --no-fund` for `services/api-server` o `apps/mobile` when the profile needs these dependencies and the inventory is out of date.
+4. Materialize distribution compatible with `workspace.py` only for the economic profiles that need it.
 
-npm utiliza `.local/cache/npm`. Cada paso tiene un límite de 120 segundos y su grupo de procesos se cancela conjuntamente. Repetir la preparación con requisitos ya disponibles no reinstala esas dependencias.
+npm uses `.local/cache/npm`. Each step has a limit of 120 seconds and its process group is cancelled together. Repeating preparation with already available requirements does not reinstall those dependencies.
 
-**Si faltan artefactos, el informe continúa indicando `missing`.** Este comando no descarga respaldos públicos, compila circuitos, prepara claves de prueba, recrea custodia ni sustituye runtimes personalizados. El material público original debe restaurarse mediante su procedimiento documentado. Un lock incoherente necesita una actualización explícita y revisada.
+**If artifacts are missing, the report continues to indicate `missing`.** This command does not download public backups, compile circuits, prepare test keys, recreate custody or replace custom runtimes. The original public material must be restored by its documented procedure. An inconsistent lock needs an explicit and revised update.
 
-Las preparaciones no arrancan nodos, financian cuentas, ejecutan recorridos, reabren laboratorios ni tocan estados privados. Los comandos de ejecución de la tabla son pasos posteriores explícitos; el catálogo nunca los convierte en acciones de preparación. El comando histórico `./dev lab prepare` conserva su preparación criptográfica EVM: tiene un alcance distinto de `prepare-profile` y no se invoca desde estos perfiles.
+Preparations do not start nodes, finance accounts, run tours, reopen laboratories or touch private states. The table's execution commands are explicit subsequent steps; the catalog never turns them into preparatory actions. The Historical Command `./dev lab prepare` it retains its cryptographic preparation EVM: it has a different scope of `prepare-profile` and is not invoked from these profiles.
 
-## Mantener un perfil
+## Maintain a profile
 
-Declara requisitos concretos y la entrada pública del recorrido. Conserva separadas presencia, correspondencia de fuentes y aceptación económica. Los pasos de preparación se eligen de una lista cerrada; una cadena de comandos del catálogo nunca se ejecuta.
+Declares specific requirements and the public entrance of the route. It retains separate presence, correspondence of sources and economic acceptance. The preparation steps are chosen from a closed list; a catalog command string never runs.
 
-Las fixtures de [`test_lab_profiles.py`](../scripts/development/test_lab_profiles.py) comprueban lectura sin efectos, aislamiento de datos privados, deriva de locks y generación, preparación selectiva, idempotencia y propagación de fallos. Se ejecutan sin instalar aplicaciones ni iniciar laboratorios:
+The Fixtures of [`test_lab_profiles.py`](../scripts/development/test_lab_profiles.py) They check read without effect, isolate private data, derive from locks and generation, selective preparation, idempotency and propagation of failures. They run without installing applications or starting laboratories:
 
 ```bash
 python3 -B scripts/development/test_lab_profiles.py

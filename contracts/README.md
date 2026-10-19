@@ -1,9 +1,5 @@
-# Contratos Solidity
+# Solidity contracts
 
-`wallet/` contiene los contratos consumidos por la wallet actual.
-`engine/` y `protocol/` conservan los contratos de sus motores correspondientes.
+`wallet/` contains the contracts consumed by the current wallet. `engine/` and `protocol/` retain the contracts of their corresponding engines.
 
-Dentro de la wallet hay pools, receipt hubs, codecs, verificadores y contratos
-específicos de reclamaciones y activos nativos. Los nombres de versión
-identifican contratos existentes. `npm run check` comprueba compilación ABI
-y tipos; no valida despliegues.
+Inside the wallet there are pools, receipt hubs, codecs, verifiers and specific contracts of claims and native assets. Version names identify existing contracts. `npm run check` checks ABI compilation and types; does not validate deployments.

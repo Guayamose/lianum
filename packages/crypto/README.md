@@ -1,17 +1,9 @@
-# Criptografía Poseidon
+# Poseidon cryptography
 
-`src/` contiene la implementación candidata; `circuits/` sus circuitos;
-`lib/` las bibliotecas Noir; `test/` sus pruebas; y `vendor/` fuentes
-externas. Las herramientas de este candidato están en `scripts/`.
+`src/` contains the candidate implementation; `circuits/` its circuits; `lib/` Noir libraries; `test/` tests; and `vendor/` external sources. Candidate tooling lives in `scripts/`.
 
-`src/portable/poseidon2-bn254-v1.mjs` es la implementación BigInt compartida por
-engine y móvil, exportada como `@lianum/crypto/portable-poseidon2`. Conserva sus
-vectores oficiales y licencia. La entrada anterior de la app móvil la reexporta;
-las modificaciones a esta primitiva se hacen aquí, no en la app. Su aritmética
-BigInt no es constante en tiempo y no acredita por sí sola aceptación económica.
+`src/portable/poseidon2-bn254-v1.mjs` is the BigInt implementation shared by engine and mobile, exported as `@lianum/crypto/portable-poseidon2`. Preserve its official vectors and license. The former mobile entry point re-exports it; changes to this primitive belong here. BigInt arithmetic is not constant-time, and primitive tests alone do not establish economic acceptance.
 
-Es un componente criptográfico del proyecto, no una aplicación independiente.
+It is a cryptographic component of the project, not an independent application.
 
-Las entradas públicas de `@lianum/crypto` están en
-[`package.json`](package.json). Consulta [Módulos y dependencias](../../docs/MODULES.md)
-para consumirlas y comprobar los límites entre componentes.
+Public exports are declared in [`package.json`](package.json). [Modules and dependencies](../../docs/MODULES.md) explains their consumers and component boundaries.

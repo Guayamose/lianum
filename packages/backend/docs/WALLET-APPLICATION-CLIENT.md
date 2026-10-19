@@ -1,12 +1,14 @@
+> Historical web-client reference. The current product UI is the [mobile wallet](../../../apps/mobile/README.md). The contracts below remain useful for compatibility; retired `wallet-app` paths are historical references.
+
 # Manual wallet application client for Node
 
 `wallet-application-client.mjs` is a small local SDK bridge to the existing
-[wallet application](../../../wallet-app/README.md). It imports the frozen
+wallet application (historical path: `../../../wallet-app/README.md`). It imports the frozen
 browser `createWalletClient` and `ALL_ACTIONS` directly. The sealed wrapped
 withdrawal addition is uninstalled/closed; its actions below become part of that
 same shared model only with the reviewed source set. It does not define a
 third wallet schema, create sessions, hold root/spend keys or add capabilities.
-The existing [manual workflow](../../../wallet-app/UI.md) remains authoritative.
+The existing manual workflow (historical path: `../../../wallet-app/UI.md`) remains authoritative.
 
 ## Runtime and bootstrap
 
@@ -82,7 +84,7 @@ The action names and request bodies are exactly those already exported by
 prepare/execute/reconcile/reopen/requote; account prepare/execute/reconcile/
 recover; and, in the sealed candidate, wrappedWithdrawPrepare/
 wrappedWithdrawExecute/wrappedWithdrawReconcile. The exact action identifiers
-and JSON bodies are in [UI.md](../../../wallet-app/UI.md).
+and JSON bodies are in UI.md (historical path: `../../../wallet-app/UI.md`).
 The SDK retains existing Spanish review notes/errors without translation or
 reinterpretation. Unknown actions and additional body fields fail closed.
 
@@ -227,7 +229,7 @@ still decides when it is valid. It may be explicitly requested while the owner
 is offline after the original execution cutoff, with the same request ID and
 approval. It does not undo a prior target delivery or resend it. A response loss
 remains UNKNOWN and only original-ID observation/reconciliation is appropriate.
-See [the source contract](../../../docs/manual-graph-wallet-actions.md). Actual
+See the source contract (historical path: `../../../docs/manual-graph-wallet-actions.md`). Actual
 EVM acceptance has not exercised this new SDK/GRAPH addition.
 
 
@@ -257,7 +259,7 @@ review. The client must await `acceptManualActionGrant(grant)`; it checks the
 original document/listener bindings and authenticated state commitment before
 confirmation. The Node caller must present the review and obtain its own
 explicit confirm; there is no Node consent dialog or automatic confirmation.
-See [MANUAL-HANDOFF.md](../../../wallet-app/MANUAL-HANDOFF.md) for cancellation
+See MANUAL-HANDOFF.md (historical path: `../../../wallet-app/MANUAL-HANDOFF.md`) for cancellation
 and document transport responsibilities.
 
 The handoff transport accepts grants only on the four existing account routes.
@@ -318,4 +320,4 @@ revocation neither cancels admitted work nor proves that an original send failed
 Update the server/shared codec/Node module together with their reviewed exact
 source identities. This SDK is a Node/local bridge, not the historical
 `omnichain-product/src/sdk.mjs` simulation API, a standalone wallet or a mobile
-transport. See [application status and update rules](../../../wallet-app/README.md).
+transport. See application status and update rules (historical path: `../../../wallet-app/README.md`).

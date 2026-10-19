@@ -1,14 +1,9 @@
-# Alcance de lo restaurado
+# Source, resources and private state
 
-Están disponibles las fuentes originales, las dependencias públicas
-recuperadas, los runtimes verificados y herramientas locales. Los materiales
-históricos están en `archive/`; las herramientas, dependencias y copias de
-ejecución locales están en `.internal/`.
+The repository contains editable product source, tests, deployment scripts and the public evidence required by retained readers. A source clone intentionally excludes installed dependencies, compiled APKs, caches, private custody, service credentials, conversations and live financial state.
 
-Los respaldos públicos no recuperan claves, identidades privadas, saldos ni
-bases de datos del antiguo laboratorio. Esos elementos deberán crearse de
-nuevo para los flujos que los necesiten. La reorganización tampoco completa
-las funcionalidades pendientes ni modifica los gates de los runtimes.
+Verified local tools and restored resources belong under `.internal`; private state, reports and backups belong under `.local`. Use `./dev resources status` and the [source-generation guide](docs/SOURCE-GENERATIONS.md) to identify missing resources. A public source backup cannot restore an owner's keys or the state of a previous private laboratory.
 
-[El inventario de exclusiones original](archive/delivery/EXCLUSIONS.md)
-describe la entrega de fuentes anterior a la restauración.
+The original delivery referred to `archive/delivery/EXCLUSIONS.md`. That historical path is not present in the current tree. Earlier names remain provenance, not an instruction to fabricate missing artifacts or remove integrity checks.
+
+Presentation work under `lianum_pitch/` and large files under `demo_video/` are excluded from ordinary Git commits and remain on disk. Final delivery assets should be packaged separately from the source repository.

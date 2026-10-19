@@ -1,0 +1,86 @@
+{
+  "profile": "LIANUM_ENGLISH_DELIVERY_VALIDATION_V1",
+  "recordedAtUTC": "2026-10-19T01:18:12.444366+00:00",
+  "functionalCheckpointCommit": "8f2f33f3e526cbf421de973ccb99b99f54fe57a1",
+  "sourceGeneration": "73bccca8fa92f00b1dedc631b8b2d00607d2d8e39e4e151482123fba193a34b3",
+  "scope": "English mobile presentation, English technical documentation, command catalog and repository handoff. No new financial acceptance is asserted.",
+  "apk": {
+    "apk": "apps/mobile/android/app/build/outputs/apk/release/app-release.apk",
+    "apkSHA256": "55493a41bb97a89462605a29263de7cc8dcfcfe298275635ef19346c4a69736e",
+    "apkBytes": 85642029,
+    "runId": "28ec1fa6-80b0-4bc3-9fc6-ce4f8d0f5016",
+    "requiresMetro": false,
+    "releaseSigned": false,
+    "deviceInstalled": false,
+    "uploaded": false,
+    "distributionProduction": false,
+    "biometricHardwareTested": false,
+    "tlsOnDeviceTested": false
+  },
+  "checks": {
+    "repository": {
+      "command": "./dev check",
+      "result": "PASS",
+      "tests": 491
+    },
+    "mobilePresentation": {
+      "result": "PASS",
+      "tests": 28,
+      "files": [
+        "portfolio-model-v1",
+        "agent-conversation-v1",
+        "agent-presentation-v1",
+        "device-sepolia-defi-review-presenter-v7",
+        "flat-ingress-feedback-v3",
+        "native-wallet-form-v1",
+        "device-sepolia-defi-sensitive-review-v4",
+        "device-defi-operation-flow-v1",
+        "device-paged-public-budget-metadata-v4"
+      ]
+    },
+    "mobileTypes": {
+      "command": "./dev npm --prefix apps/mobile run typecheck",
+      "result": "PASS"
+    },
+    "workflowSelection": {
+      "command": "python3 -B scripts/development/test_workflow.py",
+      "result": "PASS",
+      "tests": 11
+    },
+    "commandDocumentation": {
+      "command": "python3 -B scripts/development/workflow.py docs-check",
+      "result": "PASS"
+    },
+    "documentationLinks": {
+      "documents": 85,
+      "missingLocalTargets": 0
+    },
+    "sourcePreparation": {
+      "result": "VALIDATED_CANDIDATE",
+      "adopted": true,
+      "financialAcceptance": false
+    }
+  },
+  "publicationReview": {
+    "changedFilesScanned": 398,
+    "credentialPatternFindings": 0,
+    "privateOrLargeFileFindings": 0,
+    "scanIsNotExternalSecurityAudit": true
+  },
+  "preserved": {
+    "financialEngineRestarted": false,
+    "financialEngineDeployed": false,
+    "paidModelCalls": 0,
+    "pitchAndVideoModified": false,
+    "originalLanguageDocumentationInGit": true
+  },
+  "limitations": [
+    "The new English APK has not been installed or physically accepted on the phone.",
+    "The local APK uses local test signing; it is not a production store release.",
+    "Public PAEG and DeFi acceptance remains separate; see execution-evidence.json and STATUS.md.",
+    "User conversation history is preserved verbatim. The agent follows the language of the user’s request.",
+    "Frozen protocol sources and authenticated artifact documentation preserve their original bytes; an English companion explains them.",
+    "A clean-clone restoration of every historical cryptographic resource has not been demonstrated by this delivery."
+  ],
+  "countingNote": "Test scopes overlap and must not be added as a unique repository-wide total."
+}

@@ -1,14 +1,12 @@
-# Arranque y diagnóstico del backend local
+# Local backend booting and diagnosis
 
-La entrada es `src/entry.mjs`, también en la imagen Docker. El perfil se elige
-al arrancar, nunca mediante una petición HTTP. Los constructores originales
-conservan cuenta, propietario, keeper y puentes en el mismo proceso.
+The entrance is `src/entry.mjs`also in the Docker image. The profile is chosen when booting, never using an HTTP request. The original builders retain account, owner, keeper and bridges in the same process.
 
-| Perfil | Composición | Estado al arrancar |
+| Perfil | Composition | Status on startup |
 |---|---|---|
-| `admission` (predeterminado) | HTTP V1 y registro PostgreSQL cuando está configurado | API viva, operaciones indisponibles; no crea cuenta ni saldo |
-| `original-native-new` | Operador Native V3 original, admisión SQL original, custodia, workers y gateway HTTP/TLS local | Exige configuración nueva válida y fuentes/artefactos originales; no financia automáticamente |
-| `original-native-reopen` | El mismo perfil desde captura ordenada y emparejamiento existentes | Lectura, reconciliación y salida retenida; financiación y ejecución nuevas cerradas |
+| `admission` (default) | HTTP V1 and PostgreSQL registry when configured | Live API, unavailable transactions; no account and no balance |
+| `original-native-new` | Original Native V3 Operator, Original SQL Admission, Custody, Workers & HTTP/TLS Gateway | Requires new valid configuration and original sources/crafts; does not automatically finance |
+| `original-native-reopen` | Same profile from existing orderly capture and matching | Reading, reconciliation and exit withheld; new funding and implementation closed |
 
 ```sh
 ./dev platform admission
@@ -16,42 +14,26 @@ conservan cuenta, propietario, keeper y puentes en el mismo proceso.
 ./dev platform original-native-reopen
 ```
 
-Los perfiles originales necesitan Node retenido con `--max-old-space-size=384`;
-`./dev platform` pasa esos argumentos. Las entradas históricas continúan como
-compatibilidad y llaman al mismo bootstrap.
+The original profiles need Node retained with `--max-old-space-size=384`; `./dev platform` pass those arguments. The historical entries continue as compatibility and call the same bootstrap.
 
-## Dependencias y persistencia
+## Dependencies and persistence
 
-- Admisión: `LIANUM_PUBLIC_ORIGIN`; `DATABASE_URL` y la clave de privacidad
-  correspondiente si se habilita el registro SQL. Migración explícita previa.
-- Original: configuración `operator.json` en
-  `.internal/runtime/omnichain-flat-profile/flat-wallet/.local/original-device-cloud-local-v1/`,
-  con el propietario y los permisos existentes. Sólo contiene la configuración
-  privada ya descrita en la guía del operador; no acepta un executor arbitrario.
-- Original: PostgreSQL con el esquema original migrado y la misma clave de
-  privacidad, además de backend generado, toolchains y artefactos verificados.
-  La comprobación de fuentes sigue activa; preparar una generación no concede
-  autoridad financiera ni convierte una captura vieja en una generación nueva.
-- Reapertura: exige además el `paired-descriptor.json` conservado y la captura
-  original válida. Lo relee tras abrir y comprueba identidad física y contenido.
-  No lo borra, sobrescribe ni vuelve a crear.
+- Admission: `LIANUM_PUBLIC_ORIGIN`; `DATABASE_URL` and the Privacy Key
+corresponding if the SQL record is enabled. Explicit prior migration.
+- Original: configuration `operator.json` en
+`.internal/runtime/omnichain-flat-profile/flat-wallet/.local/original-device-cloud-local-v1/`, with the existing owner and permissions. It only contains the private configuration already described in the operator's guide; it does not accept an arbitrary executor.
+- Original: PostgreSQL with the original migrated scheme and the same key
+privacy, in addition to generated backend, toolchains and verified artifacts. The source check is still active; preparing a generation does not grant financial authority or turn an old catch into a new generation.
+- Reopening: it also requires the `paired-descriptor.json` preserved and caught
+valid original. Reread it after opening and checking physical identity and content. It does not erase, overwrite or recreate.
 
-El proceso original escucha sólo en loopback. `/health/ready` consulta el esquema
-SQL y el listener original: una API viva no basta para declarar disponibilidad.
-SIGINT/SIGTERM cierran; SIGUSR2 en el perfil nuevo solicita su captura ordenada
-original. Reiniciar no reenvía autorizaciones ni convierte UNKNOWN en reintento.
+The original process listens only in loopback. `/health/ready` see the SQL schema and the original listener: a live API is not enough to declare availability. SIGINT/SIGTERM close; SIGUSR2 in the new profile requests its original ordered capture. Restart does not forward authorizations or convert UNKNOWN into retry.
 
 ## Docker local
 
-`Dockerfile` construye la imagen ligera `lianum-platform:local`; el comando
-predeterminado ejecuta `entry.mjs admission`. `compose.local.yml` conserva el
-entorno de admisión separado.
+`Dockerfile` builds the light image `lianum-platform:local`; default command executes `entry.mjs admission`. `compose.local.yml` retains the separate intake environment.
 
-`compose.original.local.yml` permite ejecutar **la composición económica
-existente** en Linux utilizando esa misma entrada e imagen. Monta el workspace
-retenido en su ruta original, con el mismo UID/GID y Node retenido. No introduce
-el laboratorio ni claves dentro de una imagen de distribución. PostgreSQL y
-la clave deben ser los del emparejamiento elegido; no los crea ni los migra.
+`compose.original.local.yml` allows running **the existing economic composition** on Linux using the same input and image. Mount the retained workspace on its original route, with the same UID/GID and Node retained. It doesn't enter the lab or keys into a distribution image. PostgreSQL and the key must be the chosen pairing; neither creates nor migrates them.
 
 ```sh
 export LIANUM_LOCAL_WORKSPACE="$(pwd)"
@@ -62,20 +44,10 @@ export LIANUM_LOCAL_PLATFORM_PROFILE=original-native-reopen
 docker compose -f services/api-server/compose.original.local.yml --profile original up
 ```
 
-Usa red de host Linux para conservar el loopback del operador; no abre una API
-pública. `original-native-new` se elige explícitamente para un entorno nuevo.
-La portabilidad completa del laboratorio a una imagen autónoma y Google Cloud
-siguen fuera de este empaquetado local.
+It uses Linux host network to keep the operator loopback; it does not open a public API. `original-native-new` is explicitly chosen for a new environment. The complete portability of the lab to an autonomous image and Google Cloud remain outside this local packaging.
 
-## Diagnóstico
+## Diagnosis
 
-La entrada activa eventos JSON en stderr: componente, código fijo, minuto y
-contador. Se distinguen SQL, adaptador, timeout y transporte original sin
-registrar excepciones completas, direcciones, términos, permisos ni claves.
-Los eventos se limitan a 60 por minuto y una cola stderr acotada; los contadores
-en memoria usan únicamente códigos fijos. Docker retiene dos archivos de 5 MB.
-Los fallos del emisor nunca alteran admisión, UNKNOWN o la regla de no reenviar.
+Entry activates JSON events in stderr: component, fixed code, minute and counter. SQL, adapter, timeout and original transport are distinguished without registering complete exceptions, addresses, terms, permissions or keys. Events are limited to 60 per minute and a tapered stderr tail; memory counters use only fixed codes. Docker retains two 5 MB files. The issuer's failures never alter admission, UNKNOWN or the non-resent rule.
 
-Las pruebas rápidas comprueban la entrada de admisión real, el gateway HTTP/TLS
-con constructor económico HOST declarado, el descriptor y los límites de
-diagnóstico. No equivalen a financiar ni a recuperar ante una caída abrupta.
+Rapid tests check the actual admission input, HTTP/TLS gateway with declared HOST economic constructor, descriptor and diagnostic limits. They do not amount to financing or recovering from an abrupt fall.

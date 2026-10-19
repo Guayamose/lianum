@@ -1,12 +1,7 @@
-# Ejecución de operaciones
+# Operation execution
 
-PAEG es el protocolo que organiza el grafo privado de acciones.
-`account/` contiene el recorrido de cuenta flat; `native-value/` y
-`wrapped/` contienen sus recorridos específicos.
+PAEG organizes private graphs of financial actions. `account/` contains the flat-account path; `native-value/` and `wrapped/` contain their specific paths.
 
-Cada recorrido separa `preparation/` —admisión y dependencias—,
-`execution/` —ejecución— y `reconciliation/` —estado, resultados y
-recuperación— cuando corresponda. `encoding/` contiene formatos, compromisos
-y codecs compartidos.
+Each path separates `preparation/` (admission and dependencies), `execution/` (execution), and `reconciliation/` (state, outcomes and recovery), where applicable. `encoding/` owns shared formats, commitments and codecs.
 
-Pruebas en `packages/backend/tests/execution/`.
+Tests live in `packages/backend/tests/execution/`.

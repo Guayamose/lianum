@@ -1,10 +1,5 @@
-# Herramientas del motor
+# Engine Tools
 
-`audits/` lee evidencia histórica; `demos/` contiene demostraciones;
-`diagnostics/` comprueba recursos y comportamiento; `profiles/` congela
-perfiles; `proofs/` compila, prepara claves y ejecuta trabajos acotados;
-`integration/` agrupa flujos por dominio; y `fixtures/`, `lib/` contienen
-soporte.
+`audits/` reads historical evidence; `demos/` contains demonstrations; `diagnostics/` checks resources and behaviour; `profiles/` congela perfiles; `proofs/` compiles, prepares keys and executes limited jobs; `integration/` groups flows by domain; and `fixtures/`, `lib/` contain support.
 
-Se ejecutan desde la raíz con `./dev node scripts/engine/ruta.mjs`,
-sustituyendo la ruta por el archivo elegido.
+Run from the root with `./dev node scripts/engine/ruta.mjs`, replacing the path with the chosen file.

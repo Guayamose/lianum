@@ -1,174 +1,108 @@
-# Preparar fuentes y reutilizar artefactos
+# Source generations and artifact reuse
 
-La generación de desarrollo identifica las fuentes actuales y reúne un candidato revisable. El comando prepara automáticamente las copias de compatibilidad que necesitan los lectores históricos y valida los artefactos conservados. No necesita volver a compilar los circuitos cuando sus componentes originales siguen siendo idénticos.
+A development generation identifies the current source and assembles a reviewable candidate. Preparation creates the compatibility copies required by historical readers and authenticates retained artifacts. Identical original circuits do not need to be recompiled merely because host code changed.
 
 ```sh
 ./dev sources status
 ./dev sources prepare
-./dev sources verify --generation <huella-devuelta-por-prepare>
-./dev sources adopt --generation <huella-devuelta-por-prepare>
+./dev sources verify --generation <digest>
+./dev sources adopt --generation <digest>
 ```
 
-`status` lee las fuentes editables y muestra las diferencias respecto a la publicación existente: release nativa, catálogo de ejecución paginada nativa y catálogo de grafos paginados. También identifica copias de ejecución desactualizadas y comprueba los hashes publicados del ledger V5 y W39 V9. No escribe archivos.
+## Inspect, prepare, verify, adopt
 
-`prepare` actualiza las copias de compatibilidad mediante el constructor incremental, captura las dependencias actuales en un contrato V7 independiente de las publicaciones anteriores. Produce un candidato si pasan las comprobaciones del ledger, los doce roles nativos y los cinco roles paginados. Si falta un original o falla una comprobación, muestra su código concreto y devuelve estado 2. La captura disponible permanece para examinar el problema; no se genera un candidato válido.
+`status` reads editable source and compares it with the existing native release, native paged execution catalog and paged graph catalog. It identifies stale runtime copies and checks published ledger V5/W39 V9 hashes. `--json` includes individual files and differences. It writes nothing.
 
-Para consultar todos los archivos y sus diferencias:
+`prepare` incrementally refreshes compatibility copies and captures current dependencies in a V7 candidate independent of earlier publications. Candidate creation requires successful checks of the ledger, twelve native roles and five paged roles. A missing original or failed check returns its specific code and exit status 2; diagnostic capture remains available, but no valid candidate is produced.
 
-```sh
-./dev sources status --json
-```
+`sources check` returns 1 when source/artifacts differ from the **existing publication** or compatibility copies are stale. Preparing a candidate does not publish it, so that check may still report differences after successful preparation.
 
-`./dev sources check` devuelve estado 1 si las fuentes o artefactos difieren de la **publicación existente**, o si las copias de compatibilidad están desactualizadas. Preparar un candidato no publica esos cambios: por eso este comando puede seguir detectando diferencias después de una preparación correcta.
+`verify` rereads captured objects, current source, exports and relocation rules, and authenticates retained artifacts again. Stale or modified captures are rejected; success reports READBACK_VERIFIED without changing the generation.
 
-## Qué se guarda
+`adopt` performs the same verification and writes `scripts/development/adopted-generation.json`, binding candidate digest and current source closure. Migrated paged catalogs and native deployment loader V5 check that record and current bytes before consuming original artifacts. Later source edits invalidate that association. Adoption does not compile, deploy or certify an economic operation.
 
-Los resultados viven en `.local/generations/`, fuera del código versionado:
+After reviewing code, `./dev sources prepare --adopt` prepares and verifies the same generation before recording it, rejecting altered originals and concurrent edits. Ordinary preparation retains a separate review/adoption step.
 
-| Archivo | Contenido |
+## Stored objects
+
+Generations live under `.local/generations`, outside Git:
+
+| Path | Contents |
 | --- | --- |
-| `<huella>/sources.json` | Fuentes, dependencias, diferencias y referencias a sus bytes. |
-| `<huella>/candidate-release.json` | Candidato V7 que une el cierre actual de fuentes con las publicaciones originales y los recibos de reutilización W39, N32 y paginada. Solo aparece tras una inspección correcta. |
-| `<huella>/reuse-receipt.json` | Nuevo recibo V6 que declara la reutilización exacta del W39 V9 conservado. |
-| `<huella>/inspection-<huella>.json` | Resultado concreto de la inspección, incluido el motivo de un rechazo. |
-| `objects/<sha256>` | Bytes de fuentes compartidos entre generaciones. |
+| `<digest>/sources.json` | Source, dependencies, differences and byte references |
+| `<digest>/candidate-release.json` | V7 candidate binding current source to original publications and W39/N32/paged reuse receipts; present only after successful inspection |
+| `<digest>/reuse-receipt.json` | V6 receipt for exact reuse of retained W39 V9 |
+| `<digest>/inspection-<digest>.json` | Inspection result and any rejection reason |
+| `objects/<sha256>` | Source bytes shared between generations |
 
-`verify --generation <huella>` relee los objetos, las fuentes actuales, los exports y reglas de reubicación; vuelve a autenticar los artefactos conservados. Rechaza una captura manipulada o desactualizada y devuelve `READBACK_VERIFIED` cuando todo coincide. No modifica la generación.
+Preparing unchanged source reuses existing objects. It does not duplicate the repository, tools, networks, custody or compilations. Modified stored objects are detected and stop preparation.
 
-`adopt --generation <huella>` hace esa misma verificación y escribe el registro versionado `scripts/development/adopted-generation.json`. El registro fija el digest del candidato y el cierre actual de fuentes. Los catálogos paginados y el cargador de despliegue nativo V5 comprueban ese registro y los bytes actuales antes de consumir los artefactos originales. Cambiar una fuente invalida la adopción: hay que preparar y adoptar la generación nueva. El comando no compila, despliega ni declara aceptada una operación económica.
+Sources removed from three collectors and seven facades have explicit relocations to SHA256-named `.source` evidence. Historical names remain useful for publication verification, but are not executable entry points. Capture authenticates those bytes without following their imports, and the builder no longer generates their old copies.
 
-Tras revisar los cambios de código, puedes preparar y adoptar esa misma generación
-en una sola invocación: `./dev sources prepare --adopt`. El comando calcula la
-huella y vuelve a verificar el candidato antes de escribir la selección; rechaza
-originales alterados y cambios concurrentes. No tienes que copiar el digest a mano.
-La preparación ordinaria conserva su comportamiento de revisión sin adopción.
+## Dependency closure and integrity
 
-Repetir la preparación con las mismas fuentes reutiliza la generación y los objetos existentes. No crea otra copia del repositorio, herramientas, redes, custodia o compilaciones. Una modificación del objeto guardado se detecta y detiene la preparación.
+Capture follows literal ESM imports, module URLs and declared public exports of known `@lianum/*` packages from the published inventory and explicit relocations. It includes the `package.json` that selects each export and the target source. Unknown packages, private exports, escaping paths and symlinks are rejected; bytes are rechecked after inspection to catch concurrent changes.
 
-Las fuentes retiradas de los tres recolectores y siete fachadas tienen una
-reubicación explícita a evidencia `.source` nombrada por SHA-256. Sus nombres
-antiguos siguen sirviendo para comprobar publicaciones anteriores, pero no son
-entradas de ejecución. La captura verifica sus bytes, no sigue sus imports y
-rechaza una evidencia alterada. El constructor deja de generar sus copias.
+Mobile TypeScript is inventoried by bytes; this does not certify the mobile bundler's closure. `createRequire` loads are declared as resources needing consumer validation. The W39 build report follows imports from its build entry point, distinguishing changes to build modules from Python/shell launchers. Compiler packages, circuits, CRS and outputs retain their own checks. A report grants no execution permission and is not a cryptographic proof.
 
-## Qué se considera una dependencia
+## N32 and paged artifacts
 
-La captura sigue los imports ESM literales, las URLs de módulos y los exports públicos declarados en los paquetes `@lianum/*` conocidos, partiendo del inventario publicado y sus reubicaciones explícitas. Los archivos TypeScript móviles están inventariados por bytes; este comando no certifica el cierre del bundler móvil. Las cargas con `createRequire` se enumeran como recursos que necesitan validación del consumidor. Incluye el `package.json` que decide cada export y el código al que apunta. Rechaza paquetes desconocidos, exports privados, rutas que escapan del paquete y enlaces simbólicos. Vuelve a comprobar los bytes tras la inspección para detectar ediciones concurrentes.
+N32 authenticates its nine original build inputs under `packages/proofs/evidence/original-sources` against the pinned original manifest. Current resource owners are identified separately. Program, ABI, key, statistics, toolchain and CRS checks remain enforced.
 
-El informe de compilación sigue los módulos importados desde la entrada de compilación W39. Permite distinguir cambios de esos módulos de cambios en los lanzadores Python o shell. Los paquetes del compilador, circuitos, CRS y componentes resultantes conservan además sus validaciones específicas. Este informe ayuda a determinar el trabajo afectado; no concede permisos de ejecución ni sustituye una prueba criptográfica.
+Paged inspection authenticates both retained manifests and five programs, keys and Solidity contracts, plus original circuits/configuration. It checks 100 original records: 58 build inputs and 42 host sources. Changed historical bodies are retained under their exact hashes as evidence, not executed. Both earlier catalogs remain in `packages/proofs/evidence/paged-source-catalogues`. Current catalogs require explicit adoption and original artifact provenance.
 
-## Artefactos N32 y paginados
+## I84 reuse
 
-N32 comprueba sus nueve entradas originales de compilación en `packages/proofs/evidence/original-sources`, con el manifiesto original fijado. Los propietarios actuales de recursos se identifican por separado de aquellas entradas. El lector conserva las verificaciones de programa, ABI, clave, stats, toolchain y CRS.
+`retained-i84-publication-v1.json` pins an immutable publication of the original reader result and the hashes of its reader, driver manifest and source version. The capsule authenticates the 244 public resources it read: source, programs, key, Solidity, proofs, receipts, toolchain, Wasm and CRS.
 
-El inspector paginado autentica ambos manifiestos retenidos y los cinco programas, claves y contratos Solidity; también verifica los circuitos y configuraciones originales. Autentica los 100 registros originales: 58 entradas de compilación y 42 fuentes host. Los cuerpos históricos que cambiaron están archivados con sus hashes exactos; se conservan como evidencia y no se ejecutan. Los dos catálogos anteriores también se conservan por sus hashes en `packages/proofs/evidence/paged-source-catalogues/`. Las entradas actuales verifican la adopción explícita y la procedencia original de los artefactos.
+The current reader verifies bytes from `environment.externalResourcesRoot`; it does not import the historical reader or use `/workspace` as a fallback. Returned original directories are provenance labels. The capsule grants no account, system or deployment-bundle authority.
 
-## Cómo se reutiliza I84
-
-`retained-i84-publication-v1.json` fija una publicación inmutable del resultado
-del lector original y los hashes de su reader, manifiesto de drivers y versión
-de fuentes. La cápsula autentica también los 244 recursos públicos que leyó:
-fuentes, programas, clave, Solidity, pruebas, recibos, toolchain, Wasm y CRS.
-El propietario actual de lectura verifica sus bytes desde
-`environment.externalResourcesRoot`; no importa código del lector histórico ni
-usa `/workspace` como respaldo. Los directorios originales que devuelve son
-etiquetas de procedencia. La cápsula no concede propiedad de una cuenta, sistema
-ni bundle de despliegue.
-
-La exportación se realiza una vez desde los originales restaurados y se
-comprueba que devuelve el resultado original completo. No es un pin de código
-actual que haya que actualizar al editar o hacer commits. Si falta esta
-publicación al restaurar el entorno, con la instalación original disponible:
+Export happens once from restored originals, with the complete result checked against the original. It is not a current-code pin to refresh after an ordinary edit. When restoration lacks the publication but has the original installation:
 
 ```sh
 ./dev proof-node scripts/protocol/proofs/export-retained-i84-public.mjs
 ```
 
-El exportador comprueba los pins del lector original antes de ejecutarlo,
-observa sus lecturas normales y por streaming y restaura sus hooks antes de
-publicar. No compila, prueba circuitos, genera claves ni lee estados privados de
-cuentas. Reutiliza los recursos restaurados; guarda los módulos históricos como
-evidencia `.source`. Rechaza sobrescribir una publicación distinta. La operación
-ordinaria consume esa publicación; solo la restauración necesita el lector en
-su ubicación histórica.
+The exporter authenticates the original reader pins, observes ordinary and streaming reads, and restores its hooks before publishing. It neither compiles circuits/generates keys nor reads private account state. It reuses restored resources, preserves historical modules as `.source`, and rejects overwriting a different publication. Ordinary operation consumes the publication; only restoration needs the historical reader at its original location.
 
-La prueba portátil conjunta incluye I84, paginada y el inspector de fuentes
-wrapped. Ejecuta desde `/` con permiso de lectura limitado al paquete y rechaza
-una clave paginada alterada, además de alteraciones de clave/programa/recibo y
-cápsula I84. Esta comprobación no ejecuta operaciones económicas ni arranca el
-sistema completo con sus workers. El paquete también carga el worker RootNote
-canónico y comprueba la selección fija SPL SOURCE, sin invocar su constructor
-económico. El compilador y SDK ABI originales se cargan desde recursos autenticados.
+The portable verification covers I84, paged artifacts and wrapped source inspection. It runs from `/` with reads restricted to the bundle, rejects altered paged keys and altered key/program/receipt/I84-capsule data, and loads the canonical RootNote worker with fixed SPL SOURCE selection. It does not construct an economic system or execute financial operations. Original compiler and ABI SDK resources are authenticated.
 
-## Cómo se reutiliza W39
+## W39 reuse
 
-V9 sigue siendo la generación del artefacto original. V6 identifica el **nuevo procedimiento de preparación y su recibo de reutilización**; no afirma haber recompilado V9.
+V9 remains the original artifact generation. V6 names the **new preparation procedure and reuse receipt**, not a fresh compilation of V9.
 
-La inspección comprueba los ocho archivos contra sus hashes publicados, el recibo original, la cápsula original de fuentes, los bytes de Noir/Nargo/programa/clave/Solidity, el ABI, ACIR, AST, opciones de compilación, toolchain y CRS. Reutiliza el validador semántico de componentes existente. Los lanzadores actuales se registran en las fuentes actuales; no se presentan como productores de una compilación anterior.
+Inspection checks eight files against published hashes, the original receipt/source capsule, Noir/Nargo/program/key/Solidity bytes, ABI, ACIR, AST, compilation options, toolchain and CRS. The existing semantic component validator is reused. Current launchers belong to current source records; they are not attributed as producers of an earlier build.
 
-El candidato V7 y sus recibos no emiten la marca interna de un bundle. Después de adoptar explícitamente sus fuentes, el cargador canónico V5 autentica la publicación original completa, el ledger, W39 y N32; sólo ese cargador conserva la emisión de su marca privada. Los programas, claves, ABI y recibos originales mantienen sus hashes. Sin registro de adopción se conserva el recorrido anterior. El registro nunca convierte una copia de un objeto en un bundle canónico.
+V7 candidates and reuse receipts do not mint the private internal bundle brand. After explicit adoption, canonical loader V5 authenticates the complete original publication, ledger, W39 and N32; only that loader retains authority to issue its private brand. Original programs, keys, ABI and receipts keep their hashes. Without adoption, the earlier path remains. Copying an object does not turn it into a canonical bundle.
 
-## Cambios de dependencias locales
-
-Los hashes vigentes se calculan con un comando; no hace falta editar cadenas
-SHA a mano al cambiar una fuente o un manifiesto permitido:
+## Current source pins
 
 ```sh
 ./dev pins check
 ./dev pins check --profile platform --json
 ./dev pins update
-git diff
 ./dev sources prepare
 ```
 
-`check` solo lee y devuelve 1 si hay cambios propuestos, 2 si encuentra un
-problema que impide prepararlos. Su salida enumera cada campo anterior y nuevo;
-`--json` incluye además el diff exacto de los archivos propuestos. `update`
-aplica únicamente los campos declarados en el inventario vigente. Repetirlo con los
-mismos archivos no escribe nada.
+`check` is read-only: exit 1 means proposed changes; exit 2 means preparation is blocked. Output includes old/new fields; JSON includes the exact proposed file diff. `update` writes only declared current fields and is a no-op when bytes are unchanged.
 
-| Perfil | Campos actualizables | Datos que solo se verifican |
+| Profile | Fields that may change | Immutable checks |
 | --- | --- | --- |
-| `mobile` | Hash de tres manifiestos y digest del catálogo | Versiones e integridades Noble, 46 archivos públicos instalados |
-| `platform` | Hash y tamaño de las 15 fuentes/manifiestos declarados | Los 138 archivos públicos y sus 14 paquetes exactos |
-| `callers` | Hash y tamaño de los 25 consumidores locales declarados | Lista exacta de rutas revisadas |
-| `runtime` | Pins actuales de perfiles de red, despachadores y guard de proceso | Declaraciones exactas permitidas; los pins históricos siguen fijos |
+| `mobile` | Three manifest hashes and catalog digest | Noble versions/integrities and 46 installed public files |
+| `platform` | Hash/size of 15 declared sources/manifests | 138 public files and 14 exact packages |
+| `callers` | Hash/size of 25 declared local consumers | Exact reviewed path list |
+| `runtime` | Current network-profile, dispatcher and SOURCE process-guard pins | Explicit allowed declarations; historical pins stay fixed |
 
-El perfil `platform` incluye automáticamente `callers`: el backend autentica
-la propia cápsula de Platform y ambos hashes deben actualizarse juntos. `all`
-es el valor por defecto. `scripts/development/source-pins.json` declara las
-rutas permitidas; añadir una ruta o cambiar dependencias públicas exige
-revisar explícitamente esa política, nunca se incorpora por descubrimiento
-automático. El comando rechaza symlinks, entradas privadas, archivos originales
-históricos y cambios concurrentes detectados antes o durante la escritura.
-Los archivos de salida se sustituyen de forma atómica individualmente; si se
-detecta una edición concurrente se revierten únicamente las escrituras que
-siguen siendo las del comando, sin pisar la edición ajena.
+`platform` includes `callers` because the backend authenticates the Platform capsule. The default profile is `all`. `scripts/development/source-pins.json` declares allowed paths; adding paths or changing public dependencies requires explicit policy review, never automatic discovery. Symlinks, private entries, historical originals and detected concurrent edits are rejected. Each output replacement is atomic; rollback only restores writes still owned by that command, preserving someone else's concurrent edit.
 
-`sources prepare` comprueba primero el perfil móvil, que ya es obligatorio
-para el productor nativo. Si está desactualizado muestra el comando de revisión
-y termina; no llama a `pins update` ni exige instalar Cloud para preparar las
-fuentes nativas. Actualizar pins identifica el código actual para revisión:
-no modifica publicaciones ni recibos originales, no publica un release y no
-acepta financieramente esa generación.
+Source preparation first checks the mandatory mobile profile. If stale, it prints the review command and stops; it does not silently update pins or require Cloud installation for native preparation. Current pin updates identify code for review without rewriting original publications, receipts or financial acceptance.
 
-Al trasladar contratos o primitivas a paquetes compartidos cambian los
-manifiestos locales. El catálogo actual mantiene fijados sus hashes y los de
-las dependencias públicas instaladas. La preparación actual autentica la publicación
-retenida completa mediante un digest histórico fijo, y valida el candidato con
-el catálogo actual. No reescribe el catálogo registrado dentro de una publicación
-antigua ni declara que sus fuentes fueran las actuales.
+Moving modules can change local manifests. Current catalogs bind the new source while the historical publication remains authenticated by its fixed digest. A candidate must not rewrite an old catalog or claim its source was the current implementation.
 
-`VALIDATED_CANDIDATE` confirma la preparación y procedencia comprobadas.
-`adopt` registra su uso explícito por los consumidores migrados, que vuelven a
-comprobar fuentes y artefactos durante la carga. Una prueba HOST no sustituye
-la aceptación de una operación económica en su red.
+## Additional retained compiler provenance
 
-La generación actual conserva también el compilador host paginado anterior en
-`paged-original-host-v4/compiler-provenance-v1.json`, junto con sus bytes originales
-localizados en Git y el respaldo. El lector comprueba los mismos hashes históricos;
-las fuentes actuales del cargador Solc se autentican en la generación adoptada.
-El paquete económico trasladado añade el SDK ABI y Solc originales, con rechazo de
-sus cuatro alteraciones de integridad. Los recursos del SDK incluyen módulos de
-vendor autenticados por el manifest; los drivers históricos siguen siendo evidencia
-`.source`. No se importa un backend histórico ni se copia estado privado.
+`paged-original-host-v4/compiler-provenance-v1.json` preserves the earlier paged host compiler and original bytes recovered from Git/backups. Its reader verifies the historical hashes; the current Solc loader source belongs to the adopted generation.
+
+Portable economic bundles include the original ABI SDK and Solc, with rejection checks for their four integrity alterations. SDK vendor modules are authenticated by manifest. Historical drivers remain `.source` evidence; no historical backend is imported and no private state is copied.
+
+VALIDATED_CANDIDATE means preparation and provenance passed. Adoption selects its use for migrated consumers, which recheck source/artifacts at load time. Neither result substitutes for financial acceptance on the intended network.

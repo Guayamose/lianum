@@ -1,6 +1,6 @@
 {
   "profile": "LIANUM_FINTECHATHON_DELIVERY_READINESS_V1",
-  "auditedAtUTC": "2026-10-19T00:28:45.250676+00:00",
+  "auditedAtUTC": "2026-10-19T01:18:12.444366+00:00",
   "registration": {
     "status": "CONFIRMED",
     "evidence": "User explicitly confirmed registration in this conversation.",
@@ -39,38 +39,56 @@
     {
       "pathFromWorkspace": "lianum-project/apps/mobile/android/app/build/outputs/apk/release/app-release.apk",
       "kind": "prepared_apk",
-      "bytes": 85729145,
-      "sha256": "07fbc929920acc39d03d4bb5f9a208c4378e1265510fdfa75dff514f2b00420a",
+      "bytes": 85642029,
+      "sha256": "55493a41bb97a89462605a29263de7cc8dcfcfe298275635ef19346c4a69736e",
       "newBuildInstalled": false,
-      "publicAcceptancePending": true
+      "publicAcceptancePending": true,
+      "language": "English",
+      "requiresMetro": false,
+      "releaseSigned": false
     }
   ],
   "repository": {
     "url": "https://github.com/Guayamose/lianum",
-    "readAccessVerified": true,
     "branch": "limpieza-estructura",
-    "localAndRemoteHead": "286dbc77a35110ca3588030c312839f1e848e87e",
-    "trackedUncommittedChangesAtAudit": 153,
-    "latestWorkingChangesPublished": false,
+    "defaultBranch": "limpieza-estructura",
+    "readAccessVerified": true,
+    "functionalCheckpointCommit": "8f2f33f3e526cbf421de973ccb99b99f54fe57a1",
+    "readmeLanguage": "English",
+    "readmeAudience": "Reviewers, developers and repository analysis agents",
     "anonymousJuryAccessVerified": false,
-    "readmeLanguage": "Spanish",
-    "readmeAudience": "Developers",
     "cleanCloneReproductionVerified": false,
-    "untrackedFilesAtAudit": 722,
-    "totalPendingPathsAtAudit": 875,
-    "untrackedPitchPaths": 570,
-    "untrackedVideos": 2
+    "publicationEvidence": "Inspect the branch commit history; this audit is packaged with the English delivery rather than pinning its own commit hash.",
+    "excludedLocalMaterials": [
+      "lianum_pitch/",
+      "demo_video/",
+      ".local/",
+      ".internal/",
+      "credentials",
+      "build outputs"
+    ],
+    "mobilePresentationCommit": "34ec13c98083e3dac2501902dbfc76c8e3b5eaec",
+    "anonymousAccessCheck": {
+      "result": "HTTP_404",
+      "endpoint": "https://api.github.com/repos/Guayamose/lianum",
+      "authenticatedGitAccess": true,
+      "action": "Provide repository access to the jury before submission; visibility was not changed."
+    }
   },
   "deliverables": [
     {
       "id": "technical",
-      "status": "SOURCE_MATERIAL_EXISTS_FINAL_REPORT_MISSING",
+      "status": "ENGLISH_TECHNICAL_GUIDES_READY_FORMAL_SUBMISSION_PACKAGING_PENDING",
       "available": [
-        "docs/MODULES.md",
-        "docs/STRUCTURE.md",
-        "packages/backend/docs/LOCAL-ACCEPTANCE.md"
+        "README.md",
+        "docs/ARCHITECTURE.md",
+        "docs/FINANCIAL-EXECUTION.md",
+        "docs/WORKFLOW.md",
+        "docs/PRIVACY-AND-OPERATIONS.md",
+        "docs/VALIDATION.md",
+        "docs/reference/product-api.md"
       ],
-      "next": "Consolidate the reader-facing material into a small English documentation set; retain historical records separately and correct stale deployment statements."
+      "next": "Package the required final submission format and complete public acceptance evidence without changing the documented scopes."
     },
     {
       "id": "deck",
@@ -109,17 +127,17 @@
     },
     {
       "id": "source",
-      "status": "REMOTE_EXISTS_CURRENT_WORKTREE_NOT_PUBLISHED",
-      "next": "Review and package current changes, provide English judge-facing README, deployment/test instructions and a clean-clone check."
+      "status": "ENGLISH_SOURCE_DELIVERY_VERSIONED",
+      "next": "Provide jury access: anonymous GitHub access returned 404. Verify the documented clean-clone setup and use the branch history for delivery commits."
     },
     {
       "id": "security",
-      "status": "FINAL_REPORT_MISSING_EXISTING_DOC_HAS_STALE_OPERATIONAL_CLAIMS",
+      "status": "ENGLISH_SECURITY_AND_OPERATIONS_ASSESSMENT_READY",
       "available": [
         "docs/PRIVACY-AND-OPERATIONS.md",
         "services/agent/README.md"
       ],
-      "next": "Document actual permission tiers and trust boundaries. Correct obsolete no-GCP/web-wallet passages; record privacy, recovery, latency and financial limitations."
+      "next": "Package the required report format and retain the explicit audit, privacy and financial limitations."
     },
     {
       "id": "execution",
@@ -164,28 +182,21 @@
   ],
   "finalSubmissionSent": false,
   "newPaidGenerationOrInferenceCalls": 0,
-  "remoteFilesPublished": false,
   "documentationAudit": {
-    "coreMarkdownFiles": 73,
-    "coreMarkdownBytes": 784593,
-    "markdownFilesIncludingPitch": 251,
-    "statusMarkdownLines": 3913,
-    "statusMarkdownBytes": 277623,
-    "knownStaleDocument": "docs/PRIVACY-AND-OPERATIONS.md",
-    "recommendedReaderFacingDocuments": [
-      "README",
-      "Architecture and PAEG",
-      "Setup and deployment",
-      "Security and limitations",
-      "Tests and execution evidence",
-      "Demo guide"
-    ]
+    "language": "English",
+    "entryPoint": "docs/README.md",
+    "currentReadingRouteDocuments": 6,
+    "detailedReferencesPreserved": true,
+    "historicalStatus": "docs/history/2026-10-19/STATUS.md",
+    "originalLanguageCheckpoint": "8f2f33f3e526cbf421de973ccb99b99f54fe57a1",
+    "frozenProtocolCompanion": "docs/reference/protocol-compatibility.md"
   },
   "mobileLanguageAudit": {
-    "mainUi": "Hard-coded Spanish strings in screens, financial review and biometric prompts",
-    "centralTranslationSystemLocated": false,
-    "agentUsesDeviceLocale": true,
-    "recommended": "Centralize English and Spanish messages, use English for judging, include formatting, accessibility, notifications and biometric prompts; preserve custody and operation logic."
+    "mainUi": "English screens, financial review, errors, accessibility and biometric prompts",
+    "formatting": "English dates and exact integer-based USD/EUR display",
+    "agentClientLocale": "en-US",
+    "conversationHistory": "Preserved verbatim; the agent follows the user’s language",
+    "physicalAcceptance": "PENDING"
   },
   "pitchResearchAudit": {
     "untrackedPitchPaths": 570,
@@ -199,5 +210,47 @@
     "reason": "Both MP4 files exceed GitHub regular Git per-file limit of 100 MiB.",
     "preferred": "GitHub Release attachments or delivery links; keep local originals.",
     "reference": "https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github"
-  }
+  },
+  "preEnglishDeliveryAudit": {
+    "auditedAtUTC": "2026-10-19T00:28:45.250676+00:00",
+    "repository": {
+      "url": "https://github.com/Guayamose/lianum",
+      "readAccessVerified": true,
+      "branch": "limpieza-estructura",
+      "localAndRemoteHead": "286dbc77a35110ca3588030c312839f1e848e87e",
+      "trackedUncommittedChangesAtAudit": 153,
+      "latestWorkingChangesPublished": false,
+      "anonymousJuryAccessVerified": false,
+      "readmeLanguage": "Spanish",
+      "readmeAudience": "Developers",
+      "cleanCloneReproductionVerified": false,
+      "untrackedFilesAtAudit": 722,
+      "totalPendingPathsAtAudit": 875,
+      "untrackedPitchPaths": 570,
+      "untrackedVideos": 2
+    },
+    "documentation": {
+      "coreMarkdownFiles": 73,
+      "coreMarkdownBytes": 784593,
+      "markdownFilesIncludingPitch": 251,
+      "statusMarkdownLines": 3913,
+      "statusMarkdownBytes": 277623,
+      "knownStaleDocument": "docs/PRIVACY-AND-OPERATIONS.md",
+      "recommendedReaderFacingDocuments": [
+        "README",
+        "Architecture and PAEG",
+        "Setup and deployment",
+        "Security and limitations",
+        "Tests and execution evidence",
+        "Demo guide"
+      ]
+    },
+    "mobileLanguage": {
+      "mainUi": "Hard-coded Spanish strings in screens, financial review and biometric prompts",
+      "centralTranslationSystemLocated": false,
+      "agentUsesDeviceLocale": true,
+      "recommended": "Centralize English and Spanish messages, use English for judging, include formatting, accessibility, notifications and biometric prompts; preserve custody and operation logic."
+    }
+  },
+  "englishDeliveryValidation": "english-delivery-validation.json"
 }

@@ -1,45 +1,45 @@
-# Comandos de desarrollo
+# Development commands
 
-Generado desde `scripts/development/workflows.json`; `./dev help` usa el mismo catálogo.
+Generated from `scripts/development/workflows.json`; `./dev help` uses the same catalog.
 
 ```text
-./dev api                               Arranca la API pública usando LIANUM_PUBLIC_WALLET_CONFIG.
-./dev engine [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new] Arrancar el perfil explícito; new exige estado nuevo, reopen conserva el original
-./dev build                             Preparar paquetes y lock; no genera la compatibilidad
-./dev check                             Comprobar módulos, análisis estático y selección host
-./dev block-check [--plan]              Batería mantenida completa, imports runtime y tipos móviles; sin omisiones ni adopción
-./dev test [rutas] [--timeout 120]      Pruebas host con salida en directo y plazo por selección
-./dev test --changed [--plan]           Seleccionar pruebas del cambio; límite de 24 archivos y 120 s
-./dev test --component NOMBRE           Comprobaciones acotadas de uno o varios componentes
-./dev static [--changed]                Sintaxis e imports del núcleo; checkJs estricto de APIs declaradas
-./dev status                            Presencia y versión de herramientas; no certifica integridad
-./dev prepare [host|mobile|api-server]  Instalar dependencias públicas del perfil
-./dev workflows                         Entradas vigentes y alcance de cada comprobación
-./dev boundaries                        Comprobar dependencias y exports entre módulos
-./dev sources [status|prepare|check|verify|adopt] Inspeccionar, preparar, verificar o adoptar por digest una generación de fuentes
-./dev sources prepare --adopt           Preparar y adoptar las fuentes actuales verificadas sin copiar hashes a mano
-./dev bundle [build|verify|run]         Empaquetar fuentes y recursos declarados en un candidato trasladable
-./dev pins [check|update] [--profile NOMBRE] Revisar o actualizar hashes actuales; conserva publicaciones históricas
-./dev resources [status|check]          Espacio por función y rutas locales sin clasificar
-./dev resources migrate-caches [--apply] Previsualizar o mover cachés a su ubicación común
-./dev lab profiles                      Mostrar perfiles y alcance del inventario mínimo
-./dev lab [plan|check] PERFIL           Inspeccionar dependencias del perfil sin ejecutar redes
-./dev lab prepare-profile PERFIL        Preparar solo dependencias y compatibilidad necesarias del perfil
-./dev clean [--scope caches|history|all] [--apply] Previsualizar limpieza por clase; --apply aplica la selección
-./dev build --legacy                    Materializar expresamente la compatibilidad histórica
-./dev legacy [node|test|check]          Ejecutar el recorrido heredado correspondiente
-./dev doctor                            Comprobar herramientas instaladas y hashes actuales de fuentes
-./dev artifacts                         Inventariar originales históricos ausentes
-./dev evidence                          Verificar evidencias públicas originales restauradas
-./dev node [args]                       Node local sobre las fuentes editables
-./dev npm [args]                        npm con el Node local
-./dev lab [prepare|run|recovery]        Laboratorio EVM explícito; no se añade a pruebas host
-./dev lab [browser|browser-recovery]    Recorrido económico EVM desde el navegador
-./dev lab [btc-sol|claims|osaka]        Laboratorios nativos explícitos; requieren materiales
-./dev lab [defi|metamorpho]             Laboratorios DeFi explícitos con custodia y pruebas
-./dev lab mobile-original               Cuenta original V2 pareada: lectura y conciliación
-./dev lab mobile-original-ledger        Compilar ledger nativo V5 con watchdog propio
-./dev lab audit-base                    Auditorías originales vacías; ejecución explícita
-./dev canonical                         Preparar la ubicación fija del lector I84
-./dev [legacy-node|proof-node] [args]   Runtimes fijados de compatibilidad
+./dev api                               Start the public API using LIANUM_PUBLIC_WALLET_CONFIG.
+./dev engine [admission|original-native-new|original-native-reopen|paged-native-new|paged-native-reopen|paged-mixed-new|paged-mixed-reopen|defi-new] Start an explicit profile; new requires fresh state, reopen retains the original state.
+./dev build                             Prepare packages and lockfile; does not generate compatibility resources.
+./dev check                             Check module boundaries, static analysis and the host selection.
+./dev block-check [--plan]              Full maintained suite, runtime imports and mobile types; no skipped checks or adoption.
+./dev test [paths] [--timeout 120]      Host tests with live output and a deadline per selection.
+./dev test --changed [--plan]           Select checks for the change; limit 24 files and 120 seconds.
+./dev test --component NAME             Bounded checks for one or more components.
+./dev static [--changed]                Core syntax/import checks and strict checkJs for declared APIs.
+./dev status                            Tool presence and versions; does not certify integrity.
+./dev prepare [host|mobile|api-server]  Install the public dependencies for the selected profile.
+./dev workflows                         Current entry points and the scope of each check.
+./dev boundaries                        Check dependencies and exports between modules.
+./dev sources [status|prepare|check|verify|adopt] Inspect, prepare, verify or adopt a source generation by digest.
+./dev sources prepare --adopt           Prepare and adopt verified current sources without copying hashes manually.
+./dev bundle [build|verify|run]         Package declared sources and resources as a portable candidate.
+./dev pins [check|update] [--profile NAME] Review or update current hashes; preserve historical publications.
+./dev resources [status|check]          Storage by purpose and unclassified local paths.
+./dev resources migrate-caches [--apply] Preview or move caches to their shared location.
+./dev lab profiles                      Show profiles and minimum inventory scope.
+./dev lab [plan|check] PROFILE          Inspect profile dependencies without starting networks.
+./dev lab prepare-profile PROFILE       Prepare only the dependencies and compatibility required by the profile.
+./dev clean [--scope caches|history|all] [--apply] Preview cleanup by category; --apply executes the selection.
+./dev build --legacy                    Explicitly materialize historical compatibility resources.
+./dev legacy [node|test|check]          Run the corresponding legacy path.
+./dev doctor                            Check installed tools and current source hashes.
+./dev artifacts                         Inventory missing historical originals.
+./dev evidence                          Verify restored original public evidence.
+./dev node [args]                       Local Node against editable sources.
+./dev npm [args]                        npm using the local pinned Node.
+./dev lab [prepare|run|recovery]        Explicit EVM laboratory; never added to host tests automatically.
+./dev lab [browser|browser-recovery]    EVM economic flow from the browser.
+./dev lab [btc-sol|claims|osaka]        Explicit native laboratories; require their retained resources.
+./dev lab [defi|metamorpho]             Explicit DeFi laboratories with custody and proofs.
+./dev lab mobile-original               Paired original V2 account: read and reconcile.
+./dev lab mobile-original-ledger        Compile native ledger V5 with an owned watchdog.
+./dev lab audit-base                    Original empty audits; explicit execution.
+./dev canonical                         Prepare the fixed location required by the I84 reader.
+./dev [legacy-node|proof-node] [args]   Pinned compatibility runtimes.
 ```

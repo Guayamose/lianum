@@ -1,27 +1,14 @@
-# Ubicaciones y ejecución desde fuentes
+# Source locations and portable execution
 
-`sourcePath` y `sourceURL` localizan las fuentes activas. `resourceRoot(family)`
-y `resourcePath(family, relative)` localizan recursos separados de esas fuentes.
-Las familias son `engine`, `wallet`, `crypto`, `components` y `protocol`.
-`legacyDataRoot` conserva su API y delega en `resourceRoot`.
+`sourcePath` and `sourceURL` locate active source. `resourceRoot(family)` and `resourcePath(family, relative)` locate separate resources. Supported families are `engine`, `wallet`, `crypto`, `components` and `protocol`; the retained `legacyDataRoot` API delegates to `resourceRoot`.
 
-En el checkout habitual los recursos conservan su ubicación histórica. En un
-candidato generado por `scripts/development/source_bundle.py`, el descriptor
-`runtime-resources.json` los sitúa bajo `resources/`, sin recurrir a
-`.internal/runtime`. El descriptor viaja con las fuentes y funciona también
-cuando un worker elimina las variables del entorno heredado.
+In an ordinary checkout, resources keep their historical locations. A candidate produced by `scripts/development/source_bundle.py` uses `runtime-resources.json` to locate them under `resources/`, without falling back to `.internal/runtime`. The descriptor travels with source and still works when a worker clears its inherited environment.
 
-El empaquetador conserva los bytes de las fuentes, sigue sus imports literales,
-resuelve exports de los workspaces y crea un único enlace por paquete. Los
-módulos cargados mediante expresiones o enumeración de directorios deben
-declararse con `--include-source`. No transforma rutas ni pins de una generación
-histórica. El manifiesto resultante registra exactamente ese alcance.
+The packager preserves source bytes, follows literal imports, resolves workspace exports and creates one link per package. Expression-based module loads and directory enumeration require explicit `--include-source` declarations. It does not rewrite historical paths or pins; the manifest records its exact scope.
 
-## Recursos externos
+## External resource manifest
 
-El manifiesto de entrada tiene este formato. Cada SHA-256 debe proceder del
-recurso público seleccionado y revisado; el empaquetador comprueba que los bytes
-disponibles coinciden antes de publicar el directorio candidato.
+Each SHA256 must come from the reviewed public resource. Available bytes are checked before the candidate directory is published.
 
 ```json
 {
@@ -32,62 +19,36 @@ disponibles coinciden antes de publicar el directorio candidato.
       "path": "tools/node",
       "scope": "resources",
       "kind": "toolchain",
-      "sha256": "<SHA-256 esperado del ejecutable>",
+      "sha256": "<expected executable SHA256>",
       "mode": "0755"
     }
   ]
 }
 ```
 
-`source` es relativo al directorio externo pasado al comando. `path` es relativo
-a `resources/` cuando `scope` es `resources`. Para dependencias npm normales,
-`scope: "dependency"` exige `kind: "npm-package"` y un `path` que empiece por
-`node_modules/`; se declara y comprueba cada archivo, incluidas dependencias
-transitivas. Las librerías oficiales que los validadores existentes buscan en
-una familia histórica se declaran con `scope: "resources"` y su ruta exacta
-dentro de esa familia.
+`source` is relative to the supplied external directory. With `scope: "resources"`, `path` is relative to `resources/`. Normal npm dependencies use `scope: "dependency"`, require `kind: "npm-package"` and a path beginning with `node_modules/`. Every file, including transitive dependencies, is declared and checked. Libraries expected by historical validators use the exact family-relative path with `scope: "resources"`.
 
-Los tipos admitidos son `toolchain`, `public-parameter`, `public-artifact`,
-`historical-source` y `npm-package`. El comando no busca ni copia directorios
-privados, credenciales, journals, witnesses o sesiones. El manifiesto debe
-enumerar solamente recursos públicos. Se rechazan enlaces simbólicos de entrada
-y destinos duplicados. No se descargan recursos ni se recompilan pruebas o keys;
-una ausencia o un hash distinto cancela la creación y conserva el original.
+Allowed kinds are `toolchain`, `public-parameter`, `public-artifact`, `historical-source` and `npm-package`. Only public resources belong in this manifest. The command does not discover or copy credentials, private directories, journals, witnesses or sessions. Symlink inputs and duplicate destinations are rejected. It downloads nothing and generates no proofs or keys. Missing or mismatched resources stop creation without replacing originals.
 
-## Construcción y ejecución
+## Build, verify and run
 
 ```sh
 python3 scripts/development/source_bundle.py build \
   --entry packages/proofs/src/jobs/role-process.mjs \
   --include-source packages/proofs/src \
-  --resources /ruta/publica/worker-resources.json \
-  --resource-root /ruta/publica/recursos \
+  --resources /public/worker-resources.json \
+  --resource-root /public/resources \
   --node-resource tools/node \
   --cwd-family wallet \
-  --output /ruta/candidatos/worker-v1
+  --output /candidates/worker-v1
 
-python3 /ruta/candidatos/worker-v1/run-source-bundle.py verify
-python3 /ruta/candidatos/worker-v1/run-source-bundle.py run \
-  --expected-sha256 HASH_DEL_MANIFIESTO_CANDIDATO -- authorization
+python3 /candidates/worker-v1/run-source-bundle.py verify
+python3 /candidates/worker-v1/run-source-bundle.py run \
+  --expected-sha256 CANDIDATE_MANIFEST_HASH -- authorization
 ```
 
-El destino debe ser nuevo. `--state-directory` permite declarar directorios
-relativos a `resources/` donde un worker escribirá su estado; nunca pueden
-contener recursos fijados por el manifiesto. El launcher vuelve a comprobar
-fuentes, recursos, permisos y enlaces antes de ejecutar directamente el Node
-incluido. Mantiene los argumentos del worker y entrega únicamente `LANG` y
-`PATH`, sin introducir un módulo envolvente ni argumentos adicionales de Node.
-Python y las librerías del sistema requeridas por el ejecutable son prerrequisitos
-del host; Node y las dependencias del programa son recursos explícitos.
+The destination must be new. `--state-directory` declares writable state paths relative to `resources/`; they cannot contain manifest-pinned resources. Before executing the included Node directly, the launcher rechecks source, resources, permissions and links. It preserves worker arguments and forwards only `LANG` and `PATH`, without an extra wrapper module or Node arguments. Python and the executable's required system libraries are host prerequisites. Node and program dependencies are explicit resources.
 
-Una creación correcta produce un **candidato**, con `financialAcceptance: false`.
-Los controles originales de supervisor, capacidades, pins, custodia y release
-siguen activos: un rol que exige un supervisor no se puede ejecutar aisladamente,
-y una generación que exige rutas o hashes históricos puede rechazar este candidato.
-La lista de fuentes y recursos de cada worker requiere una revisión de sus cargas
-dinámicas; la presencia del bundle no afirma haber ejecutado todos sus recorridos.
+A successful build is a **candidate** with `financialAcceptance: false`. Supervisor, capability, pin, custody and release checks remain active. A supervised role cannot run independently merely because it has been packaged; a generation requiring historical paths/hashes may reject the candidate. Dynamic loads need review for each worker. Bundle creation does not demonstrate every execution path.
 
-La prueba offline `test_source_bundle.py` ejecuta un worker desde un checkout
-mínimo sin `.internal`, tras trasladar el candidato y eliminar el checkout. También
-verifica identidad única de módulos, reproducibilidad del manifiesto, recursos
-ausentes o alterados, archivos adicionales, enlaces modificados y estado declarado.
+The offline `test_source_bundle.py` moves a candidate, removes its minimal source checkout and runs a worker without `.internal`. It also checks module identity, manifest reproducibility, missing/altered resources, unexpected files, modified links and declared state paths.

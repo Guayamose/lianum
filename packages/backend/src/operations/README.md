@@ -1,12 +1,5 @@
-# Composición y operación del sistema
+# System composition and operation
 
-`deployments/` contiene planes, artefactos y composición de despliegues.
-`operators/` contiene operadores e inventarios.
-`releases/` contiene pines, procedencia y verificaciones de releases.
-`payouts/` valida autorización y recogida de pagos.
-`recovery/` conserva checkpoint y recuperación.
-`validation/` verifica hechos y límites de fuentes.
+`deployments/` owns deployment plans, artifacts and composition. `operators/` contains operators and inventories. `releases/` owns pins, provenance and release checks. `payouts/` validates payout authorization and collection. `recovery/` retains checkpoints and recovery. `validation/` checks facts and source boundaries.
 
-Las subcarpetas `claims/`, `native-value/`, `wrapped/`, `defi/` y
-`system/` indican el consumidor. Estos módulos no son el arranque HTTP:
-ese arranque está en `apps/wallet/src/server/`.
+Subdirectories such as `claims/`, `native-value/`, `wrapped/`, `defi/` and `system/` identify the consumer. These modules compose financial systems; HTTP startup belongs to the corresponding entry point in `services/`.

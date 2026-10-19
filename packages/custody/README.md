@@ -1,29 +1,17 @@
-# Custodia del propietario
+# Owner custody
 
-Este paquete posee la custodia de claves, las autorizaciones de firma y los
-bindings del propietario. Su entrada `@lianum/custody/owner` apunta a
-[flat-owner-custody.mjs](src/signing/flat-owner-custody.mjs).
+This package owns key custody, signing authorization and owner bindings. `@lianum/custody/owner` exports [flat-owner-custody.mjs](src/signing/flat-owner-custody.mjs).
 
-| Carpeta de `src/` | Responsabilidad |
+| Domain in `src/` | Responsibility |
 | --- | --- |
-| `signing/` | Custodia, envelopes autorizados y contrato de observación |
-| `preparation/` | Bindings de preparación y consentimiento |
-| `claims/` | Transiciones del propietario y entregas entrantes |
+| `signing/` | Custody, authorized envelopes and observation contracts |
+| `preparation/` | Preparation and consent bindings |
+| `claims/` | Owner transitions and incoming deliveries |
 
-La composición que requiere sesiones, adaptadores de red o workers se encuentra
-en `packages/backend/src/custody/`: allí están los procesos y observadores del
-propietario, la preparación de operaciones y la integración con cuentas.
-Así, este paquete consume engine y contratos compartidos sin importar backend
-ni proofs. La custodia nativa de dispositivo sigue en `apps/mobile/src/custody/`.
+Compositions requiring sessions, network adapters or workers live in `packages/backend/src/custody/`: owner processes/observers, operation preparation and account integration. This package consumes engine and shared contracts without depending on backend or proofs. Native device custody remains in `apps/mobile/src/custody/`.
 
-Las marcas y permisos son capacidades vinculadas a sus objetos originales.
-Las APIs públicas y sus reexports comparten las mismas funciones y registros;
-una copia de datos o un callback de validación no sustituye esas identidades.
+Brands and permissions are capabilities tied to original objects. Public APIs and their re-exports share the same functions and records. A data copy or validation callback cannot substitute for those identities.
 
-`tests/` agrupa las comprobaciones de custodia y los escenarios por dominio.
-Los tests pueden consumir las composiciones backend sin convertirlas en una
-dependencia del código de `src/`.
+`tests/` groups custody checks and scenarios by domain. Tests may consume backend compositions without adding a backend dependency to `src/`.
 
-Consulta las entradas explícitas en [package.json](package.json) y la dirección
-de dependencias en [MODULES.md](../../docs/MODULES.md). El estado de los ciclos
-internos del producto se mantiene allí y en `./dev boundaries`.
+See explicit exports in [package.json](package.json) and the dependency rules in [MODULES.md](../../docs/MODULES.md). That guide and `./dev boundaries` report remaining internal cycles.

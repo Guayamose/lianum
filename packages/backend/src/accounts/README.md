@@ -1,8 +1,5 @@
-# Estado de cuentas
+# Accounts
 
-`authority/` define autoridades, validación y políticas.
-`storage/` conserva keepers, catálogos y rutas.
-`portfolio/` mantiene la proyección de cartera.
-`recovery/` compone la recuperación del flujo DeFi.
+`authority/` defines authorities, validation and policies. `storage/` owns keepers, catalogs and persistence paths. `portfolio/` projects account holdings. `recovery/` composes DeFi recovery flows.
 
-Pruebas en `packages/backend/tests/accounts/`.
+Tests live in `packages/backend/tests/accounts/`.

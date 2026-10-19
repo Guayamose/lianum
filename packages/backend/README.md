@@ -1,51 +1,28 @@
 # Backend
 
-Este paquete compone las cuentas, la custodia, las redes, la ejecución y los
-workers. Las aplicaciones lo consumen por sus APIs; backend no importa código
-de aplicaciones ni implementaciones de tests o experiments.
+This package composes accounts, custody, networks, execution and proof workers. Applications consume its APIs; backend does not import application code or test/experiment implementations.
 
-| Dominio en `src/` | Responsabilidad |
+| Domain in `src/` | Responsibility |
 | --- | --- |
-| `api/` | HTTP, clientes y sesiones de wallet, cuentas y reclamaciones |
-| `accounts/` | Autoridad, almacenamiento, cartera, runtimes y recuperación de cuentas |
-| `chains/` | Adaptadores y runtimes por cadena; composición EVM local |
-| `custody/` | Procesos y observadores del propietario que necesitan cuentas o redes |
-| `claims/` | Autorización, emisión, almacenamiento, pagos y recuperación de reclamaciones |
-| `execution/` | Preparación, ejecución y reconciliación del protocolo PAEG |
-| `proving/` | Integración de pruebas criptográficas con cuentas, ingresos y claims |
-| `defi/` | Vaults, posiciones, entregas y retiradas DeFi |
-| `providers/` | Proveedores que ejecutan operaciones |
-| `coordination/`, `payments/` | Composición de cohortes y orquestación de pagos |
-| `operations/` | Despliegues, operadores, composición local y verificaciones de releases |
-| `storage/` | Escritura de registros privados auxiliares |
+| `api/` | HTTP, clients and wallet/account/claim sessions |
+| `accounts/` | Authority, storage, portfolio, runtimes and account recovery |
+| `chains/` | Network adapters, runtimes and local EVM composition |
+| `custody/` | Owner processes and observers requiring accounts or networks |
+| `claims/` | Claim authorization, issuance, storage, payments and recovery |
+| `execution/` | PAEG preparation, execution and reconciliation |
+| `proving/` | Proof integration with accounts, deposits and claims |
+| `defi/` | DeFi vaults, positions, deliveries and withdrawals |
+| `providers/` | Operation providers |
+| `coordination/`, `payments/` | Cohort composition and payment orchestration |
+| `operations/` | Deployment, operators, local composition and release checks |
+| `storage/` | Auxiliary private record writers |
 
-Entradas habituales:
-[sesión de cuentas](src/api/accounts/flat-account-session.mjs),
-[cliente wallet](src/api/wallet/wallet-application-client.mjs) y
-[servicio HTTP wallet](src/api/wallet/http-service.mjs).
-La app web añade la lista de recursos visuales; el servicio HTTP funciona sin
-importar la app. `services/api-server` compone su entrada de API y los perfiles locales.
+Common entries are the [account session](src/api/accounts/flat-account-session.mjs), [wallet client](src/api/wallet/wallet-application-client.mjs) and [wallet HTTP service](src/api/wallet/http-service.mjs). The retained web client supplies its visual resources; the HTTP service is independent of that client. `services/api-server` composes API entry points and profiles.
 
-La autoridad nativa conserva su fábrica y controles de identidad, exclusión y
-cierre. Sus operaciones se organizan en
-[accounts/authority/native-value](src/accounts/authority/native-value/README.md):
-depósitos, reservas, ejecución, retiradas y ciclo manual. Los puertos de journals
-ofrecen escrituras concretas; no entregan el registro ni la contraseña completos.
-`./dev static` comprueba los contratos de composición declarados.
+Native authority preserves its factory, identity, exclusion and closure checks. [Native account operations](src/accounts/authority/native-value/README.md) cover deposits, reservations, execution, withdrawals and the manual cycle. Journal ports expose specific writes rather than handing consumers the entire account record or writer. `./dev static` checks declared composition contracts.
 
-El [keeper duradero](src/accounts/storage/durable-generic-account-keeper.mjs)
-posee sus marcas y validación SOURCE; consume el coordinador genérico de engine.
-Los procesos y observadores de `src/custody/` componen la custodia de claves que
-pertenece a `@lianum/custody`. Jobs y herramientas criptográficas compartidas
-pertenecen a `@lianum/proofs`.
+The [durable keeper](src/accounts/storage/durable-generic-account-keeper.mjs) retains its brands and SOURCE validation while consuming the generic engine coordinator. Owner processes and observers in `src/custody/` compose key custody from `@lianum/custody`. Shared proof tooling and jobs belong to `@lianum/proofs`.
 
-Las fábricas de despliegues y recuperación usadas también por pruebas viven en
-`src/operations/` y `src/claims/`. Sus antiguas entradas de fixtures reexportan
-el mismo propietario. Los escenarios, las aserciones y los fallos simulados
-permanecen en `tests/`.
+Deployment/recovery factories also used by tests live in `src/operations/` and `src/claims/`. Former fixture entry points re-export those implementations. Scenarios, assertions and simulated failures remain in `tests/`.
 
-El grafo entre paquetes es acíclico, pero quedan ciclos internos de composición
-SOURCE, recuperación y ejecución. Conservan capacidades vinculadas a objetos
-originales y requieren seguir separando responsabilidades sin debilitar sus
-validadores. El inventario vigente está en [Módulos y dependencias](../../docs/MODULES.md)
-y `./dev boundaries`; las APIs públicas están en [package.json](package.json).
+The package dependency graph is acyclic. Internal SOURCE composition, recovery and execution cycles remain; separating them must preserve capabilities bound to original objects. See [modules and dependencies](../../docs/MODULES.md), `./dev boundaries` and the explicit exports in [package.json](package.json).

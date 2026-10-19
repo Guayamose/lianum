@@ -1,22 +1,17 @@
-# Componentes del producto
+# Product components
 
-| Paquete | Función |
+| Package | Function |
 | --- | --- |
-| [backend](backend/) | API, cuentas, cadenas, reclamaciones, ejecución y DeFi |
-| [custody](custody/) | Custodia, firmas, consentimiento y procesos del propietario |
-| [mobile-protocol](mobile-protocol/) | Contratos compartidos de autorización y revisión móvil |
-| [proofs](proofs/) | Workers y circuitos de pruebas criptográficas |
-| [crypto](crypto/) | Implementación candidata Poseidon |
-| [engine](engine/) | Motor compartido del que aún depende la aplicación |
-| [protocol](protocol/) | Generación anterior del protocolo conservada como soporte |
-| [components](components/) | Framing y herramientas de componentes de circuito |
-| [chains](chains/) | Driver Java de Tron |
+| [backend](backend) | API, accounts, chains, claims, execution and DeFi |
+| [custody](custody) | Custody, signatures, consent and processes of the owner |
+| [mobile-protocol](mobile-protocol) | Shared authorisation and mobile review contracts |
+| [proofs](proofs) | Workers and cryptographic proofs circuits |
+| [crypto](crypto) | Poseidon candidate implementation |
+| [engine](engine) | Shared state, coordination and financial protocol mechanisms |
+| [protocol](protocol) | Frozen historical protocol generation and provenance |
+| [components](components) | Framing and circuit component tools |
+| [chains](chains) | Tron Java Driver |
 
-Cada paquete tiene un README breve. `src/` contiene implementación y
-`tests/` escenarios de prueba cuando existen. Los comandos se ejecutan
-desde la raíz del proyecto.
+Each package has a brief README. `src/` contains implementation and `tests/` test scenarios when they exist. Commands are executed from the root of the project.
 
-Las entradas públicas están declaradas en el `package.json` de cada paquete
-JavaScript. Los consumidores nuevos usan `@lianum/<paquete>/<entrada>`.
-[Módulos y dependencias](../docs/MODULES.md) explica las entradas disponibles,
-las comprobaciones y los ciclos heredados que todavía se conservan.
+Public entry points are declared in each JavaScript package's `package.json`. New consumers use `@lianum/<package>/<entry>`. [Modules and dependencies](../docs/MODULES.md) explains available exports, boundary checks and remaining internal dependency cycles.
