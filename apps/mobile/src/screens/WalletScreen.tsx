@@ -14,11 +14,11 @@ import { createMobileReceiptLease, type ReceiptLease } from '../custody/receipt-
 
 const defaultOrigin = process.env.EXPO_PUBLIC_API_ORIGIN ?? '';
 const allowInsecureLocalhost = __DEV__ && process.env.EXPO_PUBLIC_ALLOW_INSECURE_LOOPBACK === '1';
-const labels: Record<MobileAction, string> = { prepare: 'Preparar', execute: 'Ejecutar', reconcile: 'Reconciliar', recover: 'Recuperar' };
+const labels: Record<MobileAction, string> = { prepare: "Prepare", execute: "Run", reconcile: "Reconcile", recover: "Recover" };
 const emptyIntent: MobileIntent = { requestId: '', action: 'prepare', kind: 'EXIT', chain: 'ethereum',
   assetId: '', amountAtomic: '', recipient: '', maxFeeAtomic: '0' };
-const outcomeLabels = { SUBMITTING: 'Resultado pendiente de comprobar', ACCEPTED: 'Autorización admitida; operación pendiente',
-  UNKNOWN: 'Resultado desconocido; conserva el ID y reconcilia', REJECTED: 'Autorización rechazada' };
+const outcomeLabels = { SUBMITTING: "Result to be verified", ACCEPTED: "Authorization accepted; pending operation",
+  UNKNOWN: "Unknown result; retains ID and reconciles", REJECTED: "Authorisation rejected" };
 const allowedCodes = new Set(['MOBILE_PROTECTED_STORAGE_UNAVAILABLE', 'MOBILE_AUTHENTICATION_CANCELLED',
   'MOBILE_KEY_RECOVERY_REQUIRED', 'MOBILE_KEY_REQUIRED', 'MOBILE_SERVICE_UNAVAILABLE', 'MOBILE_CHALLENGE_EXPIRED',
   'MOBILE_ORIGINAL_OPERATION_REQUIRED', 'MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED', 'MOBILE_ORIGIN_INVALID',
@@ -26,17 +26,17 @@ const allowedCodes = new Set(['MOBILE_PROTECTED_STORAGE_UNAVAILABLE', 'MOBILE_AU
   'MOBILE_REVIEW_INACTIVE', 'MOBILE_REVIEW_STALE', 'MOBILE_REVIEW_CHANGED']);
 function safeError(error: unknown): string {
   const code = error instanceof Error && allowedCodes.has(error.message) ? error.message : 'MOBILE_REQUEST_FAILED';
-  return ({ MOBILE_PROTECTED_STORAGE_UNAVAILABLE: 'Se necesita un dispositivo con biometría protegida y una compilación nativa.',
-    MOBILE_AUTHENTICATION_CANCELLED: 'Autenticación cancelada.', MOBILE_KEY_RECOVERY_REQUIRED: 'Tu clave no está accesible. Conserva el dispositivo y sigue la guía de recuperación.',
-    MOBILE_KEY_REQUIRED: 'Crea primero tu identidad local.', MOBILE_SERVICE_UNAVAILABLE: 'El servicio no está disponible para esta acción.',
-    MOBILE_CHALLENGE_EXPIRED: 'La revisión ha caducado. Solicita una nueva para la operación original.',
-    MOBILE_RECEIPT_EXPIRED: 'La consulta ha caducado. Revisa de nuevo el permiso original.',
-    MOBILE_ORIGINAL_OPERATION_REQUIRED: 'Hay una operación pendiente. Recupera su ID antes de continuar.',
-    MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED: 'Esta acción ya tiene una autorización original. Conserva su resultado; no vuelvas a enviarla.',
-    MOBILE_REVIEW_INACTIVE: 'La revisión ya no está activa. Comprueba disponibilidad y solicita una nueva.',
-    MOBILE_REVIEW_STALE: 'Actualiza la disponibilidad con la app abierta antes de revisar.',
-    MOBILE_REVIEW_CHANGED: 'Los datos de la revisión cambiaron. Solicita una nueva antes de autorizar.',
-    MOBILE_ORIGIN_INVALID: 'Configura el origen HTTPS del servicio.', MOBILE_REQUEST_FAILED: 'No se pudo completar la solicitud. Conserva el ID de la operación.',
+  return ({ MOBILE_PROTECTED_STORAGE_UNAVAILABLE: "You need a device with protected biometrics and a native compilation.",
+    MOBILE_AUTHENTICATION_CANCELLED: "Authentication cancelled.", MOBILE_KEY_RECOVERY_REQUIRED: "Your key is not accessible. Keep the device and follow the recovery guide.",
+    MOBILE_KEY_REQUIRED: "Create your local identity first.", MOBILE_SERVICE_UNAVAILABLE: "The service is not available for this action.",
+    MOBILE_CHALLENGE_EXPIRED: "Request a new one for the original operation.",
+    MOBILE_RECEIPT_EXPIRED: "The consultation has expired. Check the original permit again.",
+    MOBILE_ORIGINAL_OPERATION_REQUIRED: "There is a pending operation. Get your ID back before continuing.",
+    MOBILE_ORIGINAL_AUTHORIZATION_REQUIRED: "This action already has an original authorization. It retains its result; do not send it again.",
+    MOBILE_REVIEW_INACTIVE: "The review is no longer active. Check availability and request a new one.",
+    MOBILE_REVIEW_STALE: "Update the availability with the app open before reviewing.",
+    MOBILE_REVIEW_CHANGED: "The review data changed. Request a new one before authorizing.",
+    MOBILE_ORIGIN_INVALID: "Configure the HTTPS source of the service.", MOBILE_REQUEST_FAILED: "Could not complete the request. Keep the operation ID.",
   } as Record<string, string>)[code];
 }
 function ActionButton({ label, onPress, disabled = false, secondary = false }: {
@@ -53,7 +53,7 @@ export default function WalletScreen() {
   const [state, setState] = useState<MobileState | null>(null);
   const [stale, setStale] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('Configura el servicio y comprueba su disponibilidad.');
+  const [notice, setNotice] = useState("Configure the service and check its availability.");
   const [intent, setIntent] = useState<MobileIntent>(emptyIntent);
   const [challenge, setChallenge] = useState<MobileChallenge | null>(null);
   const [pending, setPending] = useState<PendingOperation | null>(null);
@@ -120,7 +120,7 @@ export default function WalletScreen() {
     const api = createMobileApi({ origin, allowInsecureLocalhost });
     const value = await api.challenge(publicKey, normalizeMobileIntent(intent));
     const reviewed = consent.finish(ticket, value); displayedLease.current = reviewed.lease;
-    setChallenge(reviewed.challenge); setNotice('Comprueba todos los límites antes de autorizar.');
+    setChallenge(reviewed.challenge); setNotice("Check all limits before authorizing.");
   }
   async function signAndSubmit(lease: ReviewLease) {
     displayedLease.current = null; setChallenge(null);
@@ -139,9 +139,9 @@ export default function WalletScreen() {
   function confirm() {
     const lease = displayedLease.current;
     if (!challenge || !lease || busy) return;
-    Alert.alert('Autorizar esta operación', 'Confirma exclusivamente los límites que aparecen en esta revisión.', [
-      { text: 'Cancelar', style: 'cancel', onPress: () => invalidateReview() },
-      { text: 'Autorizar con biometría', onPress: () => { void run(() => signAndSubmit(lease)); } },
+    Alert.alert("Authorize this operation", "It only confirms the limits that appear in this review.", [
+      { text: "Cancel", style: 'cancel', onPress: () => invalidateReview() },
+      { text: "Authorize with biometrics", onPress: () => { void run(() => signAndSubmit(lease)); } },
     ]);
   }
   async function reviewReceipt(authorization: MobileAuthorization) {
@@ -163,7 +163,7 @@ export default function WalletScreen() {
       });
       displayedReceiptLease.current = displayed.lease;
       setReceiptReview(displayed.review);
-      setNotice('Consulta únicamente la admisión de este permiso. El resultado económico sigue sin verificar.');
+      setNotice("Please consult only the admission of this permit. The financial result remains unverified.");
     } finally { entropy.fill(0); }
   }
   async function queryReceipt(lease: ReceiptLease) {
@@ -179,19 +179,19 @@ export default function WalletScreen() {
       },
     });
     invalidateReview();
-    setNotice(outcomeLabels[receipt.authorization.status] + '. Resultado económico sin verificar.');
+    setNotice(outcomeLabels[receipt.authorization.status] + ". Unverified economic result.");
   }
   function confirmReceipt() {
     const lease = displayedReceiptLease.current;
     if (!receiptReview || !lease || busy) return;
-    Alert.alert('Consultar este permiso', 'La firma permite leer su admisión original. No autoriza movimientos ni confirma fondos.', [
-      { text: 'Cancelar', style: 'cancel', onPress: () => invalidateReview() },
-      { text: 'Consultar con biometría', onPress: () => { void run(() => queryReceipt(lease)); } },
+    Alert.alert("Consult this permission", "The firm allows you to read its original admission. It does not authorize movements or confirm funds.", [
+      { text: "Cancel", style: 'cancel', onPress: () => invalidateReview() },
+      { text: "Consult with biometrics", onPress: () => { void run(() => queryReceipt(lease)); } },
     ]);
   }
   async function restoreOriginal() {
     const original = await readPendingOperation(allowInsecureLocalhost);
-    if (!original) { setNotice('No hay una operación guardada.'); return; }
+    if (!original) { setNotice("There's no operation saved."); return; }
     setPending(original); setOrigin(original.authorization.challenge.origin);
     setIntent({ ...original.originalAuthorization.challenge.intent, action: 'reconcile' });
     invalidateReview(true); setNotice(outcomeLabels[original.status]);
@@ -199,82 +199,82 @@ export default function WalletScreen() {
   const connected = state?.connection === 'READY' && !stale;
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text style={styles.brand}>LIANUM</Text>
-    <Text style={styles.title}>Tu cartera,{ '\n' }bajo tu control.</Text>
+    <Text style={styles.title}>Your wallet,{ '\n' }under your control.</Text>
     <View style={styles.status}><View style={[styles.dot, connected && styles.connectedDot]} />
-      <Text style={styles.statusText}>{connected ? 'Servicio disponible' : stale ? 'Estado pendiente de actualizar' : 'Servicio desconectado'}</Text></View>
-    <View style={styles.card}><Text style={styles.cardTitle}>Saldo privado</Text><Text style={styles.balance}>No disponible</Text>
-      <Text style={styles.muted}>El servicio móvil todavía no publica un estado privado verificado.</Text></View>
-    <View style={styles.card}><Text style={styles.cardTitle}>Identidad en este dispositivo</Text>
-      <Text style={styles.muted}>{publicKey ? 'Clave local protegida por biometría.' : 'Configura tu identidad antes de autorizar.'}</Text>
+      <Text style={styles.statusText}>{connected ? "Service available" : stale ? "Status to be updated" : "Service disconnected"}</Text></View>
+    <View style={styles.card}><Text style={styles.cardTitle}>Private balance</Text><Text style={styles.balance}>Not available</Text>
+      <Text style={styles.muted}>The mobile service does not yet publish a verified private status.</Text></View>
+    <View style={styles.card}><Text style={styles.cardTitle}>Identity on this device</Text>
+      <Text style={styles.muted}>{publicKey ? "Local key protected by biometrics." : "Set up your identity before you authorize."}</Text>
       {publicKey && <Text selectable style={styles.identifier}>{publicKey}</Text>}
-      <ActionButton label={publicKey ? 'Comprobar identidad local' : 'Crear identidad local'} disabled={busy}
-        onPress={() => { void run(async () => { invalidateReview(true); setPublicKey(await createDeviceIdentity()); setNotice('Identidad local preparada.'); }); }} />
-      <Text style={styles.small}>La recuperación de fondos y la migración de dispositivo necesitan una integración adicional. Usa esta base para desarrollo.</Text>
+      <ActionButton label={publicKey ? "Check local identity" : "Create local identity"} disabled={busy}
+        onPress={() => { void run(async () => { invalidateReview(true); setPublicKey(await createDeviceIdentity()); setNotice("Local identity ready."); }); }} />
+      <Text style={styles.small}>Fund recovery and device migration need additional integration. Use this base for development.</Text>
     </View>
-    <View style={styles.card}><Text style={styles.cardTitle}>Servicio</Text><Text style={styles.label}>Origen HTTPS</Text>
-      <TextInput accessibilityLabel="Origen HTTPS del servicio" autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!busy}
+    <View style={styles.card}><Text style={styles.cardTitle}>Service</Text><Text style={styles.label}>HTTPS Origin</Text>
+      <TextInput accessibilityLabel="HTTPS source of the service" autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!busy}
         style={styles.input} value={origin} placeholder="https://tu-servicio.run.app" placeholderTextColor="#50616D"
         onChangeText={value => { invalidateReview(true); setOrigin(value); setState(null); }} />
-      <ActionButton label="Actualizar disponibilidad" secondary disabled={busy} onPress={() => { void run(refresh); }} />
+      <ActionButton label="Update availability" secondary disabled={busy} onPress={() => { void run(refresh); }} />
     </View>
-    <View style={styles.card}><Text style={styles.cardTitle}>Operación manual</Text>
-      <Text style={styles.muted}>Una operación activa. Su ID original se conserva durante ejecución, reconciliación y recuperación.</Text>
+    <View style={styles.card}><Text style={styles.cardTitle}>Manual operation</Text>
+      <Text style={styles.muted}>An active operation. Its original ID is preserved during execution, reconciliation and recovery.</Text>
       <View style={styles.choices}>{MOBILE_ACTIONS.map(action => <Pressable key={action} disabled={busy}
         accessibilityRole="button" accessibilityState={{ selected: intent.action === action }}
         onPress={() => update('action', action)} style={[styles.choice, intent.action === action && styles.selectedChoice]}>
         <Text style={styles.choiceText}>{labels[action]}</Text></Pressable>)}</View>
-      <Text style={styles.label}>Tipo</Text><View style={styles.choices}>{(['TOP_UP', 'EXIT'] as const).map(kind =>
+      <Text style={styles.label}>Type</Text><View style={styles.choices}>{(['TOP_UP', 'EXIT'] as const).map(kind =>
         <Pressable key={kind} disabled={busy} accessibilityRole="button" onPress={() => update('kind', kind)}
-          style={[styles.choice, intent.kind === kind && styles.selectedChoice]}><Text style={styles.choiceText}>{kind === 'EXIT' ? 'Retirada' : 'Financiación'}</Text></Pressable>)}</View>
-      <Text style={styles.label}>Red</Text><View style={styles.choices}>{MOBILE_CHAINS.map((chain: MobileChain) =>
+          style={[styles.choice, intent.kind === kind && styles.selectedChoice]}><Text style={styles.choiceText}>{kind === 'EXIT' ? "Withdrawal" : "Financing"}</Text></Pressable>)}</View>
+      <Text style={styles.label}>Network</Text><View style={styles.choices}>{MOBILE_CHAINS.map((chain: MobileChain) =>
         <Pressable key={chain} disabled={busy} accessibilityRole="button" onPress={() => update('chain', chain)}
           style={[styles.choice, intent.chain === chain && styles.selectedChoice]}><Text style={styles.choiceText}>{chain}</Text></Pressable>)}</View>
-      {([['requestId', 'ID original de la operación'], ['assetId', 'Identidad del activo (64 caracteres hex)'],
-        ['amountAtomic', 'Importe en unidades atómicas'], ['recipient', 'Destino exacto'], ['maxFeeAtomic', 'Comisión máxima en unidades atómicas']] as const).map(([key, label]) =>
+      {([['requestId', "Original operation ID"], ['assetId', "Asset identity (64 hex characters)"],
+        ['amountAtomic', "Amount in atomic units"], ['recipient', "Accurate destination"], ['maxFeeAtomic', "Maximum commission in atomic units"]] as const).map(([key, label]) =>
         <View key={key}><Text style={styles.label}>{label}</Text><TextInput accessibilityLabel={label} autoCapitalize="none" autoCorrect={false}
           editable={!busy} value={intent[key]} style={styles.input} keyboardType={key === 'amountAtomic' || key === 'maxFeeAtomic' ? 'number-pad' : 'default'}
           onChangeText={value => update(key, value)} /></View>)}
-      <ActionButton label="Crear ID para una operación nueva" secondary disabled={busy || pending !== null}
+      <ActionButton label="Create ID for a new operation" secondary disabled={busy || pending !== null}
         onPress={() => { void run(async () => { const entropy = await Crypto.getRandomBytesAsync(16);
           update('requestId', bytesToHex(entropy)); entropy.fill(0); }); }} />
-      <ActionButton label="Recuperar operación guardada" secondary disabled={busy} onPress={() => { void run(restoreOriginal); }} />
-      <ActionButton label="Solicitar revisión" disabled={busy || !publicKey || stale || !state?.capabilities[intent.action]}
+      <ActionButton label="Recover Saved Operation" secondary disabled={busy} onPress={() => { void run(restoreOriginal); }} />
+      <ActionButton label="Request review" disabled={busy || !publicKey || stale || !state?.capabilities[intent.action]}
         onPress={() => { void run(review); }} />
     </View>
-    {challenge && <View style={[styles.card, styles.review]}><Text style={styles.cardTitle}>Revisión de la autorización</Text>
-      {Object.entries({ Servicio: challenge.origin, Acción: labels[challenge.intent.action], Tipo: challenge.intent.kind,
-        Red: challenge.intent.chain, Activo: challenge.intent.assetId, Importe: challenge.intent.amountAtomic,
-        Destino: challenge.intent.recipient, 'Comisión máxima': challenge.intent.maxFeeAtomic, 'ID original': challenge.intent.requestId,
-        Identidad: challenge.ownerPublicKey, Challenge: challenge.challengeId, Nonce: challenge.nonce,
-        Caducidad: new Date(challenge.expiresAt).toLocaleString() }).map(([label, value]) =>
+    {challenge && <View style={[styles.card, styles.review]}><Text style={styles.cardTitle}>Review of the authorization</Text>
+      {Object.entries({ "Service": challenge.origin, "Action": labels[challenge.intent.action], "Type": challenge.intent.kind,
+        "Network": challenge.intent.chain, "Asset": challenge.intent.assetId, "Amount": challenge.intent.amountAtomic,
+        "Recipient": challenge.intent.recipient, "Maximum Commission": challenge.intent.maxFeeAtomic, "Original ID": challenge.intent.requestId,
+        "Identity": challenge.ownerPublicKey, Challenge: challenge.challengeId, Nonce: challenge.nonce,
+        "Expires": new Date(challenge.expiresAt).toLocaleString('en-US') }).map(([label, value]) =>
         <View key={label}><Text style={styles.label}>{label}</Text><Text selectable style={styles.reviewValue}>{value}</Text></View>)}
-      <ActionButton label="Autorizar con biometría" disabled={busy} onPress={confirm} />
-      <ActionButton label="Cancelar revisión" secondary disabled={busy} onPress={() => invalidateReview()} />
+      <ActionButton label="Authorize with biometrics" disabled={busy} onPress={confirm} />
+      <ActionButton label="Cancel Review" secondary disabled={busy} onPress={() => invalidateReview()} />
     </View>}
-    {pending && <View style={styles.card}><Text style={styles.cardTitle}>Operación original</Text>
+    {pending && <View style={styles.card}><Text style={styles.cardTitle}>Original operation</Text>
       <Text selectable style={styles.identifier}>{pending.originalAuthorization.challenge.intent.requestId}</Text>
-      <Text style={styles.muted}>Resultado económico sin verificar. El rechazo de un permiso posterior no cierra esta operación.</Text>
+      <Text style={styles.muted}>Unverified economic result. The rejection of a subsequent permit does not close this operation.</Text>
       {pending.authorizations.map(row => <View key={row.authorization.challenge.intent.action}>
         <Text style={styles.muted}>{labels[row.authorization.challenge.intent.action]}: {outcomeLabels[row.status]}</Text>
-        <ActionButton label={'Consultar permiso: ' + labels[row.authorization.challenge.intent.action]} secondary
+        <ActionButton label={"Consult permission: " + labels[row.authorization.challenge.intent.action]} secondary
           disabled={busy || !publicKey} onPress={() => { void run(() => reviewReceipt(row.authorization)); }} />
       </View>)}
-      {pending.legacyEvidenceIncomplete && <Text style={styles.muted}>El registro anterior no conserva todo el historial de permisos.</Text>}</View>}
-    {receiptReview && <View style={[styles.card, styles.review]}><Text style={styles.cardTitle}>Consulta del permiso original</Text>
-      <Text style={styles.muted}>Sólo consulta de admisión. No ejecuta, reenvía ni cierra la operación económica.</Text>
-      {Object.entries({ Servicio: receiptReview.authorization.challenge.origin,
-        Acción: labels[receiptReview.authorization.challenge.intent.action],
-        'ID original': receiptReview.authorization.challenge.intent.requestId,
-        Tipo: receiptReview.authorization.challenge.intent.kind, Red: receiptReview.authorization.challenge.intent.chain,
-        Activo: receiptReview.authorization.challenge.intent.assetId, Importe: receiptReview.authorization.challenge.intent.amountAtomic,
-        Destino: receiptReview.authorization.challenge.intent.recipient,
-        'Comisión máxima': receiptReview.authorization.challenge.intent.maxFeeAtomic,
-        Identidad: receiptReview.authorization.challenge.ownerPublicKey,
-        'Challenge original': receiptReview.authorization.challenge.challengeId,
-        'Nonce de consulta': receiptReview.nonce, Caducidad: new Date(receiptReview.expiresAt).toLocaleString() }).map(([label, value]) =>
+      {pending.legacyEvidenceIncomplete && <Text style={styles.muted}>The previous record does not retain the entire permission history.</Text>}</View>}
+    {receiptReview && <View style={[styles.card, styles.review]}><Text style={styles.cardTitle}>Original permission query</Text>
+      <Text style={styles.muted}>Only admission consultation. It does not execute, forward or close the economic operation.</Text>
+      {Object.entries({ "Service": receiptReview.authorization.challenge.origin,
+        "Action": labels[receiptReview.authorization.challenge.intent.action],
+        "Original ID": receiptReview.authorization.challenge.intent.requestId,
+        "Type": receiptReview.authorization.challenge.intent.kind, "Network": receiptReview.authorization.challenge.intent.chain,
+        "Asset": receiptReview.authorization.challenge.intent.assetId, "Amount": receiptReview.authorization.challenge.intent.amountAtomic,
+        "Recipient": receiptReview.authorization.challenge.intent.recipient,
+        "Maximum Commission": receiptReview.authorization.challenge.intent.maxFeeAtomic,
+        "Identity": receiptReview.authorization.challenge.ownerPublicKey,
+        "Original challenge": receiptReview.authorization.challenge.challengeId,
+        "Reference Nonce": receiptReview.nonce, "Expires": new Date(receiptReview.expiresAt).toLocaleString('en-US') }).map(([label, value]) =>
         <View key={label}><Text style={styles.label}>{label}</Text><Text selectable style={styles.reviewValue}>{value}</Text></View>)}
-      <ActionButton label="Consultar con biometría" disabled={busy} onPress={confirmReceipt} />
-      <ActionButton label="Cancelar consulta" secondary disabled={busy} onPress={() => invalidateReview()} />
+      <ActionButton label="Consult with biometrics" disabled={busy} onPress={confirmReceipt} />
+      <ActionButton label="Cancel query" secondary disabled={busy} onPress={() => invalidateReview()} />
     </View>}
     <View accessibilityLiveRegion="polite" style={styles.notice}>{busy && <ActivityIndicator color="#253746" />}
       <Text style={styles.noticeText}>{notice}</Text></View>

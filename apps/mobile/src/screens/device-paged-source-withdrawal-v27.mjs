@@ -19,10 +19,10 @@ export async function runDevicePagedSourceWithdrawalV27({descriptor,vault,api,si
  }
  const result=(state,job)=>({state,jobId:job?.jobId??null,recipient:job?recipientOf(job):recipient,amount:job?.publicInputs[33]??null});
  try{
-  progress('Consultando la retirada guardada…');let status=await read(),job=status.jobs.find(row=>row.mode==='withdraw');
+  progress("Checking the saved withdrawal...");let status=await read(),job=status.jobs.find(row=>row.mode==='withdraw');
   if(job?.stage==='CONFIRMED'&&status.note?.state==='SPENT')return result('CONFIRMED',job);
   if(job&&['PROVING','UNKNOWN'].includes(job.stage)){
-   progress('Comprobando el mismo intento, sin repetir el envío…');
+   progress("Checking the same attempt, without repeating the transfer...");
    try{await send(await vault.effectDraft('OBSERVE_JOB',job.jobId));}catch(error){if(!signal.aborted&&unknownReplies.has(error))return result('PENDING',job);throw error;}
    status=await read();job=status.jobs.find(row=>row.mode==='withdraw');
    if(job?.stage==='CONFIRMED'&&status.note?.state==='SPENT')return result('CONFIRMED',job);
@@ -50,11 +50,11 @@ export async function runDevicePagedSourceWithdrawalV27({descriptor,vault,api,si
   status=await read();need(status.epoch===draft.publicInputs[16],'MOBILE_PAGED_NOTE_EPOCH_CHANGED');
   if(job?.stage==='PROVED')authorization.bind(approval,status);
   else{
-   progress('Preparando tu retirada…');let row;
+   progress("Preparing your retreat...");let row;
    try{row=await send(draft,witness);}catch(error){if(!signal.aborted&&unknownReplies.has(error))return result('PENDING',draft);throw error;}
    P.pagedOwnerWipeV3(witness);witness=null;if(row.stage!=='PROVED')return result('PENDING',row);authorization.bind(approval,row);
   }
-  progress('Enviando la retirada…');let row;
+  progress("Sending the retreat...");let row;
   try{row=await send(await vault.effectDraft('WITHDRAW_W39',draft.jobId));}catch(error){if(!signal.aborted&&unknownReplies.has(error))return result('PENDING',draft);throw error;}
   status=await read();return result(row.stage==='CONFIRMED'&&status.note?.state==='SPENT'?'CONFIRMED':'PENDING',row);
  }finally{P.pagedOwnerWipeV3(witness);if(approval)authorization.close(approval);}

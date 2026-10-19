@@ -7,7 +7,7 @@ export function privateWalletOverviewV32(snapshot:PrivateWalletStateV1|null,netw
  for(const row of snapshot?.rows??[])for(const request of row.requests){
   if(['CONFIRMED','FINALIZED','FULFILLED','RECOVERED','CANCELLED','REJECTED','REVERTED'].includes(request.state))continue;
   const key=JSON.stringify([row.route.origin,row.route.pairingId,request.requestId]);
-  if(!rows.has(key))rows.set(key,{key,title:/WITHDRAW/.test(request.kind)?'Retirada':/DEPOSIT|FUND/.test(request.kind)?'Ingreso':request.kind==='PAGED_GRAPH'?'Plan de pagos':'Operación',state:request.state==='UNKNOWN'?'Resultado pendiente':request.state==='FAILED'?'Requiere revisión':row.state!=='LIVE'?'Último estado conocido':'Pendiente'});
+  if(!rows.has(key))rows.set(key,{key,title:/WITHDRAW/.test(request.kind)?"Withdrawal":/DEPOSIT|FUND/.test(request.kind)?"Deposit":request.kind==='PAGED_GRAPH'?"Payment plan":"Operation",state:request.state==='UNKNOWN'?"Outstanding result":request.state==='FAILED'?"Requires revision":row.state!=='LIVE'?"Last known state":"Pending"});
  }
  return{hasConnections:hasConnections||!!snapshot?.rows.length,unconfirmed:!snapshot?.coverage.complete||!!snapshot.rows.some(row=>row.state!=='LIVE'),pending:[...rows.values()]};
 }

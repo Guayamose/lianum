@@ -1,27 +1,27 @@
 const messages=Object.freeze({
-  MOBILE_PAGED_NOTE_EPOCH_TOO_SHORT:'Queda poco tiempo en la ventana actual de la red. La preparación no ha empezado. Espera como máximo tres minutos y vuelve a autorizar el mismo ingreso o retirada.',
-  SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED:'La inversión todavía no está disponible: falta conectar la reserva de fondos. No autorices ni envíes otra operación para resolverlo.',
-  SEPOLIA_DEFI_PROPOSAL_SPONSOR_WINDOW:'El servicio necesita renovar su autorización temporal antes de preparar esta inversión. No se ha autorizado otro envío.',
-  SEPOLIA_DEFI_PROPOSAL_INPUT_LIMIT:'La cotización supera el máximo permitido para esta operación. Actualiza la propuesta o reduce el importe.',
-  SEPOLIA_DEFI_PROPOSAL_MINIMUM_OUTPUT:'La cotización no cubre el mínimo de USDC que has solicitado. Actualiza la propuesta antes de autorizar.',
-  SEPOLIA_DEFI_PROPOSAL_LIQUIDITY:'El protocolo no tiene liquidez suficiente para esta retirada. Tus participaciones siguen bajo su custodia original.',
-  SEPOLIA_DEFI_PROPOSAL_SHARE_LIMIT:'El importe supera el límite de esta conexión de prueba. Reduce las participaciones de la propuesta.',
-  MOBILE_SEPOLIA_DEFI_SOURCE_EXPIRED:'El permiso del presupuesto de inversión ha vencido. Puedes consultar las participaciones y su retirada; no se autoriza otra inversión con este permiso.',
-  MOBILE_SEPOLIA_DEFI_PRIVATE_BUDGET_REQUIRED:'Esta inversión necesita ETH de prueba en su saldo privado de presupuesto. Activa ese saldo antes de continuar.',
-  MOBILE_SEPOLIA_DEFI_FUNDING_PENDING:'El ingreso de prueba sigue pendiente. Consulta el mismo ingreso antes de preparar otro.',
-  PAGED_DEVICE_NOTE_EPOCH_REPROOF_REQUIRED:'La preparación del ingreso ha caducado. No se ha completado el ingreso. Revisa el mismo ingreso para preparar una autorización nueva.',
-  MOBILE_SEPOLIA_DEFI_FUNDING_ALREADY_PENDING:'El saldo o su ingreso ya está preparado. Consulta su estado; no es necesario repetirlo.',
-  MOBILE_SEPOLIA_DEFI_EXISTING_OPERATION:'Esta cuenta conserva una inversión preparada. Continúa esa misma operación para mantener su presupuesto y recepción.',
-  MOBILE_SEPOLIA_DEFI_ALREADY_AUTHORIZED:'La inversión ya tiene una autorización en el servidor. Consulta su avance sin volver a autorizarla.',
-  MOBILE_SEPOLIA_DEFI_ORIGINAL_SEND_PENDING:'El servidor conserva la operación original pendiente de confirmar. Consulta su avance antes de autorizar o enviar otra.',
-  MOBILE_SEPOLIA_DEFI_EXECUTION_WINDOW:'El plazo de esta conexión de prueba es demasiado corto. El servicio debe renovar su autorización antes de preparar la inversión.',
-  MOBILE_AUTHENTICATION_CANCELLED:'Autorización cancelada. Puedes revisar la misma operación cuando quieras.',
-  MOBILE_SEPOLIA_DEFI_RECIPIENT:'Introduce una dirección Ethereum válida para recibir USDC en Sepolia.',
-  NATIVE_ADDRESS_INVALID:'La dirección no es válida para Ethereum. Comprueba la dirección completa antes de continuar.',
-  DEVICE_DEFI_OPERATION_FLOW_INVALID:'Revisa el importe y sus decimales antes de preparar la propuesta.',
+  MOBILE_PAGED_NOTE_EPOCH_TOO_SHORT:"There is little time left in the current network window. Preparation has not started. Wait at most three minutes and reauthorize the same entry or withdrawal.",
+  SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED:"The investment is not yet available: you need to connect the fund reserve. Do not authorize or send another transaction to resolve it.",
+  SEPOLIA_DEFI_PROPOSAL_SPONSOR_WINDOW:"The service needs to renew its temporary authorization before preparing this investment. No other transfer has been authorized.",
+  SEPOLIA_DEFI_PROPOSAL_INPUT_LIMIT:"The quote exceeds the maximum allowed for this operation. Update the proposal or reduce the amount.",
+  SEPOLIA_DEFI_PROPOSAL_MINIMUM_OUTPUT:"The quote does not cover the minimum USDC you have requested. Update the proposal before authorizing.",
+  SEPOLIA_DEFI_PROPOSAL_LIQUIDITY:"The protocol does not have enough liquidity for this withdrawal. Your shares are still in their original custody.",
+  SEPOLIA_DEFI_PROPOSAL_SHARE_LIMIT:"The amount exceeds the limit of this test connection. It reduces the stakes of the proposal.",
+  MOBILE_SEPOLIA_DEFI_SOURCE_EXPIRED:"The investment budget permit has expired. You can consult the shares and their withdrawal; no other investment is authorized with this permit.",
+  MOBILE_SEPOLIA_DEFI_PRIVATE_BUDGET_REQUIRED:"This investment needs test ETH on your private budget balance. Enable that balance before continuing.",
+  MOBILE_SEPOLIA_DEFI_FUNDING_PENDING:"The test entry is still pending. Check the same entry before preparing another one.",
+  PAGED_DEVICE_NOTE_EPOCH_REPROOF_REQUIRED:"The preparation of the entry has expired. The entry has not been completed. Check the same entry to prepare a new authorization.",
+  MOBILE_SEPOLIA_DEFI_FUNDING_ALREADY_PENDING:"The balance or your deposit is already ready. Check your status; you do not need to repeat it.",
+  MOBILE_SEPOLIA_DEFI_EXISTING_OPERATION:"This account retains an investment prepared. It continues the same operation to maintain its budget and reception.",
+  MOBILE_SEPOLIA_DEFI_ALREADY_AUTHORIZED:"The investment already has an authorization on the server. Please check its progress without reauthorizing it.",
+  MOBILE_SEPOLIA_DEFI_ORIGINAL_SEND_PENDING:"The server retains the original operation pending confirmation. Please check its progress before authorizing or sending another one.",
+  MOBILE_SEPOLIA_DEFI_EXECUTION_WINDOW:"The deadline for this test connection is too short. The service must renew its authorization before preparing the investment.",
+  MOBILE_AUTHENTICATION_CANCELLED:"You can check the same operation anytime you want.",
+  MOBILE_SEPOLIA_DEFI_RECIPIENT:"Enter a valid Ethereum address to receive USDC in Sepolia.",
+  NATIVE_ADDRESS_INVALID:"The address is not valid for Ethereum. Check the full address before continuing.",
+  DEVICE_DEFI_OPERATION_FLOW_INVALID:"Review the amount and its decimals before preparing the proposal.",
 });
 export function deviceSepoliaDefiFeedbackV7(error,proposal=false){
   return error instanceof Error&&messages[error.message]||(proposal
-    ?'No se ha podido preparar la propuesta. No se ha autorizado una inversión ni una retirada.'
-    :'La respuesta no está confirmada. Consulta esta misma operación antes de autorizar o enviar otra.');
+    ?"It has not been possible to prepare the proposal; no investment or withdrawal has been authorized."
+    :"The answer is not confirmed. Check this same operation before authorizing or sending another one.");
 }

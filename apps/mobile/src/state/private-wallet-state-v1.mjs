@@ -101,7 +101,7 @@ export function createPrivateWalletStateV1(){
     const i=p.vaultIdentity,route={component:'POSITION',origin:v.origin,pairingId:v.pairingId,devicePublicKey:v.devicePublicKey,generationId:p.generationId,
      assetId:p.shareAssetId,chainId:i.chainId,genesis:i.genesisHash,domain:i.domain,runtimeId:i.runtimeId,vault:p.vault};
     const state=p.ownership.status==='LIVE'?'LIVE':p.ownership.status==='STALE'?'STALE':'UNKNOWN';
-    return{route,label:'Participaciones',decimals:null,state,available:null,reserved:state==='LIVE'?p.ownership.balances.reserved:null,
+    return{route,label:"Shares",decimals:null,state,available:null,reserved:state==='LIVE'?p.ownership.balances.reserved:null,
      locked:state==='LIVE'?p.ownership.balances.locked:null,recovery:state==='LIVE'?p.ownership.balances.recovery:null,
      shares:state==='LIVE'?p.ownership.balances.available:null,
      valuation:state==='LIVE'&&p.valuation.status==='LIVE'?{amount:p.valuation.estimatedRedeemableUnderlying,assetId:p.underlyingAssetId,token:p.underlyingToken,spendable:false}:null,
@@ -163,7 +163,7 @@ export function createPrivateWalletStateV1(){
     const outputs=job.outputs.filter(n=>n.state!=='EMPTY').map(n=>{
      const live=['UNSPENT','SPENT','LOCKED'].includes(n.state),available=n.state==='UNSPENT'?n.available:null;
      return{route:{...route,component:'DEVICE_GRAPH_NOTE',noteRole:n.noteRole,commitment:n.commitment},
-      label:d.assetMetadata.symbol+(n.noteRole==='change'?' · Cambio':' · Recuperación'),decimals:d.assetMetadata.decimals,
+      label:d.assetMetadata.symbol+(n.noteRole==='change'?' · Cambio':" · Recovery"),decimals:d.assetMetadata.decimals,
       state:live?'LIVE':'UNKNOWN',available,reserved:null,locked:n.state==='LOCKED'?n.amount:null,
       recovery:n.noteRole==='recovery'?available:null,shares:null,valuation:null,
       noteAmount:['UNISSUED','SPENT','UNKNOWN'].includes(n.state)?null:n.amount,noteState:n.state,custody:'DEVICE',observed:v.observed,
@@ -190,7 +190,7 @@ export function createPrivateWalletStateV1(){
      ...(j?.assetIdentity?{assetId:j.assetIdentity}:{}),
      ...(j?.domainCommitment?{domain:j.domainCommitment}:{}),
      ...(v?{ledgerAssetId:v.assetId,genesis:v.genesis}:{})};
-    retain(routeKey(['NATIVE',display.rootId]),[{route,label:'Nota fuente nativa',decimals:null,
+    retain(routeKey(['NATIVE',display.rootId]),[{route,label:"Native source note",decimals:null,
      state:v&&!display.hasReservation?'LIVE':'UNKNOWN',available:display.availableBalance,reserved:null,locked:null,recovery:null,
      shares:null,valuation:null,noteAmount:display.hasReservation?null:display.amount,custody:'DEVICE',
      observed:v?.head??null,requests:j?[{requestId:j.jobId,kind:'FUND_D26',
@@ -204,7 +204,7 @@ export function createPrivateWalletStateV1(){
      assetId:p.assetIdentity,ledgerAssetId:v.assetId,pool:v.pool,scope:p.scope,policy:p.policy,domain:p.domainCommitment,
      noteRole:output.noteRole,commitment:v[output.noteRole].commitment};
     const pending=output.request?.state==='UNKNOWN';
-    return{route,label:output.noteRole==='change'?'Cambio nativo':'Recuperación nativa',decimals:null,
+    return{route,label:output.noteRole==='change'?"Native change":"Native Recovery",decimals:null,
      state:pending?'UNKNOWN':'LIVE',available:pending?null:output.availableBalance,reserved:null,
      locked:pending?null:output.state==='LOCKED'?output.amount:null,
      recovery:!pending&&output.noteRole==='recovery'?output.availableBalance:null,
@@ -235,19 +235,19 @@ export function createPrivateWalletStateV1(){
    const requests=n.jobs.map(j=>({requestId:j.jobId,kind:'PAGED_'+j.mode.toUpperCase(),state:j.stage,disposition:null}));
    if(n.pending)requests.push({requestId:n.pending.jobId,kind:n.pending.action,state:'UNKNOWN',disposition:null});
    retain(key+'NOTE',[{route:{...route,component:'DEVICE_PAGED_NOTE',...(n.commitment?{commitment:n.commitment}:{})},
-    label:'Unidades demo',decimals:null,state:sourceOutput?sourceOutput.state==='UNKNOWN'?'UNKNOWN':'LIVE':n.state==='STALE'?'STALE':n.state==='UNKNOWN'?'UNKNOWN':'LIVE',
+    label:"Demo units",decimals:null,state:sourceOutput?sourceOutput.state==='UNKNOWN'?'UNKNOWN':'LIVE':n.state==='STALE'?'STALE':n.state==='UNKNOWN'?'UNKNOWN':'LIVE',
     available:sourceOutput?sourceOutput.available:n.available,reserved:null,locked:sourceOutput?.issued&&sourceOutput.state==='LOCKED'?sourceOutput.amount:null,recovery:null,shares:null,valuation:null,noteAmount:sourceOutput&&['LIVE','LOCKED'].includes(sourceOutput.state)?sourceOutput.amount:n.amount,
     noteState:sourceOutput?.state??n.state,issued:sourceOutput?.issued,lastConfirmed:typeof n.confirmedDeposit==='string'?{readAt:Date.now(),available:null,reserved:null,locked:null,recovery:null,shares:null,noteAmount:null,confirmedDeposit:n.confirmedDeposit}:null,requests,custody:'DEVICE',observed:portfolio?.observed??n.observed}],check(portfolio?.observed??n.observed),binding);
    if(g!==null)retain(key+'GRAPH',[{route:{...route,component:'DEVICE_PAGED_GRAPH',graphId:g.graphId},
-    label:'Grafo Paged',decimals:null,state:g.phase==='STALE'?'STALE':['UNKNOWN','REQUIRES_OBSERVATION'].includes(g.phase)?'UNKNOWN':'LIVE',
+    label:"Paged graph",decimals:null,state:g.phase==='STALE'?'STALE':['UNKNOWN','REQUIRES_OBSERVATION'].includes(g.phase)?'UNKNOWN':'LIVE',
     available:null,reserved:null,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null,
     pagedProgress:{phase:g.phase,pages:g.pages,nodes:g.nodes},
     requests:[{requestId:g.graphId,kind:'PAGED_GRAPH',state:g.phase,disposition:null},
      ...(g.pending?[{requestId:g.pending.jobId,kind:g.pending.action,state:'UNKNOWN',disposition:null}]:[])],
     custody:'DEVICE',observed:g.observed}],check(g.observed),binding);
    if(portfolio){
-    const outputs=portfolio.outputs.filter(output=>output.role!=='source').map(output=>({route:{...route,component:'DEVICE_PAGED_OUTPUT',graphId:g.graphId,noteRole:output.role,...(output.id!==null?{id:output.id}:{}),commitment:output.commitment,nullifier:output.nullifier},label:'Unidades demo · '+(output.role==='change'?'Saldo restante':output.role==='recovery'?'Recuperación':'Resultado de '+output.id),decimals:null,state:output.state==='UNKNOWN'?'UNKNOWN':'LIVE',issued:output.issued,available:output.available,reserved:null,locked:output.issued&&output.state==='LOCKED'?output.amount:null,recovery:output.role==='recovery'&&output.issued?output.available:null,shares:null,valuation:null,noteAmount:output.issued&&output.state!=='SPENT'?output.amount:null,noteState:output.state,custody:'DEVICE',observed:portfolio.observed,requests:[]}));
-    outputs.push({route:{...route,component:'DEVICE_PAGED_RESERVATION',graphId:g.graphId},label:'Unidades demo · Reserva',decimals:null,state:portfolio.ledger.reservedAmount===null?'UNKNOWN':'LIVE',issued:true,available:portfolio.ledger.reservedAmount===null?null:'0',reserved:portfolio.ledger.reservedAmount,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null,noteState:undefined,custody:'DEVICE',observed:portfolio.observed,requests:[]});
+    const outputs=portfolio.outputs.filter(output=>output.role!=='source').map(output=>({route:{...route,component:'DEVICE_PAGED_OUTPUT',graphId:g.graphId,noteRole:output.role,...(output.id!==null?{id:output.id}:{}),commitment:output.commitment,nullifier:output.nullifier},label:"Demo units · "+(output.role==='change'?"Remaining balance":output.role==='recovery'?"Recovery":"Result of "+output.id),decimals:null,state:output.state==='UNKNOWN'?'UNKNOWN':'LIVE',issued:output.issued,available:output.available,reserved:null,locked:output.issued&&output.state==='LOCKED'?output.amount:null,recovery:output.role==='recovery'&&output.issued?output.available:null,shares:null,valuation:null,noteAmount:output.issued&&output.state!=='SPENT'?output.amount:null,noteState:output.state,custody:'DEVICE',observed:portfolio.observed,requests:[]}));
+    outputs.push({route:{...route,component:'DEVICE_PAGED_RESERVATION',graphId:g.graphId},label:"Demo units · Reserve",decimals:null,state:portfolio.ledger.reservedAmount===null?'UNKNOWN':'LIVE',issued:true,available:portfolio.ledger.reservedAmount===null?null:'0',reserved:portfolio.ledger.reservedAmount,locked:null,recovery:null,shares:null,valuation:null,noteAmount:null,noteState:undefined,custody:'DEVICE',observed:portfolio.observed,requests:[]});
     retain(key+'OUTPUTS',outputs,check(portfolio.observed),binding);
    }else if(g!==null){const previous=sources.get(key+'OUTPUTS');if(previous)sources.set(key+'OUTPUTS',{...previous,invalidated:true,rows:previous.rows.map(row=>freeze(opaqueRow(row,'UNKNOWN')))});else retain(key+'OUTPUTS',[],()=>false,binding);}
   },

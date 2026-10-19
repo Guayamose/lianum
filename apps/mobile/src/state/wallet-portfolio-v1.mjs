@@ -6,7 +6,7 @@ function identity(row){
  const r=row.route;if(!r.assetId||!r.genesis||!r.domain)return null;
  const unit=r.component==='POSITION'?'POSITION_SHARES':['DEVICE_PAGED_NOTE','DEVICE_PAGED_OUTPUT','DEVICE_PAGED_RESERVATION'].includes(r.component)?'DEMO_UNITS':'TOKEN_ATOMIC';
  const domain=JSON.stringify([r.genesis,r.domain,r.pool??r.vault??null,r.scope??null,r.policy??null,r.runtimeId??null]);
- return{key:JSON.stringify([r.assetId,domain,unit,row.decimals]),assetId:String(r.assetId),genesis:String(r.genesis),domain,unit,decimals:row.decimals,label:unit==='DEMO_UNITS'?'Unidades demo':row.label.split(' · ')[0]};
+ return{key:JSON.stringify([r.assetId,domain,unit,row.decimals]),assetId:String(r.assetId),genesis:String(r.genesis),domain,unit,decimals:row.decimals,label:unit==='DEMO_UNITS'?"Demo units":row.label.split(' · ')[0]};
 }
 function holdingKey(row,asset){const r=row.route;return JSON.stringify([asset.key,r.component==='POSITION'?[r.generationId,r.vault,r.runtimeId,r.devicePublicKey]:r.commitment??[r.component,r.rootId,r.parentJobId,r.noteRole,r.id]]);}
 function amount(row,field){

@@ -22,7 +22,7 @@ import { wipeDeviceReservationWitnessV1, type DeviceReservationWitnessV1 }
   from '../../../../packages/mobile-protocol/src/device-reservation-consent-v1.mjs';
 import type {DeviceReservationConsentEitherV2 as DeviceReservationConsentV1}
   from '../../../../packages/mobile-protocol/src/device-native-private-reservation-v2.mjs';
-const recoveryArmStateLabel=(state:DeviceRecoveryArmStatusV1['state'])=>({ABSENT:'sin activar',ARMED:'activada',DISARMED:'desactivada',FIRING:'recuperando',UNKNOWN:'desconocido',RECOVERED:'recuperada',FULFILLED:'completada'})[state];
+const recoveryArmStateLabel=(state:DeviceRecoveryArmStatusV1['state'])=>({ABSENT:"unactivated",ARMED:'activada',DISARMED:'desactivada',FIRING:'recuperando',UNKNOWN:'desconocido',RECOVERED:'recuperada',FULFILLED:'completada'})[state];
 type ExecutionClient = Awaited<ReturnType<typeof createDeviceOwnerExecutionApiV1>>;
 type BalanceClient = Awaited<ReturnType<typeof createDeviceOwnerOutputBalanceApiV1>>;
 type ReservationClient = Awaited<ReturnType<typeof createDeviceOwnerReservationApiV1>>;
@@ -153,8 +153,8 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       if (pendingExit) setExitRecipient(pendingExit.statement.recipient);
       setConsent(null); setOwnerReview(null); setReservationConsent(null); setExitReview(null); setExitConsent(null); setApproved(false);
       await publishNote(state,held); setMessage(sameOperation
-        ? 'Misma operación local reabierta. El saldo sigue desconocido hasta una consulta firmada fresca; no se ha probado, financiado, reservado, ejecutado ni retirado de nuevo.'
-        : 'Nota local vinculada. Preparar una prueba no financia ni transmite tu clave.');
+        ? "Same local operation reopened. The balance remains unknown until a fresh signed consultation; it has not been proven, funded, reserved, executed or withdrawn again."
+        : "Local linked note. Preparing a test does not fund or transmit your key.");
     } catch (error) {
       next?.close(); reservations?.close(); exits?.close(); executions?.close(); balances?.close(); custody.close(); throw error;
     }
@@ -182,7 +182,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const authenticated = await access(held);
     const jobReview = await api.challengeJob({ ...authenticated, statement: proofRequest.statement, rootId: proofRequest.rootId,
       noteRevision: proofRequest.noteRevision, witnessSHA256: proofRequest.witnessSHA256, jobId: proofRequest.jobId }); live(held);
-    setConsent(jobReview); setApproved(false); setMessage(jobReview.version===2?'Revisa el envío cifrado de esta apertura antes de generar la prueba.':'Revisa la revelación acotada antes de generar D26.');
+    setConsent(jobReview); setApproved(false); setMessage(jobReview.version===2?"Check the encrypted transfer of this opening before generating the test.":"Check the narrowed disclosure before generating D26.");
   }
   async function review(action: 'FUND_D26' | 'OBSERVE_D26', held: number) {
     clearNativeReview();
@@ -212,7 +212,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       const state = await custody.readDeviceNote(); live(held); await publishNote(state,held); setMessage(result.state);
     } catch (error) {
       live(held); const state = await custody.readDeviceNote(); live(held); await publishNote(state,held);
-      const notice = 'UNKNOWN: consulta explícitamente el trabajo/envío original. No hay reintento automático.';
+      const notice = "UNKNOWN: explicitly consult the original work/send. There is no automatic retry.";
       setMessage(notice); throw new Error(notice, { cause: error });
     } finally { if (witness) for (const value of Object.values(witness)) if (Array.isArray(value)) value.fill(0); }
   }
@@ -251,7 +251,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     if (retained?.availableBalance !== null) throw Error('MOBILE_LOCAL_RESERVATION_BALANCE_UNRESOLVED');
     await publishNote(retained,held);
     quote.current = handle; setOwnerReview(reviewed); setConsent(null); setReservationConsent(null); setApproved(false);
-    setMessage('Cambio y recuperación cifrados y releídos. Revisa el mismo grafo antes de firmar con tu clave de nota.');
+    setMessage("Change and recover encrypted and rereaded. Check the same graph before signing with your note key.");
   }
   async function reviewProofU(held: number) {
     clearNativeReview();
@@ -264,7 +264,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const authenticated = await reservationAccess(held);
     const consent = await api.challengeJob({ ...authenticated, depositJobId: pending.depositJobId, quoteId: pending.quoteId,
       jobId: pending.jobId, custody: pending.custody, statement: pending.statement, witnessSHA256: pending.witnessSHA256 }); live(held);
-    setReservationConsent(consent); setMessage('La intención U original está guardada; la prueba todavía no reserva ni ejecuta el grafo.');
+    setReservationConsent(consent); setMessage("The original U intention is saved; the test still does not reserve or execute the graph.");
   }
   async function reviewReservation(action: 'RESERVE_S' | 'OBSERVE_S', held: number) {
     clearNativeReview();
@@ -290,10 +290,10 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       const result = await api.submit({ consent, signature, ...(witness ? { witness } : {}) }); live(held);
       if (result.stage === 'RESERVED') { await custody.applyDeviceReservationInclusion(result); live(held); }
       setReservationJob(result.jobId); setMessage(result.stage === 'RESERVED'
-        ? 'Reserva S original confirmada y guardada con la misma nota. El cambio está incluido; su saldo libre requiere consulta del nullifier. La recuperación requiere F original. El grafo aún no está ejecutado.'
+        ? "Original S reservation confirmed and saved with the same note. Change is included; your free balance requires consultation of the nullifier. Recovery requires original F. The graph is not yet executed."
         : result.stage); const state = await custody.readDeviceNote(); live(held); await publishNote(state,held);
     } catch (error) {
-      live(held); const notice = 'UNKNOWN: consulta la misma intención U/S. No repetir pruebas ni reservar de nuevo.';
+      live(held); const notice = "UNKNOWN: See the same U/S intention. Do not repeat tests or book again.";
       setMessage(notice); throw new Error(notice, { cause: error });
     } finally { if (witness) wipeDeviceReservationWitnessV1(witness);
       authorizationRequest.current?.close(); authorizationRequest.current = null; }
@@ -313,7 +313,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const signature = await signOriginalAccountAccessV2(access, origin, pairingId); live(held);
     const value = await api.challenge(action, { access, signature, jobId: parent.jobId }); live(held);
     setExecutionConsent(value); setApproved(false);
-    setMessage('Revisa esta misma reserva y la pérdida aceptada por el proveedor. Ejecutar, reconciliar y recuperar requieren permisos distintos.');
+    setMessage("Check this same reservation and the loss accepted by the provider. Execute, reconcile and recover require different permissions.");
   }
   async function submitExecution(held: number) {
     const api = executionClient.current, custody = vault.current, value = executionConsent;
@@ -330,9 +330,9 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       else if (value.action === 'RECONCILE_NATIVE') { await custody.applyDeviceExecutionObservation(result); live(held); }
       const state = await custody.readDeviceExecutionIntent(); live(held); setExecutionIntent(state); setExecutionStatus(result);
       const updatedNote = await custody.readDeviceNote(); live(held); await publishNote(updatedNote, held);
-      setMessage(result.terminal ? 'Resultado original ' + result.outcome + ' guardado. Las aperturas de cambio y recuperación permanecen en esta custodia.' : result.stage);
+      setMessage(result.terminal ? "Original result " + result.outcome + " Saved. Exchange and recovery openings remain in this custody." : result.stage);
     } catch (error) {
-      live(held); const notice = 'UNKNOWN: reconciliar la ejecución original. No repetir ejecución, recuperación, reserva ni entrega.';
+      live(held); const notice = "UNKNOWN: reconcile the original execution. Do not repeat execution, recovery, reservation or delivery.";
       setMessage(notice); throw new Error(notice, { cause: error });
     } finally { signing.abort(); if (nativeSigning.current === signing) nativeSigning.current = null; }
   }
@@ -344,14 +344,14 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const parent=await custody.readDeviceReservationIntent();live(held);if(!parent)throw Error('MOBILE_LOCAL_ORIGINAL_JOB_REQUIRED');
     const access=await api.access();live(held);const signature=await signOriginalAccountAccessV2(access,origin,pairingId);live(held);
     const value=await api.challengeRecoveryArm(action,{access,signature,jobId:parent.jobId});live(held);setRecoveryArmReview(value);setApproved(false);
-    setMessage('Autoriza activar o desactivar la recuperación automática de esta reserva. Se conserva el plazo original y el servicio debe permanecer activo.');
+    setMessage("Authorizes to activate or disable the automatic recovery of this reservation. The original term is retained and the service must remain active.");
   }
   async function submitRecoveryArm(held:number){
     const api=executionClient.current,value=recoveryArmReview;if(!api||!value||!approved)throw Error('MOBILE_DEVICE_CONSENT_REQUIRED');
     setRecoveryArmReview(null);setApproved(false);const signing=new AbortController();nativeSigning.current=signing;
     try{const signature=await signDeviceRecoveryArmConsentV1(value,origin,pairingId,signing.signal);live(held);
       const result=await api.submitRecoveryArm({consent:value,signature});live(held);setRecoveryArmStatus(result);setMessage(recoveryArmStateLabel(result.state));
-    }catch(error){live(held);setMessage('Respuesta desconocida: consulta el estado antes de volver a actuar.');throw error;
+    }catch(error){live(held);setMessage("Unknown answer: consult the state before reacting.");throw error;
     }finally{signing.abort();if(nativeSigning.current===signing)nativeSigning.current=null;}
   }
   async function observeRecoveryArm(held:number){
@@ -376,11 +376,11 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
       await custody.applyDeviceOutputBalances(handle); live(held);
       const observation = await custody.readDeviceNote(); live(held);
       await publishNote(observation, held);
-      setMessage('Lectura original de estas dos notas. No se autoriza una prueba, ejecución ni retirada; la disponibilidad caduca y no se suman otros activos.');
+      setMessage("Original reading of these two notes. No proof, execution or withdrawal is allowed; availability expires and no other assets are added.");
     } catch (cause) {
       live(held);
       custody.forgetDeviceOutputBalanceObservation(); setNote(await custody.readDeviceNote()); live(held);
-      throw new Error('Saldo disponible desconocido: no se ha completado la lectura original. No se ha enviado una operación económica.', { cause });
+      throw new Error("Unknown available balance: the original reading has not been completed. An economic operation has not been sent.", { cause });
     }
   }
   async function selectExitRole(held: number) {
@@ -392,8 +392,8 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const pending = await custody.readDeviceExitIntent(role); live(held);
     setExitRole(role); setExitJob(pending?.jobId ?? null); setExitIntent(pending);
     setExitRecipient(pending?.statement.recipient ?? '');
-    setMessage(pending ? 'Intención W39 original retenida. Consulta este mismo trabajo; no regenerar la prueba ni reenviar la retirada.'
-      : 'Esta apertura no tiene un trabajo W39 local. Consultar su inclusión no autoriza una retirada.');
+    setMessage(pending ? "Original W39 intent retained. Consult this same work; do not regenerate the test or forward the withdrawal."
+      : "This opening does not have a local W39 job. To consult its inclusion does not authorize a withdrawal.");
   }
   async function prepareExit(held: number) {
     clearNativeReview();
@@ -407,7 +407,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const handle = await api.preparation({ ...await exitAccess(held), parentJobId: subject.parentJobId, rootId: subject.rootId,
       noteRole: subject.noteRole, noteRevision: subject.noteRevision, nullifier: subject.nullifier, recipient: subject.recipient }); live(held);
     exitQuote.current = handle; setExitReview(readDeviceExitQuoteV1(handle));
-    setMessage('El observador original comprueba esta apertura no gastada y su recibo D26 o S/F original. Revisa la salida exacta antes de firmar.');
+    setMessage("The original observer checks this unexpended opening and your original D26 or S/F receipt. Check the exact output before signing.");
   }
   async function reviewExitProof(held: number) {
     clearNativeReview();
@@ -417,7 +417,7 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
     const pending = await custody.createDeviceExitProofRequest(handle); live(held);
     exitRequest.current?.close(); exitRequest.current = pending; setExitJob(pending.jobId);
     const value = await api.challengeJob({ ...await exitAccess(held), quoteId: pending.quoteId, jobId: pending.jobId, witnessSHA256: pending.witnessSHA256 }); live(held);
-    setExitConsent(value); setMessage('Intención W39 guardada antes de firmar/enviar. Revisa por separado el destinatario del cifrado de esta única apertura.');
+    setExitConsent(value); setMessage("W39 intent saved before signing/sending. Check separately the recipient of the encryption for this single opening.");
   }
   async function reviewExit(action: 'WITHDRAW_W39' | 'OBSERVE_W39', held: number) {
     clearNativeReview();
@@ -438,143 +438,157 @@ export default function DeviceDepositScreen({onObservation,onInvalidate}:{onObse
         witness = await custody.bindDeviceExitProofRequest(exitRequest.current, value); live(held); }
       const result = await api.submit({ consent: value, signature, ...(witness ? { witness } : {}) }); live(held);
       if (result.stage === 'CONFIRMED') { await custody.applyDeviceExitConfirmation(result); live(held); }
-      setExitJob(result.jobId); setMessage(result.stage === 'CONFIRMED' ? 'Salida original confirmada y guardada. No se suma como saldo disponible local.' : result.stage);
+      setExitJob(result.jobId); setMessage(result.stage === 'CONFIRMED' ? "Original output confirmed and saved. Not added as local available balance." : result.stage);
       const retained = await custody.readDeviceExitIntent(exitRole); live(held); setExitIntent(retained);
       const state = await custody.readDeviceNote(); live(held); await publishNote(state, held);
-    } catch (error) { live(held); const notice = 'UNKNOWN: consultar este mismo trabajo W39. Nunca repetir automáticamente la prueba o la retirada.';
+    } catch (error) { live(held); const notice = "UNKNOWN: consult this same W39 work. Never automatically repeat the test or withdrawal.";
       setMessage(notice); throw Error(notice, { cause: error });
     } finally { if (witness) wipeDeviceExitWitnessV1(witness); exitRequest.current?.close(); exitRequest.current = null; }
   }
   const edit = (update: (value: string) => void, value: string) => { clear(); update(value); };
   return <ScrollView contentContainerStyle={styles.body}>
-    <Text style={styles.title}>Financiar tu nota local</Text>
-    <Text style={styles.text}>La raíz y la clave de nota permanecen en el dispositivo. Revisa cómo se envía esta única apertura al generar la prueba. Este flujo requiere un backend original instalado por el operador y TLS de confianza.</Text>
-    <TextInput style={styles.input} value={origin} onChangeText={value => edit(setOrigin, value)} autoCapitalize="none" placeholder="https://origen privado" placeholderTextColor="#50616D" />
-    <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Identificador de vinculación del operador" placeholderTextColor="#50616D" />
-    <Pressable disabled={busy} onPress={() => void run(connect)}><Text style={styles.button}>Abrir nota y vinculación</Text></Pressable>
-    <Pressable disabled={busy} onPress={() => void run(resume)}><Text style={styles.button}>Reabrir la misma operación guardada</Text></Pressable>
-    <Text style={styles.text}>Reabrir usa el origen y la vinculación retenidos en la custodia cifrada. No restablece permisos vencidos ni crea autoridad en el servidor. Cada consulta o acción siguiente requiere su firma específica.</Text>
-    {note?.job && <Text style={styles.text}>Trabajo D26 retenido {note.job.jobId}
-{reservationJob ? 'Trabajo U/S retenido ' + reservationJob : ''}</Text>}
-    {note && <Text style={styles.text}>Nota {note.commitment.slice(0, 16)} · {note.status}\nSaldo observado: {note.availableBalance ?? 'desconocido'}\n{note.freshness}
-{note.localReservation?.sourceSpentAtRetainedHead ? 'Fuente gastada en el recibo S retenido. Consulta por separado el cambio y la recuperación.' : ''}</Text>}
-    <Pressable disabled={busy || !note || note.status === 'FUNDED'} onPress={() => void run(prepare)}><Text style={styles.button}>Revisar prueba D26</Text></Pressable>
-    <Pressable disabled={busy || !note?.job || note.status === 'FUNDED'} onPress={() => void run(held => review('FUND_D26', held))}><Text style={styles.button}>Revisar financiación única</Text></Pressable>
-    <Pressable disabled={busy || !note?.job} onPress={() => void run(held => review('OBSERVE_D26', held))}><Text style={styles.button}>Consultar envío original</Text></Pressable>
+    <Text style={styles.title}>Financing your local note</Text>
+    <Text style={styles.text}>The root and note key remain on the device. Check how this single opening is sent when generating the test. This stream requires an original backend installed by the operator and trusted TLS.</Text>
+    <TextInput style={styles.input} value={origin} onChangeText={value => edit(setOrigin, value)} autoCapitalize="none" placeholder="https://private origin" placeholderTextColor="#50616D" />
+    <TextInput style={styles.input} value={pairingId} onChangeText={value => edit(setPairingId, value)} autoCapitalize="none" placeholder="Operator linkage identifier" placeholderTextColor="#50616D" />
+    <Pressable disabled={busy} onPress={() => void run(connect)}><Text style={styles.button}>Open Note and Link</Text></Pressable>
+    <Pressable disabled={busy} onPress={() => void run(resume)}><Text style={styles.button}>Reopen same saved operation</Text></Pressable>
+    <Text style={styles.text}>Reopen uses the source and link retained in encrypted custody. It does not restore expired permissions or create authority on the server. Each next query or action requires your specific signature.</Text>
+    {note?.job && <Text style={styles.text}>Work D26 withheld {note.job.jobId}
+{reservationJob ? "Work U/S withheld " + reservationJob : ''}</Text>}
+    {note && <Text style={styles.text}>Note {note.commitment.slice(0, 16)} · {note.status}\n Observed balance: {note.availableBalance ?? 'desconocido'}\n{note.freshness}
+{note.localReservation?.sourceSpentAtRetainedHead ? "Source spent on receipt S withheld. Separately consult the change and recovery." : ''}</Text>}
+    <Pressable disabled={busy || !note || note.status === 'FUNDED'} onPress={() => void run(prepare)}><Text style={styles.button}>Review test D26</Text></Pressable>
+    <Pressable disabled={busy || !note?.job || note.status === 'FUNDED'} onPress={() => void run(held => review('FUND_D26', held))}><Text style={styles.button}>Reviewing single funding</Text></Pressable>
+    <Pressable disabled={busy || !note?.job} onPress={() => void run(held => review('OBSERVE_D26', held))}><Text style={styles.button}>Check original transfer</Text></Pressable>
     {consent && <>
-      <Text style={styles.text}>{consent.action}\nPool {consent.binding.asset.pool}\nNota {consent.statement.output}\nImporte {consent.statement.amount}\n{consent.action==='PROVE_D26'?(consent.version===2?'Esta apertura se envía cifrada al destinatario original de la prueba.':'Esta apertura se revela al worker original de la prueba.'):'No se revela otra apertura'}</Text>
+      <Text style={styles.text}>{consent.action}\nPool {consent.binding.asset.pool}\nNota {consent.statement.output}\nImporte {consent.statement.amount}\n{consent.action==='PROVE_D26'?(consent.version===2?"This opening is encrypted to the original recipient of the test.":"This opening is revealed to the original worker of the test."):"No other opening revealed"}</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
-        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado esta acción exacta</Text></Pressable>
-      <Pressable disabled={busy || !approved} onPress={() => void run(submit)}><Text style={styles.button}>Autorizar esta acción</Text></Pressable>
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'}  I've reviewed this exact action.</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(submit)}><Text style={styles.button}>Authorize this action</Text></Pressable>
     </>}
     {note?.status === 'FUNDED' && <>
-      <Text style={styles.title}>Continuar con la misma nota</Text>
-      <Text style={styles.text}>El servidor original ofrece los términos firmados del grafo. Antes de guardar el cambio y la recuperación, autoriza una consulta de esta misma financiación; no financia de nuevo. No se adopta otra nota ni se envía una raíz o clave. U revela sólo las aperturas a su worker; S requiere otro consentimiento y una sola reserva. La reserva no ejecuta el grafo; la ejecución y la salida requieren otros consentimientos.</Text>
-      <Pressable disabled={busy || note.availableBalance === null || reservationJob !== null} onPress={() => void run(preparationU)}><Text style={styles.button}>Leer términos, consultar financiación y guardar cambio/recuperación</Text></Pressable>
+      <Text style={styles.title}>Continue with same note</Text>
+      <Text style={styles.text}>The original server offers the signed terms of the graph. Before saving the change and recovery, it authorizes a query of this same funding; it does not finance again. It does not adopt another note or send a root or key. U reveals only the openings to its worker; S requires another consent and a single reservation. The reservation does not execute the graph; execution and exit require other consents.</Text>
+      <Pressable disabled={busy || note.availableBalance === null || reservationJob !== null} onPress={() => void run(preparationU)}><Text style={styles.button}>Read terms, consult funding and save change/recovery</Text></Pressable>
     </>}
     {ownerReview && <>
-      <Text style={styles.text}>Operación {ownerReview.operationId}
+      <Text style={styles.text}>Operation {ownerReview.operationId}
 Fuente {ownerReview.sourceCommitment}
-Presupuesto {ownerReview.budget} · cambio {ownerReview.changeAmount} · recuperación {ownerReview.recoveryAmount}
+Presupuesto {ownerReview.budget}  · change {ownerReview.changeAmount}  · recovery {ownerReview.recoveryAmount}
 {ownerReview.actions.map(action => action.id + ' · ' + action.chainDomain + ' · pago ' + action.payoutAmount).join('\n')}
 Hasta {ownerReview.settleBefore}
 Frame {ownerReview.frameSHA256}</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
-        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} Autorizo estos términos con la clave de mi nota</Text></Pressable>
-      <Pressable disabled={busy || !approved} onPress={() => void run(reviewProofU)}><Text style={styles.button}>Firmar grafo y revisar prueba U</Text></Pressable>
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'}  I authorize these terms with the key to my note</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(reviewProofU)}><Text style={styles.button}>Sign graph and review U test</Text></Pressable>
     </>}
     {reservationJob && <>
-      <Pressable disabled={busy} onPress={() => void run(held => reviewReservation('RESERVE_S', held))}><Text style={styles.button}>Revisar reserva S original</Text></Pressable>
-      <Pressable disabled={busy} onPress={() => void run(held => reviewReservation('OBSERVE_S', held))}><Text style={styles.button}>Consultar la misma intención U/S</Text></Pressable>
+      <Pressable disabled={busy} onPress={() => void run(held => reviewReservation('RESERVE_S', held))}><Text style={styles.button}>Check original booking S</Text></Pressable>
+      <Pressable disabled={busy} onPress={() => void run(held => reviewReservation('OBSERVE_S', held))}><Text style={styles.button}>Consult the same intention U/S</Text></Pressable>
     </>}
     {reservationConsent && <>
       <Text style={styles.text}>{reservationConsent.action}
 Trabajo {reservationConsent.jobId}
 Fuente {reservationConsent.statement.inputCommitment}
 Cambio {reservationConsent.statement.changeCommitment}
-Recuperación {reservationConsent.statement.recoveryCommitment}
-{reservationConsent.openingDisclosure ?? 'No revelar otras aperturas'}
-Esta firma nunca autoriza reenvíos automáticos.</Text>
+
+Recovery {reservationConsent.statement.recoveryCommitment}
+{reservationConsent.openingDisclosure ?? "Do not reveal other openings"}
+
+This signature never authorizes automatic forwarding.</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
-        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado este consentimiento exacto</Text></Pressable>
-      <Pressable disabled={busy || !approved} onPress={() => void run(submitReservation)}><Text style={styles.button}>Autorizar únicamente esta acción U/S</Text></Pressable>
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'}  I've reviewed this exact consent.</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(submitReservation)}><Text style={styles.button}>Authorize only this action U/S</Text></Pressable>
     </>}
     {note?.localReservation?.sourceSpentAtRetainedHead && <>
-      <Text style={styles.title}>Notas de esta reserva</Text>
-      <Text style={styles.text}>Activo {note.localReservation.assetIdentity} · dominio {note.localReservation.domainCommitment}</Text>
+      <Text style={styles.title}>Notes to this reservation</Text>
+      <Text style={styles.text}>Asset {note.localReservation.assetIdentity}  · domain {note.localReservation.domainCommitment}</Text>
       {(['change', 'recovery'] as const).map(role => {
         const output = note.localReservation?.[role]; return output ? <Text key={role} style={styles.text}>
-          {role === 'change' ? 'Cambio' : 'Recuperación'} · importe local {output.amount}
-          {'\n'}Estado: {output.state} · disponible observado: {output.availableBalance ?? 'desconocido'}
-          {output.withdrawnAmount !== null ? '\nRetirada original confirmada: ' + output.withdrawnAmount : ''}
+          {role === 'change' ? "Change" : "Recovery"}  · local amount {output.amount}
+          {'\n'}Status: {output.state}  · available observed: {output.availableBalance ?? 'desconocido'}
+          {output.withdrawnAmount !== null ? "\nOriginal withdrawal confirmed: " + output.withdrawnAmount : ''}
         </Text> : null;
       })}
-      <Pressable disabled={busy} onPress={() => void run(observeOutputBalances)}><Text style={styles.button}>Autorizar sólo lectura del saldo de estas notas</Text></Pressable>
-      <Text style={styles.title}>Ejecutar la misma reserva</Text>
-      <Text style={styles.text}>Una entrega irreversible permanece al riesgo aceptado por el proveedor. Si se pierde la respuesta, consulta la ejecución original. La recuperación conserva la misma reserva y exige el plazo original vencido.</Text>
+      <Pressable disabled={busy} onPress={() => void run(observeOutputBalances)}><Text style={styles.button}>Authorize only reading of the balance of these notes</Text></Pressable>
+      <Text style={styles.title}>Run the same reservation</Text>
+      <Text style={styles.text}>An irreversible delivery remains at the risk accepted by the provider. If the answer is lost, see the original execution. Recovery retains the same reservation and requires the original deadline.</Text>
       <Pressable disabled={busy || !!executionIntent?.executeAttemptRetained || !!executionIntent?.outcome}
-        onPress={() => void run(held => reviewExecution('EXECUTE_NATIVE', held))}><Text style={styles.button}>Revisar ejecución única</Text></Pressable>
-      <Pressable disabled={busy} onPress={() => void run(held => reviewExecution('RECONCILE_NATIVE', held))}><Text style={styles.button}>Consultar/reconciliar ejecución original</Text></Pressable>
+        onPress={() => void run(held => reviewExecution('EXECUTE_NATIVE', held))}><Text style={styles.button}>Review Single Execution</Text></Pressable>
+      <Pressable disabled={busy} onPress={() => void run(held => reviewExecution('RECONCILE_NATIVE', held))}><Text style={styles.button}>Consult/reconcile original execution</Text></Pressable>
       <Pressable disabled={busy || !!executionIntent?.recoveryAttemptRetained || !!executionIntent?.outcome}
-        onPress={() => void run(held => reviewExecution('RECOVER_NATIVE', held))}><Text style={styles.button}>Revisar recuperación al vencimiento</Text></Pressable>
-      {executionIntent && <Text style={styles.text}>Trabajo {executionIntent.jobId}
-Resultado retenido: {executionIntent.outcome ?? 'desconocido'}
-Intención de ejecución: {executionIntent.executeAttemptRetained ? 'guardada; consultar original' : 'sin intención local'}
-Intención de recuperación: {executionIntent.recoveryAttemptRetained ? 'guardada; consultar original' : 'sin intención local'}</Text>}
-      <Text style={styles.title}>Recuperación automática de la reserva</Text>
-      <Text style={styles.text}>Puedes activar la recuperación al vencer el plazo original. El servicio del operador debe permanecer activo. Ejecutar la reserva requiere su propio permiso.</Text>
-      <Pressable disabled={busy} onPress={()=>void run(held=>reviewRecoveryArm('ARM_RECOVERY',held))}><Text style={styles.button}>Revisar activación</Text></Pressable>
-      <Pressable disabled={busy} onPress={()=>void run(held=>reviewRecoveryArm('DISARM_RECOVERY',held))}><Text style={styles.button}>Revisar desactivación</Text></Pressable>
-      <Pressable disabled={busy} onPress={()=>void run(observeRecoveryArm)}><Text style={styles.button}>Consultar estado</Text></Pressable>
-      {recoveryArmStatus&&<Text style={styles.text}>Estado: {recoveryArmStateLabel(recoveryArmStatus.state)} · plazo original {recoveryArmStatus.settleBefore}</Text>}
-      {recoveryArmReview&&<><Text style={styles.text}>Acción {recoveryArmReview.action} · reserva {recoveryArmReview.execution.reservation.jobId} · plazo original {recoveryArmReview.settleBefore}</Text>
-        <Pressable disabled={busy} onPress={()=>setApproved(value=>!value)}><Text style={styles.button}>{approved?'Permiso revisado':'Revisar y consentir este permiso separado'}</Text></Pressable>
-        <Pressable disabled={busy||!approved} onPress={()=>void run(submitRecoveryArm)}><Text style={styles.button}>Firmar una vez este permiso</Text></Pressable></>}
+        onPress={() => void run(held => reviewExecution('RECOVER_NATIVE', held))}><Text style={styles.button}>Review Recovery on Expiry</Text></Pressable>
+      {executionIntent && <Text style={styles.text}>Job {executionIntent.jobId}
+
+Result withheld: {executionIntent.outcome ?? 'desconocido'}
+
+Implementation intent: {executionIntent.executeAttemptRetained ? "saved; consult original" : "no local intention"}
+
+Recovery intent: {executionIntent.recoveryAttemptRetained ? "saved; consult original" : "no local intention"}</Text>}
+      <Text style={styles.title}>Automatic reserve recovery</Text>
+      <Text style={styles.text}>You can activate the recovery after the original deadline. The operator service must remain active. Running the reservation requires your own permission.</Text>
+      <Pressable disabled={busy} onPress={()=>void run(held=>reviewRecoveryArm('ARM_RECOVERY',held))}><Text style={styles.button}>Check activation</Text></Pressable>
+      <Pressable disabled={busy} onPress={()=>void run(held=>reviewRecoveryArm('DISARM_RECOVERY',held))}><Text style={styles.button}>Review Deactivation</Text></Pressable>
+      <Pressable disabled={busy} onPress={()=>void run(observeRecoveryArm)}><Text style={styles.button}>Check Status</Text></Pressable>
+      {recoveryArmStatus&&<Text style={styles.text}>Status: {recoveryArmStateLabel(recoveryArmStatus.state)}  · original period {recoveryArmStatus.settleBefore}</Text>}
+      {recoveryArmReview&&<><Text style={styles.text}>Action {recoveryArmReview.action}  · reservation {recoveryArmReview.execution.reservation.jobId}  · original period {recoveryArmReview.settleBefore}</Text>
+        <Pressable disabled={busy} onPress={()=>setApproved(value=>!value)}><Text style={styles.button}>{approved?"reviewed permit":"Review and consent to this separate permission"}</Text></Pressable>
+        <Pressable disabled={busy||!approved} onPress={()=>void run(submitRecoveryArm)}><Text style={styles.button}>Sign once this permission</Text></Pressable></>}
     </>}
     {note?.status === 'FUNDED' && (!note.localReservation || note.localReservation.sourceSpentAtRetainedHead) && <>
-      <Text style={styles.title}>Salida de la misma custodia</Text>
+      <Text style={styles.title}>Out of the same custody</Text>
       <Text style={styles.text}>{note.localReservation
-        ? 'El cambio necesita S original y nullifier no gastado; la recuperación necesita además F original.'
-        : 'La nota depositada necesita su D26 original y nullifier no gastado. No requiere crear una reserva U/S.'} Cada prueba W39 usa esta misma apertura y requiere otra autorización para retirar. No hay reintentos automáticos.</Text>
+        ? "The change needs original S and unused nullifier; recovery also needs original F."
+        : "The deposited note needs your original D26 and unused nullifier. You do not need to create a U/S reservation."}  Each W39 test uses this same opening and requires another permission to withdraw. There are no automatic retryings.</Text>
       <Pressable disabled={busy || !note.localReservation} onPress={() => void run(selectExitRole)}>
-        <Text style={styles.button}>Apertura: {exitRole==='deposit'?'nota depositada':exitRole==='change'?'cambio':'recuperación'}</Text></Pressable>
-      {exitIntent && <Text style={styles.text}>Trabajo W39 retenido {exitIntent.jobId}
-Estado local {exitIntent.receipt ? 'Retirada confirmada por el recibo original' : exitIntent.phase + ' · resultado pendiente de consulta'}
-Destinatario retenido {exitIntent.statement.recipient}
-{exitIntent.receipt?.transactionHash ?? 'Sin recibo local confirmado. No se autoriza otro trabajo ni un reenvío.'}</Text>}
+        <Text style={styles.button}>Opens: {exitRole==='deposit'?"note deposited":exitRole==='change'?'cambio':"recovery"}</Text></Pressable>
+      {exitIntent && <Text style={styles.text}>Work W39 withheld {exitIntent.jobId}
+
+Local State {exitIntent.receipt ? "Withdrawal confirmed by original receipt" : exitIntent.phase + " · result pending consultation"}
+
+Consignee withheld {exitIntent.statement.recipient}
+{exitIntent.receipt?.transactionHash ?? "No confirmed local receipt. No other work or forwarding is authorized."}</Text>}
       <TextInput style={styles.input} value={exitRecipient} onChangeText={value => edit(setExitRecipient, value)}
-        autoCapitalize="none" placeholder="Destinatario EVM exacto: 40 caracteres hex, sin 0x" placeholderTextColor="#50616D" />
-      <Pressable disabled={busy || exitJob !== null} onPress={() => void run(prepareExit)}><Text style={styles.button}>Consultar inclusión y salida original</Text></Pressable>
-      <Pressable disabled={busy || !exitJob || !!exitIntent?.receipt} onPress={() => void run(held => reviewExit('WITHDRAW_W39', held))}><Text style={styles.button}>Revisar única retirada W39</Text></Pressable>
-      <Pressable disabled={busy || !exitJob} onPress={() => void run(held => reviewExit('OBSERVE_W39', held))}><Text style={styles.button}>Consultar trabajo/salida original</Text></Pressable>
+        autoCapitalize="none" placeholder="Exact EVM address: 40 characters hex, no 0x" placeholderTextColor="#50616D" />
+      <Pressable disabled={busy || exitJob !== null} onPress={() => void run(prepareExit)}><Text style={styles.button}>Check inclusion and original output</Text></Pressable>
+      <Pressable disabled={busy || !exitJob || !!exitIntent?.receipt} onPress={() => void run(held => reviewExit('WITHDRAW_W39', held))}><Text style={styles.button}>Review single withdrawal W39</Text></Pressable>
+      <Pressable disabled={busy || !exitJob} onPress={() => void run(held => reviewExit('OBSERVE_W39', held))}><Text style={styles.button}>Consult original work/output</Text></Pressable>
     </>}
     {executionConsent && <>
       <Text style={styles.text}>{executionConsent.action}
 Trabajo {executionConsent.reservation.jobId}
 Reserva {executionConsent.reservation.statement.reserveCommitment}
-Transacción S {executionConsent.reservationTransactionHash}
-Vinculación {executionConsent.nativeBindingSHA256}
-Estado actual {executionConsent.executionSnapshotSHA256}
-Plazo original {executionConsent.reservation.statement.settleBefore}
-Reembolso completo del propietario; entrega irreversible al riesgo del proveedor.</Text>
+
+Transaction S {executionConsent.reservationTransactionHash}
+
+Linking {executionConsent.nativeBindingSHA256}
+
+Current status {executionConsent.executionSnapshotSHA256}
+
+Original deadline {executionConsent.reservation.statement.settleBefore}
+
+Full refund from the owner; irreversible delivery to the supplier's risk.</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
-        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado esta única acción nativa y sus pérdidas</Text></Pressable>
-      <Pressable disabled={busy || !approved} onPress={() => void run(submitExecution)}><Text style={styles.button}>Autorizar únicamente esta acción nativa</Text></Pressable>
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'}  I've reviewed this one native action and its losses.</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(submitExecution)}><Text style={styles.button}>Authorize only this native action</Text></Pressable>
     </>}
-    {executionStatus && <Text style={styles.text}>Estado original {executionStatus.stage}
-{executionStatus.outcome ?? 'Resultado pendiente'}
+    {executionStatus && <Text style={styles.text}>Original status {executionStatus.stage}
+{executionStatus.outcome ?? "Outstanding result"}
 {executionStatus.errorCode ?? ''}</Text>}
     {exitReview && <>
       <Text style={styles.text}>W39 · {exitReview.noteRole}
 Nota {exitReview.statement.commitment}
 Importe {exitReview.statement.amount}
 Destinatario {exitReview.statement.recipient}
-Raíz Merkle {exitReview.statement.root}
+
+Merkle root {exitReview.statement.root}
 Epoch {exitReview.statement.epoch}
-Vinculación nativa {exitReview.nativeBindingSHA256}</Text>
+
+Native link {exitReview.nativeBindingSHA256}</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
-        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} Autorizo esta salida exacta con la clave de esta apertura</Text></Pressable>
-      <Pressable disabled={busy || !approved} onPress={() => void run(reviewExitProof)}><Text style={styles.button}>Guardar intención y firmar W39 local</Text></Pressable>
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'}  I authorize this exact output with the key to this opening</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(reviewExitProof)}><Text style={styles.button}>Save intention and sign local W39</Text></Pressable>
     </>}
     {exitConsent && <>
       <Text style={styles.text}>{exitConsent.action}
@@ -582,12 +596,12 @@ Trabajo {exitConsent.jobId}
 Apertura {exitConsent.noteRole}
 Importe {exitConsent.statement.amount}
 Destinatario {exitConsent.statement.recipient}
-{exitConsent.openingDisclosure ?? 'No revelar otra apertura'}</Text>
+{exitConsent.openingDisclosure ?? "Do not reveal another opening"}</Text>
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: approved }} disabled={busy}
-        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'} He revisado este único consentimiento W39</Text></Pressable>
-      <Pressable disabled={busy || !approved} onPress={() => void run(submitExit)}><Text style={styles.button}>Autorizar únicamente esta acción W39</Text></Pressable>
+        onPress={() => setApproved(value => !value)}><Text style={styles.button}>{approved ? '☑' : '☐'}  I've reviewed this one consent W39.</Text></Pressable>
+      <Pressable disabled={busy || !approved} onPress={() => void run(submitExit)}><Text style={styles.button}>Authorize only this action W39</Text></Pressable>
     </>}
-    <Text style={styles.text}>{message}</Text><Pressable onPress={clear}><Text style={styles.button}>Cerrar y ocultar</Text></Pressable>
+    <Text style={styles.text}>{message}</Text><Pressable onPress={clear}><Text style={styles.button}>Close and Hide</Text></Pressable>
   </ScrollView>;
 }
 const styles = StyleSheet.create({ body: { padding: 20, gap: 12 }, title: { color: '#253746', fontSize: 22, fontWeight: '700' },

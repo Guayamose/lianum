@@ -10,11 +10,11 @@ function Button({ label, onPress, disabled = false }: { label: string; onPress()
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled}
     onPress={onPress} style={[styles.button, disabled && styles.disabled]}><Text style={styles.buttonText}>{label}</Text></Pressable>;
 }
-const initial = 'Custodia local de preparación. No financia notas ni habilita gastos.';
+const initial = "Local Custody of Preparation. It does not finance notes or authorize expenses.";
 const emptyNote = { scope: '', policy: '', pool: '', recipient: '', amount: '' };
 const noteFields = [['scope', 'Scope HEX (32 bytes)'], ['policy', 'Policy HEX (32 bytes)'],
-  ['pool', 'Pool de contexto HEX (20 bytes)'], ['recipient', 'Destinatario de contexto HEX (20 bytes)'],
-  ['amount', 'Importe atómico de la nota preparada']] as const;
+  ['pool', "HEX Context Pool (20 bytes)"], ['recipient', "HEX context recipient (20 bytes)"],
+  ['amount', "Atomic amount of prepared note"]] as const;
 export default function LocalCustodyScreen() {
   const [inspection, setInspection] = useState<LocalRootNoteInspectionV1 | null>(null);
   const [prepared, setPrepared] = useState<LocalPreparedNoteSummaryV1 | null>(null);
@@ -64,47 +64,47 @@ export default function LocalCustodyScreen() {
     catch (error) {
       if (visible(generation)) {
         const code = error instanceof Error ? error.message : '';
-        setNotice(code.includes('AUTHENTICATION_CANCELLED') ? 'Operación cancelada. No se muestra ningún secreto.'
-          : code.includes('BACKUP_PASSWORD') ? 'Usa una contraseña de al menos 12 caracteres y conserva la misma para recuperar la copia.'
-          : code.includes('BACKUP_AUTHENTICATION') || code.includes('BACKUP_BINDING') ? 'La copia, la contraseña o la identidad esperada no coinciden. No se sustituyó otra identidad.'
+        setNotice(code.includes('AUTHENTICATION_CANCELLED') ? "Operation cancelled, no secret shown."
+          : code.includes('BACKUP_PASSWORD') ? "Use a password of at least 12 characters and keep it to recover the copy."
+          : code.includes('BACKUP_AUTHENTICATION') || code.includes('BACKUP_BINDING') ? "The copy, password or expected identity do not match. No other identity was replaced."
           : code.includes('ALREADY_EXISTS') || code.includes('BACKUP_CONFLICT')
-            ? 'Existe una custodia o registro distinto. Se conserva sin sustituirlo.'
+            ? "There is a different custody or registration. It is preserved without replacing it."
             : code.includes('WRITE_UNCERTAIN')
-              ? 'La escritura quedó incierta. Conserva tu copia y recupera el mismo registro antes de continuar.'
-              : 'No se pudo comprobar la custodia. Conserva tu copia y revisa el estado original.');
+              ? "The writing became uncertain. Keep your copy and retrieve the same record before continuing."
+              : "The custody could not be checked. Keep your copy and check the original status.");
       }
     } finally { busyRef.current = false; if (mounted.current) setBusy(false); }
   }
-  async function readIdentity(generation:number){const value=await readDevicePublicKey();if(!visible(generation))return;setIdentityPublicKey(value??'');setNotice(value?'Identidad original consultada. Guarda esta clave pública con tu copia cifrada.':'No hay identidad local disponible. Una copia de notas no reemplaza la identidad que las autoriza.');}
+  async function readIdentity(generation:number){const value=await readDevicePublicKey();if(!visible(generation))return;setIdentityPublicKey(value??'');setNotice(value?"Original identity consulted. Save this public key with your encrypted copy.":"There is no local identity available. A copy of notes does not replace the identity that authorizes them.");}
   async function identityExport(generation:number){
     let password=identityPassword;const expected=identityPublicKey,confirmation=identityConfirmation;
     setIdentityPassword('');setIdentityConfirmation('');setIdentityBackup('');
     if(password!==confirmation)throw Error('MOBILE_CUSTODY_BACKUP_PASSWORD');
     const controller=new AbortController();identityAbort.current=controller;
     try{if(!visible(generation)){controller.abort();return;}const value=await exportDeviceIdentityBackupV1(password,expected,controller.signal);
-      if(visible(generation)){setIdentityBackup(value);setNotice('Copia cifrada de la misma identidad lista. Guarda el JSON completo y la contraseña fuera del dispositivo; conserva también las copias de tus notas.');}
+      if(visible(generation)){setIdentityBackup(value);setNotice("Encrypted copy of the same listed identity. Save the complete JSON and password outside the device; also keep copies of your notes.");}
     }finally{password='';if(identityAbort.current===controller)identityAbort.current=null;}
   }
-  function confirmIdentityExport(){const generation=epoch.current;Alert.alert('Crear copia cifrada de identidad','Guardarás la misma identidad con la contraseña elegida. Esta copia no incluye las notas ni se envía a ningún servicio. Conserva la copia y la contraseña en un lugar seguro fuera del teléfono.',[
-    {text:'Cancelar',style:'cancel'},{text:'Crear con biometría',onPress:()=>{if(visible(generation))void run(identityExport);}},]);}
+  function confirmIdentityExport(){const generation=epoch.current;Alert.alert("Create encrypted copy of identity","You will keep the same identity with the chosen password. This copy does not include notes nor is it sent to any service. Keep the copy and password in a safe place outside the phone.",[
+    {text:"Cancel",style:'cancel'},{text:"Create with biometrics",onPress:()=>{if(visible(generation))void run(identityExport);}},]);}
   async function identityImport(generation:number){
     let input=identityBackupInput,password=identityPassword;const expected=identityPublicKey;
     setIdentityBackupInput('');setIdentityPassword('');setIdentityConfirmation('');setIdentityBackup('');
     const controller=new AbortController();identityAbort.current=controller;
     try{if(!visible(generation)){controller.abort();return;}const result=await importDeviceIdentityBackupV1(input,password,expected,controller.signal);
-      if(visible(generation)){setIdentityPublicKey(result.devicePublicKey);setNotice('La misma identidad ha sido restaurada. No se crearon notas ni saldo. Recupera sus copias y consulta las operaciones originales antes de actuar.');}
+      if(visible(generation)){setIdentityPublicKey(result.devicePublicKey);setNotice("The same identity has been restored. No notes or balance were created. Recover your copies and check the original operations before you act.");}
     }finally{input='';password='';if(identityAbort.current===controller)identityAbort.current=null;}
   }
-  function confirmIdentityImport(){const generation=epoch.current;Alert.alert('Restaurar la misma identidad','La clave pública esperada debe ser la que guardaste al emparejar el dispositivo. Se autenticará la copia cifrada y se conservará cualquier identidad distinta ya presente.',[
-    {text:'Cancelar',style:'cancel'},{text:'Restaurar con biometría',onPress:()=>{if(visible(generation))void run(identityImport);}},]);}
+  function confirmIdentityImport(){const generation=epoch.current;Alert.alert("Restore the same identity","The expected public key should be the one you saved when pairing the device. The encrypted copy will be authenticated and any other identity already present will be retained.",[
+    {text:"Cancel",style:'cancel'},{text:"Restore with biometrics",onPress:()=>{if(visible(generation))void run(identityImport);}},]);}
   async function refresh(generation: number) {
     const state = await inspectLocalRootNoteVaultV1();
     if (!visible(generation)) return;
     setInspection(state);
-    setNotice(state.status === 'ACTIVE' ? 'Registro cifrado presente. Confirma con biometría para leerlo o hacer una copia.'
-      : state.status === 'RECOVERY_REQUIRED' ? 'Registro pendiente de recuperación explícita. No se supone saldo ni se reemplazan claves.'
-        : state.status === 'UNAVAILABLE' ? 'El almacenamiento protegido requiere un dispositivo iOS o Android compatible.'
-          : 'No hay metadatos de custodia. Crear una raíz no sustituirá otra raíz existente.');
+    setNotice(state.status === 'ACTIVE' ? "Encrypted record present. Confirm with biometrics to read it or make a copy."
+      : state.status === 'RECOVERY_REQUIRED' ? "Registration pending explicit recovery. No balance is assumed and no keys are replaced."
+        : state.status === 'UNAVAILABLE' ? "Protected storage requires a compatible iOS or Android device."
+          : "There is no custody metadata. Creating a root will not replace another existing root.");
   }
   async function read(generation: number) {
     discardDeposit();
@@ -112,7 +112,7 @@ export default function LocalCustodyScreen() {
     vault.current?.close(); const capability = openLocalRootNoteVaultV1(inspection.rootId); vault.current = capability;
     try {
       const value = await capability.readPreparedNote();
-      if (visible(generation)) { setPrepared(value); setReadback(true); setNotice('Lectura local comprobada. Una nota preparada aún no es saldo disponible.'); }
+      if (visible(generation)) { setPrepared(value); setReadback(true); setNotice("Local reading checked. A prepared note is not yet available balance."); }
     } finally { capability.close(); if (vault.current === capability) vault.current = null; }
   }
   async function exportBackup(generation: number) {
@@ -126,15 +126,15 @@ export default function LocalCustodyScreen() {
     try {
       if(!visible(generation)){controller.abort();return;}
       const value = await capability.exportBackup(password,controller.signal);
-      if (visible(generation)) { setBackup(value);setBackupRootId(inspection.rootId);setNotice('Copia cifrada lista. Guarda el JSON completo, el ID público de raíz y la contraseña fuera del dispositivo.'); }
+      if (visible(generation)) { setBackup(value);setBackupRootId(inspection.rootId);setNotice("Encrypted copy list. Save the complete JSON, the root public ID and password out of the device."); }
     } finally { password='';capability.close();if(backupAbort.current===controller)backupAbort.current=null;if (vault.current === capability) vault.current = null; }
   }
   function confirmExport() {
     const generation = epoch.current;
-    Alert.alert('Crear copia cifrada de recuperación',
-      'La contraseña protege la raíz y el registro original. Guarda la copia completa, el ID público de raíz y la contraseña fuera del teléfono. No se transmite ni se copia automáticamente.', [
-        { text: 'Cancelar', style: 'cancel', onPress:()=>{setBackupPassword('');setBackupConfirmation('');} },
-        { text: 'Crear con biometría', onPress: () => { if (visible(generation)) void run(exportBackup); } },
+    Alert.alert("Create encrypted copy of recovery",
+      "The password protects the root and the original record. It saves the full copy, the public root ID and the password outside the phone. It is not automatically transmitted or copied.", [
+        { text: "Cancel", style: 'cancel', onPress:()=>{setBackupPassword('');setBackupConfirmation('');} },
+        { text: "Create with biometrics", onPress: () => { if (visible(generation)) void run(exportBackup); } },
       ]);
   }
   async function create(generation: number) {
@@ -143,7 +143,7 @@ export default function LocalCustodyScreen() {
       const created = await capability.create();
       if (!visible(generation)) return;
       await refresh(generation);
-      if (visible(generation)) setNotice('Raíz creada y guardada. Haz ahora una copia de recuperación: el ID público no recupera la clave. No hay una nota financiada. ID: ' + created.rootId);
+      if (visible(generation)) setNotice("Root created and saved. Now make a recovery copy: the public ID does not retrieve the key. There is no funded note. ID: " + created.rootId);
     } finally { capability.close(); if (operation.current === capability) operation.current = null; }
   }
   async function restore(generation: number) {
@@ -156,7 +156,7 @@ export default function LocalCustodyScreen() {
       const result = await capability.restore(input,password,expected===''?undefined:expected,controller.signal);
       if (!visible(generation)) return;
       setPrepared(result.note); setReadback(true); await refresh(generation);
-      if (visible(generation)) setNotice('Copia autenticada y registro original restaurado. Consulta las operaciones originales; la copia no establece saldo ni renueva permisos.');
+      if (visible(generation)) setNotice("Authenticated copy and restored original record. Check the original operations; the copy does not set balance or renew permissions.");
     } finally { input='';password='';capability.close();if(backupAbort.current===controller)backupAbort.current=null;if (operation.current === capability) operation.current = null; }
   }
   async function recover(generation: number) {
@@ -168,7 +168,7 @@ export default function LocalCustodyScreen() {
       const result = await capability.recover(root, Number(revision));
       if (!visible(generation)) return;
       setPrepared(result.note); setReadback(true); await refresh(generation);
-      if (visible(generation)) setNotice('La misma raíz ha recuperado el registro original. No se creó ni financió otra nota.');
+      if (visible(generation)) setNotice("The same root has recovered the original record. No other note was created or funded.");
     } finally { root = ''; capability.close(); if (operation.current === capability) operation.current = null; }
   }
   async function prepareNote(generation: number) {
@@ -179,7 +179,7 @@ export default function LocalCustodyScreen() {
       const note = await capability.prepareUnissuedBalanceNote({ ...noteForm });
       if (!visible(generation)) return;
       setPrepared(note); setReadback(true); await refresh(generation);
-      if (visible(generation)) setNotice('Apertura criptográfica local preparada y cifrada. Sigue UNISSUED; el importe no es saldo. Actualiza la copia de recuperación.');
+      if (visible(generation)) setNotice("Local cryptographic opening prepared and encrypted. Follow UNISSUED; the amount is not balance. Updates the recovery copy.");
     } finally { capability.close(); if (vault.current === capability) vault.current = null; }
   }
   async function reviewDeposit(generation: number) {
@@ -191,7 +191,7 @@ export default function LocalCustodyScreen() {
       if (!visible(generation)) { capability.close(); return; }
       reviewRef.current = review; setDepositReview(review); setPrepared(review.note);
       reviewTimer.current = setTimeout(hide, Math.max(0, review.expiresAt - Date.now()));
-      setNotice('Revisa los términos originales. La autorización caduca en 15 segundos y no financia ni envía nada.');
+      setNotice("Check the original terms. Authorization expires in 15 seconds and does not finance or send anything.");
     } catch (error) { capability.close(); if (vault.current === capability) vault.current = null; throw error; }
   }
   async function signDeposit(generation: number, original: LocalDepositReviewV1) {
@@ -202,114 +202,114 @@ export default function LocalCustodyScreen() {
       const result = await capability.signPreparedDeposit(original);
       if (!visible(generation)) return;
       setSigned(result); await refresh(generation);
-      if (visible(generation)) setNotice('Firma local emitida sólo para este término. La nota continúa UNISSUED y no se envió a la red. Actualiza la copia; un backup anterior no ofrece protección antirollback.');
+      if (visible(generation)) setNotice("Local signature issued only for this term. The note continues UNISSUED and was not sent to the network. Update the copy; a previous backup does not offer antirollback protection.");
     } finally { capability.close(); if (vault.current === capability) vault.current = null; }
   }
   function confirmDeposit() {
     const original = reviewRef.current, generation = epoch.current;
     if (!original || !acceptedRef.current || !visible(generation)) return;
-    Alert.alert('Firmar el depósito local ' + original.choice.relation,
-      'Raíz: ' + original.rootId + '\nNota: ' + original.note.commitment
-      + '\nImporte atómico: ' + original.note.amount + '\nTérminos firmados: ' + JSON.stringify(original.statement)
-      + '\nSe guardará el intento exacto antes de firmar. No autoriza un gasto, no crea saldo y no envía datos. La restricción del intento sólo es local.', [
-        { text: 'Cancelar', style: 'cancel', onPress: discardDeposit },
-        { text: 'Firmar con biometría', onPress: () => {
+    Alert.alert("Sign local deposit " + original.choice.relation,
+      "Root: " + original.rootId + '\nNota: ' + original.note.commitment
+      + "\nAtomic amount: " + original.note.amount + "\nSigned terms: " + JSON.stringify(original.statement)
+      + "\nThe exact attempt will be saved before signing. It does not authorize an expense, does not create balance and does not send data. The attempt restriction is only local.", [
+        { text: "Cancel", style: 'cancel', onPress: discardDeposit },
+        { text: "Sign with biometrics", onPress: () => {
           if (visible(generation) && reviewRef.current === original && acceptedRef.current) void run(value => signDeposit(value, original));
         } },
       ]);
   }
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <Text style={styles.title}>Custodia local</Text>
-    <Text style={styles.muted}>Raíz protegida y registro cifrado en este dispositivo, separados de la identidad que firma permisos HTTP. Esta preparación no habilita financiación ni gasto.</Text>
-    <View style={styles.card}><Text style={styles.heading}>Estado local</Text>
-      <Text style={styles.value}>Estado: {inspection?.status ?? 'Pendiente de consultar'}</Text>
-      {inspection?.rootId && <Text selectable style={styles.value}>ID público: {inspection.rootId}</Text>}
-      {inspection?.revision !== null && inspection?.revision !== undefined && <Text style={styles.value}>Revisión de metadatos: {inspection.revision}</Text>}
-      {inspection?.recordRevision !== null && inspection?.recordRevision !== undefined && <Text style={styles.value}>Revisión del registro cifrado: {inspection.recordRevision}</Text>}
-      <Text style={styles.value}>Saldo disponible: pendiente de verificar</Text>
-      <Button label="Consultar estado local" disabled={busy} onPress={() => { hide(); void run(refresh); }} />
-      <Button label="Crear raíz protegida y registro vacío" disabled={busy || inspection?.status !== 'ABSENT_METADATA'} onPress={() => { hide(); void run(create); }} />
-      <Button label="Leer registro con biometría" disabled={busy || inspection?.status !== 'ACTIVE'} onPress={() => { void run(read); }} />
-      {readback && <Text style={styles.muted}>{prepared ? 'Hay una nota preparada UNISSUED. Su importe no se cuenta como dinero disponible.' : 'El registro autenticado está vacío.'}</Text>}
-      {prepared && <Text selectable style={styles.value}>Compromiso de la nota preparada: {prepared.commitment}</Text>}
+    <Text style={styles.title}>Local custody</Text>
+    <Text style={styles.muted}>Protected root and encrypted registration on this device, separated from the identity that signs HTTP permissions. This preparation does not enable funding or expense.</Text>
+    <View style={styles.card}><Text style={styles.heading}>Local State</Text>
+      <Text style={styles.value}>Status: {inspection?.status ?? "Pending consultation"}</Text>
+      {inspection?.rootId && <Text selectable style={styles.value}>Public ID: {inspection.rootId}</Text>}
+      {inspection?.revision !== null && inspection?.revision !== undefined && <Text style={styles.value}>Metadata review: {inspection.revision}</Text>}
+      {inspection?.recordRevision !== null && inspection?.recordRevision !== undefined && <Text style={styles.value}>Review of the encrypted record: {inspection.recordRevision}</Text>}
+      <Text style={styles.value}>Available balance: pending verification</Text>
+      <Button label="Check Local Status" disabled={busy} onPress={() => { hide(); void run(refresh); }} />
+      <Button label="Create protected root and empty registration" disabled={busy || inspection?.status !== 'ABSENT_METADATA'} onPress={() => { hide(); void run(create); }} />
+      <Button label="Read registration with biometrics" disabled={busy || inspection?.status !== 'ACTIVE'} onPress={() => { void run(read); }} />
+      {readback && <Text style={styles.muted}>{prepared ? "There is a note prepared by UNISSUED. Its amount is not counted as available money." : "Authenticated registration is empty."}</Text>}
+      {prepared && <Text selectable style={styles.value}>Commitment of the prepared note: {prepared.commitment}</Text>}
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Preparar una nota local</Text>
-      <Text style={styles.muted}>Sólo un registro UNISSUED. Los términos se introducen de forma explícita; no son un descubrimiento autenticado de contratos ni habilitan financiación.</Text>
+    <View style={styles.card}><Text style={styles.heading}>Prepare a local note</Text>
+      <Text style={styles.muted}>Only a UNISSUED registry. The terms are explicitly introduced; they are not an authenticated discovery of contracts or enable funding.</Text>
       {noteFields.map(([key, label]) => <View key={key}><Text style={styles.label}>{label}</Text>
         <TextInput accessibilityLabel={label} style={styles.input} value={noteForm[key]} autoCapitalize="none" autoCorrect={false}
           maxLength={key === 'amount' ? 20 : key === 'pool' || key === 'recipient' ? 40 : 64}
           editable={!busy && prepared === null} onChangeText={value => { discardDeposit(); setNoteForm(current => ({ ...current, [key]: value })); }} />
       </View>)}
-      <Button label="Preparar apertura local con biometría" disabled={busy || !readback || prepared !== null || inspection?.status !== 'ACTIVE'}
+      <Button label="Prepare local opening with biometrics" disabled={busy || !readback || prepared !== null || inspection?.status !== 'ACTIVE'}
         onPress={() => { void run(prepareNote); }} />
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Firma local de depósito</Text>
-      <Text style={styles.muted}>Una firma D26/D27 de la nota original, sin abrirla al backend. No genera prueba, financiación ni gasto. Pool y destinatario son contexto local; sólo se firman los campos originales del circuito.</Text>
+    <View style={styles.card}><Text style={styles.heading}>Local deposit signature</Text>
+      <Text style={styles.muted}>A D26/D27 signature of the original note, without opening it to the backend. It does not generate proof, funding or expense. Pool and recipient are local context; only the original fields of the circuit are signed.</Text>
       <View style={{ flexDirection: 'row', gap: 12 }}><Button label="D26 · epoch" disabled={busy} onPress={() => { discardDeposit(); setRelation('D26'); }} />
-        <Button label="D27 · ventana absoluta" disabled={busy} onPress={() => { discardDeposit(); setRelation('D27'); }} /></View>
-      <Text style={styles.value}>Relación: {relation}</Text>
-      {relation === 'D26' ? <TextInput accessibilityLabel="Epoch original D26" value={epochInput} style={styles.input} editable={!busy} maxLength={20}
+        <Button label="D27 · absolute window" disabled={busy} onPress={() => { discardDeposit(); setRelation('D27'); }} /></View>
+      <Text style={styles.value}>Relationship: {relation}</Text>
+      {relation === 'D26' ? <TextInput accessibilityLabel="Original D26 epoch" value={epochInput} style={styles.input} editable={!busy} maxLength={20}
         onChangeText={value => { discardDeposit(); setEpochInput(value); }} /> : <>
-        <TextInput accessibilityLabel="Inicio absoluto D27 (Unix segundos)" value={fromInput} style={styles.input} editable={!busy} maxLength={20}
+        <TextInput accessibilityLabel="Absolute start D27 (Unix seconds)" value={fromInput} style={styles.input} editable={!busy} maxLength={20}
           onChangeText={value => { discardDeposit(); setFromInput(value); }} />
-        <TextInput accessibilityLabel="Fin exclusivo D27 (Unix segundos)" value={untilInput} style={styles.input} editable={!busy} maxLength={20}
+        <TextInput accessibilityLabel="Exclusive End D27 (Unix seconds)" value={untilInput} style={styles.input} editable={!busy} maxLength={20}
           onChangeText={value => { discardDeposit(); setUntilInput(value); }} /></>}
-      <Button label="Revisar término exacto con biometría" disabled={busy || prepared === null || inspection?.status !== 'ACTIVE'} onPress={() => { void run(reviewDeposit); }} />
-      {depositReview && <><Text selectable style={styles.value}>Raíz: {depositReview.rootId} · revisión {depositReview.revision}</Text>
-        <Text selectable style={styles.value}>Nota: {depositReview.note.commitment}</Text>
-        <Text selectable style={styles.value}>Pool local: {depositReview.note.pool} · destinatario local: {depositReview.note.recipient}</Text>
-        <Text selectable style={styles.value}>Término original: {JSON.stringify(depositReview.statement)}</Text>
+      <Button label="Check exact term with biometrics" disabled={busy || prepared === null || inspection?.status !== 'ACTIVE'} onPress={() => { void run(reviewDeposit); }} />
+      {depositReview && <><Text selectable style={styles.value}>Root: {depositReview.rootId}  · revision {depositReview.revision}</Text>
+        <Text selectable style={styles.value}>Note: {depositReview.note.commitment}</Text>
+        <Text selectable style={styles.value}>Local pool: {depositReview.note.pool}  · local recipient: {depositReview.note.recipient}</Text>
+        <Text selectable style={styles.value}>Original term: {JSON.stringify(depositReview.statement)}</Text>
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} disabled={busy || signed !== null}
           onPress={() => { const next = !acceptedRef.current; acceptedRef.current = next; setAccepted(next); if (!next) discardDeposit(); }}>
-          <Text style={styles.muted}>{accepted ? '☑' : '☐'} He revisado raíz, nota, scope, policy, importe y vigencia. Sólo autorizo esta firma local.</Text>
+          <Text style={styles.muted}>{accepted ? '☑' : '☐'}  I have reviewed root, note, scope, policy, amount and validity. I only authorize this local signature.</Text>
         </Pressable>
-        <Button label="Confirmar firma exacta con biometría" disabled={busy || !accepted || signed !== null} onPress={confirmDeposit} />
-        <Button label="Cancelar revisión y cerrar" disabled={busy} onPress={discardDeposit} />
+        <Button label="Confirm exact signature with biometrics" disabled={busy || !accepted || signed !== null} onPress={confirmDeposit} />
+        <Button label="Cancel Review and Close" disabled={busy} onPress={discardDeposit} />
       </>}
-      {signed && <Text selectable style={styles.value}>Resultado local (se oculta al caducar o salir): {JSON.stringify(signed)}</Text>}
+      {signed && <Text selectable style={styles.value}>Local result (hidden on expiry or exit): {JSON.stringify(signed)}</Text>}
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Copia de recuperación</Text>
-      <Text style={styles.muted}>La copia cifra tu raíz y el registro completo con tu contraseña. Guarda el JSON, el ID público de raíz y la contraseña fuera del dispositivo. Actualízala cuando cambie la revisión. No es una frase BIP39 ni demuestra saldo.</Text>
-      <Text style={styles.label}>Contraseña de la copia · al menos 12 caracteres</Text>
-      <TextInput accessibilityLabel="Contraseña de la copia cifrada de custodia local" style={styles.input} value={backupPassword}
+    <View style={styles.card}><Text style={styles.heading}>Recovery Copy</Text>
+      <Text style={styles.muted}>The copy encrypts your root and the entire record with your password. Save the JSON, the public root ID and the password outside the device. Update it when you change the revision. It is not a BIP39 phrase nor shows balance.</Text>
+      <Text style={styles.label}>Copy password · at least 12 characters</Text>
+      <TextInput accessibilityLabel="Password of the encrypted copy of local custody" style={styles.input} value={backupPassword}
         onChangeText={setBackupPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
-      <Text style={styles.label}>Repite la contraseña para crear una copia</Text>
-      <TextInput accessibilityLabel="Confirmación de la contraseña de custodia local" style={styles.input} value={backupConfirmation}
+      <Text style={styles.label}>Repeat password to create a copy</Text>
+      <TextInput accessibilityLabel="Confirmation of the local custody password" style={styles.input} value={backupConfirmation}
         onChangeText={setBackupConfirmation} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
-      <Button label="Crear copia cifrada con biometría" disabled={busy || inspection?.status !== 'ACTIVE' || backupPassword.length<12 || backupPassword!==backupConfirmation} onPress={confirmExport}/>
-      {backup !== '' && <><Text selectable style={styles.value}>ID público de raíz: {backupRootId}</Text><Text selectable style={styles.value}>{backup}</Text><Button label="Ocultar copia y cerrar lectura" onPress={hide}/></>}
-      <Text style={styles.label}>ID público de raíz original para restaurar</Text>
-      <TextInput accessibilityLabel="ID público original de raíz para restaurar custodia" style={styles.input} value={backupRootId}
+      <Button label="Create encrypted copy with biometrics" disabled={busy || inspection?.status !== 'ACTIVE' || backupPassword.length<12 || backupPassword!==backupConfirmation} onPress={confirmExport}/>
+      {backup !== '' && <><Text selectable style={styles.value}>Root public ID: {backupRootId}</Text><Text selectable style={styles.value}>{backup}</Text><Button label="Hide copy and close read" onPress={hide}/></>}
+      <Text style={styles.label}>Original Root Public ID to Restore</Text>
+      <TextInput accessibilityLabel="Original root public ID to restore custody" style={styles.input} value={backupRootId}
         onChangeText={setBackupRootId} editable={!busy} autoCapitalize="none" autoCorrect={false} maxLength={64}/>
-      <Text style={styles.label}>Importar copia completa en este dispositivo</Text>
-      <TextInput accessibilityLabel="Copia cifrada JSON de recuperación local" style={styles.input} value={backupInput}
+      <Text style={styles.label}>Import full copy on this device</Text>
+      <TextInput accessibilityLabel="Local recovery JSON encrypted copy" style={styles.input} value={backupInput}
         onChangeText={setBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={DEVICE_NATIVE_ROOT_NOTE_BACKUP_MAX_SERIALIZED_BYTES_V1}/>
-      <Button label="Autenticar e importar copia con biometría" disabled={busy || backupInput.length===0} onPress={()=>{void run(restore);}}/>
-      <Text style={styles.muted}>También puedes importar una copia antigua completa. Su formato anterior carece de contraseña; mantenla privada y crea después una copia cifrada.</Text>
-      <Button label="Cancelar, ocultar datos y cerrar" onPress={hide}/>
+      <Button label="Authenticate and import biometric copy" disabled={busy || backupInput.length===0} onPress={()=>{void run(restore);}}/>
+      <Text style={styles.muted}>You can also import a complete old copy. Its previous format lacks password; keep it private and then create an encrypted copy.</Text>
+      <Button label="Cancel, hide data and close" onPress={hide}/>
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Identidad del dispositivo</Text>
-      <Text style={styles.muted}>Esta copia cifrada recupera la misma identidad que autoriza tus operaciones. Guarda también las copias de tus notas; ninguna copia establece saldo por sí sola. No se envía ni se copia automáticamente.</Text>
-      <Button label="Consultar mi identidad actual" disabled={busy} onPress={()=>{void run(readIdentity);}}/>
-      <Text style={styles.label}>Clave pública original guardada al emparejar</Text>
-      <TextInput accessibilityLabel="Clave pública original de la identidad" style={styles.input} value={identityPublicKey} onChangeText={setIdentityPublicKey} editable={!busy} autoCapitalize="none" autoCorrect={false} maxLength={130}/>
-      <Text style={styles.label}>Contraseña de la copia · al menos 12 caracteres</Text>
-      <TextInput accessibilityLabel="Contraseña de la copia cifrada de identidad" style={styles.input} value={identityPassword} onChangeText={setIdentityPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
-      <Text style={styles.label}>Repite la contraseña para crear una copia</Text>
-      <TextInput accessibilityLabel="Confirmación de contraseña para crear la copia" style={styles.input} value={identityConfirmation} onChangeText={setIdentityConfirmation} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
-      <Button label="Crear copia cifrada con biometría" disabled={busy||identityPublicKey.length!==130||identityPassword.length<12||identityPassword!==identityConfirmation} onPress={confirmIdentityExport}/>
-      {identityBackup!==''&&<><Text selectable style={styles.value}>{identityBackup}</Text><Button label="Ocultar copia y cerrar" onPress={hide}/></>}
-      <Text style={styles.label}>Importar el JSON cifrado completo</Text>
-      <TextInput accessibilityLabel="Copia cifrada JSON de identidad para restaurar" style={styles.input} value={identityBackupInput} onChangeText={setIdentityBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1}/>
-      <Button label="Restaurar identidad original con biometría" disabled={busy||identityPublicKey.length!==130||identityPassword.length<12||identityBackupInput.length===0} onPress={confirmIdentityImport}/>
+    <View style={styles.card}><Text style={styles.heading}>Device identity</Text>
+      <Text style={styles.muted}>This encrypted copy recovers the same identity that authorizes your operations. Also save copies of your notes; no copy sets balance on its own. It is not automatically sent or copied.</Text>
+      <Button label="Consult my current identity" disabled={busy} onPress={()=>{void run(readIdentity);}}/>
+      <Text style={styles.label}>Original public key saved when pairing</Text>
+      <TextInput accessibilityLabel="Original public key to identity" style={styles.input} value={identityPublicKey} onChangeText={setIdentityPublicKey} editable={!busy} autoCapitalize="none" autoCorrect={false} maxLength={130}/>
+      <Text style={styles.label}>Copy password · at least 12 characters</Text>
+      <TextInput accessibilityLabel="Password of the encrypted copy of identity" style={styles.input} value={identityPassword} onChangeText={setIdentityPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
+      <Text style={styles.label}>Repeat password to create a copy</Text>
+      <TextInput accessibilityLabel="Password confirmation to create copy" style={styles.input} value={identityConfirmation} onChangeText={setIdentityConfirmation} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={1024}/>
+      <Button label="Create encrypted copy with biometrics" disabled={busy||identityPublicKey.length!==130||identityPassword.length<12||identityPassword!==identityConfirmation} onPress={confirmIdentityExport}/>
+      {identityBackup!==''&&<><Text selectable style={styles.value}>{identityBackup}</Text><Button label="Hide copy and close" onPress={hide}/></>}
+      <Text style={styles.label}>Import full JSON encryption</Text>
+      <TextInput accessibilityLabel="JSON encrypted copy of identity to restore" style={styles.input} value={identityBackupInput} onChangeText={setIdentityBackupInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={DEVICE_CUSTODY_BACKUP_MAX_SERIALIZED_BYTES_V1}/>
+      <Button label="Restore original identity with biometrics" disabled={busy||identityPublicKey.length!==130||identityPassword.length<12||identityBackupInput.length===0} onPress={confirmIdentityImport}/>
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Recuperar una escritura interrumpida</Text>
-      <Text style={styles.muted}>Usa la raíz HEX original y la revisión del ciphertext que conservas. No reemplaza un registro existente por otro ni vuelve a generar notas.</Text>
-      <TextInput accessibilityLabel="Raíz HEX original para recuperación local" style={styles.input} value={rootInput}
+    <View style={styles.card}><Text style={styles.heading}>Retrieve an interrupted write</Text>
+      <Text style={styles.muted}>It uses the original HEX root and the revision of the ciphertext you retain. It does not replace an existing record with another record or re-generate notes.</Text>
+      <TextInput accessibilityLabel="Original HEX root for local recovery" style={styles.input} value={rootInput}
         onChangeText={setRootInput} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={64} />
-      <TextInput accessibilityLabel="Revisión original del registro cifrado" style={styles.input} value={revisionInput}
+      <TextInput accessibilityLabel="Original revision of the encrypted registry" style={styles.input} value={revisionInput}
         onChangeText={setRevisionInput} editable={!busy} keyboardType="number-pad" maxLength={16} />
-      <Button label="Recuperar el mismo registro con biometría" disabled={busy || rootInput.length !== 64 || revisionInput.length === 0}
+      <Button label="Recover the same record with biometrics" disabled={busy || rootInput.length !== 64 || revisionInput.length === 0}
         onPress={() => { void run(recover); }} />
     </View>
     <View accessibilityLiveRegion="polite" style={styles.card}>{busy && <ActivityIndicator color="#253746" />}<Text style={styles.muted}>{notice}</Text></View>

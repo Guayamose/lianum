@@ -37,20 +37,20 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Lianum necesita Face ID para proteger tu clave y confirmar las autorizaciones que revisas."
+          "faceIDPermission": "Lianum uses Face ID to protect your keys and confirm the authorizations you review."
         }
       ],
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Confirma tu identidad antes de crear o utilizar tu clave de Lianum."
+          "faceIDPermission": "Lianum uses Face ID to protect your keys and confirm the authorizations you review."
         }
       ],
       "expo-font",
       [
         "expo-audio",
         {
-          "microphonePermission": "Lianum necesita el micr\u00f3fono para hablar con tu agente.",
+          "microphonePermission": "Lianum uses your microphone to talk to your agent.",
           "enableBackgroundPlayback": false,
           "enableBackgroundRecording": false
         }
@@ -58,7 +58,7 @@
       [
         "@config-plugins/react-native-webrtc",
         {
-          "microphonePermission": "Lianum necesita el micr\u00f3fono para hablar con tu agente.",
+          "microphonePermission": "Lianum uses your microphone to talk to your agent.",
           "cameraPermission": false
         }
       ],

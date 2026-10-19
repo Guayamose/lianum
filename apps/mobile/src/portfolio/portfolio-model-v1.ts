@@ -17,7 +17,7 @@ export function mergeNativeBalancesV25(previous:readonly NativeWalletAccountBala
 }
 export {fiatCentsV1} from '@lianum/mobile-protocol/wallet/valuation-v1';
 import {nativeFiatAmountsV1} from '@lianum/mobile-protocol/wallet/valuation-v1';
-export function formatFiatV1(cents:bigint|null,currency:DisplayCurrency){if(cents===null)return '—';const negative=cents<0n,value=negative?-cents:cents,whole=(value/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.'),fraction=(value%100n).toString().padStart(2,'0');return `${negative?'−':''}${currency==='USD'?'$':''}${whole},${fraction}${currency==='EUR'?' €':''}`;}
+export function formatFiatV1(cents:bigint|null,currency:DisplayCurrency){if(cents===null)return '—';const negative=cents<0n,value=negative?-cents:cents,whole=(value/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','),fraction=(value%100n).toString().padStart(2,'0');return `${negative?'−':''}${currency==='USD'?'$':'€'}${whole}.${fraction}`;}
 export function portfolioOverviewV1(accounts:readonly NativeWalletAccountV1[],balances:readonly NativeWalletAccountBalanceV1[],market:MarketSnapshot|null,currency:DisplayCurrency,network:'mainnet'|'testnet'='mainnet'){
  if(network!=='mainnet'&&network!=='testnet')throw Error('PORTFOLIO_NETWORK');
  const rows=accounts.filter(a=>a.network===network).map(account=>{const asset=portfolioAssets[account.chain],entry=balances.find(b=>same(b.account,account)),balance=entry?.status==='CONFIRMED'?entry.balance:null;const {total,available,reserved,occupied}=nativeFiatAmountsV1(balance,asset.decimals,asset.symbol,market,currency);

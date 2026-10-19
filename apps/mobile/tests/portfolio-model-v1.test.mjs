@@ -25,7 +25,7 @@ test('unknown account, wrong identity and testnet cannot silently inflate or com
  const testAccount={...accounts[0],network:'testnet'};const p=portfolioOverviewV1([...accounts,testAccount],[...balances,{...balances[0],account:testAccount}],market,'USD');assert.equal(p.rows.length,3);assert.equal(p.total,5500000n);
 });
 test('large atomic amounts and cents retain precision beyond Number.MAX_SAFE_INTEGER',()=>{
- const result=fiatCentsV1('9007199254740993000000000000000000',18,'ETH',market,'USD');assert.equal(result,1801439850948198600000n);assert.equal(formatFiatV1(123456789n,'EUR'),'1.234.567,89 €');assert.equal(formatFiatV1(null,'USD'),'—');
+ const result=fiatCentsV1('9007199254740993000000000000000000',18,'ETH',market,'USD');assert.equal(result,1801439850948198600000n);assert.equal(formatFiatV1(123456789n,'EUR'),'€1,234,567.89');assert.equal(formatFiatV1(null,'USD'),'—');
 });
 test('pending sends move their actual reservation into operations without double counting',()=>{
  const rows=balances.map(b=>({...b,balance:{...b.balance,hasPendingTransfer:true}}));const p=portfolioOverviewV1(accounts,rows,market,'USD');assert.equal(p.occupied,50000n);assert.equal(p.available+p.reserved+p.occupied,p.total);

@@ -7,10 +7,10 @@ const balance={account,status:'CONFIRMED',balance:{balanceAtomic:'20000000000000
 const data={accounts:[account],balances:[balance],transactions:[],observedAt:Date.now(),reading:false};
 const market=normalizeMarketSnapshotV1({data:{currency:'USD',rates:{BTC:'0.00002',ETH:'0.0005',SOL:'0.01',EUR:'0.9'}}});
 test('agent summary uses the actual observed amounts and fiat conversion without fictional allocations',()=>{
- const reply=localAgentReplyV1('Resume mi cartera',data,market,'EUR');
- assert.deepEqual(reply.facts.map(row=>row.value),['3.600,00 €','1.800,00 €','1.350,00 €','450,00 €']);
- assert.equal(reply.action.target,'wallet');assert.match(reply.text,/último resumen observado/);
- assert.equal(localAgentReplyV1('mi saldo',data,market,'USD').facts[0].value,'$4.000,00');
+ const reply=localAgentReplyV1('Summarize my wallet',data,market,'EUR');
+ assert.deepEqual(reply.facts.map(row=>row.value),['€3,600.00','€1,800.00','€1,350.00','€450.00']);
+ assert.equal(reply.action.target,'wallet');assert.match(reply.text,/latest observed summary/);
+ assert.equal(localAgentReplyV1('mi saldo',data,market,'USD').facts[0].value,'$4,000.00');
 });
 test('unknown balance or price cannot produce a zero or a fabricated complete portfolio',()=>{
  for(const [snapshot,prices]of [[{...data,balances:[]},market],[data,null],[{...data,accounts:[]},market]]){
@@ -18,14 +18,14 @@ test('unknown balance or price cannot produce a zero or a fabricated complete po
  }
 });
 test('permission requests take precedence and never claim a remote delegated budget',()=>{
- const reply=localAgentReplyV1('¿Qué permisos y límites tiene mi cartera?',data,market,'EUR');assert.equal(reply.action.target,'permissions');assert.match(reply.text,/no autoriza movimientos/);assert.equal(reply.facts,undefined);
+ const reply=localAgentReplyV1('¿Qué permisos y límites tiene mi cartera?',data,market,'EUR');assert.equal(reply.action.target,'permissions');assert.match(reply.text,/does not authorize a transfer/);assert.equal(reply.facts,undefined);
 });
 test('an active plan remains visible when no native transfers are pending',()=>{
- const reply=localAgentReplyV1('¿Qué operaciones están pendientes?',{...data,planActivity:{state:'running',completed:2,total:7}},market,'EUR');assert.equal(reply.action.target,'operations');assert.equal(reply.facts[1].value,'2 de 7');
+ const reply=localAgentReplyV1('¿Qué operaciones están pendientes?',{...data,planActivity:{state:'running',completed:2,total:7}},market,'EUR');assert.equal(reply.action.target,'operations');assert.equal(reply.facts[1].value,'2 of 7');
  const pending=localAgentReplyV1('mis envíos',{...data,transactions:[{status:'UNKNOWN'},{status:'PENDING'},{status:'CONFIRMED'}]},market,'EUR');assert.equal(pending.facts[0].value,'2');
 });
 test('financial instructions only offer the original preparation action and do not invent an amount',()=>{
- const reply=localAgentReplyV1('Envía todo mi saldo',data,market,'EUR');assert.equal(reply.action.target,'plan');assert.equal(reply.facts,undefined);assert.match(reply.text,/no genera ni ejecuta/);
+ const reply=localAgentReplyV1('Envía todo mi saldo',data,market,'EUR');assert.equal(reply.action.target,'plan');assert.equal(reply.facts,undefined);assert.match(reply.text,/does not (?:yet generate|create) or execute/);
  assert.equal(localAgentReplyV1('Ver propuestas',data,market,'EUR').action.target,'approvals');
 });
 test('conversation appends immutable ordered pairs and bounds retained messages and input size',()=>{

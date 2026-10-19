@@ -6,50 +6,50 @@ export type AgentActionV1='wallet'|'operations'|'permissions'|'plan'|'approvals'
 export type AgentReplyV1={text:string;facts?:{label:string;value:string}[];checks?:{label:string;complete:boolean}[];action?:{label:string;target:AgentActionV1}};
 export type AgentMessageV1=AgentReplyV1&{id:number;role:'you'|'agent';proposalLink?:string};
 export const agentPromptsV1=[
- {label:'Resume mi cartera',text:'Resume mi cartera',icon:'wallet'},
- {label:'Preparar un plan',text:'Quiero preparar un plan',icon:'swap'},
- {label:'Explica tus permisos',text:'¿Qué permisos y límites tienes?',icon:'shield'},
+ {label:"Summarize my wallet",text:"Summarize my wallet",icon:'wallet'},
+ {label:"Prepare a plan",text:"I want to prepare a plan.",icon:'swap'},
+ {label:"Explain your permissions",text:"What permissions and limits do you have?",icon:'shield'},
 ] as const;
 
 /** Finite local queries of observed wallet DATA. No model, signer, remote
  * permission lookup, generated allocation or execution is represented here. */
 export function localAgentReplyV1(text:string,data:WalletOverviewData,market:MarketSnapshot|null,currency:DisplayCurrency):AgentReplyV1{
  if(/permiso|autoriz|segur|l[ií]mite|permission|scope/i.test(text))return {
-  text:'Este chat puede resumir los datos disponibles de tu cartera. Escribir aquí no autoriza movimientos. Los planes y los cambios de permisos se revisan en sus propias pantallas.',
-  checks:[{label:'Consulta local sin firma ni envío de fondos',complete:true}],
-  action:{label:'Ver permisos y límites',target:'permissions'},
+  text:"This chat can summarize the wallet data available on this device. Sending a message does not authorize a transfer. Review plans and permission changes on their dedicated screens.",
+  checks:[{label:"Local lookup without signing or moving funds",complete:true}],
+  action:{label:"View permissions and limits",target:'permissions'},
  };
- if(/plan|estrateg|asign|rebalanc|invert|invierte|env[ií][aá]|transfiere|compr[ae]|vend[ae]|swap|allocat/i.test(text))return {
-  text:'Puedes preparar un plan indicando su presupuesto, destinatarios y condiciones. La preparación te mostrará los datos que debes revisar antes de autorizar. Este chat todavía no genera ni ejecuta planes.',
-  action:{label:'Preparar un plan',target:'plan'},
+ if(/plan|estrateg|asign|rebalanc|invert|invierte|env[ií][aá]|transfiere|compr[ae]|vend[ae]|swap|allocat|invest|send|transfer|buy|sell/i.test(text))return {
+  text:"Set a budget, recipients and conditions to prepare a plan. You will review the exact terms before authorizing it. This local chat does not create or execute plans.",
+  action:{label:"Prepare a plan",target:'plan'},
  };
  if(/aprobaci|propuesta|approval|proposal/i.test(text))return {
-  text:'En Aprobaciones puedes abrir las propuestas recibidas y revisar sus condiciones. El chat no ha consultado un buzón remoto de solicitudes.',
-  action:{label:'Abrir aprobaciones',target:'approvals'},
+  text:"Open Approvals to review received proposals and their terms. This local chat has not checked your remote inbox.",
+  action:{label:"Open Approvals",target:'approvals'},
  };
- if(/operaci[oó]n|operaciones|env[ií]o|movimiento|pendiente|transaction/i.test(text)){
+ if(/operaci[oó]n|operaciones|env[ií]o|movimiento|pendiente|transaction|operation|pending|activity/i.test(text)){
   const pending=pendingTransfersV1(data.transactions),plan=data.planActivity,activePlan=plan&&plan.state!=='complete';
   return {
-   text:pending.length?`En el registro de esta cartera hay ${pending.length===1?'un envío pendiente':pending.length+' envíos pendientes'}. Abre su detalle para consultar el resultado con el mismo identificador.`:activePlan?'Hay un plan pendiente de completar en el registro disponible. Puedes consultar sus pasos en Operaciones.':'En el registro disponible no aparecen envíos pendientes.',
-   facts:[{label:'Envíos por confirmar',value:String(pending.length)},...(activePlan?[{label:'Pasos del plan confirmados',value:`${plan.completed} de ${plan.total}`}]:[])],
-   checks:[{label:'Registro local de movimientos consultado',complete:true}],
-   action:{label:'Ver operaciones',target:'operations'},
+   text:pending.length?`This wallet has ${pending.length===1?"one pending transfer":pending.length+" pending transfers"}. Open its details to check the result using the same identifier.`:activePlan?"A saved plan is still in progress. Open Operations to check its steps.":"There are no pending transfers in the available record.",
+   facts:[{label:"Unconfirmed transfers",value:String(pending.length)},...(activePlan?[{label:"Confirmed plan steps",value:`${plan.completed} of ${plan.total}`}]:[])],
+   checks:[{label:"Local activity checked",complete:true}],
+   action:{label:"View operations",target:'operations'},
   };
  }
- if(/saldo|cartera|patrimonio|resum|balance|treasury|disponible|liquidez/i.test(text)){
+ if(/saldo|cartera|patrimonio|resum|balance|treasury|disponible|liquidez|wallet|summari|portfolio/i.test(text)){
   const p=portfolioOverviewV1(data.accounts,data.balances,market,currency,data.network??'mainnet');
   return p.complete?{
-   text:'Este es el último resumen observado de tu cartera. La valoración usa cotizaciones indicativas; consulta la cartera para comprobar sus datos más recientes.',
-   facts:[{label:'Patrimonio total',value:formatFiatV1(p.total,currency)},{label:'Disponible',value:formatFiatV1(p.available,currency)},{label:'Reservado',value:formatFiatV1(p.reserved,currency)},{label:'En operaciones',value:formatFiatV1(p.occupied,currency)}],
-   checks:[{label:'Saldos de las cuentas principales disponibles',complete:true},{label:'Valoración indicativa de mercado calculada',complete:true}],
-   action:{label:'Abrir cartera',target:'wallet'},
+   text:"Here is the latest observed summary of your wallet. Values use indicative market prices; open your wallet for the latest balances.",
+   facts:[{label:"Total balance",value:formatFiatV1(p.total,currency)},{label:"Available",value:formatFiatV1(p.available,currency)},{label:"Reserved",value:formatFiatV1(p.reserved,currency)},{label:"In progress",value:formatFiatV1(p.occupied,currency)}],
+   checks:[{label:"Wallet balances available",complete:true},{label:"Indicative market valuation calculated",complete:true}],
+   action:{label:"Open Wallet",target:'wallet'},
   }:{
-   text:'Falta confirmar algún saldo o cotización para mostrar un resumen completo. Los importes desconocidos no se cuentan como cero. Puedes abrir la cartera mientras termina la actualización.',
-   checks:[{label:'Saldos y cotizaciones completos',complete:false}],
-   action:{label:'Abrir cartera',target:'wallet'},
+   text:"Some balances or prices are still being checked. Unknown amounts are not counted as zero. You can open your wallet while the update finishes.",
+   checks:[{label:"Complete balances and market prices",complete:false}],
+   action:{label:"Open Wallet",target:'wallet'},
   };
  }
- return {text:'Puedo resumir tu cartera, mostrar los movimientos registrados o explicar los permisos. También puedes abrir la preparación de un plan para revisar sus condiciones. Esta conversación usa consultas locales; todavía no está conectada al agente con IA.'};
+ return {text:"I can summarize your wallet, show saved activity or explain permissions. You can also prepare a plan to review its terms. This local chat is not connected to the AI agent."};
 }
 export function appendAgentExchangeV1(messages:readonly AgentMessageV1[],raw:string,reply:AgentReplyV1):AgentMessageV1[]{
  const text=raw.trim();if(!text||text.length>2000)return [...messages];

@@ -8,7 +8,7 @@ const options: SecureStore.SecureStoreOptions = {
   requireAuthentication: true,
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   keychainService: 'org.lianum.wallet.pending.authenticated.v1',
-  authenticationPrompt: 'Acceder a tus operaciones pendientes de Lianum',
+  authenticationPrompt: "Access your pending Lianum operations",
 };
 export type PendingAuthorization = Readonly<{
   authorization: MobileAuthorization;

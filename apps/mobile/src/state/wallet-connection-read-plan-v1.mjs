@@ -21,7 +21,7 @@ export function walletConnectionReadTasksV1(entries,devicePublicKey,pagedModes){
   const modes=entry.kind==='PAGED'?(pagedModes?.[id]?.length?pagedModes[id]:['GRAPH']):[null];if(!Array.isArray(modes)||new Set(modes).size!==modes.length||entry.kind==='PAGED'&&modes.some(mode=>!['GRAPH','NOTE'].includes(mode)))fail();
   for(const [ordinal,descriptor]of descriptors.entries()){
    const route=entry.kind==='EXTERNAL_FLAT'?{origin:descriptor.origin,pairingId:descriptor.pairingId,lifetime:descriptor.lifetime,pool:descriptor.poolTerms.pool,assetId:descriptor.poolTerms.assetIdentity,genesis:descriptor.poolTerms.genesis,scope:descriptor.poolTerms.scope,policy:descriptor.poolTerms.policy,domain:descriptor.poolTerms.domainCommitment}:null;
-   for(const mode of modes)tasks.push(freeze({key:id+':'+ordinal+(mode?':'+mode:''),id,kind:entry.kind,profile:entry.profile,route,...(mode?{mode}:{}),label:entry.kind==='PAGED'?mode==='NOTE'?'Nota independiente':'Pagos entre redes':entry.kind==='POSITIONS'?'Posiciones vinculadas':(entry.protocol??'DeFi')+(descriptors.length>1?(ordinal===0?' · origen':' · activo recibido'):''),origin:entry.origin}));
+   for(const mode of modes)tasks.push(freeze({key:id+':'+ordinal+(mode?':'+mode:''),id,kind:entry.kind,profile:entry.profile,route,...(mode?{mode}:{}),label:entry.kind==='PAGED'?mode==='NOTE'?"Standalone note":"Inter-network payments":entry.kind==='POSITIONS'?"Related positions":(entry.protocol??'DeFi')+(descriptors.length>1?(ordinal===0?' · origen':" · asset received"):''),origin:entry.origin}));
   }
  }
  return freeze(tasks);

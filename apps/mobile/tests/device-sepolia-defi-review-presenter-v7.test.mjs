@@ -16,18 +16,18 @@ test('review keeps the exact maximum USDC and fractional shares without floating
   const view=presentDeviceSepoliaDefiReviewV7(review(),1200000);
   assert.equal(view.amount,'9007199254740993.123456 USDC');
   assert.equal(view.shares,'1.000001 stataUSDC');
-  assert.equal(view.confirmLabel,'Confirmar inversión');
+  assert.equal(view.confirmLabel,'Confirm investment');
   assert.equal(view.live,true);
-  assert.match(view.detail,/cuando la red acepte/);
-  assert.ok(!JSON.stringify(view).includes('Inversión confirmada'));
+  assert.match(view.detail,/when the network accepts the deposit/);
+  assert.ok(!JSON.stringify(view).includes('Investment confirmed'));
 });
 test('redemption identifies the public destination and the signed minimum',()=>{
   const source=review('MORPHO_V2','REDEEM'),view=presentDeviceSepoliaDefiReviewV7(source,1200000);
   assert.equal(view.shares,'1.000000000000000001 mvUSDC');
   assert.equal(view.amount,'1.000001 USDC');
   assert.equal(view.destination,source.underlyingReceiver);
-  assert.match(view.detail,/envío público es visible/);
-  assert.equal(view.confirmLabel,'Confirmar retirada');
+  assert.match(view.detail,/transfer is visible on the public network/);
+  assert.equal(view.confirmLabel,'Confirm withdrawal');
 });
 test('the exact authorization window closes without extending the signed deadline',()=>{
   const source=review();
@@ -35,6 +35,6 @@ test('the exact authorization window closes without extending the signed deadlin
   assert.equal(presentDeviceSepoliaDefiReviewV7(source,1000000).live,true);
   assert.equal(presentDeviceSepoliaDefiReviewV7(source,1599999).live,true);
   const expired=presentDeviceSepoliaDefiReviewV7(source,1600000);
-  assert.equal(expired.live,false);assert.match(expired.timeNotice,/caducado/);assert.equal(expired.validUntil,'1600');
+  assert.equal(expired.live,false);assert.match(expired.timeNotice,/expired/);assert.equal(expired.validUntil,'1600');
   assert.throws(()=>presentDeviceSepoliaDefiReviewV7({...source,maximumInputAtomic:'-1'},1200000));
 });

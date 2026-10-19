@@ -16,14 +16,14 @@ type Connection={client:Client;transport:Transport;controller:AbortController;pr
 export type PositionsConnectionRequestV1={id:string;profile:string;requestId:number;select?:boolean};
 function Fields({values}:{values:Record<string,string>}){return <>{Object.entries(values).map(([label,value])=><View key={label}><Text style={styles.label}>{label}</Text><Text selectable style={styles.value}>{value}</Text></View>)}</>;}
 const fresh=(head:DeviceDefiPositionHeadV1|null,now:number)=>head!==null&&head.observedAt<=now&&now-head.observedAt<=15000;
-const units=(value:string|null,unit='unidades mínimas de participaciones')=>value===null?'Por consultar':value+' '+unit;
-function ownAmount(row:PrivateWalletRowV1){if(row.state!=='LIVE'||row.available===null)return 'Por consultar';if(row.decimals===null)return units(row.available,'unidades mínimas');const digits=row.available.padStart(row.decimals+1,'0'),fraction=row.decimals?digits.slice(-row.decimals).replace(/0+$/,''):'';return digits.slice(0,row.decimals?-row.decimals:undefined)+(fraction?'.'+fraction:'')+' '+row.label;}
+const units=(value:string|null,unit="Share base units")=>value===null?"Not checked yet":value+' '+unit;
+function ownAmount(row:PrivateWalletRowV1){if(row.state!=='LIVE'||row.available===null)return "Not checked yet";if(row.decimals===null)return units(row.available,"Minimum units");const digits=row.available.padStart(row.decimals+1,'0'),fraction=row.decimals?digits.slice(-row.decimals).replace(/0+$/,''):'';return digits.slice(0,row.decimals?-row.decimals:undefined)+(fraction?'.'+fraction:'')+' '+row.label;}
 
 export default function DefiPositionsScreen({onObservation,onOpenDefi,onOpenHolding,walletState,connectionRegistry,connectionRequest,active=true,onBusyChange,onTransportClosed,onConnectionRead}:{onObservation?(value:DeviceDefiPositionObservationV1):void;onOpenDefi?():void;onOpenHolding?(route:PrivateWalletRowV1['route']):void;walletState?:PrivateWalletStateActorV1;connectionRegistry?:PublicConnectionRegistryV1;connectionRequest?:PositionsConnectionRequestV1|null;active?:boolean;onBusyChange?(busy:boolean):void;onTransportClosed?():void;onConnectionRead?(requestId:number,ok:boolean):void}={}){
  const [settingsOpen,setSettingsOpen]=useState(false),[detailsOpen,setDetailsOpen]=useState(false),[accountsOpen,setAccountsOpen]=useState(false),[failed,setFailed]=useState(false),[busy,setBusy]=useState(false);
  const [profileText,setProfileText]=useState(''),[saved,setSaved]=useState<readonly PublicWalletConnectionV1[]>([]),[connected,setConnected]=useState(false),[server,setServer]=useState<{origin:string;fingerprint:string}|null>(null);
  const [observation,setObservation]=useState<DeviceDefiPositionObservationV1|null>(null),[readExpiresAt,setReadExpiresAt]=useState<number|null>(null),[holdings,setHoldings]=useState<readonly PrivateWalletRowV1[]>([]);
- const [notice,setNotice]=useState('Consulta los activos de tu dispositivo o una cuenta vinculada. Cada una conserva su custodia.');
+ const [notice,setNotice]=useState("Check the assets of your device or a linked account. Each one retains its custody.");
  const mounted=useRef(true),activeRef=useRef(active),busyRef=useRef(false),epoch=useRef(0),connection=useRef<Connection|null>(null),closing=useRef<Promise<void>|null>(null),requestSeen=useRef<number|null>(null);
  const acquiring=useRef<{controller:AbortController;promise:Promise<Transport>}|null>(null);
  const callbacks=useRef({onBusyChange,onTransportClosed});activeRef.current=active;callbacks.current={onBusyChange,onTransportClosed};
@@ -32,10 +32,10 @@ export default function DefiPositionsScreen({onObservation,onOpenDefi,onOpenHold
  async function closeConnection(){epoch.current++;const selected=connection.current;connection.current=null;const pending=acquiring.current;acquiring.current=null;pending?.controller.abort();selected?.controller.abort();selected?.client.close();clearObservation();if(mounted.current)setConnected(false);const previous=closing.current;
   const openingDrain=pending?.promise.then(transport=>transport.close(),error=>{if(error instanceof Error&&error.message==='MOBILE_PAGED_TLS_CANCELLED')return;throw error;});
   const drain=Promise.all([previous,selected?.transport.close(),openingDrain]).then(()=>undefined);closing.current=drain;
-  try{await drain;if(closing.current===drain){closing.current=null;callbacks.current.onTransportClosed?.();}}catch{if(mounted.current){setFailed(true);setNotice('La conexión no pudo cerrarse. Bloquea la sesión antes de abrir otra conexión.');}throw Error('MOBILE_DEFI_POSITION_CLOSE');}
+  try{await drain;if(closing.current===drain){closing.current=null;callbacks.current.onTransportClosed?.();}}catch{if(mounted.current){setFailed(true);setNotice("The connection could not be closed. Lock the session before opening another connection.");}throw Error('MOBILE_DEFI_POSITION_CLOSE');}
  }
  async function run(work:()=>Promise<void>){if(busyRef.current||!activeRef.current||AppState.currentState!=='active')return;busyRef.current=true;setBusy(true);setFailed(false);callbacks.current.onBusyChange?.(true);
-  try{await work();}catch(error){await closeConnection().catch(()=>{});if(mounted.current&&activeRef.current){setFailed(true);setSettingsOpen(true);setNotice(error instanceof Error&&error.message==='MOBILE_AUTHENTICATION_CANCELLED'?'Consulta cancelada. Puedes volver a consultar la misma cuenta.':'No se ha podido consultar esa conexión. Sus importes siguen pendientes de confirmar.');}}
+  try{await work();}catch(error){await closeConnection().catch(()=>{});if(mounted.current&&activeRef.current){setFailed(true);setSettingsOpen(true);setNotice(error instanceof Error&&error.message==='MOBILE_AUTHENTICATION_CANCELLED'?"Check cancelled. You can check the same account again.":"This connection could not be consulted and its amounts remain to be confirmed.");}}
   finally{busyRef.current=false;callbacks.current.onBusyChange?.(false);if(mounted.current)setBusy(false);}
  }
  async function readPositions(selected:Connection,ticket:number){clearObservation();const descriptor=selected.profile.descriptor;walletState?.invalidatePositions(descriptor);const access=await selected.client.challenge();current(ticket,selected);
@@ -45,7 +45,7 @@ export default function DefiPositionsScreen({onObservation,onOpenDefi,onOpenHold
   const next=await selected.client.read(review,signature);current(ticket,selected);
   const heads=next.positions.positions.flatMap(row=>[row.ownership.observed,row.valuation.observed]).filter((head):head is DeviceDefiPositionHeadV1=>head!==null),expiry=Math.min(review.expiresAt,...heads.map(head=>head.observedAt+15000));
   if(expiry<=Date.now())throw Error('MOBILE_DEFI_POSITION_STALE');setObservation(next);setReadExpiresAt(expiry);onObservation?.(next);
-  setNotice(next.positions.positions.some(row=>row.ownership.status!=='LIVE')?'Hay posiciones pendientes de consultar; sus importes no están disponibles.':'Cuenta vinculada consultada. Las participaciones siguen bajo custodia de esa cuenta.');
+  setNotice(next.positions.positions.some(row=>row.ownership.status!=='LIVE')?"Positions are pending consultation; their amounts are not available.":"Linked account checked. Shares remain in that account’s custody.");
  }
  async function connect(text=profileText,selectConnection=true){const packet=parseDeviceDefiPositionsConnectionProfileV1(text),key=await readDevicePublicKey();if(!key||key!==packet.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');await closeConnection();if(!mounted.current||!activeRef.current||AppState.currentState!=='active')return;
   const ticket=epoch.current,controller=new AbortController(),pending={controller,promise:createDeviceDefiPositionsPinnedTransportV1(packet,controller.signal)};acquiring.current=pending;let transport:Transport|null=null;
@@ -56,43 +56,43 @@ export default function DefiPositionsScreen({onObservation,onOpenDefi,onOpenHold
  async function refresh(){const selected=connection.current;if(!selected)throw Error('MOBILE_DEFI_CONNECTION_REQUIRED');const key=await readDevicePublicKey();if(key!==selected.profile.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');await readPositions(selected,epoch.current);}
  async function importConnection(){const text=await readDeviceDefiPositionsConnectionClipboardV1();if(!mounted.current||!activeRef.current)return;setProfileText(text);await connect(text);}
  useEffect(()=>{mounted.current=true;const subscription=AppState.addEventListener('change',value=>{if(value==='background')void closeConnection().catch(()=>{});});return()=>{mounted.current=false;subscription.remove();void closeConnection().catch(()=>{});};},[]);
- useEffect(()=>{if(!active){void closeConnection().catch(()=>{});return;}let cancelled=false;void(async()=>{if(connectionRegistry){const rows=await connectionRegistry.list();if(!cancelled){setSaved(rows.filter(row=>row.kind==='POSITIONS'));if(!profileText){const selected=await connectionRegistry.selected('POSITIONS');if(selected&&!cancelled)setProfileText(selected.profile);}}}})().catch(()=>{if(!cancelled){setFailed(true);setNotice('La conexión guardada no pudo validarse. Importa de nuevo su perfil público.');}});return()=>{cancelled=true;};},[active,connectionRegistry]);
+ useEffect(()=>{if(!active){void closeConnection().catch(()=>{});return;}let cancelled=false;void(async()=>{if(connectionRegistry){const rows=await connectionRegistry.list();if(!cancelled){setSaved(rows.filter(row=>row.kind==='POSITIONS'));if(!profileText){const selected=await connectionRegistry.selected('POSITIONS');if(selected&&!cancelled)setProfileText(selected.profile);}}}})().catch(()=>{if(!cancelled){setFailed(true);setNotice("The saved connection could not be validated. Reimport your public profile.");}});return()=>{cancelled=true;};},[active,connectionRegistry]);
  useEffect(()=>{if(active&&connectionRequest&&!busyRef.current&&requestSeen.current!==connectionRequest.requestId){const request=connectionRequest;requestSeen.current=request.requestId;setProfileText(request.profile);let ok=false;void run(async()=>{await connect(request.profile,request.select!==false);ok=true;}).finally(()=>onConnectionRead?.(request.requestId,ok));}},[active,connectionRequest,busy]);
- useEffect(()=>{if(readExpiresAt===null)return;const timer=setTimeout(()=>{clearObservation();if(mounted.current)setNotice('La consulta ha caducado. Actualiza esa misma cuenta para conocer sus importes.');},Math.max(0,readExpiresAt-Date.now()));return()=>clearTimeout(timer);},[readExpiresAt]);
+ useEffect(()=>{if(readExpiresAt===null)return;const timer=setTimeout(()=>{clearObservation();if(mounted.current)setNotice("The consultation has expired. Update that same account to find out your amounts.");},Math.max(0,readExpiresAt-Date.now()));return()=>clearTimeout(timer);},[readExpiresAt]);
  useEffect(()=>{if(!walletState)return;const update=()=>setHoldings(walletState.snapshot().rows.filter(row=>row.custody==='DEVICE'&&row.route.component==='DEVICE_SHARE_NOTE'));update();const timer=setInterval(update,1000);return()=>clearInterval(timer);},[walletState]);
  const now=Date.now(),valid=observation!==null&&readExpiresAt!==null&&now<readExpiresAt;
  const readyCount=valid?observation.positions.positions.filter(row=>row.ownership.status==='LIVE'&&fresh(row.ownership.observed,now)&&row.ownership.balances!==null).length:0;
- return <WalletScreenLayout title="Mis inversiones" subtitle="Activos en tu wallet y participaciones de cuentas vinculadas.">
-  <WalletStatus kind={failed?'error':valid?'success':'info'} title={busy?'Actualizando tus inversiones':failed?'Consulta pendiente':valid?'Consulta actualizada':'Actualiza para ver tus inversiones'} detail={notice}/>
-  <WalletCard title="Cuenta vinculada" subtitle={connected?'Esta consulta conserva la misma cuenta y sus activos.':profileText?'Tu conexión guardada está lista para consultar.':'Conecta la cuenta de inversión que te entrega el ordenador.'}>
-   <WalletButton label={connected?'Actualizar inversiones':profileText?'Consultar cuenta guardada':'Conectar cuenta de inversión'} loading={busy} onPress={()=>void run(connected?refresh:profileText?()=>connect():importConnection)}/>
+ return <WalletScreenLayout title="My investments" subtitle="Assets in your wallet and shares in linked accounts.">
+  <WalletStatus kind={failed?'error':valid?'success':'info'} title={busy?"Updating your investments":failed?"Pending consultation":valid?"Updated consultation":"Update to see your investments"} detail={notice}/>
+  <WalletCard title="Linked account" subtitle={connected?"This consultation retains the same account and its assets.":profileText?"Your saved connection is ready for consultation.":"Connect the investment account using the public profile provided by its operator."}>
+   <WalletButton label={connected?"Update investments":profileText?"Check Saved Account":"Connect investment account"} loading={busy} onPress={()=>void run(connected?refresh:profileText?()=>connect():importConnection)}/>
    {connected&&server&&<Text selectable style={styles.muted}>{server.origin}</Text>}
-   {valid&&<Text style={styles.muted}>{readyCount} de {observation.positions.positions.length} posiciones consultadas. Actualiza cuando la lectura caduque.</Text>}
-   <WalletButton compact label={accountsOpen?'Ocultar cuentas':'Cambiar cuenta o conexión'} tone="secondary" disabled={busy} onPress={()=>setAccountsOpen(value=>!value)}/>
+   {valid&&<Text style={styles.muted}>{readyCount}  of {observation.positions.positions.length}  Positions consulted. Updates when reading expires.</Text>}
+   <WalletButton compact label={accountsOpen?"Hide accounts":"Change account or connection"} tone="secondary" disabled={busy} onPress={()=>setAccountsOpen(value=>!value)}/>
    {accountsOpen&&<>
-    {saved.map((row,index)=><View key={row.id}><WalletButton compact label={'Consultar cuenta '+(index+1)} tone="secondary" disabled={busy} onPress={()=>void run(()=>connect(row.profile))}/><Text selectable style={styles.accountOrigin}>{row.origin}</Text></View>)}
-    <WalletButton compact label="Importar conexión de posiciones" tone="secondary" disabled={busy} onPress={()=>void run(importConnection)}/>
+    {saved.map((row,index)=><View key={row.id}><WalletButton compact label={"Check account "+(index+1)} tone="secondary" disabled={busy} onPress={()=>void run(()=>connect(row.profile))}/><Text selectable style={styles.accountOrigin}>{row.origin}</Text></View>)}
+    <WalletButton compact label="Import Position Connection" tone="secondary" disabled={busy} onPress={()=>void run(importConnection)}/>
    </>}
   </WalletCard>
-  {valid&&observation.positions.positions.map((row,index)=>{const live=row.ownership.status==='LIVE'&&fresh(row.ownership.observed,now)&&row.ownership.balances!==null,valued=live&&row.valuation.status==='LIVE'&&fresh(row.valuation.observed,now),balance=live?row.ownership.balances:null;return <WalletCard key={row.shareAssetId} title={'Inversión '+(index+1)} subtitle={live?'Participaciones en la cuenta vinculada':'Pendiente de comprobar'}>
-   <Text style={styles.label}>Disponible en esta cuenta</Text><Text selectable style={styles.balance}>{units(balance?.available??null)}</Text>
-   {live&&row.ownership.pendingRequests&&row.ownership.pendingRequests.length>0&&<WalletStatus kind="warning" title="Operación pendiente" detail="Actualiza el mismo trabajo antes de preparar otra operación."/>}
-   <Text style={styles.muted}>Estas participaciones permanecen en la cuenta vinculada. Su consulta no las mueve a tu wallet.</Text>
+  {valid&&observation.positions.positions.map((row,index)=>{const live=row.ownership.status==='LIVE'&&fresh(row.ownership.observed,now)&&row.ownership.balances!==null,valued=live&&row.valuation.status==='LIVE'&&fresh(row.valuation.observed,now),balance=live?row.ownership.balances:null;return <WalletCard key={row.shareAssetId} title={"Investment "+(index+1)} subtitle={live?"Shares in the related account":"Pending verification"}>
+   <Text style={styles.label}>Available in this account</Text><Text selectable style={styles.balance}>{units(balance?.available??null)}</Text>
+   {live&&row.ownership.pendingRequests&&row.ownership.pendingRequests.length>0&&<WalletStatus kind="warning" title="Pending operation" detail="Check this same operation before preparing another."/>}
+   <Text style={styles.muted}>These shares remain in the linked account. Your query does not move them to your wallet.</Text>
    {detailsOpen&&<>
-    <Fields values={{Reservadas:units(balance?.reserved??null),Bloqueadas:units(balance?.locked??null),'En recuperación':units(balance?.recovery??null),'Estimación del activo de origen':units(valued?row.valuation.estimatedRedeemableUnderlying:null,'unidades mínimas del activo de origen')}}/>
-    <Text style={styles.muted}>El servicio expresa unidades mínimas. Las categorías son independientes; la estimación no es saldo disponible ni confirma liquidez de retirada.</Text>
-    <Fields values={{Custodia:'Cuenta original del servicio',Vault:'0x'+row.vault,'Activo de origen':'0x'+row.underlyingToken,'Identidad de participaciones':row.shareAssetId,'Bloque consultado':live&&row.ownership.observed?row.ownership.observed.blockNumber:'Por consultar'}}/>
+    <Fields values={{"Reserved":units(balance?.reserved??null),"Locked":units(balance?.locked??null),"In recovery":units(balance?.recovery??null),"Estimated underlying assets":units(valued?row.valuation.estimatedRedeemableUnderlying:null,"Underlying asset base units")}}/>
+    <Text style={styles.muted}>The service reports amounts in base units. Each category is separate; the estimate is not an available balance or a guarantee of withdrawal liquidity.</Text>
+    <Fields values={{"Custody":"Original service account",Vault:'0x'+row.vault,"Source assets":'0x'+row.underlyingToken,"Share asset identity":row.shareAssetId,"Block consulted":live&&row.ownership.observed?row.ownership.observed.blockNumber:"Not checked yet"}}/>
    </>}
   </WalletCard>;})}
-  <WalletCard title="En mi wallet" subtitle="Estos activos recibidos están bajo la custodia de tu dispositivo.">
-   {holdings.length===0&&<Text style={styles.muted}>Cuando consultes un activo recibido aparecerá aquí. Puedes abrirlo desde su operación DeFi.</Text>}
-   {holdings.map(row=><View key={row.key} style={styles.holding}><Text style={styles.label}>{row.label}</Text><Text selectable style={styles.balance}>{ownAmount(row)}</Text><Text style={styles.muted}>{row.state==='LIVE'?'Disponible en esta wallet.':'Actualiza este activo para comprobar su saldo.'}</Text>{onOpenHolding&&<WalletButton compact label="Ver este activo" tone="secondary" disabled={busy} onPress={()=>onOpenHolding(row.route)}/>}</View>)}
-   {onOpenDefi&&<WalletButton label="Intercambiar o invertir" tone="secondary" disabled={busy} onPress={onOpenDefi}/>}
+  <WalletCard title="In my wallet" subtitle="These received assets are in the custody of your device.">
+   {holdings.length===0&&<Text style={styles.muted}>When you check a received asset it will appear here. You can open it from your DeFi operation.</Text>}
+   {holdings.map(row=><View key={row.key} style={styles.holding}><Text style={styles.label}>{row.label}</Text><Text selectable style={styles.balance}>{ownAmount(row)}</Text><Text style={styles.muted}>{row.state==='LIVE'?"Available in this wallet.":"Update this asset to check its balance."}</Text>{onOpenHolding&&<WalletButton compact label="See this asset" tone="secondary" disabled={busy} onPress={()=>onOpenHolding(row.route)}/>}</View>)}
+   {onOpenDefi&&<WalletButton label="Exchange or invest" tone="secondary" disabled={busy} onPress={onOpenDefi}/>}
   </WalletCard>
-  <WalletButton compact label={detailsOpen?'Ocultar detalles':'Detalles de posiciones y custodia'} tone="secondary" disabled={busy} onPress={()=>setDetailsOpen(value=>!value)}/>
-  <WalletButton compact label={settingsOpen?'Ocultar conexión avanzada':'Conexión avanzada'} tone="secondary" disabled={busy} onPress={()=>setSettingsOpen(value=>!value)}/>
-  {settingsOpen&&<WalletCard title="Perfil de esta cuenta" subtitle="Usa el perfil público de posiciones exportado por el servicio.">
-   <TextInput accessibilityLabel="Perfil público de posiciones" value={profileText} onChangeText={setProfileText} editable={!busy} multiline autoCapitalize="none" autoCorrect={false} style={styles.input}/><WalletButton label="Conectar perfil pegado" disabled={busy||profileText===''} onPress={()=>void run(()=>connect())}/>{server&&<Fields values={{Servidor:server.origin,'Huella TLS':server.fingerprint.match(/.{4}/g)!.join(' ')}}/>}
+  <WalletButton compact label={detailsOpen?"Hide Details":"Position details and custody"} tone="secondary" disabled={busy} onPress={()=>setDetailsOpen(value=>!value)}/>
+  <WalletButton compact label={settingsOpen?"Hide Advanced Connection":"Advanced connection"} tone="secondary" disabled={busy} onPress={()=>setSettingsOpen(value=>!value)}/>
+  {settingsOpen&&<WalletCard title="Profile of this account" subtitle="Use the public profile of positions exported by the service.">
+   <TextInput accessibilityLabel="Public position profile" value={profileText} onChangeText={setProfileText} editable={!busy} multiline autoCapitalize="none" autoCorrect={false} style={styles.input}/><WalletButton label="Connect pasted profile" disabled={busy||profileText===''} onPress={()=>void run(()=>connect())}/>{server&&<Fields values={{"Server":server.origin,"TLS fingerprint":server.fingerprint.match(/.{4}/g)!.join(' ')}}/>}
   </WalletCard>}
  </WalletScreenLayout>;
 

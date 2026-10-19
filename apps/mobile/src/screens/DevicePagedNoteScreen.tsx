@@ -12,7 +12,7 @@ import {readDevicePublicKey,signDevicePagedOwnerPermissionV3} from '../custody/k
  * the reviewed Operaciones flow; this screen never offers an unsigned legacy
  * deposit/withdrawal path or retries a financial effect. */
 export default function DevicePagedNoteScreen({onObservation,onInvalidate,onOpenOperations,active=true,onBusyChange,onTransportClosed,onConnectionRead,connectionRegistry,connectionRequest}:{onObservation?:(value:DevicePagedWalletDisplayV3)=>Promise<void>;onInvalidate?:()=>void;onOpenOperations?:()=>void;active?:boolean;onBusyChange?:(busy:boolean)=>void;onTransportClosed?:()=>void;onConnectionRead?:(requestId:number,ok:boolean)=>void;connectionRegistry?:PublicConnectionRegistryV1;connectionRequest?:{id:string;profile:string;requestId:number;select?:boolean;existingOnly?:boolean}|null}){
- const [pairing,setPairing]=useState(''),[summary,setSummary]=useState<DevicePagedSummaryV3|null>(null),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[message,setMessage]=useState('Importa el perfil público original para consultar esta custodia independiente.');
+ const [pairing,setPairing]=useState(''),[summary,setSummary]=useState<DevicePagedSummaryV3|null>(null),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false),[message,setMessage]=useState("Import the original public profile to consult this independent custody.");
  const [showConnectionInput,setShowConnectionInput]=useState(false),[connectionPreview,setConnectionPreview]=useState<{origin:string;fingerprint:string}|null>(null);
  const activeRef=useRef(active),seenRequest=useRef<number|null>(null);activeRef.current=active;
  const busyRef=useRef(false),epoch=useRef(0),current=useRef<any>(null),acquiring=useRef<Promise<any>|null>(null),abort=useRef<AbortController|null>(null);
@@ -20,12 +20,12 @@ export default function DevicePagedNoteScreen({onObservation,onInvalidate,onOpen
  async function stop(state:any){if(state)await Promise.allSettled([state.api?.close(),state.vault?.close(),state.transport?.close()]);}
  async function close(){setConnectionPreview(null);epoch.current++;abort.current?.abort();setSummary(null);const held=current.current;current.current=null;await stop(held);if(acquiring.current)await stop(await acquiring.current.catch(()=>null));}
  useEffect(()=>{const change=AppState.addEventListener('change',state=>{if(state==='background'){void close();setPairing('');}});return()=>{change.remove();void close();};},[]);
- function run(fn:()=>Promise<void>){if(busyRef.current||!activeRef.current)return;busyRef.current=true;onBusyChange?.(true);setBusy(true);setFailed(false);const work=fn(),token=epoch.current;return work.catch(()=>{if(epoch.current===token){onInvalidate?.();setSummary(value=>value?{...value,available:null,noteState:'UNKNOWN'}:null);setFailed(true);setMessage('No se confirmó la consulta. Conserva la conexión y consulta el estado original; no se ha repetido ningún movimiento.');}}).finally(()=>{busyRef.current=false;setBusy(false);onBusyChange?.(false);});}
+ function run(fn:()=>Promise<void>){if(busyRef.current||!activeRef.current)return;busyRef.current=true;onBusyChange?.(true);setBusy(true);setFailed(false);const work=fn(),token=epoch.current;return work.catch(()=>{if(epoch.current===token){onInvalidate?.();setSummary(value=>value?{...value,available:null,noteState:'UNKNOWN'}:null);setFailed(true);setMessage("The query was not confirmed. Keep the connection and consult the original status; no movement has been repeated.");}}).finally(()=>{busyRef.current=false;setBusy(false);onBusyChange?.(false);});}
  async function display(state:any,token:number){const next=await state.vault.summary();live(token);if(onObservation){const value=await state.vault.walletDisplay();live(token);await onObservation(value);live(token);}setSummary(next);}
  async function sign(consent:any,state:any,token:number){const signature=await signDevicePagedOwnerPermissionV3(consent,state.descriptor.origin,state.descriptor.pairingId,abort.current?.signal);live(token);return signature;}
  async function refresh(state:any,token:number){
   if(!state||!abort.current)throw Error('MOBILE_PAGED_PAIRING');await state.vault.beginReadStorage(abort.current.signal);
-  try{const draft=await state.vault.readDraft();live(token);const consent=await state.api.challenge(draft);live(token);const signature=await sign(consent,state,token),status=await state.api.submit(consent,signature);live(token);await state.vault.acceptStatus(status);live(token);state.status=status;await display(state,token);setMessage('Estado original consultado. Los ingresos y retiradas nuevos se revisan en Operaciones.');}
+  try{const draft=await state.vault.readDraft();live(token);const consent=await state.api.challenge(draft);live(token);const signature=await sign(consent,state,token),status=await state.api.submit(consent,signature);live(token);await state.vault.acceptStatus(status);live(token);state.status=status;await display(state,token);setMessage("Original state consulted. New deposits and withdrawals are reviewed in Operations.");}
   finally{state.vault.endReadStorage();}
  }
  async function connect(rawProfile=pairing,selectConnection=true,existingOnly=false){
@@ -42,16 +42,16 @@ export default function DevicePagedNoteScreen({onObservation,onInvalidate,onOpen
   const consent=await state.api.challenge(draft);live(token);const signature=await sign(consent,state,token);await state.vault.consumeArm(arm,consent);live(token);const row=await state.api.submit(consent,signature);live(token);await state.vault.acceptRow(row);live(token);await refresh(state,token);
  }
  const button=(label:string,fn:()=>Promise<void>,disabled=false)=><WalletButton label={label} disabled={busy||disabled} tone="secondary" onPress={()=>run(fn)}/>;
- return <WalletScreenLayout title="Consulta de custodia independiente" subtitle="Estado y conciliación de la misma nota; sin nuevos movimientos.">
-  <WalletStatus kind={failed?'warning':'info'} title={busy?'Consultando estado original':'Consulta y recuperación'} detail={message}/>
-  <WalletCard title="Conexión original">
-   {button('Importar conexión del ordenador',importConnection,current.current!==null)}
-   {button(showConnectionInput?'Ocultar perfil pegado':'Pegar conexión manualmente',async()=>setShowConnectionInput(value=>!value),current.current!==null)}
-   {showConnectionInput&&<><WalletField label="Perfil público de conexión" value={pairing} editable={!busy&&current.current===null} onChangeText={setPairing}/>{button('Conectar perfil pegado',()=>connect(),current.current!==null||pairing.length===0)}</>}
+ return <WalletScreenLayout title="Independent custody consultation" subtitle="Status and reconciliation of the same note; no new movements.">
+  <WalletStatus kind={failed?'warning':'info'} title={busy?"Checking original status":"Consultation and recovery"} detail={message}/>
+  <WalletCard title="Original connection">
+   {button("Import Computer Connection",importConnection,current.current!==null)}
+   {button(showConnectionInput?"Hide profile pasted":"Paste connection manually",async()=>setShowConnectionInput(value=>!value),current.current!==null)}
+   {showConnectionInput&&<><WalletField label="Public connection profile" value={pairing} editable={!busy&&current.current===null} onChangeText={setPairing}/>{button("Connect pasted profile",()=>connect(),current.current!==null||pairing.length===0)}</>}
    {connectionPreview&&<><Text style={{color:walletColors.muted}}>{connectionPreview.origin}</Text><Text selectable style={{color:walletColors.muted}}>{connectionPreview.fingerprint}</Text></>}
-   {button('Leer estado original',()=>refresh(current.current,epoch.current),current.current===null)}{button('Cerrar conexión',close,current.current===null)}
+   {button("Read original status",()=>refresh(current.current,epoch.current),current.current===null)}{button("Close connection",close,current.current===null)}
   </WalletCard>
-  {summary&&<WalletCard title="Nota conservada"><Text style={{color:walletColors.text}}>Estado: {summary.noteState}</Text><Text style={{color:walletColors.text}}>Disponible: {summary.available??'pendiente de consultar'} unidades demo</Text>{summary.jobs.map(job=><WalletCard key={job.jobId} title={job.mode==='deposit'?'Ingreso original':'Retirada original'}><Text style={{color:walletColors.muted}}>{job.stage}</Text>{['UNKNOWN','PROVED','PROVING'].includes(job.stage)&&button('Consultar mismo trabajo',()=>observe(job))}</WalletCard>)}</WalletCard>}
-  <WalletCard title="Ingresos y retiradas"><Text style={{color:walletColors.muted}}>Esta pantalla conserva las custodias anteriores y permite observar sus trabajos. Los movimientos nuevos requieren el recorrido de revisión y autorización de Operaciones; una nota independiente no se transforma en una nota de grafo.</Text>{onOpenOperations&&<WalletButton label="Abrir Operaciones" onPress={onOpenOperations} disabled={busy}/>}</WalletCard>
+  {summary&&<WalletCard title="Note preserved"><Text style={{color:walletColors.text}}>Status: {summary.noteState}</Text><Text style={{color:walletColors.text}}>Available: {summary.available??"to be consulted"}  demo units</Text>{summary.jobs.map(job=><WalletCard key={job.jobId} title={job.mode==='deposit'?"Original deposit":"Original withdrawal"}><Text style={{color:walletColors.muted}}>{job.stage}</Text>{['UNKNOWN','PROVED','PROVING'].includes(job.stage)&&button("Consult the same job",()=>observe(job))}</WalletCard>)}</WalletCard>}
+  <WalletCard title="deposit and withdrawals"><Text style={{color:walletColors.muted}}>This screen retains the previous custodys and allows you to observe your work. New movements require the revision route and authorization of Operations; an independent note is not transformed into a graph note.</Text>{onOpenOperations&&<WalletButton label="Open Operations" onPress={onOpenOperations} disabled={busy}/>}</WalletCard>
  </WalletScreenLayout>;
 }

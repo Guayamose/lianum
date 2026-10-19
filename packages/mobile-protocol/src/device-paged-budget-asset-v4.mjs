@@ -16,6 +16,6 @@ export function assertDevicePagedPublicNetworkIdDataV4(networkId,family){
  * converts units, supplies economic terms or labels an unknown asset ETH. */
 export function devicePagedBudgetAmountPresentationDataV4(rawAmount,descriptor,rawMetadata=null){
  need(arguments.length===2||arguments.length===3);P.pagedOwnerUintV3(rawAmount,true);const d=P.normalizeDevicePagedDescriptorV3(descriptor);
- if(rawMetadata!==null){const m=normalizeDevicePagedPublicFundingMetadataDataV4(rawMetadata,d);return Object.freeze({amount:rawAmount+' wei',unit:'wei',asset:'ETH',decimals:m.budgetAsset.decimals,network:'Ethereum Sepolia',funding:'Patrocinado por el operador en redes de prueba',known:true});}
- const local=d.chainId==='31337';return Object.freeze({amount:rawAmount+(local?' unidades demo':' unidades del activo de la operación'),unit:local?'unidades demo':'unidades del activo',asset:null,decimals:null,network:local?'Ethereum local':'Red de la operación',funding:null,known:false});
+ if(rawMetadata!==null){const m=normalizeDevicePagedPublicFundingMetadataDataV4(rawMetadata,d);return Object.freeze({amount:rawAmount+' wei',unit:'wei',asset:'ETH',decimals:m.budgetAsset.decimals,network:'Ethereum Sepolia',funding:'Sponsored by the operator on testnets',known:true});}
+ const local=d.chainId==='31337';return Object.freeze({amount:rawAmount+(local?' demo units':' operation asset units'),unit:local?'demo units':'asset units',asset:null,decimals:null,network:local?'Local Ethereum':'Operation network',funding:null,known:false});
 }

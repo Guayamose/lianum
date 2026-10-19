@@ -23,20 +23,20 @@ export function presentDeviceSepoliaDefiReviewV7(raw, now = Date.now()) {
   const live = start <= BigInt(now) && BigInt(now) < end;
   return Object.freeze({
     protocol,
-    title: investing ? 'Revisar inversión en ' + protocol : 'Revisar retirada de ' + protocol,
-    confirmLabel: investing ? 'Confirmar inversión' : 'Confirmar retirada',
+    title: investing ? "Review investment in " + protocol : "Review withdrawal of " + protocol,
+    confirmLabel: investing ? "Confirm investment" : "Confirm withdrawal",
     shares,
-    amountLabel: investing ? 'Máximo que se utilizará' : 'Mínimo que recibirás',
+    amountLabel: investing ? "Maximum to be used" : "Minimum you will receive",
     amount: formatDeviceSepoliaDefiAtomicV7(investing ? review.maximumInputAtomic : review.minimumAssetsAtomic, 6) + ' USDC',
-    destinationLabel: investing ? 'Participaciones privadas' : 'Dirección que recibirá USDC',
-    destination: investing ? 'Se recibirán en tu wallet, bajo la custodia de este dispositivo.' : review.underlyingReceiver,
+    destinationLabel: investing ? "Private shares" : "Address receiving USDC",
+    destination: investing ? "They will be received in your wallet, in the custody of this device." : review.underlyingReceiver,
     detail: investing
-      ? 'La operación se confirmará cuando la red acepte el ingreso y puedas consultar las participaciones recibidas.'
-      : 'Se retirarán estas participaciones y se enviará USDC a la dirección revisada. El envío público es visible en la red.',
+      ? "The investment is confirmed when the network accepts the deposit and the received shares can be verified."
+      : "These shares will be redeemed and USDC sent to the reviewed address. The transfer is visible on the public network.",
     validFrom: review.validFrom,
     validUntil: review.validUntil,
     live,
-    timeNotice: live ? 'La autorización incluye los importes, el destino y este plazo.'
-      : BigInt(now) < start ? 'La ventana de esta operación todavía no ha empezado.' : 'Esta propuesta ha caducado. Actualiza antes de autorizar.',
+    timeNotice: live ? "The authorization includes the amounts, destination and time limit."
+      : BigInt(now) < start ? "The window of this operation hasn't started yet." : "This proposal has expired. Refresh it before authorizing.",
   });
 }

@@ -33,7 +33,7 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
   const [privateState, setPrivateState] = useState<OriginalPrivateStateObservationV1 | null>(null);
   const [busy, setBusy] = useState(false), busyRef = useRef(false);
   const [available, setAvailable] = useState(false);
-  const [notice, setNotice] = useState('Introduce la vinculación entregada por el operador de tu cuenta.');
+  const [notice, setNotice] = useState("Enter the link delivered by your account operator.");
   const [access, setAccess] = useState<OriginalAccountAccessV2 | null>(null);
   const [review, setReview] = useState<OriginalAccountReviewV2 | null>(null);
   const [diagnostic, setDiagnostic] = useState<OriginalAccountDiagnosticV2 | null>(null);
@@ -63,7 +63,7 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
     const generation = observationEpoch.current;
     const limit = setTimeout(() => {
       if (mounted.current && observationEpoch.current === generation) {
-        setPrivateState(null); setNotice('La lectura de saldo ha caducado. Vuelve a autorizar una consulta para actualizarla.');
+        setPrivateState(null); setNotice("The balance reading has expired. Reauthorize a query to update it.");
       }
     }, Math.max(0, privateState.observed.observedAt + 15_000 - Date.now()));
     return () => clearTimeout(limit);
@@ -72,7 +72,7 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true);
     try { await work(); }
-    catch(error) { if (mounted.current) setNotice(originalFlatIngressFailureMessageV3(error)??'No se pudo completar la consulta. Conserva la petición original y comprueba el servicio.'); }
+    catch(error) { if (mounted.current) setNotice(originalFlatIngressFailureMessageV3(error)??"Could not complete the query. Keep the original request and check the service."); }
     finally { busyRef.current = false; if (mounted.current) setBusy(false); }
   }
   function api() {
@@ -89,7 +89,7 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
     const client = createOriginalAccountApiV2({ descriptor: { origin, pairingId, devicePublicKey: key }, fetchImpl: expoFetch });
     await client.state();
     if (!mounted.current || AppState.currentState !== 'active' || observationEpoch.current !== generation) return;
-    setAvailable(true); setNotice('Servicio disponible. Cada consulta requiere su propio consentimiento.');
+    setAvailable(true); setNotice("Service available. Each consultation requires your own consent.");
   }
   async function requestAccess() {
     invalidate(); const ticket = consent.begin();
@@ -97,8 +97,8 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
     const selected = consent.finishAccess(ticket, value);
     if (!mounted.current) return;
     accessLease.current = selected.lease; setAccess(selected.value);
-    setNotice(financialRead ? 'Autoriza que se muestre la cuenta y el pool cuyo saldo privado quieres consultar.'
-      : 'Autoriza primero que el servicio muestre la revisión privada de la cuenta vinculada.');
+    setNotice(financialRead ? "Authorize the service to show the account and pool whose private balance you want to check."
+      : "First authorize the service to display the linked account’s private review.");
   }
   async function openReview(lease: OriginalAccountAccessLeaseV2) {
     accessLease.current = null; setAccess(null);
@@ -109,8 +109,8 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
     });
     if (!mounted.current || AppState.currentState !== 'active') return;
     reviewLease.current = selected.lease; setReview(selected.value);
-    setNotice(financialRead ? 'Comprueba la cuenta, red, activo y pool. La siguiente firma revela sólo su saldo; no mueve fondos.'
-      : 'Comprueba los términos originales antes de confirmar la consulta o reconciliación.');
+    setNotice(financialRead ? "Review the account, network, asset and pool. The next signature reveals only its balance; it does not move funds."
+      : "Check the original terms before confirming the query or reconciliation.");
   }
   async function submit(lease: OriginalAccountReviewLeaseV2) {
     reviewLease.current = null; setReview(null);
@@ -122,103 +122,103 @@ export default function OriginalAccountScreen({onObservation}:{onObservation?(va
       if (!mounted.current || AppState.currentState !== 'active') return;
       setPrivateState(observed);
       onObservation?.(observed);
-      setNotice(observed.status === 'LIVE' ? 'Saldo comprobado para la cuenta y el pool, en el bloque indicado.'
-        : 'No hay una observación vigente. No se muestra un saldo anterior ni un cero supuesto.');
+      setNotice(observed.status === 'LIVE' ? "Checked balance for the account and pool, in the indicated block."
+        : "There is no current observation. No previous balance or zero assumption is shown.");
     } else {
       const result = await consent.submit(lease, {
         sign: value => signOriginalAccountReviewV2(value, value.origin, value.pairingId),
         post: request => api().submit(request),
       });
       if (!mounted.current || AppState.currentState !== 'active') return;
-      setDiagnostic(result); setNotice('Diagnóstico recibido. Esta consulta no establece un saldo.');
+      setDiagnostic(result); setNotice("Diagnosis received. This query does not establish a balance.");
     }
   }
   function confirmAccess() {
     const lease = accessLease.current;
     if (!lease || !access || busyRef.current) return;
-    Alert.alert('Mostrar la revisión privada', financialRead
-      ? 'Revela la cuenta, el activo y el pool que podrán consultarse. Todavía no autoriza la lectura del saldo.'
-      : 'Permite que este servicio muestre los términos de la cuenta vinculada.', [
-      { text: 'Cancelar', style: 'cancel', onPress: invalidate },
-      { text: 'Confirmar con biometría', onPress: () => { void run(() => openReview(lease)); } },
+    Alert.alert("Show private review", financialRead
+      ? "It reveals the account, asset and pool that can be consulted. It does not yet authorize the reading of the balance."
+      : "Allows this service to display the terms of the linked account.", [
+      { text: "Cancel", style: 'cancel', onPress: invalidate },
+      { text: "Confirm with biometrics", onPress: () => { void run(() => openReview(lease)); } },
     ]);
   }
   function confirmReview() {
     const lease = reviewLease.current;
     if (!lease || !review || busyRef.current) return;
-    Alert.alert(financialRead ? 'Leer saldo privado de esta cuenta y pool'
-      : review.action === 'read' ? 'Consultar esta petición' : 'Reconciliar esta petición',
-      financialRead ? 'Revela el saldo disponible, reservado y bloqueado de esta cuenta, activo y pool. No incluye otros activos, no gasta notas y no mueve fondos.'
-      : review.action === 'read' ? 'Consulta el registro de la petición original con los términos mostrados.'
-        : 'Comprueba la petición ya iniciada y actualiza su registro original con los términos mostrados.', [
-        { text: 'Cancelar', style: 'cancel', onPress: invalidate },
-        { text: 'Confirmar con biometría', onPress: () => { void run(() => submit(lease)); } },
+    Alert.alert(financialRead ? "Read private balance of this account and pool"
+      : review.action === 'read' ? "Consult this request" : "Reconciling this request",
+      financialRead ? "Reveals the available, reserved and blocked balance of this account, asset and pool. It does not include other assets, does not spend notes and does not move funds."
+      : review.action === 'read' ? "Check the record of the original request with the displayed terms."
+        : "Check the request already started and update your original record with the terms displayed.", [
+        { text: "Cancel", style: 'cancel', onPress: invalidate },
+        { text: "Confirm with biometrics", onPress: () => { void run(() => submit(lease)); } },
       ]);
   }
   return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-    <Text style={styles.title}>Cuenta vinculada</Text>
-    <Text style={styles.muted}>Estado privado de una cuenta y su pool, con consentimiento separado de la consulta o reconciliación de peticiones. La custodia de notas permanece en el sistema original.</Text>
-    <View style={styles.card}><Text style={styles.heading}>Vinculación</Text>
-      <Text style={styles.label}>Origen HTTPS del servicio privado</Text>
-      <TextInput accessibilityLabel="Origen HTTPS del servicio privado" style={styles.input} value={origin}
+    <Text style={styles.title}>Linked account</Text>
+    <Text style={styles.muted}>Private status of an account and its pool, with consent separate from consultation or reconciliation of petitions. Note custody remains in the original system.</Text>
+    <View style={styles.card}><Text style={styles.heading}>Linking</Text>
+      <Text style={styles.label}>HTTPS source of the private service</Text>
+      <TextInput accessibilityLabel="HTTPS source of the private service" style={styles.input} value={origin}
         autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!busy}
         onChangeText={value => { invalidate(); setAvailable(false); setOrigin(value); }} />
-      <Text style={styles.label}>ID recibido del operador</Text>
-      <TextInput accessibilityLabel="ID de vinculación recibido del operador" style={styles.input} value={pairingId}
+      <Text style={styles.label}>Received ID from operator</Text>
+      <TextInput accessibilityLabel="Linking ID received from the operator" style={styles.input} value={pairingId}
         autoCapitalize="none" autoCorrect={false} editable={!busy}
         onChangeText={value => { invalidate(); setAvailable(false); setPairingId(value); }} />
-      <Button label="Comprobar vinculación" disabled={busy} onPress={() => { void run(refresh); }} />
-      {devicePublicKey && <Fields values={{ 'Identidad del dispositivo': devicePublicKey }} />}
-      <Text style={styles.muted}>{available ? 'Servicio de revisión disponible' : 'Servicio pendiente de comprobar'}</Text>
+      <Button label="Check Link" disabled={busy} onPress={() => { void run(refresh); }} />
+      {devicePublicKey && <Fields values={{ "Device identity": devicePublicKey }} />}
+      <Text style={styles.muted}>{available ? "Review service available" : "Service to be checked"}</Text>
     </View>
-    <View style={styles.card}><Text style={styles.heading}>Petición original</Text>
+    <View style={styles.card}><Text style={styles.heading}>Original request</Text>
       {(['read', 'reconcile'] as const).map(value => <Button key={value}
-        label={(!financialRead && value === action ? '✓ ' : '') + (value === 'read' ? 'Consultar registro' : 'Reconciliar petición iniciada')}
+        label={(!financialRead && value === action ? '✓ ' : '') + (value === 'read' ? "Check log" : "Reconciling request initiated")}
         disabled={busy} onPress={() => { invalidate(); setFinancialRead(false); setAction(value); }} />)}
-      <Button label={(financialRead ? '✓ ' : '') + 'Consultar saldo privado de esta cuenta y pool'}
+      <Button label={(financialRead ? '✓ ' : '') + "Check private balance of this account and pool"}
         disabled={busy} onPress={() => { invalidate(); setFinancialRead(true); setAction('read'); }} />
-      <Button label="Solicitar revisión" disabled={busy || !available || !devicePublicKey}
+      <Button label="Request review" disabled={busy || !available || !devicePublicKey}
         onPress={() => { void run(requestAccess); }} />
     </View>
-    {access && <View style={styles.card}><Text style={styles.heading}>Acceso a la revisión privada</Text>
-      <Fields values={{ Servicio: access.origin, Vinculación: access.pairingId,
-        Acción: financialRead ? 'Revisar cuenta y pool para leer saldo' : access.action === 'read' ? 'Consultar registro' : 'Reconciliar petición iniciada',
-        Identidad: access.devicePublicKey, Caducidad: new Date(access.expiresAt).toLocaleString() }} />
-      <Button label="Mostrar con biometría" disabled={busy} onPress={confirmAccess} />
-      <Button label="Cancelar" disabled={busy} onPress={invalidate} />
+    {access && <View style={styles.card}><Text style={styles.heading}>Access to private review</Text>
+      <Fields values={{ "Service": access.origin, "Pairing": access.pairingId,
+        "Action": financialRead ? "Review account and pool to read balance" : access.action === 'read' ? "Check log" : "Reconciling request initiated",
+        "Identity": access.devicePublicKey, "Expires": new Date(access.expiresAt).toLocaleString('en-US') }} />
+      <Button label="Show with biometrics" disabled={busy} onPress={confirmAccess} />
+      <Button label="Cancel" disabled={busy} onPress={invalidate} />
     </View>}
-    {review && <View style={styles.card}><Text style={styles.heading}>{financialRead ? 'Revisión de cuenta y pool' : 'Términos de la petición original'}</Text>
-      <Fields values={{ Servicio: review.origin, Acción: financialRead ? 'Leer saldo privado de esta cuenta y pool' : review.action === 'read' ? 'Consultar registro' : 'Reconciliar petición iniciada',
-        'ID original': review.binding.requestId, Tipo: review.binding.kind === 'TOP_UP' ? 'Financiación' : 'Retirada',
-        'Red (chain ID)': review.binding.asset.chainId, Activo: review.binding.asset.symbol, Pool: review.binding.asset.pool,
-        [financialRead ? 'Importe original de referencia; no es saldo' : 'Importe en unidades atómicas']: review.binding.amountAtomic, Destino: review.binding.recipient,
-        'Estado del registro': review.binding.requestState, 'Cuenta original': review.binding.accountIdentitySHA256,
-        'Vida de la cuenta': review.binding.originalAccountLifetime,
-        'Transacción iniciada': review.binding.submission?.transactionHash ?? 'Sin transacción iniciada',
-        Caducidad: new Date(review.expiresAt).toLocaleString() }} />
-      <Button label={financialRead ? 'Leer saldo con biometría' : review.action === 'read' ? 'Consultar con biometría' : 'Reconciliar con biometría'} disabled={busy} onPress={confirmReview} />
-      <Button label="Cancelar" disabled={busy} onPress={invalidate} />
+    {review && <View style={styles.card}><Text style={styles.heading}>{financialRead ? "Account and pool review" : "Terms of the original petition"}</Text>
+      <Fields values={{ "Service": review.origin, "Action": financialRead ? "Read private balance of this account and pool" : review.action === 'read' ? "Check log" : "Reconciling request initiated",
+        "Original ID": review.binding.requestId, "Type": review.binding.kind === 'TOP_UP' ? "Financing" : "Withdrawal",
+        "Network (chain ID)": review.binding.asset.chainId, "Asset": review.binding.asset.symbol, Pool: review.binding.asset.pool,
+        [financialRead ? "Original reference amount; not a balance" : "Amount in atomic units"]: review.binding.amountAtomic, "Recipient": review.binding.recipient,
+        "Record status": review.binding.requestState, "Original account": review.binding.accountIdentitySHA256,
+        "Account Life": review.binding.originalAccountLifetime,
+        "Transaction initiated": review.binding.submission?.transactionHash ?? "No transaction initiated",
+        "Expires": new Date(review.expiresAt).toLocaleString('en-US') }} />
+      <Button label={financialRead ? "Read balance with biometrics" : review.action === 'read' ? "Consult with biometrics" : "Reconciling with biometrics"} disabled={busy} onPress={confirmReview} />
+      <Button label="Cancel" disabled={busy} onPress={invalidate} />
     </View>}
-    {diagnostic && <View style={styles.card}><Text style={styles.heading}>Diagnóstico de la petición</Text>
-      <Fields values={{ 'ID original': diagnostic.binding.requestId, 'Estado del registro': diagnostic.binding.requestState,
-        'Estado de la custodia': diagnostic.binding.authorityStage,
-        Reconciliación: diagnostic.admission?.state ?? 'Consulta del registro',
-        'Saldo privado': 'Pendiente de verificar' }} />
+    {diagnostic && <View style={styles.card}><Text style={styles.heading}>Request diagnostics</Text>
+      <Fields values={{ "Original ID": diagnostic.binding.requestId, "Record status": diagnostic.binding.requestState,
+        "State of custody": diagnostic.binding.authorityStage,
+        "Reconciliation": diagnostic.admission?.state ?? "Record lookup",
+        "Private balance": "Pending verification" }} />
     </View>}
-    {privateState && <View style={styles.card}><Text style={styles.heading}>Saldo de esta cuenta y pool</Text>
-      <Fields values={{ Activo: privateState.asset.symbol, 'Red (chain ID)': privateState.asset.chainId,
-        Pool: privateState.asset.pool, 'Estado de la observación': privateState.status }} />
+    {privateState && <View style={styles.card}><Text style={styles.heading}>Balance of this account and pool</Text>
+      <Fields values={{ "Asset": privateState.asset.symbol, "Network (chain ID)": privateState.asset.chainId,
+        Pool: privateState.asset.pool, "Status of observation": privateState.status }} />
       {privateState.status === 'LIVE' && privateState.balances && privateState.observed
         && privateState.observed.observedAt <= Date.now() && Date.now() - privateState.observed.observedAt <= 15_000 && <>
-        <Fields values={{ Disponible: amount(privateState.balances.available, privateState.asset.decimals, privateState.asset.symbol),
-          Reservado: amount(privateState.balances.reserved, privateState.asset.decimals, privateState.asset.symbol),
-          Bloqueado: amount(privateState.balances.locked, privateState.asset.decimals, privateState.asset.symbol),
-          'Procedente de recuperación': amount(privateState.balances.recovery, privateState.asset.decimals, privateState.asset.symbol),
-          'Bloque observado': privateState.observed.blockNumber,
-          'Última comprobación': new Date(privateState.observed.observedAt).toLocaleString() }} />
-        <Text style={styles.muted}>La recuperación ya forma parte del disponible o bloqueado; no se suma otra vez. Esta lectura corresponde sólo a esta cuenta y pool.</Text>
+        <Fields values={{ "Available": amount(privateState.balances.available, privateState.asset.decimals, privateState.asset.symbol),
+          "Reserved": amount(privateState.balances.reserved, privateState.asset.decimals, privateState.asset.symbol),
+          "Locked": amount(privateState.balances.locked, privateState.asset.decimals, privateState.asset.symbol),
+          "Recovered amount": amount(privateState.balances.recovery, privateState.asset.decimals, privateState.asset.symbol),
+          "Observed block": privateState.observed.blockNumber,
+          "Last check": new Date(privateState.observed.observedAt).toLocaleString('en-US') }} />
+        <Text style={styles.muted}>Recovery is already part of the available or blocked; it is not added again. This reading corresponds only to this account and pool.</Text>
       </>}
-      {privateState.status !== 'LIVE' && <Text style={styles.muted}>Saldo no disponible: hace falta una lectura vigente.</Text>}
+      {privateState.status !== 'LIVE' && <Text style={styles.muted}>Balance not available: a current reading is required.</Text>}
     </View>}
     <View accessibilityLiveRegion="polite" style={styles.card}>{busy && <ActivityIndicator color="#253746" />}
       <Text style={styles.muted}>{notice}</Text></View>

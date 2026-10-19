@@ -19,7 +19,7 @@ type Props={connection:DeviceSepoliaDefiConnectionV7;vault:DeviceSepoliaDefiVaul
  * custody. Background work belongs to the server; this panel only polls reads. */
 export default function SepoliaDefiOperationPanelV7({connection,vault,api,tracking,review=null,active,onBusyChange,onReviewClosed}:Props) {
   const [checkpoint,setCheckpoint]=useState<DeviceSepoliaDefiActivityV7|null>(null),[result,setResult]=useState<DeviceSepoliaDefiFinancialStatusV7|null>(null);
-  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('Revisa una propuesta del servicio antes de autorizar.'),[failed,setFailed]=useState(false),[reviewOpen,setReviewOpen]=useState(true);
+  const [busy,setBusy]=useState(false),[notice,setNotice]=useState("Review a service proposal before authorizing."),[failed,setFailed]=useState(false),[reviewOpen,setReviewOpen]=useState(true);
   const live=useRef(active),mounted=useRef(true),running=useRef(false);live.current=active;
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   useEffect(()=>{setReviewOpen(true);},[review?.reference]);
@@ -41,23 +41,23 @@ export default function SepoliaDefiOperationPanelV7({connection,vault,api,tracki
   async function observe(saved:DeviceSepoliaDefiActivityV7) {
     // Restore original note observations before using the public tracking entry.
     await api.observe(vault);current();const found=await findJob(saved);
-    if(found.jobId===null){setNotice('La propuesta está guardada. Todavía no hay un envío financiero confirmado.');return;}
+    if(found.jobId===null){setNotice("The proposal is saved. There is not yet a confirmed financial transfer.");return;}
     const next=await api.observeFinancial(vault,found.review,found.jobId);current();setResult(next);
     await api.observe(vault);current();
-    if(next.phase==='CONFIRMED'&&next.kind==='INVEST')setNotice('Inversión confirmada en la red. La consulta de tu nota conserva las participaciones bajo la custodia de este dispositivo.');
-    else if(next.phase==='CONFIRMED'&&next.kind==='REDEEM')setNotice('Retirada confirmada: el servicio ha comprobado el envío de USDC a la dirección autorizada.');
-    else if(next.kind==='WITHDRAW')setNotice('Retirada de participaciones en curso. El servidor continuará el envío de USDC dentro de los límites autorizados.');
-    else setNotice('El servidor conserva esta operación. Puedes cerrar la app y consultar después su resultado.');
+    if(next.phase==='CONFIRMED'&&next.kind==='INVEST')setNotice("Confirmed investment in the network. The query of your note retains the shares in the custody of this device.");
+    else if(next.phase==='CONFIRMED'&&next.kind==='REDEEM')setNotice("Confirmed withdrawal: the service has checked the transfer of USDC to the authorized address.");
+    else if(next.kind==='WITHDRAW')setNotice("Withdrawal of active shares. The server will continue sending USDC within the authorized limits.");
+    else setNotice("The server retains this operation. You can close the app and then check its result.");
   }
   async function confirm() {
     const selected=review??checkpoint?.review;if(!selected)return;
     if(selected.action==='REDEEM'&&checkpoint?.jobId&&checkpoint.review.reference===selected.reference){
       const token=await api.resumeRedemption(vault,selected,checkpoint.jobId);current();setReviewOpen(false);onReviewClosed?.();const next=await api.executeRedemption(token);current();setResult(next);await observe(checkpoint);return;
     }
-    const saved=await tracking.save(selected);current();setCheckpoint(saved);setNotice('Autoriza una vez esta operación revisada.');
-    const token=await api.prepare(vault,selected);current();setReviewOpen(false);onReviewClosed?.();setNotice('Preparando la recepción privada. Todavía no se ha confirmado una inversión.');
+    const saved=await tracking.save(selected);current();setCheckpoint(saved);setNotice("Authorizes this reviewed operation once.");
+    const token=await api.prepare(vault,selected);current();setReviewOpen(false);onReviewClosed?.();setNotice("Preparing private reception. An investment has not yet been confirmed.");
     await api.submit(token);current();const found=await findJob(saved);if(found.jobId===null)throw Error('MOBILE_SEPOLIA_DEFI_JOB_MISSING');
-    setNotice(selected.action==='INVEST'?'Enviando la inversión autorizada al servidor.':'Iniciando la retirada y el envío de USDC autorizados.');
+    setNotice(selected.action==='INVEST'?"Sending the authorized investment to the server.":"Starting the withdrawal and transfer of USDC authorized.");
     const next=selected.action==='INVEST'?await api.executeInvestment(token):await api.executeRedemption(token);current();setResult(next);await observe(found);
   }
   useEffect(()=>{
@@ -72,17 +72,17 @@ export default function SepoliaDefiOperationPanelV7({connection,vault,api,tracki
   const name=connection.protocol==='AAVE_STATIC'?'Aave':'Morpho';
   const selectedReview=review??checkpoint?.review;
   return <>
-    <WalletStatus kind={failed?'warning':result?.canonical&&result.kind!=='WITHDRAW'?'success':'info'} title={busy?'Procesando la operación':result?.canonical&&result.kind==='INVEST'?'Inversión confirmada':result?.canonical&&result.kind==='REDEEM'?'Retirada confirmada':'Operación en '+name} detail={notice}/>
+    <WalletStatus kind={failed?'warning':result?.canonical&&result.kind!=='WITHDRAW'?'success':'info'} title={busy?"Processing the operation":result?.canonical&&result.kind==='INVEST'?"Confirmed investment":result?.canonical&&result.kind==='REDEEM'?"Withdrawal confirmed":"Operation in "+name} detail={notice}/>
     {selectedReview&&reviewOpen&&<SepoliaDefiReviewCardV7 connection={connection} review={selectedReview} busy={busy} onConfirm={()=>void run(confirm)} onCancel={()=>{setReviewOpen(false);onReviewClosed?.();}}/>}
-    {checkpoint&&<WalletCard title="Seguimiento guardado" subtitle="Consultar reutiliza la misma operación y no solicita otra autorización sensible.">
-      <Text style={styles.detail}>Red de pruebas Sepolia · {name}. El activo de origen se identifica por su contrato; no se suma a otros tokens que compartan el nombre USDC.</Text>
+    {checkpoint&&<WalletCard title="Track Saved" subtitle="Consult reuses the same operation and does not request another sensitive authorization.">
+      <Text style={styles.detail}>Sepolia Test Network · {name}. The source asset is identified by your contract; it is not added to other tokens that share the name USDC.</Text>
       <Text selectable style={styles.address}>{connection.underlying.address}</Text>
-      {result?.transactionHash&&<><Text style={styles.detail}>Transacción {result.kind==='WITHDRAW'?'de retirada de participaciones':result.kind==='INVEST'?'de inversión':'de envío de USDC'}</Text><Text selectable style={styles.address}>{result.transactionHash}</Text></>}
-      <WalletButton label="Consultar esta operación" tone="secondary" loading={busy} disabled={!active||busy} onPress={()=>void run(()=>observe(checkpoint))}/>
-      {!checkpoint.jobId&&!reviewOpen&&<WalletButton label="Revisar propuesta guardada" tone="secondary" disabled={!active||busy} onPress={()=>setReviewOpen(true)}/>}
-      {result?.phase==='PREPARED'&&result.kind==='INVEST'&&checkpoint.jobId&&<WalletButton label="Continuar la inversión ya autorizada" disabled={!active||busy} onPress={()=>void run(async()=>{if(!checkpoint.jobId)return;const next=await api.continueInvestment(vault,checkpoint.review,checkpoint.jobId,result);current();setResult(next);await observe(checkpoint);})}/>}
-      {result?.phase==='PREPARED'&&result.kind==='WITHDRAW'&&checkpoint.jobId&&!reviewOpen&&<WalletButton label="Revisar la retirada pendiente" disabled={!active||busy} onPress={()=>setReviewOpen(true)}/>}
-      {checkpoint.review.action==='REDEEM'&&result?.kind==='WITHDRAW'&&result.canonical&&<WalletButton label="Continuar el envío de USDC autorizado" disabled={!active||busy} onPress={()=>void run(async()=>{if(!checkpoint.jobId)return;const next=await api.redeemFinancial(vault,checkpoint.review,checkpoint.jobId);current();setResult(next);await observe(checkpoint);})}/>}
+      {result?.transactionHash&&<><Text style={styles.detail}>Transaction {result.kind==='WITHDRAW'?"withdrawal of shares":result.kind==='INVEST'?"Investment":"USDC transfer"}</Text><Text selectable style={styles.address}>{result.transactionHash}</Text></>}
+      <WalletButton label="Consult this operation" tone="secondary" loading={busy} disabled={!active||busy} onPress={()=>void run(()=>observe(checkpoint))}/>
+      {!checkpoint.jobId&&!reviewOpen&&<WalletButton label="Review Saved Proposal" tone="secondary" disabled={!active||busy} onPress={()=>setReviewOpen(true)}/>}
+      {result?.phase==='PREPARED'&&result.kind==='INVEST'&&checkpoint.jobId&&<WalletButton label="Continue investment already authorised" disabled={!active||busy} onPress={()=>void run(async()=>{if(!checkpoint.jobId)return;const next=await api.continueInvestment(vault,checkpoint.review,checkpoint.jobId,result);current();setResult(next);await observe(checkpoint);})}/>}
+      {result?.phase==='PREPARED'&&result.kind==='WITHDRAW'&&checkpoint.jobId&&!reviewOpen&&<WalletButton label="Review pending withdrawal" disabled={!active||busy} onPress={()=>setReviewOpen(true)}/>}
+      {checkpoint.review.action==='REDEEM'&&result?.kind==='WITHDRAW'&&result.canonical&&<WalletButton label="Continue transfer of USDC authorized" disabled={!active||busy} onPress={()=>void run(async()=>{if(!checkpoint.jobId)return;const next=await api.redeemFinancial(vault,checkpoint.review,checkpoint.jobId);current();setResult(next);await observe(checkpoint);})}/>}
     </WalletCard>}
   </>;
 }

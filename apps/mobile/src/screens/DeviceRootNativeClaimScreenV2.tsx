@@ -12,12 +12,12 @@ import {normalizeLocalDepositChoiceV1} from '../custody/unissued-deposit-terms-v
 type Client=ReturnType<typeof createDeviceRootNativeClaimApiV2>;
 type Vault=ReturnType<typeof openLocalRootNoteVaultV1>;
 export default function DeviceRootNativeClaimScreenV2({onObservation,onBack}:{onObservation?(v:DeviceRootClaimObservationV2):void;onBack():void}){
- const [pairing,setPairing]=useState(''),[amount,setAmount]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState('Empareja el producto DEVICE_ROOT original antes de financiar.');
+ const [pairing,setPairing]=useState(''),[amount,setAmount]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState("Match the original DEVICE_ROOT product before financing.");
  const [view,setView]=useState<DeviceRootClaimObservationV2|null>(null);
  const live=useRef(true),epoch=useRef(0),running=useRef(false),client=useRef<Client|null>(null),vault=useRef<Vault|null>(null),abort=useRef<AbortController|null>(null);
  function revoke(){epoch.current++;abort.current?.abort();abort.current=null;client.current?.close();client.current=null;vault.current?.close();vault.current=null;setView(null);}
  useEffect(()=>{live.current=true;const s=AppState.addEventListener('change',v=>{if(v!=='active')revoke();});return()=>{live.current=false;epoch.current++;abort.current?.abort();client.current?.close();vault.current?.close();s.remove();};},[]);
- useEffect(()=>{if(!view)return;const n=epoch.current,t=setTimeout(()=>{if(live.current&&epoch.current===n){setView(null);setNotice('Lectura caducada. Autoriza una nueva consulta original.');}},Math.max(0,view.expiresAt-Date.now()));return()=>clearTimeout(t);},[view]);
+ useEffect(()=>{if(!view)return;const n=epoch.current,t=setTimeout(()=>{if(live.current&&epoch.current===n){setView(null);setNotice("Expired reading. Authorizes a new original query.");}},Math.max(0,view.expiresAt-Date.now()));return()=>clearTimeout(t);},[view]);
  async function operate(action:'D27'|'FUND_NATIVE_CLAIM'|'CI51'|'ISSUE_CLAIM'|'READ'|'PROVE_W39'|'WITHDRAW_W39'|'OBSERVE_W39'|'REDEEM_NATIVE'|'PAYOUT_NATIVE'|'OBSERVE_NATIVE'){
   if(running.current||AppState.currentState!=='active')return;running.current=true;setBusy(true);revoke();const n=epoch.current;
   const current=()=>{if(!live.current||epoch.current!==n||AppState.currentState!=='active')throw Error('MOBILE_CLAIM_CONTEXT_CHANGED');};
@@ -44,45 +44,45 @@ export default function DeviceRootNativeClaimScreenV2({onObservation,onBack}:{on
     const access=await selected.challenge('ACCESS'),accessSignature=await sign(access);
     const permission=await selected.reviewD27(access,accessSignature,{rootId:originalRequest.rootId,noteRevision:originalRequest.noteRevision,statement:originalRequest.statement,witnessSHA256:originalRequest.witnessSHA256});current();
     const signature=await sign(permission),packet=await custody.sealDeviceRootClaimRequestV2(originalRequest,permission,signature);current();
-    await selected.submit(permission,signature,packet);current();setNotice('D27 original preparado. La raíz y clave de nota permanecen en este dispositivo.');
+    await selected.submit(permission,signature,packet);current();setNotice("Original D27 prepared. The root and note key remain on this device.");
    }else if(action==='CI51'){
     const witnessSHA256=await custody.deviceRootClaimIngressWitnessHashV2();current();
     const access=await selected.challenge('ACCESS'),accessSignature=await sign(access);
     const review=await selected.reviewCI51(access,accessSignature,witnessSHA256);current();
     const signature=await sign(review.consent),packet=await custody.sealDeviceRootClaimIngressV2(review,signature);current();
-    await selected.submit(review.consent,signature,packet);current();setNotice('CI51 original probado sobre el mismo ingreso nativo observado. No se ha emitido otro ingreso.');
+    await selected.submit(review.consent,signature,packet);current();setNotice("CI51 original tested on the same native deposit observed. No other deposit has been issued.");
    }else if(action==='PROVE_W39'){
     const access=await selected.challenge('ACCESS'),quote=await selected.quoteW39(access,await sign(access));current();
     const originalRequest=await custody.prepareDeviceRootClaimExitV3(quote);request=originalRequest;current();
     const reviewAccess=await selected.challenge('ACCESS'),p=await selected.reviewW39(reviewAccess,await sign(reviewAccess),quote,originalRequest.witnessSHA256);current();
     const signature=await signExit(p),packet=await custody.sealDeviceRootClaimExitV3(originalRequest,p,signature);current();await selected.exitSubmit(p,signature,packet);current();
-    setNotice('W39 retenido para la misma nota. La prueba no envía el retiro. Autoriza su envío una sola vez.');await readCurrent();
+    setNotice("W39 retained for the same note. The proof does not send the withdrawal. Authorizes its transfer only once.");await readCurrent();
    }else if(['WITHDRAW_W39','OBSERVE_W39','REDEEM_NATIVE','PAYOUT_NATIVE','OBSERVE_NATIVE'].includes(action)){
     const access=await selected.challenge('ACCESS'),p=await selected.exitChallenge(access,await sign(access),action as Exclude<DeviceRootClaimExitPermissionV3['action'],'PROVE_W39'>);current();const signature=await signExit(p);
     if(['WITHDRAW_W39','REDEEM_NATIVE','PAYOUT_NATIVE'].includes(action)){await custody.latchDeviceRootClaimExitV3(p);current();}
     await selected.exitSubmit(p,signature);current();await readCurrent();
-    setNotice(action.startsWith('OBSERVE_')?'Mismo job conciliado; ninguna nueva prueba ni envío.':action==='WITHDRAW_W39'?'Retiro W39 original enviado una vez. Una respuesta perdida sólo se consulta.':action==='REDEEM_NATIVE'?'Ticket original solicitado sobre el mismo retiro W39.':'Entrega nativa admitida una vez bajo custodia local. La descarga CO42 usa el mismo resultado original.');
+    setNotice(action.startsWith('OBSERVE_')?"Same reconciled job; no new proof or transfer.":action==='WITHDRAW_W39'?"Original W39 Retreat sent once. A lost response is only consulted.":action==='REDEEM_NATIVE'?"Original ticket requested on the same withdrawal W39.":"Native delivery admitted once in local custody. The CO42 download uses the same original result.");
    }else if(action==='READ'){
     await readCurrent();
-    setNotice('Mismo claim conciliado. Un journal o RPC no acredita saldo nativo disponible.');
+    setNotice("Same reconciled claim. A journal or RPC does not credit native balance available.");
    }else{
     const p=await selected.effectChallenge(action as 'FUND_NATIVE_CLAIM'|'ISSUE_CLAIM'),signature=await sign(p);current();
     await custody.latchDeviceRootClaimEffectV2(p);current();await selected.submit(p,signature);current();
-    setNotice(action==='FUND_NATIVE_CLAIM'?'Ingreso original admitido una sola vez. Autoriza CI51 tras su observación nativa.':'Emisión original admitida. Autoriza una lectura para conciliar el mismo resultado.');
+    setNotice(action==='FUND_NATIVE_CLAIM'?"Original admission only once. Authorizes CI51 after native observation.":"Original emission allowed. Authorizes a reading to reconcile the same result.");
    }
-  }catch{if(live.current&&epoch.current===n)setNotice('Resultado incierto o autorización rechazada. Conserva RootNote y el journal; consulta el mismo original. No repitas un ingreso ni una prueba admitida.');}
+  }catch{if(live.current&&epoch.current===n)setNotice("Uncertain result or rejected authorization. Keep RootNote and the journal; see the same original. Do not repeat an entry or an admitted test.");}
   finally{request?.close();abort.current=null;running.current=false;if(live.current)setBusy(false);}
  }
  return <SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.content}>
-  <Pressable disabled={busy} onPress={()=>{revoke();onBack();}} style={styles.button}><Text style={styles.buttonText}>Volver a claims custodiados</Text></Pressable>
-  <Text style={styles.title}>Nota privada BTC / SOL / SPL</Text>
-  <Text style={styles.text}>La nota y su clave permanecen en RootNote. Los activos nativos y el quórum siguen bajo custodia del laboratorio original; no es autocustodia BTC/SOL ni operación de operadores independientes.</Text>
-  <TextInput multiline value={pairing} onChangeText={v=>{revoke();setPairing(v);}} editable={!busy} autoCapitalize="none" autoCorrect={false} accessibilityLabel="Emparejamiento DEVICE_ROOT original" style={styles.input}/>
-  <TextInput value={amount} onChangeText={setAmount} editable={!busy} keyboardType="numeric" accessibilityLabel="Importe de la nota en unidades atómicas originales" style={styles.input}/>
-  {(['D27','FUND_NATIVE_CLAIM','CI51','ISSUE_CLAIM','READ'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text style={styles.buttonText}>{action==='D27'?'Preparar y probar D27':action==='CI51'?'Probar CI51 del ingreso observado':action==='READ'?'Leer y conciliar el mismo claim':action==='FUND_NATIVE_CLAIM'?'Autorizar ingreso original una vez':'Autorizar emisión original una vez'}</Text></Pressable>)}
-  {(['PROVE_W39','WITHDRAW_W39','OBSERVE_W39','REDEEM_NATIVE','PAYOUT_NATIVE','OBSERVE_NATIVE'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text style={styles.buttonText}>{({PROVE_W39:'Preparar W39 de la misma nota',WITHDRAW_W39:'Enviar W39 una vez',OBSERVE_W39:'Conciliar el mismo W39',REDEEM_NATIVE:'Solicitar entrega nativa original',PAYOUT_NATIVE:'Autorizar entrega nativa una vez',OBSERVE_NATIVE:'Conciliar la misma entrega nativa'})[action]}</Text></Pressable>)}
+  <Pressable disabled={busy} onPress={()=>{revoke();onBack();}} style={styles.button}><Text style={styles.buttonText}>Return to custody claims</Text></Pressable>
+  <Text style={styles.title}>Private Note BTC / SOL / SPL</Text>
+  <Text style={styles.text}>The note and its key remain in RootNote. Native assets and quorum remain in the custody of the original laboratory; it is not self-custody BTC/SOL or operation of independent operators.</Text>
+  <TextInput multiline value={pairing} onChangeText={v=>{revoke();setPairing(v);}} editable={!busy} autoCapitalize="none" autoCorrect={false} accessibilityLabel="Original DEVICE_ROOT pairing" style={styles.input}/>
+  <TextInput value={amount} onChangeText={setAmount} editable={!busy} keyboardType="numeric" accessibilityLabel="Note amount in original atomic units" style={styles.input}/>
+  {(['D27','FUND_NATIVE_CLAIM','CI51','ISSUE_CLAIM','READ'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text style={styles.buttonText}>{action==='D27'?"Prepare and test D27":action==='CI51'?"Test CI51 of observed deposit":action==='READ'?"Read and reconcile the same claim":action==='FUND_NATIVE_CLAIM'?"Authorize original deposit once":"Authorize original issue once"}</Text></Pressable>)}
+  {(['PROVE_W39','WITHDRAW_W39','OBSERVE_W39','REDEEM_NATIVE','PAYOUT_NATIVE','OBSERVE_NATIVE'] as const).map(action=><Pressable key={action} disabled={busy} onPress={()=>void operate(action)} style={styles.button}><Text style={styles.buttonText}>{({PROVE_W39:"Prepare W39 from the same note",WITHDRAW_W39:"Send W39 once",OBSERVE_W39:"Conciliate the same W39",REDEEM_NATIVE:"Request original native delivery",PAYOUT_NATIVE:"Authorize native delivery once",OBSERVE_NATIVE:"Conciliate the same native delivery"})[action]}</Text></Pressable>)}
   <Text style={styles.text}>{notice}</Text>
-  {view&&<Text style={styles.text}>{view.descriptor.claim.claimSymbol}: {view.note?.state??view.deposit?.status??'UNKNOWN'} · Disponible: {view.note?.state==='LIVE'?view.note.available:'sin lectura vigente'} unidades de claim privado; activo nativo bajo custodia local.</Text>}
+  {view&&<Text style={styles.text}>{view.descriptor.claim.claimSymbol}: {view.note?.state??view.deposit?.status??'UNKNOWN'}  · Available: {view.note?.state==='LIVE'?view.note.available:"no reading in force"}  Private claim units; Native asset under local custody.</Text>}
  </ScrollView></SafeAreaView>;
 }
 const styles=StyleSheet.create({buttonText:{color:'#F3F0E8',fontWeight:'600',textAlign:'center'},safe:{flex:1,backgroundColor:'#F3F0E8'},content:{padding:20,gap:16},title:{color:'#253746',fontSize:22},text:{color:'#50616D'},input:{color:'#253746',borderColor:'#50616D',borderWidth:1,padding:12,minHeight:70},button:{padding:12,backgroundColor:'#253746',borderRadius:8}});

@@ -23,7 +23,7 @@ export default function SepoliaDefiProposalFormV7({connection,vault,api,wallet,a
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   useEffect(()=>{
     if(!active||connection.terms.underlyingReceiver!==null)return;const controller=new AbortController();
-    void readSepoliaDefiWalletRecipientV7(wallet,controller.signal).then(address=>{if(!controller.signal.aborted&&mounted.current&&!dirtyRecipient.current&&address){setRecipient(address);setOwnRecipient(true);}}).catch(()=>{if(!controller.signal.aborted&&mounted.current)setError('No se ha podido consultar tu dirección Ethereum. Puedes introducir la dirección de destino que revisarás antes de autorizar.');});
+    void readSepoliaDefiWalletRecipientV7(wallet,controller.signal).then(address=>{if(!controller.signal.aborted&&mounted.current&&!dirtyRecipient.current&&address){setRecipient(address);setOwnRecipient(true);}}).catch(()=>{if(!controller.signal.aborted&&mounted.current)setError("It has not been possible to consult your Ethereum address. You can enter the destination address that you will review before authorizing.");});
     return()=>controller.abort();
   },[active,wallet,connection]);
   async function prepare() {
@@ -35,14 +35,14 @@ export default function SepoliaDefiProposalFormV7({connection,vault,api,wallet,a
     finally{running.current=false;onBusyChange?.(false);if(mounted.current)setBusy(false);}
   }
   const name=connection.protocol==='AAVE_STATIC'?'Aave':'Morpho';
-  return <WalletCard title={action==='INVEST'?'Preparar inversión en '+name:'Preparar retirada de '+name} subtitle="El servicio consultará la cotización real. Después revisarás la propuesta antes de autorizar.">
-    <WalletStatus kind="info" title="Red de pruebas Sepolia" detail="Se utilizan activos de prueba. Esta operación no modifica tus saldos de Ethereum mainnet."/>
-    <WalletField label={action==='INVEST'?'Participaciones que quieres recibir':'Participaciones que quieres retirar'} value={shares} onChangeText={setShares} keyboardType="decimal-pad" editable={active&&!busy} help={'Activo: '+connection.descriptor.assetMetadata.symbol}/>
-    <WalletField label={action==='INVEST'?'Máximo de USDC que autorizas':'Mínimo de USDC que quieres recibir'} value={limit} onChangeText={setLimit} keyboardType="decimal-pad" editable={active&&!busy}/>
-    <WalletField label="Dirección Ethereum para recibir USDC en Sepolia" value={recipient} onChangeText={value=>{dirtyRecipient.current=true;setOwnRecipient(false);setRecipient(value);}} editable={active&&!busy&&connection.terms.underlyingReceiver===null} help={ownRecipient?'Es la dirección pública de tu cartera de monedas. Los activos recibidos pertenecen a Sepolia.':'Comprueba que controlas esta dirección. No introduzcas palabras de recuperación ni claves privadas.'}/>
-    <Text style={styles.detail}>USDC de {name} se identifica por este contrato y se mantiene separado de otros tokens:</Text><Text selectable style={styles.address}>{connection.underlying.address}</Text>
-    {error!==''&&<WalletStatus kind="warning" title="Propuesta pendiente" detail={error}/>}
-    <WalletButton label="Consultar propuesta para revisar" loading={busy} disabled={!active||busy||recipient===''} onPress={()=>void prepare()}/>
+  return <WalletCard title={action==='INVEST'?"Preparing investment in "+name:"Prepare withdrawal of "+name} subtitle="The service will consult the actual quote. You will then review the proposal before authorizing.">
+    <WalletStatus kind="info" title="Sepolia Test Network" detail="Test assets are used. This operation does not modify your Ethereum mainnet balances."/>
+    <WalletField label={action==='INVEST'?"Shares you want to receive":"Shares you want to withdraw"} value={shares} onChangeText={setShares} keyboardType="decimal-pad" editable={active&&!busy} help={"Asset: "+connection.descriptor.assetMetadata.symbol}/>
+    <WalletField label={action==='INVEST'?"Maximum USDC that you authorize":"Minimum USDC you want to receive"} value={limit} onChangeText={setLimit} keyboardType="decimal-pad" editable={active&&!busy}/>
+    <WalletField label="Address Ethereum to receive USDC in Sepolia" value={recipient} onChangeText={value=>{dirtyRecipient.current=true;setOwnRecipient(false);setRecipient(value);}} editable={active&&!busy&&connection.terms.underlyingReceiver===null} help={ownRecipient?"It's the public address of your coin wallet, the assets received belong to Sepolia.":"Check that you control this address. Do not enter recovery words or private keys."}/>
+    <Text style={styles.detail}>USDC of {name}  is identified by this contract and kept separate from other tokens:</Text><Text selectable style={styles.address}>{connection.underlying.address}</Text>
+    {error!==''&&<WalletStatus kind="warning" title="Outstanding proposal" detail={error}/>}
+    <WalletButton label="Consult proposal for review" loading={busy} disabled={!active||busy||recipient===''} onPress={()=>void prepare()}/>
   </WalletCard>;
 }
 const styles=StyleSheet.create({detail:{color:walletColors.muted,fontSize:14,lineHeight:22,marginVertical:8},address:{color:walletColors.text,fontSize:13,lineHeight:20,marginBottom:12}});

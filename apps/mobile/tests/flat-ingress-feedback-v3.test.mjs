@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {originalFlatIngressFailureMessageV3} from '../src/screens/flat-ingress-feedback-v3.mjs';
 test('Only original bounded ingress codes explain a fenced deposit',()=>{
  assert.equal(originalFlatIngressFailureMessageV3(new Error('HTTP 403: secret/raw details')),null);
- const e=new Error('untrusted service detail');Object.defineProperty(e,'code',{value:'FLAT_DEPOSIT_BELOW_MINIMUM'});assert.match(originalFlatIngressFailureMessageV3(e),/mínimo original/);
- assert.match(originalFlatIngressFailureMessageV3(new Error('FLAT_LEGACY_FRESH_DEPOSIT_DISABLED')),/retirada o recuperación original/);
- assert.match(originalFlatIngressFailureMessageV3(new Error('FLAT_MINIMUM_LOCAL_ACCEPTANCE_NOT_RELEASED')),/no está habilitado/);
+ const e=new Error('untrusted service detail');Object.defineProperty(e,'code',{value:'FLAT_DEPOSIT_BELOW_MINIMUM'});assert.match(originalFlatIngressFailureMessageV3(e),/original minimum/);
+ assert.match(originalFlatIngressFailureMessageV3(new Error('FLAT_LEGACY_FRESH_DEPOSIT_DISABLED')),/original query, withdrawal or recovery/);
+ assert.match(originalFlatIngressFailureMessageV3(new Error('FLAT_MINIMUM_LOCAL_ACCEPTANCE_NOT_RELEASED')),/not enabled/);
 });
 test('Feedback does not execute caller getters or convert DTOs into a policy',()=>{
  let called=0;const e=new Error();Object.defineProperty(e,'code',{get(){called++;throw Error('untrusted getter');}});Object.defineProperty(e,'message',{get(){called++;throw Error('untrusted getter');}});

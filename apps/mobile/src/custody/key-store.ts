@@ -36,7 +36,7 @@ const privateOptions: SecureStore.SecureStoreOptions = {
   requireAuthentication: true,
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   keychainService: 'org.lianum.wallet.owner.authenticated.v1',
-  authenticationPrompt: 'Confirma esta autorización de Lianum',
+  authenticationPrompt: "Confirm this authorization from Lianum",
 };
 const publicOptions: SecureStore.SecureStoreOptions = { keychainService: 'org.lianum.wallet.owner.public.v1' };
 async function assertProtectedStorage() {
@@ -62,8 +62,8 @@ export async function createDeviceIdentity(): Promise<string> {
   if(WalletSession.walletSessionStatusV1().managed)WalletSession.lockWalletSessionV1();
   await assertProtectedStorage();
   const approval = await LocalAuthentication.authenticateAsync({
-    promptMessage: 'Crear o recuperar tu identidad local de Lianum',
-    cancelLabel: 'Cancelar', disableDeviceFallback: true, biometricsSecurityLevel: 'strong',
+    promptMessage: "Create or recover your local Lianum identity",
+    cancelLabel: "Cancel", disableDeviceFallback: true, biometricsSecurityLevel: 'strong',
   });
   if (!approval.success) throw new Error('MOBILE_AUTHENTICATION_CANCELLED');
   // Never silently replace an existing private key when its public metadata is
@@ -118,7 +118,7 @@ export async function signReviewedReceipt(review: MobileReceiptReview, expectedO
     origin: expectedOrigin, ownerPublicKey: publicKey, allowInsecureLocalhost,
   });
   let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, {
-    ...privateOptions, authenticationPrompt: 'Consultar el permiso original de Lianum',
+    ...privateOptions, authenticationPrompt: "Check Lianum's original permission",
   });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const privateKey = privateKeyFromHex(retained);
@@ -148,10 +148,10 @@ async function signOriginalAccountPermissionV2(raw: OriginalAccessV2 | OriginalR
   if (purpose === 'private-state' && checked.action !== 'read') throw new Error('MOBILE_PRIVATE_STATE_INVALID');
   let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, {
     ...privateOptions, authenticationPrompt: purpose === 'private-state'
-      ? phase === 'access' ? 'Mostrar qué cuenta y pool podrán revelar su saldo privado'
-        : 'Leer el saldo privado actual de esta cuenta y este pool; sin enviar fondos'
-      : phase === 'access' ? 'Mostrar la revisión privada de tu cuenta original'
-        : 'Consultar o reconciliar esta petición original',
+      ? phase === 'access' ? "Show which account and pool can reveal your private balance"
+        : "Read the current private balance of this account and this pool; without sending funds"
+      : phase === 'access' ? "Show private review of your original account"
+        : "Consult or reconcile this original request",
   });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const privateKey = privateKeyFromHex(retained);
@@ -194,10 +194,10 @@ export async function signDeviceDepositConsentV1(raw: Parameters<typeof validate
       throw new Error('MOBILE_REVIEW_CHANGED'); };
   current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
     authenticationPrompt: value.action === 'PROVE_D26'
-      ? value.version===2?'Enviar cifrada la apertura de esta nota al destinatario D26 original; conserva la raíz y la clave en el teléfono'
-        :'Revelar únicamente la apertura de esta nota al worker D26; conserva la raíz y la clave en el teléfono'
-      : value.action === 'FUND_D26' ? 'Financiar una sola vez esta nota de ' + value.statement.amount + ' unidades'
-        : 'Consultar el envío original de esta nota; no reenviar ni generar otra prueba' });
+      ? value.version===2?"Send the opening of this note to the original recipient D26; keep the root and key on the phone"
+        :"Reveal only the opening of this note to the worker D26; retain the root and key on the phone"
+      : value.action === 'FUND_D26' ? "One-time financing of this " + value.statement.amount + ' unidades'
+        : "Check the original submission of this note; do not forward or generate any other proof" });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const key = privateKeyFromHex(retained);
   try {
@@ -220,9 +220,9 @@ export async function signDeviceReservationConsentV1(raw: Parameters<typeof vali
       throw new Error('MOBILE_REVIEW_CHANGED'); };
   current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
     authenticationPrompt: value.action === 'PROVE_U'
-      ? value.version===2 ? 'Autorizar este grafo con sus aperturas cifradas para el destinatario original' : 'Revelar sólo las aperturas de este grafo al worker U; ninguna raíz ni clave privada'
-      : value.action === 'RESERVE_S' ? 'Reservar una sola vez esta nota; cambio y recuperación ya están cifrados'
-        : 'Consultar esta reserva original; no repetir la prueba ni el envío' });
+      ? value.version===2 ? "Authorize this graph with its encrypted openings for the original recipient" : "Reveal only the openings of this graph to the U worker; no root or private key"
+      : value.action === 'RESERVE_S' ? "Book this note only once; change and recovery are already encrypted"
+        : "Check this original reservation; do not repeat the test or transfer" });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
   try {
@@ -244,9 +244,9 @@ export async function signDeviceExitConsentV1(raw: Parameters<typeof validateDev
       throw new Error('MOBILE_REVIEW_CHANGED'); };
   current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
     authenticationPrompt: value.action === 'PROVE_W39'
-      ? (value.version===2?'Cifrar esta única apertura W39 para el destinatario original; ninguna raíz o clave privada':'Revelar una única apertura de '+value.noteRole+' al worker W39; ninguna raíz o clave privada')
-      : value.action === 'WITHDRAW_W39' ? 'Retirar una sola vez ' + value.statement.amount + ' unidades al destinatario ' + value.statement.recipient
-        : 'Consultar esta salida original; no generar otra prueba ni reenviar' });
+      ? (value.version===2?"Encrypt this unique W39 opening for the original recipient; no root or private key":"Reveal a single opening of "+value.noteRole+" W39 worker; no root or private key")
+      : value.action === 'WITHDRAW_W39' ? "Remove once only " + value.statement.amount + " units to the consignee " + value.statement.recipient
+        : "Check this original output; do not generate another test or forward" });
   if (retained === null) throw new Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
   try {
@@ -269,9 +269,9 @@ export async function signDeviceExecutionConsentV1(raw: Parameters<typeof valida
       || value.reservation.devicePublicKey !== publicKey) throw Error('MOBILE_REVIEW_CHANGED'); };
   current(); let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
     authenticationPrompt: value.action === 'EXECUTE_NATIVE'
-      ? 'Ejecutar una sola vez esta reserva original; entrega irreversible al riesgo aceptado por el proveedor'
-      : value.action === 'RECOVER_NATIVE' ? 'Recuperar la reserva original al vencer el plazo; pérdida de entrega a cargo del proveedor'
-        : 'Reconciliar esta ejecución original; no repetir la reserva ni una entrega' });
+      ? "Run this original reservation only once; irreversible delivery to the risk accepted by the supplier"
+      : value.action === 'RECOVER_NATIVE' ? "Recover the original reservation upon expiration of the deadline; delivery loss by the supplier"
+        : "Reconcile this original execution; do not repeat the reservation or a delivery" });
   if (retained === null) throw Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const key = privateKeyFromHex(retained); let message: Uint8Array | null = null;
   try {
@@ -289,7 +289,7 @@ export async function signDeviceRecoveryArmConsentV1(raw:Parameters<typeof valid
   const current=()=>{if(signal?.aborted)throw Error('MOBILE_DEVICE_RECOVERY_ARM_REVOKED');validateDeviceRecoveryArmConsentFreshV1(value);
     if(reservation.origin!==expectedOrigin||reservation.pairingId!==expectedPairingId||reservation.devicePublicKey!==publicKey)throw Error('MOBILE_REVIEW_CHANGED');};
   current();let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,{...privateOptions,authenticationPrompt:value.action==='ARM_RECOVERY'
-    ?'Activar recuperación automática de esta reserva al plazo original; el servicio debe seguir activo':'Desactivar recuperación automática antes de que comience'});
+    ?"Enable automatic recovery of this reservation to the original deadline; the service must remain active":"Disable automatic recovery before it starts"});
   if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|null=null;
   try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
     current();frame=deviceRecoveryArmConsentMessageV1(value);return signDeviceMessage(key,frame);
@@ -319,8 +319,8 @@ async function signDeviceDefiPositionPermissionV1(raw: import('../../../../packa
   current(); await assertProtectedStorage(); const publicKey = await readDevicePublicKey(); current();
   if (publicKey === null || publicKey !== value.devicePublicKey) throw Error('MOBILE_KEY_BINDING_CHANGED');
   let retained: string | null = await SecureStore.getItemAsync(PRIVATE_KEY, { ...privateOptions,
-    authenticationPrompt: read ? 'Leer estas posiciones DeFi custodiadas en el servicio; no retirar ni ejecutar'
-      : 'Revisar las posiciones DeFi de este servicio original; no autorizar operaciones' });
+    authenticationPrompt: read ? "Read these DeFi positions guarded in the service; do not withdraw or execute"
+      : "Review the DeFi positions of this original service; do not authorize operations" });
   if (retained === null) throw Error('MOBILE_KEY_RECOVERY_REQUIRED');
   const key = privateKeyFromHex(retained); let frame: Uint8Array | null = null;
   try { if (devicePublicKey(key) !== publicKey || await readDevicePublicKey() !== publicKey) throw Error('MOBILE_KEY_BINDING_CHANGED');
@@ -336,7 +336,7 @@ export async function signDeviceExternalFlatPermissionV1(raw:unknown,expectedOri
  if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatFreshV1(value);const subject=v.action==='ACCESS'?v:v.descriptor;
  if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
- const consent=check();const approved=await LocalAuthentication.authenticateAsync({promptMessage:consent.action==='ACCESS'?'Autorizar lectura de la nota ERC20':`${consent.action}: ${consent.statement.amount} unidades a ${consent.recipient}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);
+ const consent=check();const approved=await LocalAuthentication.authenticateAsync({promptMessage:consent.action==='ACCESS'?"Authorize reading of note ERC20":`${consent.action}: ${consent.statement.amount} units to ${consent.recipient}`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);
  if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);
  try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');return signDeviceMessage(privateKey,externalFlatPermissionMessageV1(check()));}
  finally{privateKey.fill(0);retained=null;}
@@ -347,14 +347,14 @@ export async function signDeviceExternalFlatGraphPermissionV1(raw:unknown,expect
  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('GRAPH',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=validateExternalFlatGraphFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatGraphFreshV1(value),subject=v.descriptor;if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
- const consent=check(),approved=await LocalAuthentication.authenticateAsync({promptMessage:`${consent.draft.action}: presupuesto ${consent.draft.statement.budget ?? 'del grafo'}; vencimiento ${consent.draft.statement.settleBefore}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
+ const consent=check(),approved=await LocalAuthentication.authenticateAsync({promptMessage:`${consent.draft.action}: budget ${consent.draft.statement.budget ?? "Graph"}; expires ${consent.draft.statement.settleBefore}`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
  try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=externalFlatGraphPermissionMessageV1(check());return signDeviceMessage(privateKey,frame);}finally{frame?.fill(0);privateKey.fill(0);retained=null;}
 }
 
 /** Fixed GRAPH-output W39 role permission; the protected note root never leaves. */
 export async function signDeviceExternalFlatGraphOutputPermissionV1(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal,authorization?:object):Promise<string>{
  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('OUTPUT',raw,expectedOrigin,expectedPairingId,signal,authorization);
- const value=validateExternalFlatGraphOutputFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatGraphOutputFreshV1(value),subject=v.consent.descriptor;if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};const reviewed=check(),c=reviewed.consent,approved=await LocalAuthentication.authenticateAsync({promptMessage:`${c.action}: salida ${reviewed.noteRole}, ${c.statement.amount} unidades a ${c.recipient}`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=externalFlatGraphOutputPermissionMessageV1(check());return signDeviceMessage(privateKey,frame);}finally{frame?.fill(0);privateKey.fill(0);retained=null;}
+ const value=validateExternalFlatGraphOutputFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=validateExternalFlatGraphOutputFreshV1(value),subject=v.consent.descriptor;if(subject.origin!==expectedOrigin||subject.pairingId!==expectedPairingId||subject.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};const reviewed=check(),c=reviewed.consent,approved=await LocalAuthentication.authenticateAsync({promptMessage:`${c.action}: output ${reviewed.noteRole}, ${c.statement.amount} units to ${c.recipient}`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const privateKey=privateKeyFromHex(retained);let frame:Uint8Array|undefined;try{if(devicePublicKey(privateKey)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=externalFlatGraphOutputPermissionMessageV1(check());return signDeviceMessage(privateKey,frame);}finally{frame?.fill(0);privateKey.fill(0);retained=null;}
 }
 
 /** Explicit local identity backup. Returns ciphertext only, never a private key.
@@ -367,7 +367,7 @@ export async function exportDeviceIdentityBackupV1(passphrase: string, expectedP
     let retained: string | null = null, privateKey: Uint8Array | undefined, clear: Uint8Array | undefined;
     try {
       current(); await assertProtectedStorage(); current();
-      const approval = await LocalAuthentication.authenticateAsync({promptMessage:'Crear una copia cifrada de tu misma identidad; guarda la copia y su contraseña fuera del dispositivo',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+      const approval = await LocalAuthentication.authenticateAsync({promptMessage:"Create an encrypted copy of your own identity; save the copy and password outside the device",cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
       current(); if (!approval.success) throw Error('MOBILE_AUTHENTICATION_CANCELLED');
       const originalPublic = await SecureStore.getItemAsync(PUBLIC_KEY, publicOptions); current();
       if (originalPublic !== expectedPublicKey) throw Error('MOBILE_CUSTODY_BACKUP_BINDING');
@@ -414,7 +414,7 @@ export async function importDeviceIdentityBackupV1(sealedJSON: string, passphras
     let beforePrivate:string|null=null,imported:string|null=null;
     try {
       current();await assertProtectedStorage();current();
-      if(!recoveryCheck){const approval=await LocalAuthentication.authenticateAsync({promptMessage:'Restaurar la misma identidad desde tu copia cifrada; no sustituir otra identidad existente',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');}
+      if(!recoveryCheck){const approval=await LocalAuthentication.authenticateAsync({promptMessage:"Restore the same identity from your encrypted copy; do not replace another existing identity",cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');}
       const beforePublic=await SecureStore.getItemAsync(PUBLIC_KEY,publicOptions);current();
       if(beforePublic!==null&&beforePublic!==expectedPublicKey)throw Error('MOBILE_CUSTODY_BACKUP_CONFLICT');
       beforePrivate=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();
@@ -439,8 +439,8 @@ export async function signDeviceMorphoBlueRedemptionPermissionV1(raw:unknown,exp
  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('BLUE',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=blueRedemption.validateDeviceMorphoBlueRedemptionFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceMorphoBlueRedemptionFreshV1(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
- const reviewed=check(),prompt=reviewed.action==='ACCESS_BLUE'?'Consultar la redención Blue original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
+ const reviewed=check(),prompt=reviewed.action==='ACCESS_BLUE'?"Check the original Blue redemption":`${reviewed.action}: ${reviewed.shares} shares, minimum ${reviewed.minimumAssets} underlying units to ${reviewed.recipient}`;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
  try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=blueRedemption.deviceMorphoBlueRedemptionPermissionMessageV1(check());return signDeviceMessage(key,frame);}finally{frame?.fill(0);key.fill(0);retained=null;}
 }
 
@@ -449,8 +449,8 @@ export async function signDeviceAaveStaticRedemptionPermissionV1(raw:unknown,exp
  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('AAVE',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=blueRedemption.validateDeviceAaveStaticRedemptionFreshV1(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceAaveStaticRedemptionFreshV1(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
- const reviewed=check(),prompt=reviewed.action==='ACCESS_AAVE'?'Consultar la redención Aave original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
+ const reviewed=check(),prompt=reviewed.action==='ACCESS_AAVE'?"Consult the original Aave redemption":`${reviewed.action}: ${reviewed.shares} shares, minimum ${reviewed.minimumAssets} underlying units to ${reviewed.recipient}`;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
  try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=blueRedemption.deviceAaveStaticRedemptionPermissionMessageV1(check());return signDeviceMessage(key,frame);}finally{frame?.fill(0);key.fill(0);retained=null;}
 }
 
@@ -463,11 +463,11 @@ export async function signNativeClaimDevicePermissionV1(raw:unknown,expectedOrig
  current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();
  if(publicKey===null||publicKey!==value.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
  const approved=await LocalAuthentication.authenticateAsync({promptMessage:value.action==='REDEEM_NATIVE_CLAIM'
-  ?'Quemar este importe de claims y entregar una sola vez al destinatario nativo original; custodia del operador'
+  ?"Burn this amount of claims and deliver only once to the original native recipient; operator custody"
   :value.action==='READ_CLAIM_JOURNAL'
-  ?'Leer el journal de claims custodiados por este operador; no gastar fondos'
-  :'Conciliar esta solicitud original de claims; no firmar, probar ni reenviar fondos',
-  cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+  ?"Read the journal of claims guarded by this operator; do not spend funds"
+  :"Conciliate this original claim request; do not sign, test or forward funds",
+  cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
  current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');
  let retained:string|null=null,key:Uint8Array|undefined,frame:Uint8Array|undefined;
  try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();
@@ -482,7 +482,7 @@ export async function signNativeClaimDevicePermissionV1(raw:unknown,expectedOrig
 export async function signDeviceRootNativeClaimPermissionV2(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
  const protocol=await import('../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'),signing=await import('./signing.mjs');const value=protocol.validateDeviceRootClaimPermissionFreshV2(raw);
  const current=()=>{if(signal?.aborted)throw Error('MOBILE_NATIVE_CLAIM_CANCELLED');const c=protocol.validateDeviceRootClaimPermissionFreshV2(value);if(c.descriptor.claim.origin!==expectedOrigin||c.descriptor.claim.pairingId!==expectedPairingId)throw Error('MOBILE_KEY_BINDING_CHANGED');return c;};current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();if(publicKey===null||publicKey!==value.descriptor.claim.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:'Autorizar '+value.action+' para esta nota de '+value.descriptor.claim.claimSymbol+'; el activo nativo permanece en custodia del quórum local',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:"Authorize "+value.action+" for this note of "+value.descriptor.claim.claimSymbol+"; the native asset remains in custody of the local quorum",cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
  try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');const signature=signing.signDeviceRootNativeClaimPermissionV2(key,current());current();return signature;}finally{key?.fill(0);retained=null;}
 }
 
@@ -490,7 +490,7 @@ export async function signDeviceRootNativeClaimPermissionV2(raw:unknown,expected
 export async function signDeviceRootNativeClaimExitPermissionV3(raw:unknown,expectedOrigin:string,expectedPairingId:string,signal?:AbortSignal):Promise<string>{
  const protocol=await import('../../../../packages/mobile-protocol/src/native-claim-device-v1.mjs'),signing=await import('./signing.mjs');const value=protocol.validateDeviceRootClaimExitPermissionFreshV3(raw);
  const current=()=>{if(signal?.aborted)throw Error('MOBILE_NATIVE_CLAIM_CANCELLED');const c=protocol.validateDeviceRootClaimExitPermissionFreshV3(value);if(c.descriptor.claim.origin!==expectedOrigin||c.descriptor.claim.pairingId!==expectedPairingId)throw Error('MOBILE_KEY_BINDING_CHANGED');return c;};current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();if(publicKey===null||publicKey!==value.descriptor.claim.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:'Autorizar '+value.action+' para esta nota de '+value.descriptor.claim.claimSymbol+'; el activo nativo permanece en custodia del quórum local',cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:"Authorize "+value.action+" for this note of "+value.descriptor.claim.claimSymbol+"; the native asset remains in custody of the local quorum",cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
  try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');const signature=signing.signDeviceRootNativeClaimExitPermissionV3(key,current());current();return signature;}finally{key?.fill(0);retained=null;}
 }
 
@@ -499,7 +499,7 @@ export async function signDevicePagedOwnerPermissionV3(raw:unknown,expectedOrigi
  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionPagedOwnerV1(raw,expectedOrigin,expectedPairingId,signal,authorization);
  const protocol=await import('../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs'),value=protocol.validateDevicePagedConsentFreshV3(raw);
  const current=()=>{if(signal?.aborted)throw Error('MOBILE_PAGED_CANCELLED');const c=protocol.validateDevicePagedConsentFreshV3(value);if(c.descriptor.origin!==expectedOrigin||c.descriptor.pairingId!==expectedPairingId)throw Error('MOBILE_PAGED_BINDING');return c;};current();await assertProtectedStorage();current();const publicKey=await readDevicePublicKey();current();if(publicKey===null||publicKey!==value.descriptor.devicePublicKey)throw Error('MOBILE_KEY_REQUIRED');
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:`${value.action}: nota Paged de este servicio`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:`${value.action}: Paged note of this service`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
  try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');current();const {signDevicePagedConsentV3}=await import('./device-paged-permission-v3.mjs');current();return signDevicePagedConsentV3(key,current());}finally{key?.fill(0);retained=null;}
 }
 
@@ -508,8 +508,8 @@ export async function signDeviceMetaMorphoRedemptionPermissionV2(raw:unknown,exp
  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionExternalV1('META',raw,expectedOrigin,expectedPairingId,signal,authorization);
  const value=blueRedemption.validateDeviceMetaMorphoRedemptionFreshV2(raw);await assertProtectedStorage();const publicKey=await readDevicePublicKey();if(publicKey===null)throw Error('MOBILE_KEY_REQUIRED');
  const check=()=>{if(signal?.aborted)throw Error('MOBILE_EXTERNAL_FLAT_CANCELLED');const v=blueRedemption.validateDeviceMetaMorphoRedemptionFreshV2(value),d=v.descriptor;if(d.origin!==expectedOrigin||d.pairingId!==expectedPairingId||d.devicePublicKey!==publicKey)throw Error('MOBILE_EXTERNAL_FLAT_BINDING');return v;};
- const reviewed=check(),prompt=reviewed.action==='ACCESS_META'?'Consultar la redención MetaMorpho original':`${reviewed.action}: ${reviewed.shares} participaciones, mínimo ${reviewed.minimumAssets} unidades de underlying a ${reviewed.recipient}`;
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
+ const reviewed=check(),prompt=reviewed.action==='ACCESS_META'?"Consult the original MetaMorpho redemption":`${reviewed.action}: ${reviewed.shares} shares, minimum ${reviewed.minimumAssets} underlying units to ${reviewed.recipient}`;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:prompt,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});check();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');const key=privateKeyFromHex(retained);let frame:Uint8Array|undefined;
  try{if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');frame=blueRedemption.deviceMetaMorphoRedemptionPermissionMessageV2(check());return signDeviceMessage(key,frame);}finally{frame?.fill(0);key.fill(0);retained=null;}
 }
 
@@ -518,7 +518,7 @@ export async function signDevicePagedGraphPermissionV3(raw:unknown,expectedOrigi
  if(WalletSession.walletSessionStatusV1().managed)return WalletSession.signWalletSessionPagedGraphV1(raw,expectedOrigin,expectedPairingId,signal,authorization);
  const protocol=await import('../../../../packages/mobile-protocol/src/device-paged-graph-v3.mjs'),value=protocol.validateDevicePagedGraphConsentFreshV3(raw);
  const current=()=>{if(signal?.aborted)throw Error('MOBILE_PAGED_CANCELLED');const c=protocol.validateDevicePagedGraphConsentFreshV3(value);if(c.descriptor.origin!==expectedOrigin||c.descriptor.pairingId!==expectedPairingId)throw Error('MOBILE_PAGED_BINDING');return c;};current();await assertProtectedStorage();current();const publicKey=await readDevicePublicKey();current();if(publicKey===null||publicKey!==value.descriptor.devicePublicKey)throw Error('MOBILE_KEY_REQUIRED');
- const approved=await LocalAuthentication.authenticateAsync({promptMessage:`${value.action}: grafo Paged de este servicio`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
+ const approved=await LocalAuthentication.authenticateAsync({promptMessage:`${value.action}: Paged graph of this service`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});current();if(!approved.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');let retained:string|null=null,key:Uint8Array|undefined;
  try{retained=await SecureStore.getItemAsync(PRIVATE_KEY,privateOptions);current();if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');current();const {signDevicePagedGraphConsentV3}=await import('./device-paged-permission-v3.mjs');current();return signDevicePagedGraphConsentV3(key,current());}finally{key?.fill(0);retained=null;}
 }
 
@@ -538,11 +538,11 @@ export async function openDevicePagedGraphExecutionSessionV3(rawReview:unknown,s
   const review=custody.readDevicePagedExecutionReviewV3(rawReview),current=()=>{if(signal?.aborted||AppState.currentState==='background')throw Error('MOBILE_PAGED_CANCELLED');custody.assertDevicePagedExecutionReviewActiveV3(rawReview);};
   current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();
   if(publicKey!==review.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
-  const approval=await LocalAuthentication.authenticateAsync({promptMessage:`Autorizar ${review.steps.length} pagos y reservar ${review.budget} unidades de esta nota. Sesión de hasta 15 minutos con la app abierta.`,cancelLabel:'Cancelar',disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+  const approval=await LocalAuthentication.authenticateAsync({promptMessage:`Authorize ${review.steps.length} payments and reserve ${review.budget} units of this note. Session up to 15 minutes with the app open.`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
   current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');
   let retained:string|null=null,key:Uint8Array|undefined,session:object|undefined;
   try{
-   retained=await SecureStore.getItemAsync(PRIVATE_KEY,{...privateOptions,authenticationPrompt:'Abrir la clave para ejecutar sólo esta operación autorizada'});current();
+   retained=await SecureStore.getItemAsync(PRIVATE_KEY,{...privateOptions,authenticationPrompt:"Open key to execute only this authorized operation"});current();
    if(retained===null)throw Error('MOBILE_KEY_RECOVERY_REQUIRED');key=privateKeyFromHex(retained);
    if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
    custody.readDevicePagedExecutionReviewV3(rawReview);current();

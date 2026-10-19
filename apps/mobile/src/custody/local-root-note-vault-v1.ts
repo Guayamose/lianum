@@ -68,7 +68,7 @@ export function readLocalDeviceOutputDisplayV1(value: object): LocalOutputDispla
 const PRIVATE: SecureStore.SecureStoreOptions = { requireAuthentication: true,
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   keychainService: 'org.lianum.wallet.note.root.authenticated.v1',
-  authenticationPrompt: 'Abrir la custodia local de tu nota Lianum', };
+  authenticationPrompt: "Open local custody of your Lianum note", };
 const DATA: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   keychainService: 'org.lianum.wallet.note.encrypted-record.v1', };
@@ -550,7 +550,7 @@ async function protectedConsent(prompt: string, scope: Pick<RootOperationScope, 
     || !SecureStore.canUseBiometricAuthentication()
     || !await checked(scope, () => Authentication.hasHardwareAsync())
     || !await checked(scope, () => Authentication.isEnrolledAsync())) bad('MOBILE_PROTECTED_STORAGE_UNAVAILABLE');
-  const reply = await checked(scope, () => Authentication.authenticateAsync({ promptMessage: prompt, cancelLabel: 'Cancelar',
+  const reply = await checked(scope, () => Authentication.authenticateAsync({ promptMessage: prompt, cancelLabel: "Cancel",
     disableDeviceFallback: true, biometricsSecurityLevel: 'strong' }));
   if (!reply.success) bad('MOBILE_AUTHENTICATION_CANCELLED');
 }
@@ -642,7 +642,7 @@ export function createLocalRootNoteVaultV1() { return createLocalRootNoteOperati
 async function createWithinScope(scope: RootOperationScope) {
   return serial(async () => {
     scope.current();
-    await protectedConsent('Crear una raíz local para cifrar tus notas, distinta de tu identidad HTTP', scope);
+    await protectedConsent("Create a local root to encrypt your notes, other than your HTTP identity", scope);
     const root = await Crypto.getRandomBytesAsync(32);
     try { scope.current(); return await initialize(scope, root); } finally { root.fill(0); }
   });
@@ -653,7 +653,7 @@ export function importLocalRootNoteVaultV1(rootHex: string) {
   return context.run(() => serial(async () => {
     scope.current();
     const root = localNoteHexBytesV1(rootHex); if (root.every(byte => byte === 0)) { root.fill(0); return bad(); }
-    try { await protectedConsent('Importar tu raíz de recuperación local; no reemplazará otra custodia', scope); return await initialize(scope, root); }
+    try { await protectedConsent("Import your local recovery root; will not replace other custody", scope); return await initialize(scope, root); }
     finally { root.fill(0); }
   }));
 }
@@ -698,7 +698,7 @@ async function recoverWithinScope(scope: RootOperationScope, rootHex: string, ex
     const root = localNoteHexBytesV1(rootHex); integer(expectedRevision);
     let key: Crypto.AESEncryptionKey | null = null;
     try {
-      await protectedConsent('Recuperar esta custodia local exacta y conservar su nota original', scope);
+      await protectedConsent("Recover this exact local custody and keep your original note", scope);
       if (root.every(byte => byte === 0)) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
       const before = await checked(scope, () => SecureStore.getItemAsync(POINTER, DATA)), raw = await readStoredRecord(scope);
       if (before === null) bad('MOBILE_LOCAL_NOTE_RECOVERY_REQUIRED');
@@ -798,7 +798,7 @@ async function restoreWithinScope(scope: RootOperationScope, backupJSON: string,
       const root = localNoteHexBytesV1(hex(b.rootHex));
       let key: Crypto.AESEncryptionKey | null = null;
       try {
-        if(recoveryScope){if(!(signal instanceof AbortSignal))bad('MOBILE_CUSTODY_BACKUP_CANCELLED');RecoverySession.assertWalletSessionRecoveryBatchV4(recoveryScope,'RESTORE',walletSessionStatusV1().publicKey!,signal!);}else await protectedConsent('Restaurar esta copia local exacta: contiene la raíz secreta y el registro cifrado', scope);
+        if(recoveryScope){if(!(signal instanceof AbortSignal))bad('MOBILE_CUSTODY_BACKUP_CANCELLED');RecoverySession.assertWalletSessionRecoveryBatchV4(recoveryScope,'RESTORE',walletSessionStatusV1().publicKey!,signal!);}else await protectedConsent("Restore this exact local copy: contains the secret root and encrypted record", scope);
         if (root.every(byte => byte === 0) || await checked(scope, () => rootIdentity(root)) !== rootId) bad('MOBILE_LOCAL_NOTE_RECOVERY_BINDING');
         const activeKey = key = await checked(scope, () => Crypto.AESEncryptionKey.import(root));
         const value = await checked(scope, () => decrypted(activeKey, raw)); // Authenticate and validate the original opening before any write.
@@ -966,7 +966,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     return { note, observation };
   }
   function createSourceExitRequest(handle:object):Promise<LocalDeviceExitProofRequestV1>{const quote=readDeviceExitQuoteV1(handle);if(quote.version!==2||quote.noteRole!=='deposit')bad('MOBILE_LOCAL_PRIVATE_SOURCE_EXIT_REQUIRED');
-   return original('Guardar la retirada de esta nota depositada antes de cifrar su única apertura W39',async(value,key,before,raw,root)=>{const note=value.note;if(!note?.deviceJob||!note.funding||note.status!=='FUNDED'||value.spend||value.sourceExit||quote.rootId!==value.rootId||quote.noteRevision!==value.revision||quote.parentJobId!==note.deviceJob.jobId||quote.origin!==note.deviceJob.origin||quote.pairingId!==note.deviceJob.pairingId||quote.poolTerms.scope!==note.scope||quote.poolTerms.policy!==note.policy||quote.poolTerms.assetIdentity!==note.deviceJob.assetIdentity||quote.poolTerms.domainCommitment!==note.deviceJob.domainCommitment)bad('MOBILE_LOCAL_SOURCE_EXIT_CHANGED');
+   return original("Save the withdrawal of this deposited note before encrypting its only W39 opening",async(value,key,before,raw,root)=>{const note=value.note;if(!note?.deviceJob||!note.funding||note.status!=='FUNDED'||value.spend||value.sourceExit||quote.rootId!==value.rootId||quote.noteRevision!==value.revision||quote.parentJobId!==note.deviceJob.jobId||quote.origin!==note.deviceJob.origin||quote.pairingId!==note.deviceJob.pairingId||quote.poolTerms.scope!==note.scope||quote.poolTerms.policy!==note.policy||quote.poolTerms.assetIdentity!==note.deviceJob.assetIdentity||quote.poolTerms.domainCommitment!==note.deviceJob.domainCommitment)bad('MOBILE_LOCAL_SOURCE_EXIT_CHANGED');
     const statement=localDeviceWithdrawalStatementV1({scope:note.scope,policy:note.policy,epoch:quote.statement.epoch,opening:note.opening,path:quote.path,recipient:quote.statement.recipient});if(JSON.stringify(statement)!==JSON.stringify(quote.statement)||statement.commitment!==note.commitment)bad();const entropy=await checked(scope,()=>Crypto.getRandomBytesAsync(32));let noteKey:Uint8Array|null=null,message:Uint8Array|null=null,witness:DeviceExitWitnessV1|null=null;
     try{const intent:LocalExitIntentV1={version:1,phase:'PREPARED',parentJobId:quote.parentJobId,nativeBindingSHA256:quote.nativeBindingSHA256,quoteId:quote.quoteId,jobId:bytesToHex(entropy),origin:quote.origin,pairingId:quote.pairingId,devicePublicKey:quote.devicePublicKey,rootId:value.rootId,noteRevision:quote.noteRevision,noteRole:'deposit',statement,path:quote.path,signature:null,witnessSHA256:null};if(intent.jobId==='0'.repeat(64))bad('MOBILE_ENTROPY_FAILED');const next:State={...value,revision:value.revision+1,sourceExit:intent};readDeviceExitQuoteV1(handle);liveInclusion=null;outputDisplayGeneration++;await persistSpend(next,key,before,raw,root);current();readDeviceExitQuoteV1(handle);const nextBefore=await checked(scope,()=>SecureStore.getItemAsync(POINTER,DATA)),nextRaw=await readStoredRecord(scope);if(nextBefore===null||nextRaw===null||pointer(nextBefore).revision!==next.revision)bad('MOBILE_LOCAL_NOTE_WRITE_UNCERTAIN');noteKey=privateKeyFromHex(note.privateKey);message=localDeviceWithdrawalFrameV1(statement);const signature=signDeviceMessage(noteKey,message);witness=normalizeDeviceExitWitnessV1(localDeviceWithdrawalWitnessV1({statement,opening:note.opening,path:quote.path,signature}));const bytes=deviceExitWitnessBytesV1(witness);let witnessSHA256:string;try{witnessSHA256=await checked(scope,()=>digest(bytes));}finally{bytes.fill(0);}const signed:LocalExitIntentV1={...intent,phase:'SIGNED',signature,witnessSHA256},final:State={...next,revision:next.revision+1,sourceExit:signed};readDeviceExitQuoteV1(handle);await persistSpend(final,key,nextBefore,nextRaw,root);current();readDeviceExitQuoteV1(handle);const request:LocalDeviceExitProofRequestV1=Object.freeze({rootId:value.rootId,parentJobId:intent.parentJobId,nativeBindingSHA256:intent.nativeBindingSHA256,quoteId:intent.quoteId,jobId:intent.jobId,noteRevision:intent.noteRevision,noteRole:'deposit',statement,witnessSHA256,expiresAt:quote.expiresAt,close(){const row=exitRequests.get(request);if(row){row.consumed=true;wipeExit(row.witness);}}});exitRequests.set(request,{witness,quote:handle,consumed:false});outstandingExitWitnesses.add(witness);witness=null;return request;
     }finally{entropy.fill(0);noteKey?.fill(0);message?.fill(0);if(witness)wipeDeviceExitWitnessV1(witness);}});
@@ -1010,7 +1010,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
   function prepareReservation(input: LocalFundedProposalV1, quoteHandle?: object): Promise<LocalDeviceReservationReviewV1> {
       current(); discardReview(); const quote = quoteHandle ? readDeviceReservationQuoteV1(quoteHandle) : null;
       const proposal = normalizeLocalFundedProposalV1(input);
-      return original('Preparar el gasto de ' + proposal.budget + ' unidades: guardar primero tu cambio y recuperación cifrados; todavía no reservar',
+      return original("Prepare the expenditure of " + proposal.budget + " units: first save your encrypted change and recovery; don't book yet",
         async (value, key, before, raw, root) => {
           const { note, observation } = fundedSource(value);
           if (proposal.scope !== note.scope || proposal.policy !== note.policy || proposal.asset !== note.deviceJob?.assetIdentity
@@ -1064,12 +1064,12 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         });
   }
   return Object.freeze({
-    readPreparedNote: () => sessionRead('Leer tu nota local preparada; todavía no es saldo disponible', async value => summary(value)),
+    readPreparedNote: () => sessionRead("Read your prepared local note; not yet available balance", async value => summary(value)),
     /** Only ciphertext leaves this capability. RootNote has its own rootId;
      * no unrelated device PoP identity is required or invented for its backup. */
     exportBackup(passphrase: string, signal?: AbortSignal,recoveryScope?:object) {
       if (arguments.length < 1 || arguments.length > 3) bad('MOBILE_CUSTODY_BACKUP_PASSWORD');
-      if(recoveryScope){if(!(signal instanceof AbortSignal))bad('MOBILE_CUSTODY_BACKUP_CANCELLED');RecoverySession.assertWalletSessionRecoveryBatchV4(recoveryScope,'EXPORT',walletSessionStatusV1().publicKey!,signal!);}return original('Crear una copia cifrada de tu custodia local con la contraseña elegida',
+      if(recoveryScope){if(!(signal instanceof AbortSignal))bad('MOBILE_CUSTODY_BACKUP_CANCELLED');RecoverySession.assertWalletSessionRecoveryBatchV4(recoveryScope,'EXPORT',walletSessionStatusV1().publicKey!,signal!);}return original("Create an encrypted copy of your local custody with the chosen password",
         async (value, _key, before, raw, root) => {
           let clear: Uint8Array | undefined;
           try {
@@ -1094,7 +1094,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       const terms = { scope: hex(input.scope), policy: hex(input.policy), pool: hex(input.pool, 20), recipient: hex(input.recipient, 20), amount: input.amount };
       localNoteUintBytesV1(terms.amount);
       if (BigInt(terms.amount) <= 0n || terms.pool === terms.recipient || terms.pool === '0'.repeat(40) || terms.recipient === '0'.repeat(40)) bad();
-      return original('Preparar una nota local sin financiarla ni autorizar gasto', async (value, key, before, raw) => {
+      return original("Prepare a local note without funding or authorizing expenditure", async (value, key, before, raw) => {
         if (value.note !== null) bad('MOBILE_LOCAL_NOTE_ORIGINAL_REQUIRED');
         if (value.revision >= Number.MAX_SAFE_INTEGER) bad('MOBILE_LOCAL_NOTE_CAPACITY');
         let secretKey: Uint8Array | null = null;
@@ -1131,7 +1131,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     reviewPreparedDeposit: (input: LocalDepositChoiceV1): Promise<LocalDepositReviewV1> => {
       current(); discardReview();
       const choice = normalizeLocalDepositChoiceV1(input);
-      return original('Revisar una firma local de depósito; la nota sigue sin financiar y no se enviará a la red',
+      return original("Review a local deposit signature; note still unfunded and will not be sent to network",
         async value => {
           if (!value.note || value.rootClaim) bad('MOBILE_LOCAL_NOTE_ORIGINAL_REQUIRED');
           const note = preparedSummary(value.note), statement = localUnissuedDepositStatementV1(note, choice);
@@ -1166,8 +1166,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         current() { current(); if (Date.now() < review.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_DEPOSIT_REVIEW_EXPIRED'); },
         writeStarted() { signing.current(); scope.writeStarted(); },
       };
-      return original('Firmar sólo el depósito ' + choice.relation + ' de ' + review.note.amount
-        + ' unidades para la nota local ' + review.note.commitment.slice(0, 12) + '; no financiar ni enviar',
+      return original("Sign only the deposit " + choice.relation + " of " + review.note.amount
+        + " units for the local note " + review.note.commitment.slice(0, 12) + "; do not finance or send",
         async (value, key, before, raw, root) => {
           signing.current();
           if (!value.note || value.rootClaim || value.rootId !== review.rootId || value.revision !== review.revision
@@ -1222,7 +1222,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       if (expiry === undefined || Date.now() >= expiry || signed.relation !== 'D26'
         || signed.rootId !== expectedRootId || !('epoch' in signed.statement)) bad('MOBILE_LOCAL_PROOF_SIGNATURE_REQUIRED');
       signatures.delete(signed);
-      return original('Preparar la revelación de una sola apertura D26 al worker; la raíz y la clave de nota permanecen aquí',
+      return original("Prepare the revelation of a single opening D26 to the worker; the root and note key remain here",
         async value => {
           if (!value.note || value.rootClaim || value.note.status !== 'UNISSUED'
             || value.revision !== signed.revision || value.note.commitment !== signed.commitment
@@ -1253,7 +1253,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         || consent.noteRevision !== request.noteRevision || consent.witnessSHA256 !== request.witnessSHA256
         || JSON.stringify(consent.statement) !== JSON.stringify(request.statement)) bad('MOBILE_LOCAL_PROOF_REQUEST_REQUIRED');
       row.consumed = true;
-      return original('Entregar sólo esta apertura D26 por TLS a ' + new URL(consent.origin).hostname + '; todavía no financiar',
+      return original("Deliver only this opening D26 by TLS to " + new URL(consent.origin).hostname + "; not yet financed",
         async (value, key, before, raw, root) => {
           validateDeviceDepositConsentFreshV1(consent);
           if (!value.note || value.note.status !== 'UNISSUED' || (!value.note.deviceJob && value.revision !== request.noteRevision)
@@ -1292,7 +1292,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       if (expiry === undefined || Date.now() >= expiry || signed.relation !== 'D27' || signed.rootId !== expectedRootId
         || !('validFrom' in signed.statement)) bad('MOBILE_LOCAL_CLAIM_SIGNATURE_REQUIRED');
       signatures.delete(signed);
-      return original('Preparar la apertura de esta nota D27 para el receptor cifrado original de claims', async value => {
+      return original("Prepare the opening of this note D27 for the original cipher of claims", async value => {
         const n = value.note;
         if (!n || value.rootClaim || n.status !== 'UNISSUED' || n.deviceJob || value.revision !== signed.revision
           || n.commitment !== signed.commitment || n.depositIntent?.relation !== 'D27'
@@ -1320,7 +1320,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         || p.rootId !== request.rootId || p.noteRevision !== request.noteRevision || p.witnessSHA256 !== request.witnessSHA256
         || JSON.stringify(p.statement) !== JSON.stringify(request.statement)) bad('MOBILE_LOCAL_ORIGINAL_CLAIM_PERMISSION_REQUIRED');
       row.used=true;
-      return original('Autorizar sólo esta apertura cifrada D27; conservar la raíz y la clave de nota en el dispositivo', async(value,key,before,raw,root)=>{
+      return original("Allow only this encrypted opening D27; keep the root and note key on the device", async(value,key,before,raw,root)=>{
         readOriginalDeviceRootClaimPermissionV2(handle);
         if (!value.note || value.rootClaim || value.note.deviceJob || value.revision !== request.noteRevision
           || value.note.commitment !== request.statement.output) bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
@@ -1333,7 +1333,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         return checked(scope,()=>sealOriginalDeviceRootClaimWitnessV2(p,signature,row.witness,null));
       }).finally(()=>wipeClaim(row.witness));
     },
-    deviceRootClaimIngressWitnessHashV2: () => sessionRead('Leer sólo el hash de la apertura original para CI51, sin revelar la raíz', async value => {
+    deviceRootClaimIngressWitnessHashV2: () => sessionRead("Read only the hash of the original opening for CI51, without revealing the root", async value => {
       if (!value.note || !value.rootClaim || value.rootClaim.ci51JobId !== null) bad('MOBILE_LOCAL_CLAIM_CUSTODY_REQUIRED');
       const n=value.note.opening, opening={rho:n.rho,x:n.x,y:n.y,value:n.value,noteSecret:n.secret}, bytes=deviceRootClaimDataBytesV2(opening);
       try {return await checked(scope,()=>digest(bytes));} finally {bytes.fill(0);externalFlatWipeV1(opening);}
@@ -1341,7 +1341,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     sealDeviceRootClaimIngressV2: (handle: object, signature: string) => {
       current(); const review=readOriginalDeviceRootClaimReviewV2(handle),p=review.consent;
       if(p.action!=='PROVE_CI51')bad('MOBILE_LOCAL_ORIGINAL_CLAIM_PERMISSION_REQUIRED');
-      return original('Autorizar la apertura cifrada CI51 para el mismo ingreso nativo ya observado', async(value,key,before,raw,root)=>{
+      return original("Authorize the CI51 encrypted opening for the same observed native deposit", async(value,key,before,raw,root)=>{
         readOriginalDeviceRootClaimReviewV2(handle);const c=value.rootClaim,n=value.note,statement=p.statement as DeviceRootClaimIngressStatementV2;
         if(!c||!n||c.ci51JobId!==null||p.rootId!==value.rootId||p.noteRevision!==c.noteRevision
           ||JSON.stringify(p.descriptor)!==JSON.stringify(c.descriptor)||statement.claimDomain!==c.descriptor.claim.claimDomain
@@ -1361,7 +1361,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     latchDeviceRootClaimEffectV2: (handle: DeviceRootClaimPermissionV2) => {
       current();const p=readOriginalDeviceRootClaimPermissionV2(handle);
       if(!['FUND_NATIVE_CLAIM','ISSUE_CLAIM'].includes(p.action))bad('MOBILE_LOCAL_ORIGINAL_CLAIM_PERMISSION_REQUIRED');
-      return original('Retener el permiso de '+p.action+' de esta misma nota antes del envío original',async(value,key,before,raw,root)=>{
+      return original("Retain permission from "+p.action+" of the same note before original transfer",async(value,key,before,raw,root)=>{
         const c=value.rootClaim;if(!c||p.rootId!==value.rootId||p.noteRevision!==c.noteRevision||p.jobId!==c.d27JobId
           ||JSON.stringify(p.descriptor)!==JSON.stringify(c.descriptor)||JSON.stringify(p.statement)!==JSON.stringify(c.statement)
           ||c.admissions.some(a=>a.action===p.action)||p.action==='ISSUE_CLAIM'&&c.ci51JobId===null)bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
@@ -1375,7 +1375,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     },
     prepareDeviceRootClaimExitV3: (handle: object) => {
       current();const quote=readOriginalDeviceRootClaimExitQuoteV3(handle);
-      return original('Preparar W39 de esta misma nota privada emitida; conservar apertura en RootNote',async(value,key,before,raw,root)=>{
+      return original("Prepare W39 of the same private note issued; keep opening in RootNote",async(value,key,before,raw,root)=>{
         const c=value.rootClaim,n=value.note;if(!c||!n||c.ci51JobId===null||!c.admissions.some(a=>a.action==='ISSUE_CLAIM')
           ||JSON.stringify(quote.descriptor)!==JSON.stringify(c.descriptor)||quote.rootId!==value.rootId||quote.noteRevision!==c.noteRevision
           ||c.exit&&c.exit.phase!=='PREPARED')bad('MOBILE_LOCAL_CLAIM_EXIT_OBSERVE_ONLY');
@@ -1396,7 +1396,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       current();const p=readOriginalDeviceRootClaimExitPermissionV3(handle),r=claimExitRequests.get(request);
       if(!r||r.used||p.action!=='PROVE_W39'||p.quoteId!==request.quoteId||p.rootId!==request.rootId||p.noteRevision!==request.noteRevision
         ||JSON.stringify(p.statement)!==JSON.stringify(request.statement)||JSON.stringify(p.path)!==JSON.stringify(request.path)||p.witnessSHA256!==request.witnessSHA256)bad('MOBILE_LOCAL_CLAIM_EXIT_PERMISSION_REQUIRED');r.used=true;
-      return original('Conservar el único job W39 antes de entregar su apertura cifrada al receptor original',async(value,key,before,raw,root)=>{
+      return original("Keep the only job W39 before delivering its encrypted opening to the original receiver",async(value,key,before,raw,root)=>{
         readOriginalDeviceRootClaimExitPermissionV3(handle);const c=value.rootClaim;if(!c?.exit||c.exit.phase!=='PREPARED'||c.exit.quote.quoteId!==p.quoteId
           ||JSON.stringify(c.descriptor)!==JSON.stringify(p.descriptor)||c.exit.witnessSHA256!==p.witnessSHA256)bad('MOBILE_LOCAL_CLAIM_EXIT_CONTEXT_CHANGED');
         liveClaimObservation=null;await persistSpend({...value,revision:value.revision+1,rootClaim:{...c,exit:{...c.exit,phase:'PROVE_ADMITTED',jobId:p.jobId}}},key,before,raw,root);
@@ -1405,7 +1405,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     },
     latchDeviceRootClaimExitV3: (handle:DeviceRootClaimExitPermissionV3) => {
       current();const p=readOriginalDeviceRootClaimExitPermissionV3(handle);if(!['WITHDRAW_W39','REDEEM_NATIVE','PAYOUT_NATIVE'].includes(p.action))bad('MOBILE_LOCAL_CLAIM_EXIT_PERMISSION_REQUIRED');
-      return original('Conservar la autorización única de salida antes de POST; una respuesta perdida sólo se observa',async(value,key,before,raw,root)=>{
+      return original("Keeping the single exit authorization before POST; a lost response is only observed",async(value,key,before,raw,root)=>{
         readOriginalDeviceRootClaimExitPermissionV3(handle);const c=value.rootClaim,e=c?.exit;if(!c||!e||JSON.stringify(c.descriptor)!==JSON.stringify(p.descriptor)
           ||p.rootId!==value.rootId||p.noteRevision!==c.noteRevision||p.jobId!==e.jobId)bad('MOBILE_LOCAL_CLAIM_EXIT_CONTEXT_CHANGED');let next:RootClaimCustodyV2;
         if(p.action==='WITHDRAW_W39'){if(e.phase!=='PROVE_ADMITTED'||p.quoteId!==e.quote.quoteId||JSON.stringify(p.statement)!==JSON.stringify(e.quote.statement)
@@ -1421,7 +1421,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     },
     applyDeviceRootClaimObservationV2: (handle: object) => {
       current();liveClaimObservation=null;const observation=readOriginalDeviceRootClaimObservationV2(handle);
-      return original('Conciliar sólo la lectura autenticada de este claim; no acreditar BTC/SOL por una respuesta RPC',async value=>{
+      return original("Reconcile only authenticated reading of this claim; do not credit BTC/SOL for an RPC response",async value=>{
         const c=value.rootClaim,n=value.note;if(!c||!n||JSON.stringify(observation.descriptor)!==JSON.stringify(c.descriptor)
           ||observation.commitment!==null&&observation.commitment!==n.commitment
           ||observation.nullifier!==null&&observation.nullifier!==localFundedSpendNullifierV1(n.scope,n.commitment,n.opening.secret))bad('MOBILE_LOCAL_CLAIM_CONTEXT_CHANGED');
@@ -1433,13 +1433,13 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           status:observation.note?.state??observation.deposit?.status??'UNKNOWN',availableBalance:observation.note?.state==='LIVE'?observation.note.available:null,nativeEffectsEstablished:false as const});
       });
     },
-    readDeviceRootClaimCustodyV2: () => sessionRead('Leer los identificadores de la custodia de claim retenida, sin permisos ni apertura',async value=>{
+    readDeviceRootClaimCustodyV2: () => sessionRead("Read the identifiers of custody of retained claim, without permission or opening",async value=>{
       const c=value.rootClaim;if(!c)return null;let status='UNKNOWN';
       if(liveClaimObservation){try{status=readOriginalDeviceRootClaimObservationV2(liveClaimObservation).deposit?.status??'UNKNOWN';}catch{liveClaimObservation=null;}}
       return Object.freeze({descriptor:c.descriptor,rootId:value.rootId,noteRevision:c.noteRevision,commitment:c.statement.output,
         d27JobId:c.d27JobId,ci51JobId:c.ci51JobId,exit:c.exit?{phase:c.exit.phase,jobId:c.exit.jobId}:null,redemption:c.redemption??null,status,availableBalance:null,nativeSelfCustody:false as const});
     }),
-    readDeviceOutputBalanceSubject: () => sessionRead('Leer sólo los identificadores de estas dos notas; no revelar aperturas ni autorizar W39', async value => {
+    readDeviceOutputBalanceSubject: () => sessionRead("Read only the identifiers of these two notes; do not disclose openings or authorize W39", async value => {
       const note = value.note, spend = value.spend;
       if (!note?.deviceJob || !note.funding || !spend?.proofJob || !spend.reservation) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_REQUIRED');
       return Object.freeze({ parentJobId: spend.proofJob.jobId, rootId: value.rootId, noteRevision: value.revision,
@@ -1448,7 +1448,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     }),
     applyDeviceOutputBalances: (handle: object) => {
       current(); forgetOutputs(); const observation = readDeviceOutputBalanceV1(handle);
-      return original('Guardar en memoria la lectura original de cambio/recuperación; no firmar, probar ni enviar', async value => {
+      return original("Save to memory the original change/recovery reading; do not sign, test, or send", async value => {
         const note = value.note, spend = value.spend, job = spend?.proofJob;
         if (!note?.deviceJob || !note.funding || !spend?.reservation || !job || observation.rootId !== value.rootId
           || observation.noteRevision !== value.revision || observation.parentJobId !== job.jobId
@@ -1483,7 +1483,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       });
     },
     forgetDeviceOutputBalanceObservation() { current(); forgetOutputs(); liveInclusion = null; },
-    readDeviceNote: () => sessionRead('Consultar el estado de tu nota local y su envío original', async value => {
+    readDeviceNote: () => sessionRead("Check the status of your local note and its original transfer", async value => {
       const note = value.note; if (!note) return null;
       let observation = null;
       try { observation = liveInclusion ? readDeviceDepositInclusionV1(liveInclusion) : null; } catch { liveInclusion = null; }
@@ -1554,7 +1554,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     }),
     applyDeviceDepositInclusion: (capability: object) => {
       current(); forgetOutputs(); const inclusion = readDeviceDepositInclusionV1(capability);
-      return original('Guardar la inclusión original de esta misma nota; la apertura y la clave siguen aquí',
+      return original("Save the original inclusion of this same note; the opening and key are still here",
         async (value, key, before, raw, root) => {
           readDeviceDepositInclusionV1(capability); const note = value.note;
           if (!note || !note.deviceJob || note.deviceJob.jobId !== inclusion.jobId || inclusion.rootId !== value.rootId
@@ -1606,7 +1606,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
      * never free balance without their own fresh unspent-nullifier observation. */
     applyDeviceReservationInclusion: (response: object) => {
       current(); const inclusion = readDeviceReservationInclusionV1(response);
-      return original('Guardar la reserva S original y conservar las aperturas de cambio/recuperación; no ejecutar ni reenviar',
+      return original("Save the original S reserve and keep the change/recovery openings; do not execute or forward",
         async (value, key, before, raw, root) => {
           const currentInclusion = readDeviceReservationInclusionV1(response), status = currentInclusion.status;
           const note = value.note, spend = value.spend, job = spend?.proofJob, observed = status.observation;
@@ -1658,8 +1658,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       if (!retained || pendingReservation !== review || review.rootId !== expectedRootId
         || Date.now() < retained.createdAt || Date.now() >= review.expiresAt) bad('MOBILE_LOCAL_RESERVATION_REVIEW_REQUIRED');
       reservationReviews.delete(review); pendingReservation = null;
-      return original('Autorizar sólo este grafo por ' + review.budget + ' unidades con cambio ' + review.changeAmount
-        + ' y recuperación ' + review.recoveryAmount + '; las claves permanecen en tu dispositivo',
+      return original("Authorize only this graph by " + review.budget + " units with change " + review.changeAmount
+        + " and recovery " + review.recoveryAmount + "; keys remain on your device",
         async (value, key, before, raw, root) => {
           const { note } = fundedSource(value), spend = value.spend;
           if (!spend || value.revision !== review.revision || spend.frameSHA256 !== retained.frameSHA256
@@ -1711,7 +1711,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       if (!until || Date.now() >= until || signed.rootId !== expectedRootId) bad('MOBILE_LOCAL_PROOF_SIGNATURE_REQUIRED');
       reservationSignatures.delete(signed);
       const quote = readDeviceReservationQuoteV1(quoteHandle);
-      return original('Preparar una sola prueba U: revelar únicamente las aperturas de este grafo al worker original; raíz y claves permanecen aquí',
+      return original("Prepare a single U test: reveal only the openings of this graph to the original worker; root and keys remain here",
         async (value, key, before, raw, root) => {
           const { note, observation } = fundedSource(value), spend = value.spend;
           if (!spend || spend.phase !== 'SIGNED' || !spend.preparation || spend.proofJob
@@ -1772,7 +1772,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           || JSON.stringify(consent.custody) !== JSON.stringify(request.custody)
           || JSON.stringify(consent.poolTerms) !== JSON.stringify(quote.poolTerms)) bad('MOBILE_LOCAL_AUTHORIZATION_CONSENT_CHANGED');
       } catch (cause) { wipeAuthorization(retained.witness); throw cause; }
-      return original('Confirmar la revelación acotada de esta única apertura U; nunca la raíz ni una clave privada',
+      return original("Confirm the narrow revelation of this one U opening; never the root nor a private key",
         async (value, _key, before) => {
           try {
             fundedSource(value); readDeviceReservationQuoteV1(retained.quote);
@@ -1791,7 +1791,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     readDeviceExitSubject: (role: DeviceExitRoleV1, recipient: string) => {
       current();if(!['deposit','change','recovery'].includes(role))bad('MOBILE_LOCAL_EXIT_ROLE');hex(recipient,20);
       if (recipient === '0'.repeat(40)) bad('MOBILE_LOCAL_EXIT_RECIPIENT');
-      return original('Consultar la salida de esta misma apertura local; todavía requiere estado original y consentimiento W39', async value => {
+      return original("Check the output of this same local opening; still requires original status and W39 consent", async value => {
         const note=value.note,spend=value.spend;if(role==='deposit'){if(value.sourceExit||spend)bad('MOBILE_LOCAL_SOURCE_EXIT_CONFLICT');const source=fundedSource(value);return Object.freeze({parentJobId:source.note.deviceJob!.jobId,noteRole:role,rootId:value.rootId,noteRevision:value.revision,nullifier:localFundedSpendNullifierV1(source.note.scope,source.note.commitment,source.note.opening.secret),recipient,commitment:source.note.commitment,amount:source.note.opening.value,availableBalance:null});}
         if (!note || !spend?.reservation || !spend.proofJob || !spend[role].privateKey || BigInt(spend[role].opening.value) <= 0n) bad('MOBILE_LOCAL_ORIGINAL_RESERVATION_REQUIRED');
         if (spend.exits?.[role]) bad('MOBILE_LOCAL_ORIGINAL_EXIT_ALREADY_RETAINED');
@@ -1803,8 +1803,8 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     },
     createDeviceExitProofRequest: (handle: object): Promise<LocalDeviceExitProofRequestV1> => {
       current(); discardReview(); const quote=readDeviceExitQuoteV1(handle);if(quote.noteRole==='deposit')return createSourceExitRequest(handle);
-      return original('Autorizar W39 para esta apertura de ' + quote.noteRole + ', importe ' + quote.statement.amount + ' y destinatario ' + quote.statement.recipient
-        + '; revelar sólo la apertura al worker, ninguna raíz o clave privada', async (value, key, before, raw, root) => {
+      return original("Authorize W39 for this opening of " + quote.noteRole + ', importe ' + quote.statement.amount + " and addressee " + quote.statement.recipient
+        + "; reveal only opening to the worker, no root or private key", async (value, key, before, raw, root) => {
           const note = value.note, spend = value.spend, role=quote.noteRole as OutputExitRoleV1,job=spend?.proofJob;
           if (!note?.deviceJob || !spend?.reservation || !job || !spend[role].privateKey || spend.exits?.[role]
             || quote.rootId !== value.rootId || quote.noteRevision !== value.revision || quote.parentJobId !== job.jobId
@@ -1857,7 +1857,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           if (consent[name] !== request[name]) bad('MOBILE_LOCAL_EXIT_CONSENT_CHANGED');
         if (JSON.stringify(consent.poolTerms) !== JSON.stringify(quote.poolTerms)) bad('MOBILE_LOCAL_EXIT_CONSENT_CHANGED');
       } catch (cause) { wipeExit(row.witness); throw cause; }
-      return original('Confirmar esta única revelación W39; no exportar raíz/clave ni repetir otro trabajo', async value => {
+      return original("Confirm this one W39 revelation; do not export root/key or repeat another work", async value => {
         try {
           const retained=request.noteRole==='deposit'?value.sourceExit:value.spend?.exits?.[request.noteRole];
           if (!retained || retained.phase !== 'SIGNED' || retained.jobId !== request.jobId || retained.witnessSHA256 !== request.witnessSHA256
@@ -1870,7 +1870,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
         } catch (cause) { wipeExit(row.witness); throw cause; }
       }).catch(cause => { wipeExit(row.witness); throw cause; });
     },
-    readDeviceExitIntent: (role: DeviceExitRoleV1) => sessionRead('Consultar el trabajo W39 durable original; no regenerar/reintentar salida', async value => {
+    readDeviceExitIntent: (role: DeviceExitRoleV1) => sessionRead("Consult original durable W39 work; do not regenerate/retry output", async value => {
       if(!['deposit','change','recovery'].includes(role))bad('MOBILE_LOCAL_EXIT_ROLE');const row=role==='deposit'?value.sourceExit:value.spend?.exits?.[role];
       return row ? Object.freeze({ parentJobId: row.parentJobId, nativeBindingSHA256: row.nativeBindingSHA256, jobId: row.jobId,
         quoteId: row.quoteId, rootId: row.rootId, noteRevision: row.noteRevision, noteRole: role, phase: row.phase,
@@ -1879,7 +1879,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     }),
     applyDeviceExitConfirmation: (response: object) => {
       current(); const confirmation = readDeviceExitConfirmationV1(response);
-      return original('Guardar la salida W39 canónica original de esta misma apertura; no reenviar ni sumar dinero local', async (value, key, before, raw, root) => {
+      return original("Save original canonical W39 output from this same opening; do not forward or add local money", async (value, key, before, raw, root) => {
         const repeated = readDeviceExitConfirmationV1(response), consent = confirmation.consent, status = confirmation.status;
         const spend=value.spend,row=consent.noteRole==='deposit'?value.sourceExit:spend?.exits?.[consent.noteRole],observed=status.observation;
         if(repeated.status!==status||(consent.noteRole!=='deposit'&&!spend)||!row || !observed || row.phase !== 'SIGNED' || status.stage !== 'CONFIRMED'
@@ -1903,7 +1903,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     retainDeviceExecutionIntent: (review: object) => {
       current(); const consent = readDeviceExecutionReviewV1(review);
       if (consent.action === 'RECONCILE_NATIVE') bad('MOBILE_LOCAL_NATIVE_ACTION_REQUIRED');
-      return original('Guardar una única intención de ' + consent.action + ' para la reserva original; no repetir tras respuesta perdida',
+      return original("Save a single intention of " + consent.action + " for the original reservation; do not repeat after lost response",
         async (value, key, before, raw, root) => {
           if (readDeviceExecutionReviewV1(review) !== consent) bad('MOBILE_LOCAL_ORIGINAL_EXECUTION_REQUIRED');
           const note = value.note, spend = value.spend, job = spend?.proofJob, reservation = spend?.reservation, fields = consent.reservation;
@@ -1932,7 +1932,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
           return Object.freeze({ jobId: job.jobId, action: consent.action, consentSHA256, availableBalance: null, serverAdmissionEstablished: false });
         });
     },
-    readDeviceExecutionIntent: () => sessionRead('Consultar la intención nativa original; no ejecutar ni recuperar de nuevo', async value => {
+    readDeviceExecutionIntent: () => sessionRead("Consult the original native intention; do not run or recover again", async value => {
       const row = value.spend?.execution; return row ? Object.freeze({ jobId: row.jobId, rootId: value.rootId,
         nativeBindingSHA256: row.nativeBindingSHA256, reservationTransactionHash: row.reservationTransactionHash,
         executeAttemptRetained: !!row.execute, recoveryAttemptRetained: !!row.recovery, outcome: row.reorganizationPending ? null : row.terminal?.outcome ?? null,
@@ -1943,7 +1943,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
     applyDeviceExecutionObservation: (response: object) => {
       current(); const originalStatus = readDeviceExecutionObservationV1(response);
       liveInclusion = null; forgetOutputs();
-      return original('Conservar la incertidumbre de la recuperación original antes de volver a observarla',
+      return original("Maintain the uncertainty of the original recovery before re-observing it",
         async (value, key, before, raw, root) => {
           const actual = readDeviceExecutionObservationV1(response), {status, consent} = actual;
           const spend = value.spend, row = spend?.execution;
@@ -1967,7 +1967,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
       current(); const observation = readDeviceExecutionTerminalV1(response);
       // A new original terminal revokes monetary freshness before storage/auth.
       liveInclusion = null; forgetOutputs();
-      return original('Guardar el resultado original de esta ejecución; no cambiar claves, repetir entregas ni proyectar saldo libre',
+      return original("Save the original result of this execution; do not change keys, repeat deliveries or project free balance",
         async (value, key, before, raw, root) => {
           const actual = readDeviceExecutionTerminalV1(response), status = actual.status, consent = actual.consent;
           const note = value.note, spend = value.spend, job = spend?.proofJob, reservation = spend?.reservation, terminal = status.terminal;
@@ -2013,7 +2013,7 @@ export function openLocalRootNoteVaultV1(expectedRootId: string) {
             availableBalance: null, localOpeningsPreserved: true, independentCanonicalRpc: false });
         });
     },
-    readDeviceReservationIntent: () => sessionRead('Consultar el identificador de tu prueba/reserva original; no generar otra ni reenviar',
+    readDeviceReservationIntent: () => sessionRead("Consult the identifier of your original test/reserve; do not generate another or forward",
       async value => value.spend?.proofJob ? Object.freeze({ ...value.spend.proofJob, rootId: value.rootId,
         operationId: value.spend.proposal.operationId, nativeEffectsEstablished: false as const }) : null),
     close() { discardReview(); closed = true; liveInclusion = null; liveOutputBalances = null; liveClaimObservation = null;
