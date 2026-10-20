@@ -46,7 +46,7 @@ export async function createDevicePagedUniswapPreparationV3(input:{pagedDescript
    // Open/migrate this local ROOT before either original 15-second read lease.
    // The discarded summary cannot issue an SDK observation or permission.
    failureStage='STORAGE';await vault!.summary();live();
-   failureStage='ACCESS';const granted=await access();failureStage='STATUS';const status=await client!.status(granted.consent,granted.signature);live();
+   failureStage='ACCESS';const status=await client!.readStatus(async granted=>{live();failureStage='ACCESS';const signature=await signDeviceExternalFlatPermissionV1(granted,descriptor.origin,descriptor.pairingId,controller.signal);live();failureStage='STATUS';return signature;},controller.signal,live);live();
    failureStage='RECONCILE';const summary=await vault!.reconcileOriginalStatus(status);live();const chainLimit=BigInt(paged.chainDeadlineSeconds??Math.floor(paged.deadlineMs/1000));
    if(status.jobs.length!==0){
     need(status.jobs.length===1&&summary.jobs.length===1&&summary.pending===null&&summary.graph===null);

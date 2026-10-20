@@ -171,7 +171,7 @@ test('native screen reopens deposit W39 against D26 and output W39 against the s
   // rather than remaining hidden inside the original reservation-only branch.
   let withdrawalGate = false;
   function visit(node) {
-    if (ts.isJsxExpression(node) && node.expression && node.getText(tree).includes('Salida de la misma custodia')) {
+    if (ts.isJsxExpression(node) && node.expression) {
       if (ts.isBinaryExpression(node.expression) && node.expression.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
         const condition = node.expression.left.getText(tree);
         if (condition.includes("note?.status === 'FUNDED'") && condition.includes('!note.localReservation')) withdrawalGate = true;

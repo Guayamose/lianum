@@ -1,3 +1,4 @@
+import {DEVICE_OPERATION_REQUEST_MS_V41} from '@lianum/mobile-protocol/device/paged-owner-v3';
 import {assertOriginalDeviceMetaMorphoPrivateExitBindingV2} from '../../defi/withdrawals/device-morpho-blue-private-exit-v1.mjs';
 import {assertOriginalDeviceExternalFlatGraphAccountBindingV1} from '../../accounts/authority/device-external-flat-source-graph-v1.mjs';
 /** Finite device ERC20 routes. TLS is infrastructure, never note custody.
@@ -160,16 +161,16 @@ const keys=input&&!types.isProxy(input)&&Object.hasOwn(input,'host')?['account',
    phase={challenge:'CHALLENGE',review:'REVIEW',operate:'OPERATE',status:'STATUS',metaChallenge:'CHALLENGE',metaReview:'REVIEW',metaOperate:'OPERATE',metaStatus:'STATUS'}[routes[request.url]];
    const value=requestBody=await body(request,request.url===prefix+'/private-operations'?16384:MAX_BODY);if(closed)fail();
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
-   // Permission admission remains 15s. Only waiting for the SAME original
-   // admitted proof/effect result uses its unchanged 900000ms operation bound.
-   if(routes[request.url]==='operate'&&['PROVE_D26','PROVE_D27','PROVE_W39','FUND_D26','WITHDRAW_W39'].includes(value?.consent?.action))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);
-   if(meta&&routes[request.url].startsWith('meta')){assertOriginalDeviceMetaMorphoPrivateExitBindingV2(meta,reader);const method=routes[request.url].slice(4).toLowerCase();if(method==='operate'&&value?.consent?.action==='REDEEM_META')resetResponseTimeout(900000);if(method==='challenge'){exact(value,[]);return meta.challenge();}return meta[method](value);}
+   // Permission admission remains bounded by its signed expiry. Only waiting for the SAME original
+   // Admitted proof/effect results use the shared bounded operation wait.
+   if(routes[request.url]==='operate'&&['PROVE_D26','PROVE_D27','PROVE_W39','FUND_D26','WITHDRAW_W39'].includes(value?.consent?.action))resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);
+   if(meta&&routes[request.url].startsWith('meta')){assertOriginalDeviceMetaMorphoPrivateExitBindingV2(meta,reader);const method=routes[request.url].slice(4).toLowerCase();if(method==='operate'&&value?.consent?.action==='REDEEM_META')resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);if(method==='challenge'){exact(value,[]);return meta.challenge();}return meta[method](value);}
    if(routes[request.url]==='challenge'){exact(value,[]);return reader.challenge();}return reader[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(()=>externalFlatWipeV1(requestBody?.witness));
   running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});let timer;
-  const timeout=new Promise((_,reject)=>{resetResponseTimeout=milliseconds=>{clearTimeout(timer);timer=setTimeout(()=>reject(Error('DEVICE_EXTERNAL_FLAT_HTTP_TIMEOUT')),milliseconds);timer.unref();};resetResponseTimeout(15000);});
+  const timeout=new Promise((_,reject)=>{resetResponseTimeout=milliseconds=>{clearTimeout(timer);timer=setTimeout(()=>reject(Error('DEVICE_EXTERNAL_FLAT_HTTP_TIMEOUT')),milliseconds);timer.unref();};resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);});
   Promise.race([work,timeout]).then(v=>reply(response,200,v),error=>{retainFailure(reader,error,phase,action);reply(response,closed?503:403,{error:closed?'DISCONNECTED':'REQUEST_REJECTED'});}).finally(()=>clearTimeout(timer)).catch(()=>{});
  });}catch(error){listeners.delete(reader);try{await meta?.close();}finally{await reader.close();}throw error;}finally{privateKey.fill(0);}
- server.headersTimeout=2000;server.requestTimeout=15000;server.keepAliveTimeout=1;server.maxRequestsPerSocket=1;server.maxConnections=4;
+ server.headersTimeout=2000;server.requestTimeout=DEVICE_OPERATION_REQUEST_MS_V41;server.keepAliveTimeout=1;server.maxRequestsPerSocket=1;server.maxConnections=4;
  const track=socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));};server.on('connection',track);server.on('secureConnection',track);server.on('tlsClientError',(_error,socket)=>socket.destroy());
  try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(Number(origin.port||443),host,()=>{server.off('error',reject);resolve();});});}
  catch(error){closed=true;const accountClose=reader.close();listeners.delete(reader);const ownedSockets=[...sockets],drain=Promise.all(ownedSockets.map(socket=>new Promise(resolve=>socket.once('close',resolve))));for(const socket of ownedSockets)socket.destroy();await Promise.all([accountClose,meta?.close(),drain,new Promise(resolve=>server.close(()=>resolve()))]);throw error;}
@@ -207,19 +208,19 @@ export async function createOriginalDeviceExternalFlatGraphTlsServerV1(input){
    phase={challenge:'CHALLENGE',preparation:'REVIEW',review:'REVIEW',operate:'OPERATE',status:'STATUS',outputQuote:'REVIEW',outputReview:'REVIEW',outputOperate:'OPERATE',blueChallenge:'CHALLENGE',blueReview:'REVIEW',blueOperate:'OPERATE',blueStatus:'STATUS',aaveChallenge:'CHALLENGE',aaveReview:'REVIEW',aaveOperate:'OPERATE',aaveStatus:'STATUS',metaChallenge:'CHALLENGE',metaReview:'REVIEW',metaOperate:'OPERATE',metaStatus:'STATUS'}[routes[request.url]];
    const value=requestBody=await body(request,graph?65536:['/v1/mobile/external-flat-share/private-operations','/v1/mobile/external-flat/private-operations'].includes(request.url)?16384:MAX_BODY);if(closed)fail();
    const declared=routes[request.url]==='outputOperate'?value?.consent?.consent?.action:routes[request.url]==='outputReview'?value?.draft?.draft?.action:routes[request.url]==='operate'?value?.consent?.action:routes[request.url]==='review'?value?.draft?.action:null;action=DIAGNOSTIC_ACTIONS.has(declared)?declared:null;
-   // Permission admission remains 15s. Only waiting for the SAME original
-   // admitted proof/effect result uses its unchanged 900000ms operation bound.
-   if(routes[request.url]==='metaOperate'&&value?.consent?.action==='REDEEM_META')resetResponseTimeout(900000);
-   if(routes[request.url]==='aaveOperate'&&value?.consent?.action==='REDEEM_AAVE')resetResponseTimeout(900000);
-   if(routes[request.url]==='blueOperate'&&value?.consent?.action==='REDEEM_BLUE')resetResponseTimeout(900000);
-   if(routes[request.url]==='outputOperate'&&['PROVE_W39','WITHDRAW_W39'].includes(value?.consent?.consent?.action))resetResponseTimeout(900000);
-   if(routes[request.url]==='operate'&&(!graph&&['PROVE_D26','PROVE_D27','PROVE_W39','FUND_D26','WITHDRAW_W39'].includes(value?.consent?.action)||graph&&['PROVE_U','RESERVE_S','EXECUTE_GRAPH','RECOVER_GRAPH'].includes(value?.consent?.draft?.action)))resetResponseTimeout(900000);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);assertOriginalDeviceExternalFlatNoteAuthorityV1(target);assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,{account:reader,targetAccount:target});
+   // Permission admission remains bounded by its signed expiry. Only waiting for the SAME original
+   // Admitted proof/effect results use the shared bounded operation wait.
+   if(routes[request.url]==='metaOperate'&&value?.consent?.action==='REDEEM_META')resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);
+   if(routes[request.url]==='aaveOperate'&&value?.consent?.action==='REDEEM_AAVE')resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);
+   if(routes[request.url]==='blueOperate'&&value?.consent?.action==='REDEEM_BLUE')resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);
+   if(routes[request.url]==='outputOperate'&&['PROVE_W39','WITHDRAW_W39'].includes(value?.consent?.consent?.action))resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);
+   if(routes[request.url]==='operate'&&(!graph&&['PROVE_D26','PROVE_D27','PROVE_W39','FUND_D26','WITHDRAW_W39'].includes(value?.consent?.action)||graph&&['PROVE_U','RESERVE_S','EXECUTE_GRAPH','RECOVER_GRAPH'].includes(value?.consent?.draft?.action)))resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);assertOriginalDeviceExternalFlatNoteAuthorityV1(reader);assertOriginalDeviceExternalFlatNoteAuthorityV1(target);assertOriginalDeviceExternalFlatGraphWorkspaceV1(workspace,{account:reader,targetAccount:target});
    if(routes[request.url]==='challenge'||routes[request.url]==='blueChallenge'||routes[request.url]==='aaveChallenge'||routes[request.url]==='metaChallenge'){exact(value,[]);return selected[routes[request.url]]();}return selected[routes[request.url]](value);})().catch(error=>{retainFailure(reader,error,phase,action);throw error;}).finally(()=>externalFlatWipeV1(requestBody?.witness));
   running.add(work);work.finally(()=>running.delete(work)).catch(()=>{});let timer;
-  const timeout=new Promise((_,reject)=>{resetResponseTimeout=milliseconds=>{clearTimeout(timer);timer=setTimeout(()=>reject(Error('DEVICE_EXTERNAL_FLAT_HTTP_TIMEOUT')),milliseconds);timer.unref();};resetResponseTimeout(15000);});
+  const timeout=new Promise((_,reject)=>{resetResponseTimeout=milliseconds=>{clearTimeout(timer);timer=setTimeout(()=>reject(Error('DEVICE_EXTERNAL_FLAT_HTTP_TIMEOUT')),milliseconds);timer.unref();};resetResponseTimeout(DEVICE_OPERATION_REQUEST_MS_V41);});
   Promise.race([work,timeout]).then(v=>reply(response,200,v),error=>{retainFailure(reader,error,phase,action);reply(response,closed?503:403,{error:closed?'DISCONNECTED':'REQUEST_REJECTED'});}).finally(()=>clearTimeout(timer)).catch(()=>{});
  });}catch(error){listeners.delete(reader);listeners.delete(target);await workspace.close();throw error;}finally{privateKey.fill(0);}
- server.headersTimeout=2000;server.requestTimeout=15000;server.keepAliveTimeout=1;server.maxRequestsPerSocket=1;server.maxConnections=4;
+ server.headersTimeout=2000;server.requestTimeout=DEVICE_OPERATION_REQUEST_MS_V41;server.keepAliveTimeout=1;server.maxRequestsPerSocket=1;server.maxConnections=4;
  const track=socket=>{sockets.add(socket);socket.once('close',()=>sockets.delete(socket));};server.on('connection',track);server.on('secureConnection',track);server.on('tlsClientError',(_error,socket)=>socket.destroy());
  try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(Number(origin.port||443),host,()=>{server.off('error',reject);resolve();});});}
  catch(error){closed=true;const accountClose=workspace.close();listeners.delete(reader);listeners.delete(target);const ownedSockets=[...sockets],drain=Promise.all(ownedSockets.map(socket=>new Promise(resolve=>socket.once('close',resolve))));for(const socket of ownedSockets)socket.destroy();await Promise.all([accountClose,meta?.close(),drain,new Promise(resolve=>server.close(()=>resolve()))]);throw error;}

@@ -35,7 +35,12 @@ function createHandler(runtime,target,account){
    assert.ok(!state.closed,'SEPOLIA_DEFI_HTTP_CLOSED');assert.equal(pairingId,d.pairingId,'SEPOLIA_DEFI_HTTP_PAIRING');assert.ok(typeof path==='string'&&!path.includes('?')&&!path.includes('#'));assert.ok(Buffer.byteLength(JSON.stringify(payload))<=(path.endsWith('/private-operations')?16384:8192));assert.ok(path.startsWith(prefix),'SEPOLIA_DEFI_HTTP_ROUTE');
    if(state.financial&&(path===prefix+'reviews'&&payload?.draft?.action?.startsWith('PROVE_')||[prefix+'private-operations',prefix+'operations'].includes(path)&&payload?.consent?.action?.startsWith('PROVE_')))state.financial.assertPaegSource();
    if(isDeviceSepoliaDefiFinancialHttpRouteV8(path)){assert.ok(state.financial,'SEPOLIA_DEFI_NATIVE_MOUNT_PENDING');if(reference!==null)assert.equal(reference,payload.reference,'SEPOLIA_DEFI_HTTP_REVIEW_REFERENCE');return state.financial.dispatch(path,payload);}
-   const ordinary=async()=>{const result=await dispatchOrdinary(path,payload,reference);if(state.financial&&[prefix+'private-operations',prefix+'operations'].includes(path)&&payload?.consent?.action?.startsWith('PROVE_')&&result?.stage==='PROVED')await state.financial.warmAfterProof();return result;};return state.financial?state.financial.runExclusive(ordinary):ordinary();
+   const ordinary=async()=>{
+    // Finish validation before creating a fresh, short-lived challenge. A
+    // restarted/idle process must not depend on a still-current startup lease.
+    if(state.financial&&path===prefix+'defi-reviews')await state.financial.warmBeforeChallenge();
+    const result=await dispatchOrdinary(path,payload,reference);if(state.financial&&[prefix+'private-operations',prefix+'operations'].includes(path)&&payload?.consent?.action?.startsWith('PROVE_')&&result?.stage==='PROVED')await state.financial.warmAfterProof();return result;
+   };return state.financial?state.financial.runExclusive(ordinary):ordinary();
   },
   async close(){state.closed=true;await state.financial?.close();await account.close();},
  });handlers.set(handler,state);return handler;

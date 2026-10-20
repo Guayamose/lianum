@@ -1,3 +1,4 @@
+import {DEVICE_OPERATION_REQUEST_MS_V41} from '@lianum/mobile-protocol/device/paged-owner-v3';
 /** Fixed paired TLS transport. Local root/note keys never enter this API.
  * One original consent permits one POST; lost replies remain observation-only. */
 import * as Crypto from 'expo-crypto';
@@ -41,7 +42,7 @@ async function digest(bytes) {
 function freshStatus(value) {
   const now = Date.now();
   if (!Number.isSafeInteger(value.observedAt) || !Number.isSafeInteger(value.expiresAt)
-    || value.observedAt > now || value.expiresAt !== value.observedAt + 15000 || value.expiresAt <= now) fail('STATUS_TIME');
+    || value.observedAt > now || ![15000,120000].includes(value.expiresAt-value.observedAt) || value.expiresAt <= now) fail('STATUS_TIME');
 }
 export function createDeviceExternalFlatNoteApiV1(options = {}) { return createNoteApi(options,false); }
 /** Same original proof/row parser with a fixed dedicated PUBLIC DeFi route. */
@@ -51,7 +52,7 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
   if(sepoliaDefi&&sepoliaReviewReference!==null&&!/^[0-9a-f]{64}$/.test(sepoliaReviewReference))fail();
   if (typeof fetchImpl !== 'function') fail();
   let closed = false;
-  const accesses = new WeakMap(), consents = new WeakMap(), controllers = new Set();
+  const accesses = new WeakMap(), consents = new WeakMap(), controllers = new Set(), statusReadRejections = new WeakSet();
   function live() { if (closed) fail(); }
   function accessScope(value, fresh = true) {
     live(); if (fresh) validateExternalFlatFreshV1(value);
@@ -63,25 +64,30 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
   }
   // Wait for the original peer's issuance time without changing its expiry.
   // This controller remains owned by the API after the HTTP reader has closed.
-  async function awaitIssued(issuedAt) {
-    live(); if (issuedAt <= Date.now()) return;
+  async function awaitIssued(issuedAt, signal) {
+    live(); if (signal?.aborted) fail('REQUEST_CLOSED'); if (issuedAt <= Date.now()) return;
     const controller = new AbortController(); controllers.add(controller);
+    const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});
     try { await awaitDevicePagedIssuedTimeV3(issuedAt, controller.signal); live(); }
-    finally { controllers.delete(controller); }
+    finally { signal?.removeEventListener('abort',abort);controllers.delete(controller); }
   }
-  async function post(path, payload, originalResultResponse = false) {
-    live(); const target = original.origin + (sepoliaDefi?'/v1/mobile/sepolia-defi-shares/':original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
+  async function post(path, payload, originalResultResponse = false, signal) {
+    live(); if(signal?.aborted)fail('REQUEST_CLOSED');const target = original.origin + (sepoliaDefi?'/v1/mobile/sepolia-defi-shares/':original.profile===DEVICE_EXTERNAL_FLAT_SHARE_V1?'/v1/mobile/external-flat-share/':'/v1/mobile/external-flat/') + path;
     if(sepoliaDefi&&path==='reviews'&&sepoliaReviewReference!==null)payload={...payload,reference:sepoliaReviewReference};
     const body = JSON.stringify(payload);
     if (new TextEncoder().encode(body).byteLength > (path==='private-operations'?16384:8192)) fail();
     const controller = new AbortController(); controllers.add(controller);
+    const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});
     let timer, reader, bytes;
     const stop = new Promise((_, reject) => {
       controller.signal.addEventListener('abort', () => reject(Error('MOBILE_EXTERNAL_FLAT_REQUEST_CLOSED')), { once: true });
     });
+    // Sepolia can warm proof/read resources before issuing the fresh consent.
+    // Keep the response and consent validation, effect timeout and one POST.
+    const requestTimeout=originalResultResponse?DEVICE_OPERATION_REQUEST_MS_V41:DEVICE_OPERATION_REQUEST_MS_V41;
     const timeout = new Promise((_, reject) => { timer = setTimeout(() => {
       controller.abort(); reject(Error('MOBILE_EXTERNAL_FLAT_REQUEST_TIMEOUT'));
-    }, originalResultResponse ? 900000 : 15000); });
+    }, requestTimeout); });
     const work = (async () => {
       const response = await fetchImpl(target, { method: 'POST', headers: { Accept: 'application/json', Origin: original.origin,
         'Content-Type': 'application/json',...(sepoliaDefi?{'x-lianum-defi-pairing-id':original.pairingId,...(path==='reviews'&&sepoliaReviewReference?{'x-lianum-defi-review-reference':sepoliaReviewReference}:{})}:{}) }, body, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
@@ -101,14 +107,28 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
         }
         if (length !== null && used !== Number(length)) fail('HTTP_BODY_LENGTH');
         const parsed=JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, used)));
-        if(!response.ok){if(sepoliaDefi){const error=externalFlatExactV1(parsed,['error']);if(error.error==='SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED')throw Error(error.error);}fail('HTTP_STATUS_'+response.status);}return parsed;
+        if(!response.ok){if(sepoliaDefi){const error=externalFlatExactV1(parsed,['error']);if(error.error==='SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED')throw Error(error.error);}const error=Error('MOBILE_EXTERNAL_FLAT_RESPONSE_REJECTED_HTTP_STATUS_'+response.status);if(path==='status'&&response.status===403)statusReadRejections.add(error);throw error;}return parsed;
       } finally { bytes.fill(0); }
     })();
     try { return await Promise.race([work, stop, timeout]); }
     finally {
-      clearTimeout(timer); controller.abort(); controllers.delete(controller);
+      clearTimeout(timer); signal?.removeEventListener('abort',abort);controller.abort(); controllers.delete(controller);
       if (reader) { void reader.cancel().catch(() => {}); try { reader.releaseLock(); } catch {} }
     }
+  }
+  async function challenge(signal) {
+    const value = normalizeExternalFlatAccessV1(await post('challenges', {}, false, signal)); accessScope(value, false);
+    await awaitIssued(value.issuedAt ?? value.expiresAt - 15000, signal); accessScope(value);
+    accesses.set(value, { consumed: false }); return value;
+  }
+  async function status(access, signature, signal) {
+    const entry = accesses.get(access); if (!entry || entry.consumed) fail(); accessScope(access);
+    signature = normalizeExternalFlatSignatureV1(signature); entry.consumed = true;
+    const parsed = normalizeExternalFlatStatusV1(await post('status', { access, signature }, false, signal)); live();
+    if (!same(parsed.descriptor, original)) fail('STATUS_DESCRIPTOR');
+    await awaitIssued(parsed.observedAt, signal); live(); freshStatus(parsed);
+    const value = Object.freeze({ ...parsed, jobs: Object.freeze(parsed.jobs.map(row => originalRow(row))) });
+    statuses.set(value, { live, descriptor: original }); return value;
   }
   function originalRow(raw, consent = null) {
     live(); const value = normalizeExternalFlatRowV1(raw);
@@ -126,9 +146,7 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
   const client = Object.freeze({ descriptor: original,
     async challenge() {
       if (arguments.length !== 0) fail();
-      const value = normalizeExternalFlatAccessV1(await post('challenges', {})); accessScope(value, false);
-      await awaitIssued(value.expiresAt - 15000); accessScope(value);
-      accesses.set(value, { consumed: false }); return value;
+      return challenge();
     },
     async review(access, signature, rawDraft) {
       if (arguments.length !== 3) fail();
@@ -143,7 +161,7 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
         if (draft.jobId !== null && value.jobId !== draft.jobId) fail();
         for (const name of ['statement', 'path', 'witnessSHA256']) if (!same(value[name], draft[name])) fail();
       }
-      await awaitIssued(value.expiresAt - 15000); consentScope(value);
+      await awaitIssued(value.issuedAt ?? value.expiresAt - 15000); consentScope(value);
       if(value.privateProof){if(await digest(value.privateProof.profile===DEVICE_EXTERNAL_FLAT_PRIVATE_WALLET_V3?externalFlatPrivateWalletTranscriptBytesV3(value):externalFlatPrivateProofTranscriptBytesV2(value))!==value.privateProof.transcriptSHA256)fail();consentScope(value);}
       const consentEntry={consumed:false,submitInvoked:false};consents.set(value,consentEntry);reviews.set(value,{live,consentScope,entry:consentEntry});return value;
     },
@@ -174,13 +192,25 @@ function createNoteApi({ descriptor, fetchImpl = globalThis.fetch, sepoliaReview
     },
     async status(access, signature) {
       if (arguments.length !== 2) fail();
-      const entry = accesses.get(access); if (!entry || entry.consumed) fail(); accessScope(access);
-      signature = normalizeExternalFlatSignatureV1(signature); entry.consumed = true;
-      const parsed = normalizeExternalFlatStatusV1(await post('status', { access, signature })); live();
-      if (!same(parsed.descriptor, original)) fail('STATUS_DESCRIPTOR');
-      await awaitIssued(parsed.observedAt); live(); freshStatus(parsed);
-      const value = Object.freeze({ ...parsed, jobs: Object.freeze(parsed.jobs.map(row => originalRow(row))) });
-      statuses.set(value, { live, descriptor: original }); return value;
+      return status(access, signature);
+    },
+    /** One fresh signed read may replace an original /status HTTP403. Never
+     * replay ACCESS, renew a financial consent, or retry a review/submission. */
+    async readStatus(sign, signal, assertCurrent) {
+      if(arguments.length!==3||typeof sign!=='function'||!(signal instanceof AbortSignal)||typeof assertCurrent!=='function')fail();
+      const current=()=>{live();if(signal.aborted)fail('REQUEST_CLOSED');assertCurrent();live();if(signal.aborted)fail('REQUEST_CLOSED');};
+      let previous=null;
+      for(let attempt=0;attempt<2;attempt++){
+        current();const access=await challenge(signal);current();
+        if(previous&&(access.challengeId===previous.access.challengeId||access.nonce===previous.access.nonce))fail('READ_ACCESS_REUSED');
+        const signature=normalizeExternalFlatSignatureV1(await sign(access));current();
+        if(previous&&signature===previous.signature)fail('READ_SIGNATURE_REUSED');
+        let value;
+        try{value=await status(access,signature,signal);}
+        catch(error){current();if(attempt!==0||!statusReadRejections.has(error))throw error;previous={access,signature};continue;}
+        current();return value;
+      }
+      fail();
     },
     close() { if (arguments.length !== 0) fail(); closed = true; for (const controller of controllers) controller.abort(); return { closed: true }; },
   });

@@ -30,8 +30,7 @@ export async function observeDeviceExternalFlatReceptionV1({descriptor,status,su
   const observed=readDeviceExternalFlatRowV1(await client.submit(consent,signature,null));live();
   need(observed.mode==='deposit_intent'&&observed.jobId===subject.jobId&&same(observed.descriptor,descriptor)&&same(observed.consentFields,fields)&&['DELIVERY_UNKNOWN','CONFIRMED'].includes(observed.stage));
   await vault.accept(observed);live();
-  const nextAccess=await client.challenge();live();const nextSignature=await sign(nextAccess);live();
-  const next=readDeviceExternalFlatStatusV1(await client.status(nextAccess,nextSignature));live();
+  const next=readDeviceExternalFlatStatusV1(await client.readStatus(sign,signal,live));live();
   const nextRow=next.jobs.find(row=>row.jobId===subject.jobId);need(nextRow&&same(next.descriptor,descriptor)&&same(nextRow.consentFields,fields));
   const local=await vault.reconcileOriginalStatus(next);live();readDeviceExternalFlatStatusV1(next);
   return{status:next,summary:local,observed:true};

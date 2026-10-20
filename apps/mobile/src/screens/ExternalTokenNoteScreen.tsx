@@ -354,11 +354,10 @@ export default function ExternalTokenNoteScreen({onObservation,onGraphObservatio
  }
  async function readStatus(selected:Connection,ticket:number) {
   if(selected.noteClosed)throw Error('MOBILE_EXTERNAL_FLAT_SOURCE_RESERVED');
-  const access=await selected.client.challenge();current(ticket,selected);
-  const signature=await sign(selected,access,ticket);let value=await selected.client.status(access,signature);current(ticket,selected);
+  const signal=transportAbort.current?.signal;if(!signal)throw Error('MOBILE_EXTERNAL_FLAT_RECEPTION_BINDING');
+  let value=await selected.client.readStatus(access=>sign(selected,access,ticket),signal,()=>current(ticket,selected));current(ticket,selected);
   let local=await selected.vault.reconcileOriginalStatus(value);current(ticket,selected);
   if(selected.reception){const row=value.jobs.find(row=>row.jobId===selected.reception!.jobId);if(!row||row.mode!=='deposit_intent'||row.consentFields.rootId!==selected.reception.rootId||row.consentFields.statement.output!==selected.reception.commitment||local.rootId!==selected.reception.rootId||local.commitment!==selected.reception.commitment)throw Error('MOBILE_EXTERNAL_FLAT_RECEPTION_BINDING');}
-  const signal=transportAbort.current?.signal;if(!signal)throw Error('MOBILE_EXTERNAL_FLAT_RECEPTION_BINDING');
   const observed=await observeDeviceExternalFlatReceptionV1({descriptor:selected.descriptor,status:value,summary:local,vault:selected.vault,client:selected.client,sign:consent=>sign(selected,consent,ticket),signal,assertCurrent:()=>current(ticket,selected)});current(ticket,selected);value=observed.status;local=observed.summary;
   recordMetaFourStatus(value);retainPairedReception(value);setSummary(local);setStatus(value);onObservation?.(value);return value;
  }

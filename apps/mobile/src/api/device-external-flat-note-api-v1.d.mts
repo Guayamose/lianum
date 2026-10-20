@@ -5,6 +5,7 @@ export type DeviceExternalFlatNoteApiV1=Readonly<{
  review(access:ExternalFlatAccess,signature:string,draft:ExternalFlatDraft):Promise<ExternalFlatConsent>;
  submit(consent:ExternalFlatConsent,signature:string,witness:unknown|null):Promise<ExternalFlatRow|Readonly<{quote:ExternalFlatConsent}>>;
  status(access:ExternalFlatAccess,signature:string):Promise<ExternalFlatStatus>;
+ readStatus(sign:(access:ExternalFlatAccess)=>Promise<string>,signal:AbortSignal,assertCurrent:()=>void):Promise<ExternalFlatStatus>;
  close():{closed:true};
 }>;
 export function createDeviceExternalFlatNoteApiV1(input:{descriptor:ExternalFlatDescriptor;fetchImpl?:typeof globalThis.fetch}):DeviceExternalFlatNoteApiV1;
