@@ -1,6 +1,7 @@
 /** One original source withdrawal. Every resume observes the retained job;
  * missing replies never authorize another financial submission. */
 import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
+import {readDevicePagedStatusV3} from '../api/device-paged-owner-api-v3.mjs';
 const need=(value,code='MOBILE_PAGED_SOURCE_WITHDRAWAL_REVIEW')=>{if(!value)throw Error(code);};
 const recipientOf=job=>'0x'+P.devicePagedWordsHexV3(job.publicInputs,34,5);
 export async function runDevicePagedSourceWithdrawalV27({descriptor,vault,api,signal,assertCurrent,sign,authorization,review,recipient=null,onStatus=()=>{},onProgress=()=>{}}){
@@ -46,8 +47,16 @@ export async function runDevicePagedSourceWithdrawalV27({descriptor,vault,api,si
    draft=prepared.draft;witness=prepared.witness;
   }
   current();need(recipientOf(draft)===address&&draft.publicInputs[33]===source.amount);
+  progress("Waiting for your withdrawal approval...");
   approval=await authorization.approve(descriptor,draft,signal);current();
-  status=await read();need(status.epoch===draft.publicInputs[16],'MOBILE_PAGED_NOTE_EPOCH_CHANGED');
+  // The post-review observation already checked this exact source and job.
+  // Reuse it only while the live SDK still authenticates its freshness;
+  // a slow approval, closed client or copied status requires another read.
+  // PROVE/WITHDRAW still obtain fresh server challenges, which check the
+  // current epoch and unreserved source before accepting either effect.
+  let reusable=false;
+  try{const observed=readDevicePagedStatusV3(status);need(JSON.stringify(observed.descriptor)===JSON.stringify(descriptor));reusable=true;}catch{}
+  if(!reusable)status=await read();need(status.epoch===draft.publicInputs[16],'MOBILE_PAGED_NOTE_EPOCH_CHANGED');
   if(job?.stage==='PROVED')authorization.bind(approval,status);
   else{
    progress("Preparing your withdrawal...");let row;

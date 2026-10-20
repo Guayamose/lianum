@@ -1,0 +1,4 @@
+import type {DevicePagedSourceSuccessorChallengeV35,DevicePagedSourceSuccessorReplyV35} from '../../../../packages/mobile-protocol/src/device-paged-source-successor-v35.mjs';
+export function createDevicePagedSourceSuccessorApiV35(input:{descriptor:unknown;transport:unknown;fetchImpl:typeof fetch}):{challenge(request:unknown):Promise<DevicePagedSourceSuccessorChallengeV35>;submit(consent:unknown,signature:string):Promise<DevicePagedSourceSuccessorReplyV35>;close():Promise<void>};
+export function readDevicePagedSourceSuccessorChallengeV35(raw:unknown):{challenge:DevicePagedSourceSuccessorChallengeV35;descriptor:any};
+export function readDevicePagedSourceSuccessorProvisionV35(raw:unknown):{reply:DevicePagedSourceSuccessorReplyV35;challenge:DevicePagedSourceSuccessorChallengeV35;descriptor:any};

@@ -64,7 +64,11 @@ export function consumeOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token
 /** Fixed constructor preparation revalidates the actual original Target and
  * parent after RPC awaits; a copied constructor never reaches this reader. */
 export async function readOriginalSepoliaDefiMixedSourceInitializationV8(runtime,token){
- const data=readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),g=constructors.get(token),p=state(runtime,g.plan);await targetReady(runtime,p.target,p.aaveTarget,p.morphoTarget);assert.deepEqual(readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);const head=await runtime.block();await runtime.assertCanonical(head);assert.deepEqual(readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);g.validation={head:freeze(structuredClone(head)),wall:Date.now(),elapsed:performance.now(),policySHA256:hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),epochId:readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId};return data;
+ const data=readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),g=constructors.get(token),p=state(runtime,g.plan);
+ // Retained constructors only replay their authenticated receipt. Both prepare
+ // and finalize validate all current targets; no signing checkpoint is issued.
+ if(g.observationOnly){assert.ok(g.signConsumed&&p.reopening?.receipts[g.index],'PUBLIC_DEFI_MIXED_ORIGINAL_RETAINED_RECEIPT');return data;}
+ await targetReady(runtime,p.target,p.aaveTarget,p.morphoTarget);assert.deepEqual(readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);const head=await runtime.block();await runtime.assertCanonical(head);assert.deepEqual(readOriginalSepoliaDefiMixedSourceConstructorV8(runtime,token),data);g.validation={head:freeze(structuredClone(head)),wall:Date.now(),elapsed:performance.now(),policySHA256:hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),epochId:readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId};return data;
 }
 /** Full target/code validation precedes fee observation. These ports retain
  * only a private checkpoint of that same pending Original constructor. */
@@ -117,10 +121,21 @@ export async function assertOriginalSepoliaDefiMixedSourceReadyV8(runtime,system
  const policySHA256=hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),epochId=readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId;
  const work=(async()=>{await targetReady(runtime,p.target,p.aaveTarget,p.morphoTarget);return validateSourceDispatchContractsV8(runtime,system,p,policySHA256,epochId);})();p.dispatchValidationWork=work;try{return await work;}finally{if(p.dispatchValidationWork===work)p.dispatchValidationWork=null;}
 }
-async function validateSourceDispatchContractsV8(runtime,system,p,policySHA256,epochId,targetCheckpoints=null){
- const head=await runtime.block('finalized');
- await Promise.all(system.deployments.map(async row=>{assert.ok(BigInt(row.receipt.blockNumber)<=BigInt(head.number),'PUBLIC_DEFI_MIXED_SOURCE_FINALITY_PENDING');const actual=await runtime.receipt(row.receipt.transactionHash);assert.deepEqual(actual,row.receipt,'PUBLIC_DEFI_MIXED_SOURCE_ORIGINAL_RECEIPT');await runtime.checkReceipt(actual);assert.equal(await runtime.code(row.address,head.number),row.expectedCode,'PUBLIC_DEFI_MIXED_SOURCE_CODE');}));await runtime.assertCanonical(head);assertOriginalSepoliaDefiMixedSourceV8(runtime,system);assert.equal(hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),policySHA256,'PUBLIC_DEFI_MIXED_DISPATCH_POLICY_CHANGED');assert.equal(readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId,epochId,'PUBLIC_DEFI_MIXED_DISPATCH_EPOCH_CHANGED');
- const clocks=targetCheckpoints===null?[]:await readTargetDispatchCheckpointsV8(runtime,p,targetCheckpoints);p.dispatchValidation={head:freeze(structuredClone(head)),wall:Math.min(Date.now(),...clocks.map(v=>v.wall)),elapsed:Math.min(performance.now(),...clocks.map(v=>v.elapsed)),policySHA256,epochId,planSHA256:p.data.planSHA256,keysetId:runtime.metadata.keysetId,account:runtime.accounts[0],targetCheckpoints};return system;
+async function observeSourceDispatchContractsV33(runtime,system,p,policySHA256,epochId,checkedHead=null){
+ const head=checkedHead??await runtime.block('finalized'),key=hash([head.number,head.hash,system.deployments]);
+ // Successful immutable-contract validation belongs to this private plan and
+ // exact finalized hash. Every reuse still observes canonicality afresh.
+ try{
+  if(checkedHead)assert.equal(p.sourceContractValidationV33,key,'PUBLIC_DEFI_MIXED_SOURCE_VALIDATION_CHANGED');
+  else if(p.sourceContractValidationV33!==key){
+   await Promise.all(system.deployments.map(async row=>{assert.ok(BigInt(row.receipt.blockNumber)<=BigInt(head.number),'PUBLIC_DEFI_MIXED_SOURCE_FINALITY_PENDING');const actual=await runtime.receipt(row.receipt.transactionHash);assert.deepEqual(actual,row.receipt,'PUBLIC_DEFI_MIXED_SOURCE_ORIGINAL_RECEIPT');await runtime.checkReceipt(actual);assert.equal(await runtime.code(row.address,head.number),row.expectedCode,'PUBLIC_DEFI_MIXED_SOURCE_CODE');}));
+  }
+  await runtime.assertCanonical(head);assertOriginalSepoliaDefiMixedSourceV8(runtime,system);assert.equal(hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),policySHA256,'PUBLIC_DEFI_MIXED_DISPATCH_POLICY_CHANGED');assert.equal(readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId,epochId,'PUBLIC_DEFI_MIXED_DISPATCH_EPOCH_CHANGED');p.sourceContractValidationV33=key;return head;
+ }catch(error){if(p.sourceContractValidationV33===key)p.sourceContractValidationV33=null;throw error;}
+}
+async function validateSourceDispatchContractsV8(runtime,system,p,policySHA256,epochId,targetCheckpoints=null,checkedHead=null){
+ const head=await observeSourceDispatchContractsV33(runtime,system,p,policySHA256,epochId,checkedHead),clocks=targetCheckpoints===null?[]:await readTargetDispatchCheckpointsV8(runtime,p,targetCheckpoints);
+ p.dispatchValidation={head:freeze(structuredClone(head)),wall:Math.min(Date.now(),...clocks.map(v=>v.wall)),elapsed:Math.min(performance.now(),...clocks.map(v=>v.elapsed)),policySHA256,epochId,planSHA256:p.data.planSHA256,keysetId:runtime.metadata.keysetId,account:runtime.accounts[0],targetCheckpoints};return system;
 }
 async function readTargetDispatchCheckpointsV8(runtime,p,checkpoints){
  return Promise.all([Aave.readOriginalAaveSepoliaTargetFinancialCheckpointV8(runtime,p.aaveTarget,checkpoints.aave),Morpho.readOriginalMorphoV2SepoliaTargetFinancialCheckpointV8(runtime,p.morphoTarget,checkpoints.morpho)]);
@@ -132,7 +147,7 @@ export async function assertOriginalSepoliaDefiMixedSourceDispatchReadyV8(runtim
 }
 export async function warmOriginalSepoliaDefiMixedSourceDispatchV8(runtime,system){
  assert.equal(arguments.length,2);assertOriginalSepoliaDefiMixedSourceV8(runtime,system);const p=systems.get(system);if(p.dispatchValidationWork)return p.dispatchValidationWork;const policySHA256=hash(readOriginalPagedSepoliaSourceLaneV4(runtime).policy),epochId=readOriginalPagedSepoliaSourceFinancialHistoryV5(runtime).epochId;
- const work=(async()=>{const completed=await Promise.allSettled([Aave.warmOriginalAaveSepoliaTargetFinancialCheckpointV8(runtime,p.aaveTarget),Morpho.warmOriginalMorphoV2SepoliaTargetFinancialCheckpointV8(runtime,p.morphoTarget)]),failure=completed.find(row=>row.status==='rejected');if(failure)throw failure.reason;const [aave,morpho]=completed.map(row=>row.value);return validateSourceDispatchContractsV8(runtime,system,p,policySHA256,epochId,{aave,morpho});})();p.dispatchValidationWork=work;try{return await work;}finally{if(p.dispatchValidationWork===work)p.dispatchValidationWork=null;}
+ const work=(async()=>{const checkedHead=await observeSourceDispatchContractsV33(runtime,system,p,policySHA256,epochId);const completed=await Promise.allSettled([Aave.warmOriginalAaveSepoliaTargetFinancialCheckpointV8(runtime,p.aaveTarget),Morpho.warmOriginalMorphoV2SepoliaTargetFinancialCheckpointV8(runtime,p.morphoTarget)]),failure=completed.find(row=>row.status==='rejected');if(failure)throw failure.reason;const [aave,morpho]=completed.map(row=>row.value);return validateSourceDispatchContractsV8(runtime,system,p,policySHA256,epochId,{aave,morpho},checkedHead);})();p.dispatchValidationWork=work;try{return await work;}finally{if(p.dispatchValidationWork===work)p.dispatchValidationWork=null;}
 }
 const sourceJournal=buildPagedSepoliaSourceJournalDataV4(Object.freeze({readOriginalHistoricalBalance:readOriginalPagedSepoliaHistoricalBalanceV4,readOriginalFinancialHistory:readOriginalPagedSepoliaSourceFinancialHistoryV5,assertOriginalSystem:(...args)=>assertOriginalSepoliaDefiMixedSourceV8(...args),readOriginalSystem:(...args)=>readOriginalSepoliaDefiMixedSourceDeploymentV8(...args),assertOriginalReceiverReady:(runtime,system,storageRecovery=false)=>{assert.equal(storageRecovery,false,'PUBLIC_DEFI_MIXED_STORAGE_RECOVERY_UNSUPPORTED');return assertOriginalSepoliaDefiMixedSourceReadyV8(runtime,system);},assertOriginalDispatchReady:(...args)=>assertOriginalSepoliaDefiMixedSourceDispatchReadyV8(...args)}));
 export async function createOriginalSepoliaDefiMixedSourceJournalV8(runtime,system,input){
@@ -197,3 +212,12 @@ export const openOutputOwnerOriginalSepoliaDefiMixedExpiredWithdrawalV10=(...arg
 export const isOriginalSepoliaDefiExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.isExpiredWithdrawalRetirementV32(...args);
 export const armOriginalSepoliaDefiExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.armExpiredWithdrawalRetirementV32(...args);
 export const consumeOriginalSepoliaDefiExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.consumeExpiredWithdrawalRetirementV32(...args);
+
+/** Same-pool source succession: fixed Original journal owner, no new deployment. */
+export const prepareOriginalSepoliaDefiMixedSuccessorV35=(...args)=>sourceJournal.prepareMixedSuccessorV35(...args);
+export const createOriginalSepoliaDefiMixedSuccessorV35=(...args)=>sourceJournal.createMixedSuccessorV35(...args);
+export const readPreparationOriginalSepoliaDefiMixedSuccessorV35=(...args)=>sourceJournal.readMixedSuccessorPreparationV35(...args);
+export const readBindingOriginalSepoliaDefiMixedSuccessorV35=(...args)=>sourceJournal.readMixedSuccessorV35(...args);
+export const readLineageOriginalSepoliaDefiMixedSuccessorV35=(...args)=>sourceJournal.readCurrentMixedSuccessorLineageV35(...args);
+export const reopenPredecessorOriginalSepoliaDefiMixedSuccessorV35=(...args)=>sourceJournal.reopenMixedSuccessorPredecessorV35(...args);
+export const isPredecessorOriginalSepoliaDefiMixedSuccessorV35=(...args)=>sourceJournal.isMixedSuccessorPredecessorV35(...args);

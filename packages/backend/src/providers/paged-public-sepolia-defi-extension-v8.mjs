@@ -80,3 +80,11 @@ export async function refreshOriginalPagedPublicSepoliaDefiEmptySourceV9(extensi
  assert.equal(arguments.length,1);const s=owners.get(extension);assert.ok(s&&!s.closed&&!s.quiesced,'SEPOLIA_DEFI_EMPTY_REPLACEMENT_EXTENSION_PHASE');const next=Graph.readOriginalDevicePagedGraphExecutionContextV3(s.mixedService);assert.strictEqual(next.runtime,s.runtime);assert.strictEqual(next.system,s.mixedSource);
  const A=await import('../accounts/authority/device-paged-note-authority-v3.mjs'),actual=await A.readOriginalDevicePagedEmptyReplacementBindingV9(next.account,s.mixedProvider);assert.strictEqual(actual.predecessorAccount,s.mixedAuthority,'SEPOLIA_DEFI_EMPTY_REPLACEMENT_PREDECESSOR');s.mixedAuthority=next.account;s.mixedAuthorityReopened=false;return extension.metadata();
 }
+/** Source-only handoff after the Graph owner adopts the genuine terminal
+ * successor. A lost acknowledgement can repeat this without replacing targets
+ * or resetting Aave/Morpho authority, review, investment or withdrawal history. */
+export async function refreshOriginalPagedPublicSepoliaDefiMixedSuccessorV35(extension){
+ assert.equal(arguments.length,1);const s=owners.get(extension);assert.ok(s&&!s.closed&&!s.quiesced,'SEPOLIA_DEFI_SUCCESSOR_EXTENSION_PHASE');const next=Graph.readOriginalDevicePagedGraphExecutionContextV3(s.mixedService);assert.strictEqual(next.runtime,s.runtime);assert.strictEqual(next.system,s.mixedSource);
+ const A=await import('../accounts/authority/device-paged-note-authority-v3.mjs'),actual=await A.readOriginalDevicePagedMixedSuccessorBindingV35(next.account,s.mixedProvider);assert.strictEqual(actual.runtime,s.runtime);assert.strictEqual(actual.system,s.mixedSource);Provider.assertOriginalPagedNativeProviderV3(s.mixedProvider,{runtime:s.runtime,system:s.mixedSource,account:next.account});
+ if(s.mixedAuthority!==next.account){assert.strictEqual(actual.predecessorAccount,s.mixedAuthority,'SEPOLIA_DEFI_SUCCESSOR_PREDECESSOR');s.mixedAuthority=next.account;s.mixedAuthorityReopened=false;}return extension.metadata();
+}

@@ -81,3 +81,20 @@ test('actual authority keeps read ACCESS after financial epoch expiry and never 
   assert.equal(fullWarmCount,before,'ACCESS after expiry never refreshes financial permission');await assert.rejects(account.review({...review,reference:h(75)}),/FINANCIAL_EPOCH_CHANGED/);await A.quiesceOriginalDeviceSepoliaDefiFinancialWarmupV8(account);await assert.rejects(A.warmOriginalDeviceSepoliaDefiFinancialAccountV8(account),/WARM_CLOSED/);
  }finally{await account?.close();device.privateKey=null;await rm(directory,{recursive:true,force:true});}
 });
+
+test('proof preparation consumes one-use ACCESS before refreshing an idle checkpoint, ahead of issuing a proof challenge',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'defi-proof-prechallenge-warm-')),device=freshKey(),devicePublicKey='04'+device.x.toString('hex')+device.y.toString('hex'),input={origin:'https://lianum.example',devicePublicKey,journal:{path:join(directory,'authority','journal.vault'),password:'76'.repeat(32)}};let account;
+ try{
+  account=await A.createOriginalDeviceSepoliaDefiSharesAuthorityV4(runtime,target,input);
+  const review=R.normalizeDeviceSepoliaDefiReviewV4({profile:R.DEVICE_SEPOLIA_DEFI_REVIEW_V4,protocol:'AAVE_STATIC',action:'INVEST',descriptor:account.descriptor,rootId:h(80),noteRevision:1,reference:h(81),shares:'1000000',maximumInputAtomic:'1000000',minimumAssetsAtomic:null,underlyingReceiver:address(82),shareWithdrawalRecipient:target.account,validFrom:String(now-1),validUntil:String(now+600),receiptCommitment:h(83)});
+  const challenge=await account.review(review);await account.authorizeReview(challenge,sign(device,R.deviceSepoliaDefiReviewPermissionMessageV4(challenge)).toString('hex'));
+  financialEpoch++;const access=await account.challenge(),signature=sign(device,P.externalFlatPermissionMessageV1(access)).toString('hex'),before=fullWarmCount;
+  const draft={action:'PROVE_D27',jobId:null,rootId:review.rootId,noteRevision:1,recipient:target.account.slice(2),statement:{scope:pool.domain.scope,policy:pool.domain.policy,validFrom:review.validFrom,validUntil:review.validUntil,amount:review.shares,output:h(84)},path:null,witnessSHA256:h(85)};
+  await assert.rejects(account.reviewNote({access,signature:sign(device,Buffer.from('wrong proof access')).toString('hex'),draft},review.reference),/DEVICE_POP/);assert.equal(fullWarmCount,before,'unauthenticated requests cannot trigger warmup');
+  // Stop at the declared ledger boundary; no actual proof worker is created.
+  await assert.rejects(account.reviewNote({access,signature,draft},review.reference),/HOST_RECOVERY_MUST_NOT_EXECUTE_LEDGER_ACTION/);
+  assert.equal(fullWarmCount,before+1,'valid retained review reaches a fresh checkpoint before proof preparation');
+  await assert.rejects(account.readReviewReference({access,signature,reference:review.reference}),/ORIGINAL_CHALLENGE/);
+  const record=await new Vault(input.journal.path).read(input.journal.password);assert.equal(record.data.jobs.length,0,'no financial job is manufactured by validation');
+ }finally{await account?.close();device.privateKey=null;await rm(directory,{recursive:true,force:true});}
+});

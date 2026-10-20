@@ -8,13 +8,20 @@ const stages=new Set(['GRAPH_RECIPIENT','GRAPH_HTTP']);
 export function retainDevicePagedFailureMetadataV3(error,stage){try{
  if(!stages.has(stage))return;
  const frames=[];
- for(const row of String(error?.stack??'').slice(0,65536).split('\n').slice(1,65)){
+ // A deep assertion can prepend a large private object diff. Retain only
+ // bounded stack frames from its tail, never that diff or exception text.
+ for(const row of String(error?.stack??'').slice(-65536).split('\n').slice(-65)){
+  if(!/^\s+at /.test(row))continue;
   const m=/\b(file:\/\/[^()\r\n?#]+\.mjs):([1-9][0-9]{0,8}):([1-9][0-9]{0,8})\)?$/.exec(row);
   if(!m)continue;const file=new URL(m[1]).pathname,path=relative(projectRoot,file);
   if(!file.startsWith(projectRoot+'/')||!/^[A-Za-z0-9_./-]+$/.test(path)||path.split('/').includes('..'))continue;
   frames.push({path,line:Number(m[2]),column:Number(m[3])});if(frames.length===6)break;
  }
- const code=typeof error?.code==='string'&&/^[A-Z][A-Z0-9_]{0,100}$/.test(error.code)?error.code:typeof error?.message==='string'&&/^(?:PAGED_GRAPH|PAEG_PAGED)_[A-Z0-9_]{1,100}$/.test(error.message)?error.message:null;
+ const reason=typeof error?.message==='string'?error.message.split('\n',1)[0].replace(/\r$/,''):null;
+ const boundedReason=typeof reason==='string'&&/^(?:PAGED_GRAPH|PAEG_PAGED|PAGED_DEVICE|PAGED_NOTE|PAGED_UNRESERVED_WITHDRAWAL)_[A-Z0-9_]{1,100}$/.test(reason)?reason:null;
+ // AssertionError otherwise hides the useful fixed rejection behind the
+ // generic ERR_ASSERTION. Keep only an allowlisted symbolic reason.
+ const code=boundedReason??(typeof error?.code==='string'&&/^[A-Z][A-Z0-9_]{0,100}$/.test(error.code)?error.code:null);
  // The Original proof controller wraps worker failure for its public IPC.
  // Keep its bounded underlying code separately from any cleanup failure;
  // exception messages, input data and witness values remain excluded.

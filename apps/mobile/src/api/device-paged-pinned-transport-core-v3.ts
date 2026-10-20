@@ -6,7 +6,7 @@ type Pin={certificatePEM:string;certificateSHA256:string};
 export type Group='PAGED'|'PAGED_SOURCE_RENEWAL_V4'|'PAGED_EXPIRED_WITHDRAWAL_V10'|'EXTERNAL_FLAT'|'POSITIONS'|'SEPOLIA_DEFI_V7';
 function routes(group:Group):Map<string,number>{
  const result=new Map<string,number>();
- if(group==='PAGED')for(const path of ['/v1/mobile/paged-owner/challenges','/v1/mobile/paged-owner/operations','/v1/mobile/paged-owner/graph/pairing','/v1/mobile/paged-owner/graph/challenges','/v1/mobile/paged-owner/graph/operations'])result.set(path,4*1024*1024);
+ if(group==='PAGED')for(const path of ['/v1/mobile/paged-owner/challenges','/v1/mobile/paged-owner/operations','/v1/mobile/paged-owner/graph/pairing','/v1/mobile/paged-owner/graph/challenges','/v1/mobile/paged-owner/graph/operations','/v1/mobile/paged-owner/source-successor/challenges','/v1/mobile/paged-owner/source-successor/requests'])result.set(path,4*1024*1024);
  else if(group==='PAGED_SOURCE_RENEWAL_V4')for(const route of ['challenges','renewals'])result.set('/v1/mobile/paged-owner/source-renewal/'+route,8192);
  else if(group==='PAGED_EXPIRED_WITHDRAWAL_V10')for(const route of ['challenges','requests'])result.set('/v1/mobile/paged-owner/expired-withdrawal/'+route,8192);
  else if(group==='POSITIONS')for(const path of ['challenges','reviews','observations'])result.set('/v1/mobile/defi-positions/'+path,8192);
@@ -80,7 +80,7 @@ export async function createDevicePagedPinnedTransportCoreV3(group:Group,origin:
 // higher custody constructor validates the SourceToken before issuing it.
 const sourceRenewalTransportsV4=new WeakMap<object,{sourceToken:object;transport:Transport;closed:boolean}>();
 export async function createDevicePagedSourceRenewalPinnedTransportCoreV4(profile:{descriptor:any;transport:Pin},sourceToken:object,signal?:AbortSignal):Promise<Readonly<{close:()=>Promise<void>}>>{
- const transport=await createDevicePagedPinnedTransportCoreV3('PAGED_SOURCE_RENEWAL_V4',profile.descriptor.origin,Date.now()+60000,profile.transport,signal,profile.descriptor.pairingId);
+ const transport=await createDevicePagedPinnedTransportCoreV3('PAGED_SOURCE_RENEWAL_V4',profile.descriptor.origin,Date.now()+2*60*60*1000,profile.transport,signal,profile.descriptor.pairingId);
  const held={sourceToken,transport,closed:false},handle=Object.freeze({async close(){held.closed=true;sourceRenewalTransportsV4.delete(handle);await transport.close();}});sourceRenewalTransportsV4.set(handle,held);return handle;
 }
 export function readOriginalDevicePagedSourceRenewalTransportCoreV4(handle:object,sourceToken:object):Transport{
@@ -89,7 +89,7 @@ export function readOriginalDevicePagedSourceRenewalTransportCoreV4(handle:objec
 
 const expiredWithdrawalTransportsV10=new WeakMap<object,{sourceToken:object;transport:Transport;closed:boolean}>();
 export async function createDevicePagedExpiredWithdrawalTransportCoreV10(profile:{descriptor:any;transport:Pin},sourceToken:object,signal?:AbortSignal):Promise<Readonly<{close:()=>Promise<void>}>>{
- const transport=await createDevicePagedPinnedTransportCoreV3('PAGED_EXPIRED_WITHDRAWAL_V10',profile.descriptor.origin,Date.now()+60000,profile.transport,signal,profile.descriptor.pairingId);
+ const transport=await createDevicePagedPinnedTransportCoreV3('PAGED_EXPIRED_WITHDRAWAL_V10',profile.descriptor.origin,Date.now()+2*60*60*1000,profile.transport,signal,profile.descriptor.pairingId);
  const held={sourceToken,transport,closed:false},handle=Object.freeze({async close(){held.closed=true;expiredWithdrawalTransportsV10.delete(handle);await transport.close();}});
  expiredWithdrawalTransportsV10.set(handle,held);return handle;
 }

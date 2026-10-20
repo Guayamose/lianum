@@ -11,7 +11,7 @@ const graphSource=await readFile(new URL('../../../../packages/mobile-protocol/s
 const epoch=1800000000000;
 function clock({timerAdvancesWall=true,onTimer=null}={}){
  const state={wall:epoch,monotonic:100,timers:[]};
- const api=runInNewContext(`(()=>{${source.replace(/^export /gm,'')}\nreturn {devicePagedNowV3,devicePagedWallNowV3,assertDevicePagedFrameElapsedV3,awaitDevicePagedIssuedTimeV3};})()`,{
+ const api=runInNewContext(`(()=>{${source.replace(/^export /gm,'')}\nreturn {devicePagedNowV3,devicePagedWallNowV3,assertDevicePagedFrameElapsedV3,assertDevicePagedFrameElapsedV41,awaitDevicePagedIssuedTimeV3};})()`,{
   Date:{now:()=>state.wall},performance:{now:()=>state.monotonic},AbortSignal,
   setTimeout(fn,ms){const timer={cancelled:false};state.timers.push(ms);queueMicrotask(()=>{if(timer.cancelled)return;state.monotonic+=ms;if(timerAdvancesWall)state.wall+=ms;onTimer?.(state);fn();});return timer;},
   clearTimeout(timer){if(timer)timer.cancelled=true;}
@@ -24,8 +24,8 @@ function graphClock(){
  const state={wall:epoch,monotonic:100};
  const plain=text=>text.replace(/^import .*;\n/gm,'').replace(/^export \{.*;\n/gm,'').replace(/^export /gm,'');
  const api=runInNewContext(`(()=>{
-  const clock=(()=>{${plain(source)}\nreturn {devicePagedNowV3,devicePagedWallNowV3,assertDevicePagedFrameElapsedV3};})();
-  const P=(()=>{const {devicePagedWallNowV3,assertDevicePagedFrameElapsedV3}=clock;${plain(ownerSource)}\nreturn {...clock,pagedOwnerExactV3,pagedOwnerHexV3,pagedOwnerUintV3,normalizeDevicePagedDescriptorV3,normalizeDevicePagedRecipientV3,validateDevicePagedConsentFreshV3,devicePagedPermissionMessageV3};})();
+  const clock=(()=>{${plain(source)}\nreturn {devicePagedNowV3,devicePagedWallNowV3,assertDevicePagedFrameElapsedV3,assertDevicePagedFrameElapsedV41};})();
+  const P=(()=>{const {devicePagedWallNowV3,assertDevicePagedFrameElapsedV3,assertDevicePagedFrameElapsedV41}=clock;${plain(ownerSource)}\nreturn {...clock,pagedOwnerExactV3,pagedOwnerHexV3,pagedOwnerUintV3,normalizeDevicePagedDescriptorV3,normalizeDevicePagedRecipientV3,validateDevicePagedConsentFreshV3,devicePagedPermissionMessageV3};})();
   ${plain(graphSource)}
   return {validateDevicePagedGraphConsentFreshV3,devicePagedGraphPermissionMessageV3,validateDevicePagedConsentFreshV3:P.validateDevicePagedConsentFreshV3,devicePagedPermissionMessageV3:P.devicePagedPermissionMessageV3,parse:text=>JSON.parse(text)};
  })()`,{Date:{now:()=>state.wall},performance:{now:()=>state.monotonic},AbortSignal,URL,TextEncoder});
@@ -153,4 +153,30 @@ test('rollback during a peer wait cannot schedule beyond its 3000-ms budget',asy
  const c=clock({timerAdvancesWall:false,onTimer:state=>{if(state.timers.length===1)state.wall=epoch-1500;}});
  await assert.rejects(c.awaitDevicePagedIssuedTimeV3(epoch+1000),isCode('MOBILE_PAGED_CLOCK_FUTURE'));
  assert.deepEqual(c.state.timers,[1000,2000]);assert.equal(c.state.monotonic,3100);
+});
+
+
+test('five-minute consent and two-minute observations tolerate slow work but rollback never renews them',()=>{
+ for(const [kind,lifetime]of [['CONSENT',300000],['OBSERVATION',120000]]){
+  const c=clock(),key='v41:'+kind,expires=epoch+lifetime;
+  c.assertDevicePagedFrameElapsedV41(key,expires,epoch,epoch,kind);
+  c.state.wall+=45000;c.state.monotonic+=45000;
+  c.assertDevicePagedFrameElapsedV41(key,expires,c.state.wall,epoch,kind);
+  c.state.wall=epoch-60000;c.state.monotonic+=lifetime-45000;
+  assert.throws(()=>c.assertDevicePagedFrameElapsedV41(key,expires,c.state.wall,epoch,kind),isCode('MOBILE_PAGED_CLOCK_EXPIRED'));
+  const future=clock();assert.throws(()=>future.assertDevicePagedFrameElapsedV41(key,expires,epoch-1,epoch,kind),isCode('MOBILE_PAGED_CLOCK_FUTURE'));
+  assert.throws(()=>future.assertDevicePagedFrameElapsedV41(key,expires+1,epoch,epoch,kind),isCode('MOBILE_PAGED_CLOCK_ARGUMENTS'));
+ }
+});
+
+test('new signed consent binds its issue time, accepts 60 seconds and still expires at five minutes',()=>{
+ const c=graphClock(),key=generateKeyPairSync('ec',{namedCurve:'secp256k1'}),consent=graphConsent(c,key.publicKey,epoch+600000);
+ consent.issuedAt=epoch;consent.expiresAt=epoch+300000;
+ const signature=sign('sha256',c.devicePagedGraphPermissionMessageV3(consent),{key:key.privateKey,dsaEncoding:'ieee-p1363'});
+ c.validateDevicePagedGraphConsentFreshV3(consent);c.state.wall+=60000;c.state.monotonic+=60000;
+ c.validateDevicePagedGraphConsentFreshV3(consent);
+ const changed=c.parse(JSON.stringify(consent));changed.issuedAt++;
+ assert.equal(verify('sha256',c.devicePagedGraphPermissionMessageV3(changed),{key:key.publicKey,dsaEncoding:'ieee-p1363'},signature),false);
+ c.state.wall=epoch+300000;c.state.monotonic+=240000;
+ assert.throws(()=>c.validateDevicePagedGraphConsentFreshV3(consent),isGraphCode('MOBILE_PAGED_GRAPH_CONSENT_EXPIRED'));
 });

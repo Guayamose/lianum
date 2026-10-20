@@ -1,6 +1,7 @@
 /** Fixed deployment selection DATA. A marker cannot open a target or grant
  * a financial permission; Original Sup8 must authenticate its own capture. */
 import assert from 'node:assert/strict';
+import {isDeepStrictEqual} from 'node:util';
 import {createHash} from 'node:crypto';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -75,6 +76,20 @@ export function assertReopenedPublicSepoliaDefiConnectionsV11(raw,previous){
  }
  return current;
 }
+/** Recover only routing metadata from an authenticated V35 checkpoint. Each
+ * packet must match the previous marker, or reconstruct that exact packet by
+ * replacing only the source descriptor with its retained predecessor. */
+export function recoverPublicSepoliaDefiSuccessorPacketsV35(raw,state,devicePublicKey,mode){
+ const lineage=state.mixedAuthority.mixedSuccessorV35;assert.ok(lineage,'PAEG_DEFI_SUCCESSOR_ORIGINAL_REQUIRED');
+ assertPublicSepoliaDefiState(state,devicePublicKey,mode);
+ const connections=raw.map(value=>{
+  const packet=normalizeDeviceSepoliaDefiConnectionV7(value),predecessor=normalizeDeviceSepoliaDefiConnectionV7({...packet,paegSource:{...packet.paegSource,descriptor:lineage.predecessor.descriptor}}),expected=mode.connectionsSHA256[packet.protocol];
+  assert.ok(sha(packet)===expected||sha(predecessor)===expected,'PAEG_DEFI_SUCCESSOR_ORIGINAL_PROFILE');
+  assert.ok(isDeepStrictEqual(packet.paegSource.descriptor,lineage.predecessor.descriptor)||isDeepStrictEqual(packet.paegSource.descriptor,state.mixedAuthority.descriptor),'PAEG_DEFI_SUCCESSOR_ORIGINAL_PREDECESSOR');
+  return normalizeDeviceSepoliaDefiConnectionV7({...packet,paegSource:{...packet.paegSource,descriptor:state.mixedAuthority.descriptor}});
+ });
+ return assertPublicSepoliaDefiConnectionsV8(connections,state,devicePublicKey);
+}
 export async function readPublicSepoliaDefiModeV8(root,configuration,uniswapMode){
  let bytes;
  try{bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_SEPOLIA_DEFI_MODE_FILE_V8);}catch(error){
@@ -84,7 +99,11 @@ export async function readPublicSepoliaDefiModeV8(root,configuration,uniswapMode
  }
  try{
   assert.ok(uniswapMode,'PAEG_DEFI_ORIGINAL_UNISWAP_REQUIRED');const devicePublicKey=uniswapMode.input.mixed.devicePublicKey,mode=normalizePublicSepoliaDefiModeV8(JSON.parse(bytes.toString('utf8')),configuration,devicePublicKey),state=assertPublicSepoliaDefiCapturedV8(await readPublicSepoliaDefiCheckpointV8(root,configuration,devicePublicKey),devicePublicKey,mode);
-  const connections=[];for(const protocol of protocols){const publicBytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8[protocol]);try{const packet=normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(publicBytes.toString('utf8')));connections.push(packet);assert.equal(packet.protocol,protocol);assert.equal(sha(packet),mode.connectionsSHA256[protocol],'PAEG_DEFI_ORIGINAL_PUBLIC_PROFILE');assert.deepEqual(packet.descriptor,state.authorities.find(row=>row.protocol===protocol).descriptor,'PAEG_DEFI_RETAINED_PUBLIC_DESCRIPTOR');}finally{publicBytes.fill(0);}}
+  const connections=[];for(const protocol of protocols){const publicBytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8[protocol]);try{const packet=normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(publicBytes.toString('utf8')));connections.push(packet);assert.equal(packet.protocol,protocol);assert.deepEqual(packet.descriptor,state.authorities.find(row=>row.protocol===protocol).descriptor,'PAEG_DEFI_RETAINED_PUBLIC_DESCRIPTOR');}finally{publicBytes.fill(0);}}
+  if(state.mixedAuthority.mixedSuccessorV35){
+   const current=recoverPublicSepoliaDefiSuccessorPacketsV35(connections,state,devicePublicKey,mode),currentMode={...mode,connectionsSHA256:Object.fromEntries(current.map(packet=>[packet.protocol,sha(packet)]))},pending=protocols.some(protocol=>mode.connectionsSHA256[protocol]!==currentMode.connectionsSHA256[protocol]);
+   return{mode:currentMode,state,connections:current,...(pending?{publicationOriginalModeV35:mode}:{}),input:publicSepoliaDefiConfigurationV8(configuration,devicePublicKey,'CAPTURED')};
+  }
   assertPublicSepoliaDefiConnectionsV8(connections,state,devicePublicKey,mode);return{mode,state,connections,input:publicSepoliaDefiConfigurationV8(configuration,devicePublicKey,'CAPTURED')};
  }finally{bytes.fill(0);}
 }
@@ -115,5 +134,19 @@ export async function publishLivePublicSepoliaDefiRenewalV10(root,configuration,
  assert.equal(financial.epoch?.nonce,receipt.intentId);assert.equal(financial.effectivePolicy.expiresAt,receipt.expiresAt);
  const lineage=state.mixedAuthority.emptyReplacementV9;assert.ok(lineage,'PAEG_DEFI_LIVE_EMPTY_LINEAGE_REQUIRED');assert.equal(lineage.financial.epochId,financial.epoch.epochId);assert.equal(lineage.financial.expiresAt,receipt.expiresAt);
  for(const connection of connections){let bytes;try{bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8[connection.protocol]);const old=normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(bytes.toString('utf8')));assert.equal(sha(old),previous.mode.connectionsSHA256[connection.protocol],'PAEG_DEFI_ORIGINAL_PUBLIC_PROFILE');const {paegSource:oldSource,...oldFixed}=old,{paegSource:newSource,...newFixed}=connection;assert.deepEqual(newFixed,oldFixed,'PAEG_DEFI_LIVE_ONLY_SOURCE_PROFILE');assertReopenedPreparation(oldSource.preparation,newSource.preparation);}finally{bytes?.fill(0);}}
+ return publishPublicSepoliaDefiState(configuration,devicePublicKey,state,connections);
+}
+
+/** Republish Source7 metadata only after its Original V35 activation. The
+ * targets, TLS, routes, budgets and funding origin are not changed here. */
+export async function publishLivePublicSepoliaDefiSuccessorV35(root,configuration,product,previous){
+ assert.equal(arguments.length,4);const devicePublicKey=previous.input.devicePublicKey,B=await import(pathToFileURL(join(root,'packages/backend/src/operations/local/funded-paged-public-native-operator-v4.mjs')).href);
+ const connections=await B.readOriginalPagedPublicSepoliaDefiConnectionsV8(product),state=await readPublicSepoliaDefiCheckpointV8(root,configuration,devicePublicKey);
+ assert.equal(state.phase,'ACTIVE','PAEG_DEFI_LIVE_ACTIVATION_REQUIRED');assertPublicSepoliaDefiState(state,devicePublicKey,previous.mode);
+ const lineage=state.mixedAuthority.mixedSuccessorV35;
+ if(!lineage){assertPublicSepoliaDefiConnectionsV8(connections,state,devicePublicKey,previous.mode);return{mode:previous.mode,state};}
+ const stored=[];for(const protocol of protocols){const bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8[protocol]);try{stored.push(JSON.parse(bytes.toString('utf8')));}finally{bytes.fill(0);}}
+ const repaired=recoverPublicSepoliaDefiSuccessorPacketsV35(stored,state,devicePublicKey,previous.publicationOriginalModeV35??previous.mode);
+ assert.deepEqual(connections,repaired,'PAEG_DEFI_SUCCESSOR_ORIGINAL_LIVE_PROFILE');
  return publishPublicSepoliaDefiState(configuration,devicePublicKey,state,connections);
 }

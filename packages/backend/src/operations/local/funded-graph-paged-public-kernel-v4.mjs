@@ -168,3 +168,7 @@ export function assertOriginalPagedSepoliaSourceStorageJournalV8(runtime,system,
 export const isOriginalPagedSepoliaExpiredWithdrawalRetirementV32=(...args)=>originalSourceJournal.isExpiredWithdrawalRetirementV32(...args);
 export const armOriginalPagedSepoliaExpiredWithdrawalRetirementV32=(...args)=>originalSourceJournal.armExpiredWithdrawalRetirementV32(...args);
 export const consumeOriginalPagedSepoliaExpiredWithdrawalRetirementV32=(...args)=>originalSourceJournal.consumeExpiredWithdrawalRetirementV32(...args);
+
+export const isOriginalPagedSepoliaExpiredDepositRetirementV18=(...args)=>originalSourceJournal.isExpiredDepositRetirementV18(...args);
+export const armOriginalPagedSepoliaExpiredDepositRetirementV18=(...args)=>originalSourceJournal.armExpiredDepositRetirementV18(...args);
+export const consumeOriginalPagedSepoliaExpiredDepositRetirementV18=(...args)=>originalSourceJournal.consumeExpiredDepositRetirementV18(...args);

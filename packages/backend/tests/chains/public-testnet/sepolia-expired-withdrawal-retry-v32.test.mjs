@@ -45,7 +45,7 @@ for(const namespace of ['ORIGINAL','UNISWAP','DEFI'])test(namespace+': Original 
  const K=await import('../../../src/chains/public-testnet/key-store-v1.mjs'),RPC=await import('../../../src/chains/public-testnet/sepolia-receiver-rpc-v4.mjs');
  const execute=namespace==='ORIGINAL'?K.executeOriginalPublicPagedSourceV4:namespace==='UNISWAP'?K.executeOriginalPublicUniswapMixedSourceCallV4:K.executeOriginalPublicSepoliaDefiMixedSourceCallV8;
  const keyset=await K.initializePublicPagedServerKeysV1(join(directory,'keys')),keys=await K.openPublicPagedServerKeysV1(join(directory,'keys')),account=keyset.accounts[0],genesis='0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9';
- let signer,created,posts=0,wire=null,receiptAvailable=false,nonce=0n,epoch=1n,visible=false,inserted=false,stale=true,code='0x6000';
+ let signer,created,posts=0,wire=null,receiptAvailable=false,nonce=0n,finalizedNonce=null,reorg=false,epoch=1n,visible=false,inserted=false,stale=true,code='0x6000';
  const head=()=>({number:'0x100',hash:'0x'+h(44),parentHash:'0x'+h(43),timestamp:'0x'+(epoch*600n).toString(16),gasLimit:'0x1c9c380',baseFeePerGas:'0x1'});
  const receipt=()=>({transactionHash:Transaction.fromHex(wire).hash,status:'0x1',blockHash:head().hash,blockNumber:head().number,gasUsed:'0x7530',effectiveGasPrice:'0x2',logs:[]});
  const staleBytes='0x08c379a0'+w(32)+w(11)+Buffer.from('STALE_EPOCH').toString('hex').padEnd(64,'0');
@@ -53,14 +53,14 @@ for(const namespace of ['ORIGINAL','UNISWAP','DEFI'])test(namespace+': Original 
   const req=JSON.parse(options.body);let result,error;
   switch(req.method){
    case'eth_chainId':result='0xaa36a7';break;
-   case'eth_getBlockByNumber':result=req.params[0]==='0x0'?{hash:genesis}:head();break;
-   case'eth_getTransactionCount':result='0x'+nonce.toString(16);break;
+   case'eth_getBlockByNumber':result=req.params[0]==='0x0'?{hash:genesis}:{...head(),...(reorg&&req.params[0]==='0x100'?{hash:'0x'+h(99)}:{})};break;
+   case'eth_getTransactionCount':result='0x'+(req.params[1]==='0x100'?(finalizedNonce??nonce):nonce).toString(16);break;
    case'eth_getBalance':result='0x1bc16d674ec80000';break;
    case'eth_maxPriorityFeePerGas':result='0x1';break;
    case'eth_estimateGas':result='0x7530';break;
    case'eth_getCode':result=code;break;
    case'eth_call':if(req.params[0].data.startsWith('0x'+selector)){if(stale)error={code:3,message:'private provider details',data:staleBytes};else result='0x';}else result='0x'+w(inserted?1:0);break;
-   case'eth_sendRawTransaction':posts++;wire=req.params[0];if(posts===1)return new Response('private rejected POST body',{status:503});nonce=1n;receiptAvailable=true;result=Transaction.fromHex(wire).hash;break;
+   case'eth_sendRawTransaction':posts++;wire=req.params[0];if(posts===1)return new Response('private rejected POST body',{status:namespace==='DEFI'?429:503});nonce=1n;receiptAvailable=true;result=Transaction.fromHex(wire).hash;break;
    case'eth_getTransactionReceipt':result=receiptAvailable&&req.params[0]===Transaction.fromHex(wire).hash?receipt():null;break;
    case'eth_getTransactionByHash':if(receiptAvailable&&req.params[0]===Transaction.fromHex(wire).hash){const x=Transaction.fromHex(wire).raw;result={hash:Transaction.fromHex(wire).hash,from:account.address,to:x.to,input:x.data,type:'0x2',chainId:'0x'+x.chainId.toString(16),nonce:'0x'+x.nonce.toString(16),value:'0x'+x.value.toString(16),gas:'0x'+x.gasLimit.toString(16),maxFeePerGas:'0x'+x.maxFeePerGas.toString(16),maxPriorityFeePerGas:'0x'+x.maxPriorityFeePerGas.toString(16),accessList:[]};}else result=visible?{hash:req.params[0]}:null;break;
    default:throw Error('HOST_UNEXPECTED_RPC:'+req.method);
@@ -93,12 +93,34 @@ for(const namespace of ['ORIGINAL','UNISWAP','DEFI'])test(namespace+': Original 
   }
   const retired=await K.retireOriginalPublicExpiredWithdrawalV32(signer,retirement(runtime,old));assert.equal(retired.retired,true);assert.equal(retired.broadcasts,0);assert.equal(retired.reservationsReleased,false);assert.equal(posts,1);
   const original=(await disk()).operations[0],{phase,...unchanged}=original,{phase:oldPhase,...oldFields}=before.operations[0];assert.equal(phase,D.EXPIRED_WITHDRAWAL_V32);assert.deepEqual(unchanged,oldFields);K.assertOriginalPublicPagedSourceUnblockedV4(signer);
+  const unconsumed=await K.readOriginalPublicPagedSourceFinancialStateV5(signer);
+  assert.equal(unconsumed.reviewEligible,false,'retired/absent is insufficient while its nonce remains available');
+  const blockedReview={intentId:h(70),expectedCheckpoint:unconsumed.checkpoint,expectedEpochId:null,policy,limits:{maximumTotalSuccessorPools:'1',maximumSourcesPerWallet:'5'}};
+  await assert.rejects(K.authorizeOriginalPublicPagedSourceFinancialEpochV5(signer,blockedReview),/PENDING_FENCED/);
+  assert.equal(posts,1);assert.deepEqual((await disk()).operations[0],original);
   const bad=request(account.address,2,{data:calldata(input(2,{recipient:a(99)}))});await assert.rejects(execute(signer,command(runtime,bad),bad.label,raw(bad)),/SUBSTITUTION/);assert.equal(posts,1);
   const next=request(account.address,2),confirmed=await execute(signer,command(runtime,next),next.label,raw(next));assert.equal(confirmed.status,'0x1');assert.equal(posts,2);
   const final=await disk();assert.equal(final.operations.length,2);assert.equal(final.operations[0].phase,D.EXPIRED_WITHDRAWAL_V32);assert.equal(final.operations[1].phase,'FINALIZED');assert.equal(final.operations[1].transaction.nonce,original.transaction.nonce);
   assert.ok(BigInt(final.operations[1].transaction.maxPriorityFeePerGas)>BigInt(original.transaction.maxPriorityFeePerGas));assert.ok(BigInt(final.operations[1].transaction.maxFeePerGas)>BigInt(original.transaction.maxFeePerGas));
   const financial=await K.readOriginalPublicPagedSourceFinancialStateV5(signer);assert.equal(financial.reserved.valueAtomic,'0','retirement must not refund/release the original reservation');
-  await K.closeOriginalPublicPagedSourceSignerV4(signer);signer=await K.openOriginalPublicPagedSourceSignerV4(keys,runtime,policy,new AbortController().signal);K.assertOriginalPublicPagedSourceUnblockedV4(signer);assert.equal(posts,2);
+  assert.equal(financial.reviewEligible,true,'the same retired nonce has now been consumed by a finalized replacement');
+  const review={intentId:h(71),expectedCheckpoint:financial.checkpoint,expectedEpochId:null,policy,limits:{maximumTotalSuccessorPools:'1',maximumSourcesPerWallet:'5'}};
+  finalizedNonce=0n;
+  assert.equal((await K.readOriginalPublicPagedSourceFinancialStateV5(signer)).reviewEligible,false,'latest/pending nonce must not substitute for finalized nonce');
+  await assert.rejects(K.authorizeOriginalPublicPagedSourceFinancialEpochV5(signer,review),/PENDING_FENCED/);finalizedNonce=null;
+  reorg=true;await assert.rejects(K.authorizeOriginalPublicPagedSourceFinancialEpochV5(signer,review),/CANONICAL/);reorg=false;
+  const replacementWire=wire;wire=original.signed.nativeWire;
+  await assert.rejects(K.authorizeOriginalPublicPagedSourceFinancialEpochV5(signer,review),/RETIRED_SUCCESS/);wire=replacementWire;
+  const accepted=await K.authorizeOriginalPublicPagedSourceFinancialEpochV5(signer,review);
+  assert.equal(accepted.limits.maximumSourcesPerWallet,'5');assert.deepEqual(accepted.effectivePolicy,policy);
+  assert.deepEqual(accepted.reserved,financial.reserved,'quota-only review retains even retired fee/value reservations');
+  assert.deepEqual(await disk(),final,'quota review never rewrites retired history, phases, wires or checkpoints');assert.equal(posts,2);
+  assert.deepEqual(await K.authorizeOriginalPublicPagedSourceFinancialEpochV5(signer,review),accepted,'lost review ACK is idempotent');
+  await K.closeOriginalPublicPagedSourceSignerV4(signer);signer=null;
+  const captured=await K.readOriginalPublicPagedCapturedFinancialStateV5(keys,runtime,policy);
+  assert.equal(captured.reviewEligible,true);assert.deepEqual(captured.reserved,accepted.reserved);assert.equal(captured.limits.maximumSourcesPerWallet,'5');
+  assert.deepEqual(await disk(),final);assert.equal(posts,2,'read-only captured review never broadcasts');
+  signer=await K.openOriginalPublicPagedSourceSignerV4(keys,runtime,policy,new AbortController().signal);K.assertOriginalPublicPagedSourceUnblockedV4(signer);assert.equal(posts,2);
   assert.equal((await disk()).operations[0].signed.nativeWire,original.signed.nativeWire);
  }finally{if(signer)await K.closeOriginalPublicPagedSourceSignerV4(signer);if(created)await created.runtime.close();K.closePublicPagedServerKeysV1(keys);}
 });

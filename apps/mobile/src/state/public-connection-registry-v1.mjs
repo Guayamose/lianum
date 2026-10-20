@@ -5,6 +5,7 @@ import * as P from '../../../../packages/mobile-protocol/src/device-paged-owner-
 import {normalizeExternalFlatDescriptorV1,externalFlatExactV1,DEVICE_EXTERNAL_FLAT_NOTE_V1,DEVICE_EXTERNAL_FLAT_SHARE_V1} from '../../../../packages/mobile-protocol/src/device-external-flat-note-v1.mjs';
 import {normalizeDeviceDefiPositionDescriptorV1} from '../../../../packages/mobile-protocol/src/device-defi-position-read-v1.mjs';
 import {DEVICE_SEPOLIA_DEFI_SHARES_CONNECTION_V7,normalizeDeviceSepoliaDefiConnectionV7} from '@lianum/mobile-protocol/device/sepolia-defi-connection-v7';
+import {normalizeDevicePagedSourceSuccessorConnectionV35} from '@lianum/mobile-protocol/device/paged-source-successor-v35';
 const FORMAT='DEVICE_PUBLIC_CONNECTION_REGISTRY_V1',MAX=65536,CHUNK=1200,LIMIT=12;
 const fail=()=>{throw Error('MOBILE_PUBLIC_CONNECTION_REGISTRY');};
 const need=value=>{if(!value)fail();};
@@ -66,6 +67,14 @@ export function createPublicConnectionRegistryV1({devicePublicKey,storage}){
    if(old&&oldId!==id)for(let i=0;i<old.parts;i++)await storage.remove(prefix+'.profile.'+oldId+'.'+i);
    return freeze({...entry,id});}),
   forget:id=>serial(async()=>{need(/^[0-9a-f]{64}$/.test(id));const previous=await read(),row=previous.value.entries.find(row=>row.id===id);if(!row)return;const value={...previous.value,revision:previous.value.revision+1,entries:previous.value.entries.filter(row=>row.id!==id),selected:Object.fromEntries(Object.entries(previous.value.selected).map(([kind,value])=>[kind,value===id?null:value]))};need(Number.isSafeInteger(value.revision));await commit(previous,value);for(let i=0;i<row.parts;i++)await storage.remove(prefix+'.profile.'+id+'.'+i);}),
+  replaceDefiSourcesV35:(previousProfiles,nextProfiles)=>serial(async()=>{
+   need(!poison&&Array.isArray(previousProfiles)&&previousProfiles.length===2&&Array.isArray(nextProfiles)&&nextProfiles.length===2);const old=previousProfiles.map(text=>normalizePublicWalletConnectionV1(text,devicePublicKey)),next=nextProfiles.map(text=>normalizePublicWalletConnectionV1(text,devicePublicKey));need(new Set(old.map(row=>row.protocol)).size===2);const oldPackets=old.map(row=>normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(row.profile))),nextPackets=next.map(row=>normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(row.profile)));need(oldPackets.every(row=>JSON.stringify(row.paegSource)===JSON.stringify(oldPackets[0].paegSource))&&nextPackets.every(row=>JSON.stringify(row.paegSource)===JSON.stringify(nextPackets[0].paegSource)));
+   for(let i=0;i<2;i++){const before=oldPackets[i],after=nextPackets[i],{paegSource:oldSource,...oldFixed}=before,{paegSource:nextSource,...nextFixed}=after;need(oldSource&&nextSource&&JSON.stringify(oldFixed)===JSON.stringify(nextFixed));normalizeDevicePagedSourceSuccessorConnectionV35({format:'DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3',descriptor:nextSource.descriptor,transport:after.transport},oldSource.descriptor);}
+   const previous=await read(),oldIds=await Promise.all(old.map(row=>hash(row.profile))),newRows=[];
+   for(let i=0;i<2;i++){const entry=next[i],id=await hash(entry.profile);need(previous.value.entries.some(row=>row.id===oldIds[i]||row.id===id));const row={id,kind:entry.kind,length:entry.profile.length,parts:Math.ceil(entry.profile.length/CHUNK)};for(let part=0;part<row.parts;part++){const name=prefix+'.profile.'+id+'.'+part,text=entry.profile.slice(part*CHUNK,(part+1)*CHUNK),stored=await storage.get(name);need(stored===null||stored===text);if(stored===null)await storage.set(name,text);need(await storage.get(name)===text);}newRows.push(row);}
+   const entries=previous.value.entries.filter(row=>!oldIds.includes(row.id)&&!newRows.some(next=>next.id===row.id));entries.push(...newRows);need(entries.length<=LIMIT);const selected={...previous.value.selected};for(let i=0;i<2;i++)if(selected.EXTERNAL_FLAT===oldIds[i])selected.EXTERNAL_FLAT=newRows[i].id;await commit(previous,{...previous.value,revision:previous.value.revision+1,entries,selected});
+   for(const id of oldIds){const row=previous.value.entries.find(row=>row.id===id);if(row&&!newRows.some(next=>next.id===id))for(let part=0;part<row.parts;part++)await storage.remove(prefix+'.profile.'+id+'.'+part);}return freeze(await Promise.all(newRows.map(decode)));
+  }),
   forRoute:route=>serial(async()=>{const {value}=await read(),entries=await Promise.all(value.entries.map(decode)),matches=entries.filter(entry=>publicWalletConnectionMatchesRouteV1(entry,route));need(matches.length<=1);return matches[0]??null;}),
  });
 }

@@ -28,3 +28,24 @@ test('RPC rejection reaches existing GRAPH_HTTP metadata without retaining provi
  const files=await readdir(join(directory,'evidence/paeg-proof-attempts')),texts=await Promise.all(files.map(file=>readFile(join(directory,'evidence/paeg-proof-attempts',file),'utf8'))),rows=texts.map(JSON.parse),row=rows.find(row=>row.rpcContractRejection?.reason==='STALE_EPOCH');assert.ok(row);assert.equal(row.code,'NATIVE_WALLET_RPC_FAILED');assert.equal(row.stage,'GRAPH_HTTP');
  for(const text of [...texts,...events.map(row=>JSON.stringify(row))]){assert.ok(!text.includes('PRIVATE_MESSAGE_SENTINEL'));assert.ok(!text.includes('PRIVATE_CALLDATA_SENTINEL'));assert.ok(!text.includes(data));}assert.equal(events.length,1);
 });
+
+test('fixed proof-window rejection survives ERR_ASSERTION without exposing assertion values',async t=>{
+ t.after(()=>rm(directory,{recursive:true,force:true}));
+ let error;try{assert.ok(false,'PAGED_DEVICE_NOTE_EPOCH_TOO_SHORT');}catch(e){error=e;}
+ error.actual='PRIVATE_ASSERTION_SENTINEL';retainDevicePagedFailureMetadataV3(error,'GRAPH_HTTP');
+ const texts=await Promise.all((await readdir(join(directory,'evidence/paeg-proof-attempts'))).map(file=>readFile(join(directory,'evidence/paeg-proof-attempts',file),'utf8')));
+ assert.ok(texts.map(JSON.parse).some(row=>row.code==='PAGED_DEVICE_NOTE_EPOCH_TOO_SHORT'));
+ assert.ok(texts.every(text=>!text.includes('PRIVATE_ASSERTION_SENTINEL')));
+});
+
+test('a large assertion diff preserves its bounded reason and source frame without private values',async t=>{
+ t.after(()=>rm(directory,{recursive:true,force:true}));
+ const reason='PAGED_UNRESERVED_WITHDRAWAL_AUTHORITY_CHANGED',secret='PRIVATE_LARGE_JOURNAL_DIFF_SENTINEL';
+ const error=new assert.AssertionError({actual:{value:secret},expected:{value:'other'},operator:'deepStrictEqual',message:reason});
+ error.message=reason+'\n'+secret.repeat(5000);
+ error.stack='AssertionError: '+error.message+'\n    at unreservedWithdrawalV27 (file://'+environment.projectRoot+'/packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs:277:10)';
+ retainDevicePagedFailureMetadataV3(error,'GRAPH_HTTP');
+ const texts=await Promise.all((await readdir(join(directory,'evidence/paeg-proof-attempts'))).map(file=>readFile(join(directory,'evidence/paeg-proof-attempts',file),'utf8'))),row=texts.map(JSON.parse).find(row=>row.code===reason);
+ assert.ok(row);assert.deepEqual(row.frames,[{path:'packages/backend/src/accounts/authority/device-paged-note-authority-v3.mjs',line:277,column:10}]);
+ assert.ok(texts.every(text=>!text.includes(secret)));
+});

@@ -141,3 +141,12 @@ export const openOutputOwnerOriginalSepoliaUniswapMixedExpiredWithdrawalV10=(...
 export const isOriginalSepoliaUniswapExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.isExpiredWithdrawalRetirementV32(...args);
 export const armOriginalSepoliaUniswapExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.armExpiredWithdrawalRetirementV32(...args);
 export const consumeOriginalSepoliaUniswapExpiredWithdrawalRetirementV32=(...args)=>sourceJournal.consumeExpiredWithdrawalRetirementV32(...args);
+
+/** Same-pool source succession: fixed Original journal owner, no new deployment. */
+export const prepareOriginalSepoliaUniswapMixedSuccessorV35=(...args)=>sourceJournal.prepareMixedSuccessorV35(...args);
+export const createOriginalSepoliaUniswapMixedSuccessorV35=(...args)=>sourceJournal.createMixedSuccessorV35(...args);
+export const readPreparationOriginalSepoliaUniswapMixedSuccessorV35=(...args)=>sourceJournal.readMixedSuccessorPreparationV35(...args);
+export const readBindingOriginalSepoliaUniswapMixedSuccessorV35=(...args)=>sourceJournal.readMixedSuccessorV35(...args);
+export const readLineageOriginalSepoliaUniswapMixedSuccessorV35=(...args)=>sourceJournal.readCurrentMixedSuccessorLineageV35(...args);
+export const reopenPredecessorOriginalSepoliaUniswapMixedSuccessorV35=(...args)=>sourceJournal.reopenMixedSuccessorPredecessorV35(...args);
+export const isPredecessorOriginalSepoliaUniswapMixedSuccessorV35=(...args)=>sourceJournal.isMixedSuccessorPredecessorV35(...args);

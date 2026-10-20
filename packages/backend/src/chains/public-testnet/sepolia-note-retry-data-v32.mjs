@@ -49,5 +49,24 @@ export function assertNoteRetryNonceHistoryV32(rows){
  }
  for(const row of rows)if(row.phase===EXPIRED_WITHDRAWAL_V32)assert.equal(row.command?.action,'WITHDRAW_W39','SEPOLIA_WITHDRAWAL_EXPIRED_ROW');
  const groups=new Map();for(const row of rows){if(row.transaction===null)continue;const group=groups.get(row.transaction.nonce)??[];group.push(row);groups.set(row.transaction.nonce,group);}
- for(const group of groups.values())for(let i=1;i<group.length;i++){assert.ok(isExpiredSourceNoteV32(group[i-1])&&group[i-1].signed,'SEPOLIA_SOURCE_DUPLICATE_NONCE');assertSameSourceNoteRetryV32(group[i-1].command,group[i].command);}
+ for(const group of groups.values())for(let i=1;i<group.length;i++){
+  const previous=group[i-1],current=group[i];assert.ok(isExpiredSourceNoteV32(previous)&&previous.signed,'SEPOLIA_SOURCE_DUPLICATE_NONCE');
+  const own=group.slice(0,i).findLast(row=>row.command.identity===current.command.identity&&row.command.jobId===current.command.jobId);
+  if(own){assertSameSourceNoteRetryV32(own.command,current.command);continue;}
+  // A freshly authorized DeFi deposit can consume the account nonce of an
+  // already retired withdrawal in another pool. Allocation permits this, so
+  // reading the immutable journal must recognize the same transition. This
+  // never permits substituting the terms of an existing job or aliasing a
+  // live transaction. Every retired predecessor still retains its reservation,
+  // original wire, independently validated owner and canonical retirement.
+  assert.equal(current.profile,'ORIGINAL_PAGED_SEPOLIA_DEFI_SOURCE_ROW_V8','SEPOLIA_SOURCE_NONCE_OWNER');
+  assert.equal(current.command.action,'FUND_D26','SEPOLIA_SOURCE_NONCE_OWNER');
+  assert.equal(previous.phase,EXPIRED_WITHDRAWAL_V32,'SEPOLIA_SOURCE_NONCE_OWNER');
+  assert.notEqual(previous.command.identity,current.command.identity,'SEPOLIA_SOURCE_NONCE_OWNER');
+  assert.notEqual(previous.command.jobId,current.command.jobId,'SEPOLIA_SOURCE_NONCE_OWNER');
+  assert.notEqual(previous.command.to,current.command.to,'SEPOLIA_SOURCE_NONCE_OWNER');
+  assert.equal(previous.command.from,current.command.from,'SEPOLIA_SOURCE_NONCE_OWNER');
+  const after=readDepositSourceStatementV18(current.command);
+  for(const before of group.slice(0,i))assert.ok(BigInt(readSourceNoteStatementV32(before.command).epoch)<BigInt(after.epoch),'SEPOLIA_SOURCE_NONCE_EPOCH');
+ }
 }

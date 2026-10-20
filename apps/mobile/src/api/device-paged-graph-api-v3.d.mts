@@ -6,7 +6,10 @@ export function readDevicePagedGraphReplyV3(raw:unknown):any;
 export function readDevicePagedGraphReplyConsentV3(raw:unknown):any;
 
 export function readDevicePagedSourceContinuationV4(raw:unknown):import('../../../../packages/mobile-protocol/src/device-paged-source-continuation-v4.mjs').DevicePagedSourceContinuationDataV4;
+export function readDevicePagedSourceSuccessorContinuationV35(raw:unknown,provision:unknown):import('../../../../packages/mobile-protocol/src/device-paged-source-continuation-v4.mjs').DevicePagedSourceContinuationDataV4;
 
 export function readDevicePagedGraphPairingV3(raw:unknown):any;
 
 export function readDevicePagedGraphApiV3(api:unknown):any;
+
+export function readDevicePagedBeginRetirementV47(raw:unknown):any;

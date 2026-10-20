@@ -3,12 +3,12 @@ import {DEVICE_PAGED_PAYMENT_BUFFER_LIMIT_V3} from '@lianum/mobile-protocol/devi
 export type PagedNativeNetworkV3={family:'EVM'|'BTC'|'SOL';networkId?:'ethereum-sepolia'|'bitcoin-testnet'|'solana-devnet';label:string;chainDomain:string;evidencePolicy:string;assetSymbol:string;decimals:number;destinations?:Array<{id:string;address:string;label:string}>};
 // Existing local demo policy, not a price quote or a conversion from native
 // currency. The original Vault derives and validates dates from chain time.
-export const PAGED_GUIDED_DEFAULTS_V3=Object.freeze({reservePerPayment:'100',reservationMinutes:'60',executionMinutes:'120'});
+export const PAGED_GUIDED_DEFAULTS_V3=Object.freeze({reservePerPayment:'100',reservationMinutes:'360',executionMinutes:'480'});
 /** Input defaults from the original provider network configuration only.
  * No new terms/grant: custom fields and existing operations retain their values. */
 export function pagedGuidedDefaultsV4(configuration:any,payments?:readonly {intent?:unknown}[]){
  const bitcoin=pagedNativeNetworksV3(configuration).some(network=>network.networkId==='bitcoin-testnet'&&network.family==='BTC');
- return bitcoin&&(payments===undefined||payments.some(payment=>{const intent=payment.intent;return !!intent&&typeof intent==='object'&&'family' in intent&&intent.family==='BTC';}))?{...PAGED_GUIDED_DEFAULTS_V3,executionMinutes:'360'}:PAGED_GUIDED_DEFAULTS_V3;
+ return bitcoin&&(payments===undefined||payments.some(payment=>{const intent=payment.intent;return !!intent&&typeof intent==='object'&&'family' in intent&&intent.family==='BTC';}))?{...PAGED_GUIDED_DEFAULTS_V3,executionMinutes:'480'}:PAGED_GUIDED_DEFAULTS_V3;
 }
 /** Input hint only; the original Vault checks the descriptor again at prepare. */
 export function pagedDepositAmountValidV3(value:string,minimumAtomic:unknown):boolean{

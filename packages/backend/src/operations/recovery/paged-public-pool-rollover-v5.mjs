@@ -9,7 +9,7 @@ import {
 import {readOriginalPagedPublicPoolCapacityV5} from './paged-public-pool-capacity-v5.mjs';
 
 const issued = new WeakMap();
-const lifetimeMs = 15000;
+const lifetimeMs = 300000;
 
 async function readSelection(runtime, parentSystem, childSystem) {
  assertOriginalFundedPagedGraphSepoliaWalletV4(runtime, parentSystem);

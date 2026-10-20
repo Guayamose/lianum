@@ -60,7 +60,7 @@ test('PUBLIC epoch reproof requires zero Original Source attempts and preserves 
   const f={head,later,current:head,advance:false,reorg:false,codeMismatch:false,reads:0,canonicalReads:[]};
   const system={profile:P.DEVICE_PAGED_GRAPH_V3,...(isPublic?{receiverProfile:'ORIGINAL_PAGED_PUBLIC_SEPOLIA_RECEIVER_V4'}:{}),manifestSHA256:hash(1),consumerSHA256:hash(2),pool:address(1),state:address(2),native:address(3),scope:hash(3),policy:hash(4),assetIdentity:hash(5),domain:hash(6),hubDomain:hash(7),registryCommitment:hash(8),deployments:[{name:'PagedSparsePoseidon2V3',address:address(4),codeHash:'0x'+hash(9)}]};
   f.deployment={...Object.fromEntries(['pool','state','native'].map(key=>[key,{expectedCode:'0x6000',codeHash:'0x'+hash(9)}])),call:async(_,method)=>{assert.ok(['leafCount()','backedAmount()','insertedCommitments(bytes32)','spentNullifiers(bytes32)'].includes(method));return word(0);}};
-  const runtime={metadata:{chainId:isPublic?'11155111':'31337',evmGenesis:hash(1)},receipts:[],block:async()=>{f.reads++;return f.current;},health:async()=>{},assertCanonical:async value=>{f.canonicalReads.push(value);assert.ok(value===head||value===later);assert.ok(!f.reorg,'HOST_WITNESS_REORG');},code:async(_,block)=>{assert.equal(block,head.number);if(f.advance)f.current=later;return f.codeMismatch?'0x6001':'0x6000';}};
+  const runtime={receipt:async()=>null,metadata:{chainId:isPublic?'11155111':'31337',evmGenesis:hash(1)},receipts:[],block:async()=>{f.reads++;return f.current;},health:async()=>{},assertCanonical:async value=>{f.canonicalReads.push(value);assert.ok(value===head||value===later);assert.ok(!f.reorg,'HOST_WITNESS_REORG');},code:async(_,block)=>{assert.equal(block,head.number);if(f.advance)f.current=later;return f.codeMismatch?'0x6001':'0x6000';}};
   originalSystems.set(runtime,system);fixtures.set(runtime,f);
   const input={origin:'https://localhost:23456',devicePublicKey,journal:{path:join(directory,'jobs-'+n+'.aead'),password:'host-original-public-journal-32bytes'}};
   const ctor=isPublic?A.createOriginalDevicePagedSepoliaGraphNoteAuthorityV4:A.createOriginalDevicePagedGraphNoteAuthorityV3;
@@ -72,6 +72,14 @@ test('PUBLIC epoch reproof requires zero Original Source attempts and preserves 
   const f=await fixture(true),v=new Vault(f.input.journal.path),r=await v.read(f.input.journal.password),descriptor=f.authority.descriptor(),publicInputs=[...words(f.system.scope),...words(f.system.policy),'1','10',...words(hash(6))],job={profile:P.DEVICE_PAGED_OWNER_V3,descriptor,jobId:'host-expired-epoch-job',rootId:hash(1),revision:1,mode:'deposit',publicInputs,witnessSHA256:hash(2),proofSHA256,proof,stage,commitment:hash(6),nullifier:hash(7),transactionHash:null,errorCode:null};
   sourceAttempts.set(f.runtime,attempts);await v.update(f.input.journal.password,r.revision,data=>({...data,jobs:[job],pending:stage==='UNKNOWN'?{jobId:job.jobId,from:address(1),to:address(2),value:'10',calldataSHA256:hash(9)}:null}));return{...f,v,job};
  }
+ // A rejected private intake can leave PROVING with no checkpoint. A
+ // later authenticated read retires only its expired, unused, unsent epoch;
+ // it preserves the exact job and never manufactures a proof checkpoint.
+ const unaccepted=await seeded('PROVING'),ur=await unaccepted.v.read(unaccepted.input.journal.password);
+ await unaccepted.v.update(unaccepted.input.journal.password,ur.revision,data=>({...data,jobs:data.jobs.map(job=>({...job,proof:null,proofSHA256:null,commitment:null,nullifier:null})),noteWork:{profile:'DEVICE_PAGED_NOTE_DURABLE_WORK_V6',jobId:unaccepted.job.jobId,mode:'deposit',rootId:unaccepted.job.rootId,sourceRevision:unaccepted.job.revision,consentSHA256:hash(3),witnessSHA256:unaccepted.job.witnessSHA256,publicInputsSHA256:createHash('sha256').update(canonical(unaccepted.job.publicInputs)).digest('hex'),checkpoint:null}}));
+ const uc0=await unaccepted.authority.challenge(draft('unaccepted-intake'));
+ const retired=await unaccepted.authority.submit(uc0,permission(uc0),null),retained=await unaccepted.v.read(unaccepted.input.journal.password);
+ assert.equal(retired.jobs[0].stage,'FAILED');assert.equal(retired.jobs[0].errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal(retained.data.noteWork,undefined);assert.equal(retired.jobs[0].jobId,unaccepted.job.jobId);assert.deepEqual(retired.jobs[0].publicInputs,unaccepted.job.publicInputs);
  const safe=await seeded(),c=await safe.authority.challenge(draft('epoch-safe')),status=await safe.authority.submit(c,permission(c),null);
  assert.equal(status.jobs[0].stage,'FAILED');assert.equal(status.jobs[0].errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal(status.jobs[0].jobId,safe.job.jobId);assert.deepEqual(status.jobs[0].publicInputs,safe.job.publicInputs);assert.equal(status.note,null);assert.ok(sourceReads>0);
  for(const phase of ['KEY_PENDING','SIGNED','SUBMITTING','UNKNOWN','CONFIRMED','FINALIZED']){
@@ -83,9 +91,9 @@ test('PUBLIC epoch reproof requires zero Original Source attempts and preserves 
  // The real account issues/consumes a one-use retirement only for its own
  // current UNKNOWN mixed-source deposit after a finalized epoch boundary.
  const recoverable=await seeded('UNKNOWN'),rr=await recoverable.v.read(recoverable.input.journal.password);
- recoverable.runtime.accounts=[address(1)];const pending={...rr.data.pending,to:recoverable.system.pool};
+ recoverable.runtime.accounts=[address(1)];const pending={...rr.data.pending,to:recoverable.system.pool,calldataSHA256:createHash('sha256').update(Buffer.from('deadbeef','hex')).digest('hex')};
  await recoverable.v.update(recoverable.input.journal.password,rr.revision,data=>({...data,pending}));
- sourceAttempts.set(recoverable.runtime,[{profile:'ORIGINAL_PAGED_SEPOLIA_DEFI_SOURCE_ROW_V8',phase:'UNKNOWN',command:{identity:rr.data.identity,jobId:recoverable.job.jobId,action:'FUND_D26'},signed:{nativeId:'0x'+hash(8)}}]);
+ sourceAttempts.set(recoverable.runtime,[{profile:'ORIGINAL_PAGED_SEPOLIA_DEFI_SOURCE_ROW_V8',phase:'UNKNOWN',command:{identity:rr.data.identity,jobId:recoverable.job.jobId,action:'FUND_D26',from:pending.from,to:pending.to,value:pending.value,data:'0xdeadbeef'},signed:{nativeId:'0x'+hash(8)}}]);
  const rc=await recoverable.authority.challenge({...draft('retire'),action:'OBSERVE_JOB',jobId:recoverable.job.jobId}),recovered=await recoverable.authority.submit(rc,permission(rc),null);
  assert.equal(recovered.stage,'FAILED');assert.equal(recovered.errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal(retirements,1);
  const afterRetirement=await recoverable.v.read(recoverable.input.journal.password);assert.equal(afterRetirement.data.pending,null);assert.deepEqual(afterRetirement.data.jobs[0].publicInputs,recoverable.job.publicInputs);assert.equal(afterRetirement.data.jobs[0].proof,recoverable.job.proof);
@@ -101,15 +109,34 @@ test('PUBLIC epoch reproof requires zero Original Source attempts and preserves 
  // Expired UNKNOWN W39 has the same exact-account retirement, without sending
  // or claiming payment. Changing the pool/sender/value keeps the intent pending.
  const {encodeWalletPoolInputs}=await import('@lianum/engine/wallet/notes/private-wallet-note-encoding');
- for(const wrong of [null,'from','to','value']){
+ for(const action of ['OBSERVE_JOB','READ_STATE'])for(const wrong of [null,'from','to','value']){
   const f=await seeded('UNKNOWN'),before=await f.v.read(f.input.journal.password);f.runtime.accounts=[address(1)];
   const job={...f.job,mode:'withdraw',publicInputs:encodeWalletPoolInputs('withdraw_balance',{scope:'0x'+f.system.scope,policy:'0x'+f.system.policy,epoch:'1',root:'0x'+hash(6),nullifier:'0x'+hash(7),amount:'10',recipient:address(8)})};
   const pending={...before.data.pending,to:f.system.pool,value:'0'};if(wrong)pending[wrong]=wrong==='value'?'10':address(9);
   await f.v.update(f.input.journal.password,before.revision,data=>({...data,jobs:[job],pending}));
-  const checkpoint=await f.v.read(f.input.journal.password),count=retirements,challenge=await f.authority.challenge({...draft('withdraw-'+(wrong??'ok')),action:'OBSERVE_JOB',jobId:job.jobId});
-  const result=await f.authority.submit(challenge,permission(challenge),null),after=await f.v.read(f.input.journal.password);
+  const checkpoint=await f.v.read(f.input.journal.password),count=retirements,challenge=await f.authority.challenge({...draft('withdraw-'+action+'-'+(wrong??'ok')),action,jobId:job.jobId});
+  const reply=await f.authority.submit(challenge,permission(challenge),null),result=action==='READ_STATE'?reply.jobs[0]:reply,after=await f.v.read(f.input.journal.password);
   if(wrong){assert.equal(result.stage,'UNKNOWN');assert.deepEqual(after,checkpoint);assert.equal(retirements,count);}
   else{assert.equal(result.stage,'FAILED');assert.equal(result.errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal(retirements,count+1);assert.equal(after.data.pending,null);assert.deepEqual(after.data.jobs[0].publicInputs,job.publicInputs);assert.equal(after.data.jobs[0].proof,job.proof);assert.equal(retiredGrant.value,'0');await assert.rejects(consumeRetirement(f.runtime,retiredToken),/ORIGINAL_RETIREMENT/);}
+ }
+
+ // A lost successful withdrawal ACK must be reconciled before expired-note
+ // retirement. Its nullifier is already spent: attempting retirement first
+ // would reject permanently even though the actual payment succeeded.
+ for(const action of ['READ_STATE','OBSERVE_JOB'])for(const receiptStatus of ['0x1','0x0']){
+  const f=await seeded('UNKNOWN'),before=await f.v.read(f.input.journal.password);
+  const txHash='0x'+hash(8),calldata='0xdeadbeef',job={...f.job,mode:'withdraw',publicInputs:encodeWalletPoolInputs('withdraw_balance',{scope:'0x'+f.system.scope,policy:'0x'+f.system.policy,epoch:'1',root:'0x'+hash(6),nullifier:'0x'+hash(7),amount:'10',recipient:address(8)})};
+  const pending={jobId:job.jobId,from:address(1),to:f.system.pool,value:'0',calldataSHA256:createHash('sha256').update(Buffer.from('deadbeef','hex')).digest('hex')};
+  await f.v.update(f.input.journal.password,before.revision,data=>({...data,jobs:[job],pending}));
+  sourceAttempts.set(f.runtime,[{profile:'ORIGINAL_PAGED_SEPOLIA_SOURCE_ROW_V4',phase:'SUBMITTING',command:{identity:before.data.identity,jobId:job.jobId,action:'WITHDRAW_W39',from:pending.from,to:pending.to,value:'0',data:calldata},signed:{nativeId:txHash}}]);
+  const receipt={transactionHash:txHash,status:receiptStatus,blockNumber:f.head.number,blockHash:f.head.hash};
+  f.runtime.accounts=[address(1)];f.runtime.receipt=async h=>{assert.equal(h,txHash);return receipt;};
+  f.runtime.transaction=async()=>({from:pending.from,to:pending.to,value:'0',input:calldata});
+  f.runtime.checkReceipt=async value=>assert.equal(value,receipt);
+  const canonical=f.runtime.assertCanonical;f.runtime.assertCanonical=async value=>value===receipt?undefined:canonical(value);
+  const call=f.fixture.deployment.call;f.fixture.deployment.call=async(k,method,...args)=>method==='spentNullifiers(bytes32)'?word(receiptStatus==='0x1'?1:0):call(k,method,...args);
+  const count=retirements,c=await f.authority.challenge({...draft('confirmed-before-retirement-'+action),action,jobId:job.jobId}),reply=await f.authority.submit(c,permission(c),null),result=action==='READ_STATE'?reply.jobs[0]:reply;
+  assert.equal(result.stage,receiptStatus==='0x1'?'CONFIRMED':'FAILED');assert.equal(result.transactionHash,receiptStatus==='0x1'?txHash:null);assert.equal(retirements,count+(receiptStatus==='0x0'?1:0));if(receiptStatus==='0x0')assert.equal(result.errorCode,P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);assert.equal((await f.v.read(f.input.journal.password)).data.pending,null);
  }
 
  // Near an epoch boundary the real PUBLIC authority rejects before allocating

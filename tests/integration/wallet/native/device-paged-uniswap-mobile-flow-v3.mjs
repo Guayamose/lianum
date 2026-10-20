@@ -9,7 +9,7 @@ import {realpath} from 'node:fs/promises';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {readOriginalPagedUniswapContextV3,prepareOriginalPagedUniswapSolverV3} from '@lianum/backend/providers/paged-uniswap-provider-v3';
 import {readOriginalDeviceExternalFlatD27PreparationV3} from '@lianum/backend/accounts/authority/device-external-flat-note-authority-v1';
-import {createOriginalDeviceExternalFlatTlsServerV1} from '@lianum/backend/api/mobile/device-external-flat-note-http-v1';
+import {createOriginalDeviceExternalFlatTlsServerV1,readOriginalDeviceExternalFlatHttpFailureV1} from '@lianum/backend/api/mobile/device-external-flat-note-http-v1';
 import {normalizeDevicePagedUniswapIntentV3} from '@lianum/mobile-protocol/device/paged-graph-v3';
 import {externalFlatWipeV1} from '@lianum/mobile-protocol/device/source-note-v1';
 import {assertOriginalPagedMixedBackendProcessV3} from './device-paged-mixed-backend-client-v3.mjs';
@@ -39,7 +39,7 @@ async function prepareTarget(original,context,host,tls,managed,backend){
  async function suspend(){assert.equal(closed,false);assert.equal(active.size,0,'PAGED_UNISWAP_REQUEST_DRAIN');client?.close();await vault?.close();vault=null;client=null;suspended=true;return{drained:true};}
  async function reconnect(){assert.equal(closed,false);assert.equal(suspended,true);vault=await createDeviceExternalFlatRoutedNoteVaultV1(descriptor);client=createDeviceExternalFlatNoteApiV1({descriptor,fetchImpl});suspended=false;const status=await observeTarget();assert.ok(['PROVED','CONFIRMED'].includes(sameTarget(status).stage),'PAGED_UNISWAP_REOPEN_TARGET_UNRESOLVED');return status;}
  async function access(){const a=await client.challenge();return[a,await key.signDeviceExternalFlatPermissionV1(a,descriptor.origin,descriptor.pairingId,controller.signal)];}
- async function targetStatus(){assert.equal(closed,false);const[a,signature]=await access(),status=await client.status(a,signature);await vault.acceptStatus(status);return status;}
+ async function targetStatus(){assert.equal(closed,false);const[a,signature]=await access();let status;try{status=await client.status(a,signature);}catch(error){if(!backend){const diagnostic=readOriginalDeviceExternalFlatHttpFailureV1(original.targetAccount);process.stderr.write(JSON.stringify({profile:'PAGED_MIXED_TARGET_READ_FAILURE',diagnostic})+'\n');}throw error;}await vault.acceptStatus(status);return status;}
  function sameTarget(status){
   assert.ok(targetSubject,'PAGED_UNISWAP_ORIGINAL_D27_REQUIRED');assert.equal(status.jobs.length,1,'PAGED_UNISWAP_ORIGINAL_TARGET_JOBS');
   const row=status.jobs.find(value=>value.jobId===targetSubject.jobId);assert.ok(row&&row.mode==='deposit_intent','PAGED_UNISWAP_ORIGINAL_D27_REQUIRED');
