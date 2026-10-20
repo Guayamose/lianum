@@ -17,7 +17,7 @@ import {NATIVE_WALLET_AUTH_ROUTES_V1} from '@lianum/crypto/native-wallet-auth-v1
 export const PUBLIC_WALLET_LIMITS_V1=Object.freeze({
  active:16,clientActive:8,clientRequests:120,clientChallenges:60,clients:1024,
  clientWindowMs:60000,clientIdleMs:600000,challengeBytes:2048,bodyBytes:2000000,
- webhookBytes:262144,requestDeadlineMs:20000,residentOwners:16,persistedOwners:64,
+ webhookBytes:262144,requestDeadlineMs:20000,nativeSubmitDeadlineMs:45000,residentOwners:16,persistedOwners:64,
  pendingChallenges:256,
 });
 const OWNER=/^[0-9a-f]{64}$/,ID=/^[0-9a-f-]{36}$/;
@@ -117,7 +117,10 @@ async function originalOwners(directory){
  * allocation and journal birth. Shutdown aborts reads and drains admitted signed
  * submissions; their gateway persists UNKNOWN rather than rebroadcasting. */
 export async function createPublicWalletHttpServiceV1({origin,directory,nativeConfiguration,moonpayConfiguration=null,connectionDirectoryPath=null,nativeFactory=createNativeWalletServiceV1,fiatFactory=createMoonPayGatewayV1,agent=null,agentBackendToken=null,agentMarketReader}){
- const connections=await readCloudConnectionDirectoryV1(connectionDirectoryPath,origin);
+ await readCloudConnectionDirectoryV1(connectionDirectoryPath,origin);
+ // Atomic administrator updates are visible without restarting wallet services.
+ // Re-read and validate the bounded, non-symlink directory before each use.
+ const currentConnections=()=>readCloudConnectionDirectoryV1(connectionDirectoryPath,origin);
  const auth=createPublicWalletAuthV1(origin,{maxPending:PUBLIC_WALLET_LIMITS_V1.pendingChallenges}),nativeServices=new Map(),active=new Set(),contexts=new Set(),admit=createAdmission();
  let closed=false,closeWork,ownerQueue=Promise.resolve();
  await privateDirectory(directory);const nativeDirectory=join(directory,'native');await privateDirectory(nativeDirectory);
@@ -159,7 +162,7 @@ export async function createPublicWalletHttpServiceV1({origin,directory,nativeCo
    if(context.abort.signal.aborted)refuse('NATIVE_HTTP_CANCELLED');
    if(path.startsWith('/v1/agent/')){
     if(!agent)refuse('NATIVE_AGENT_NOT_CONFIGURED');
-    const identity={ownerId,devicePublicKey,connections:connections.filter(row=>row.descriptor.devicePublicKey===devicePublicKey)};
+    const identity={ownerId,devicePublicKey,connections:(await currentConnections()).filter(row=>row.descriptor.devicePublicKey===devicePublicKey)};
     if(path==='/v1/agent/wallet'){
      if(!agentWallet)refuse('NATIVE_AGENT_BACKEND_NOT_CONFIGURED');
      // The agent's deployment allowlist is checked before registry creation.
@@ -178,12 +181,16 @@ export async function createPublicWalletHttpServiceV1({origin,directory,nativeCo
    }
    if(path==='/v1/wallet/connections'){
     exactBody(body,[]);
-    send(response,200,{profile:'LIANUM_CLOUD_CONNECTIONS_V1',devicePublicKey,connections:connections.filter(row=>row.descriptor.devicePublicKey===devicePublicKey)});return;
+    send(response,200,{profile:'LIANUM_CLOUD_CONNECTIONS_V1',devicePublicKey,connections:(await currentConnections()).filter(row=>row.descriptor.devicePublicKey===devicePublicKey)});return;
    }
    if(path.startsWith('/v1/fiat/')){const result=await dispatchMoonPayHttpV1('POST',path,body,ownerId,fiat,context.abort.signal);send(response,result.status,result.body);return;}
    validateNativeBody(path,body);
    nativeActionStarted=path==='/v1/native/prepare'||path==='/v1/native/submit';
    const network=path==='/v1/native/account'?body.network:path==='/v1/native/prepare'?body.account.network:body.networkId!==undefined?nativeNetworkV1(body.networkId).network:mixedEnvironments?'mainnet':partition.get('testnet').length?'testnet':'mainnet';
+   // Only a consumed, body-bound native submission gets recovery time. Body
+   // ingestion and all other routes retain 20s; header/auth limits stay intact.
+   // The gateway still enforces its original signed quote and retry bounds.
+   if(path==='/v1/native/submit')context.nativeSubmissionDeadline();
    const service=await native(ownerId,network);
    if(context.abort.signal.aborted)refuse('NATIVE_HTTP_CANCELLED');
    let result;
@@ -200,11 +207,18 @@ export async function createPublicWalletHttpServiceV1({origin,directory,nativeCo
   let admission;
   try{if(closed)refuse('NATIVE_SERVICE_CLOSED');admission=admit(request);}
   catch(error){const code=errorCode(error);send(response,responseStatus(code),{error:code},true);return;}
-  const context={abort:new AbortController(),deadline:false,admission};
+  const started=performance.now(),context={abort:new AbortController(),deadline:false,admission};
   contexts.add(context);
   const cancelled=()=>context.abort.abort(),onClose=()=>{if(!response.writableEnded)cancelled();};
   request.once('aborted',cancelled);response.once('close',onClose);
-  const timer=setTimeout(()=>{context.deadline=true;cancelled();},PUBLIC_WALLET_LIMITS_V1.requestDeadlineMs);
+  const expire=()=>{context.deadline=true;cancelled();};
+  let timer=setTimeout(expire,PUBLIC_WALLET_LIMITS_V1.requestDeadlineMs);
+  context.nativeSubmissionDeadline=()=>{
+   if(context.abort.signal.aborted)refuse('NATIVE_HTTP_CANCELLED');
+   const remaining=PUBLIC_WALLET_LIMITS_V1.nativeSubmitDeadlineMs-(performance.now()-started);
+   if(remaining<=0){expire();refuse('NATIVE_HTTP_DEADLINE');}
+   clearTimeout(timer);timer=setTimeout(expire,remaining);
+  };
   const work=dispatch(request,response,context);active.add(work);
   const finish=()=>{clearTimeout(timer);request.removeListener('aborted',cancelled);response.removeListener('close',onClose);contexts.delete(context);active.delete(work);admission.release();};
   void work.then(finish,finish);

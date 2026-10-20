@@ -12,7 +12,10 @@ function live(signal:AbortSignal,owner?:string):string{
  if(signal.aborted||!session.active||!session.publicKey||AppState.currentState==='background'||owner&&session.publicKey!==owner)throw Error('NATIVE_WALLET_LOCKED');return session.publicKey;
 }
 export async function readPublicWalletJsonV1(path:string,body:string|undefined,signal:AbortSignal):Promise<any>{
- const owner=live(signal),controller=new AbortController(),abort=()=>controller.abort(),timer=setTimeout(abort,20000);signal.addEventListener('abort',abort,{once:true});
+ // A signed native submission can include the gateway's bounded same-wire
+ // recovery. Waiting longer neither resends this POST nor extends its quote.
+ const timeoutMs=path==='/v1/native/submit'?60000:20000;
+ const owner=live(signal),controller=new AbortController(),abort=()=>controller.abort(),timer=setTimeout(abort,timeoutMs);signal.addEventListener('abort',abort,{once:true});
  try{
   if(signal.aborted)abort();
   const response=await fetch(publicWalletSessionOriginV1()+path,{method:body===undefined?'GET':'POST',headers:{accept:'application/json',...(body!==undefined?{'content-type':'application/json'}:{})},body,signal:controller.signal,redirect:'error'});

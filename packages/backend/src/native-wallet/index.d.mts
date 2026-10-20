@@ -6,7 +6,7 @@ export type NativeQuoteV1=Readonly<{profile:'NATIVE_WALLET_SEND_QUOTE_V1';id:str
 export type NativeBalanceV1=Readonly<{networkId:NativeNetworkIdV1;network:NativeNetworkV1;address:string;balanceAtomic:string;spendableAtomic:string;reservedAtomic:string;pendingAtomic:string;hasPendingTransfer:boolean;observed:Readonly<{blockHash:string;blockNumber:string;finality:string}>}>;
 export type NativeStatusV1=Readonly<{operationId:string;quoteId:string;id:string|null;networkId:NativeNetworkIdV1;status:'PREPARED'|'EXPIRED'|'SUBMITTED'|'CONFIRMED'|'FINALIZED'|'FAILED'|'UNKNOWN';terminal:boolean;confirmations:string|null;blockHash:string|null;blockNumber:string|null;feeAtomic:string|null;errorCode:string|null}>;
 export interface NativeWalletGatewayV1{
- capabilities():Readonly<{profile:string;signing:'DEVICE_ONLY';paeg:false;networks:ReadonlyArray<NativeNetworkV1&{minimumAmountAtomic:string;finality:string}>;quoteLifetimeMs:120000;onePendingPerAccount:true;automaticRebroadcast:false}>;
+ capabilities():Readonly<{profile:string;signing:'DEVICE_ONLY';paeg:false;networks:ReadonlyArray<NativeNetworkV1&{minimumAmountAtomic:string;finality:string}>;quoteLifetimeMs:120000;onePendingPerAccount:true;automaticRebroadcast:true;maximumBroadcastAttempts:3}>;
  balances(account:NativeAccountV1,signal?:AbortSignal):Promise<NativeBalanceV1>;
  readAccount(account:NativeAccountV1,signal?:AbortSignal):Promise<NativeBalanceV1>;
  prepareSend(input:{account:NativeAccountV1;recipient:string;amountAtomic:string;operationId?:string;networkId?:NativeNetworkIdV1},signal?:AbortSignal):Promise<NativeQuoteV1>;

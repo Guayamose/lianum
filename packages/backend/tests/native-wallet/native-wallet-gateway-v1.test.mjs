@@ -8,6 +8,7 @@ import {join} from 'node:path';
 import {createHash,randomUUID} from 'node:crypto';
 import {deriveNativeAccountV1,bitcoinScriptV1,signNativeWalletTransactionV1,nativeJsonHashV1} from '@lianum/crypto/native-wallet-v1';
 import {createNativeWalletGatewayV1} from '../../src/native-wallet/index.mjs';
+import {ethereumWalletAdapterV1} from '../../src/native-wallet/ethereum-v1.mjs';
 const entropy=new Uint8Array(32),otherEntropy=new Uint8Array(32).fill(1),hash='a'.repeat(64),fundingHash='b'.repeat(64);
 const genesis={
  'ethereum-mainnet':'0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3',
@@ -82,6 +83,7 @@ function mockNetwork(t,id,account,root,fees=null,behavior=null){let sends=0,sign
    if(method==='eth_getCode')return reply('0x');
    if(method==='eth_estimateGas')return reply('0x5208');
    if(method==='eth_sendRawTransaction'){sends++;const stored=JSON.parse(await readFile(join(root,'native-wallet.json'),'utf8'));assert.ok(stored.operations.some(row=>row.phase==='SUBMITTING'&&row.rawTransaction===request.params[0]),'signed wire must be durable before send');signed=request.params[0];if(behavior?.writeError)return json({jsonrpc:'2.0',id:request.id,error:behavior.writeError});throw Error('FIXTURE_REPLY_LOST');}
+   if(method==='eth_getTransactionByHash')return reply(null);
    if(method==='eth_getTransactionReceipt')return reply(observed?{transactionHash:request.params[0],blockHash:'0x'+hash,blockNumber:'0x10',from:account.address,to:deriveNativeAccountV1(otherEntropy,id).address,status:'0x1',gasUsed:'0x5208',effectiveGasPrice:'0x3b9aca00'}:null);
   }else{
    if(method==='getGenesisHash')return reply(wrongGenesis?'11111111111111111111111111111111':genesis[id]);
@@ -169,4 +171,105 @@ test('full history rejects a new quote before RPC while retained operations rema
  await assert.rejects(gateway.prepareSend({account:own,recipient:recipient.address,amountAtomic:'1000'}),/JOURNAL_CAPACITY/);
  assert.equal((await gateway.observeTransfer(rows[0].quote.id)).terminal,true);assert.equal(requests,0);
  assert.equal(await readFile(join(root,'native-wallet.json'),'utf8'),before);
+});
+
+async function retryFixture(t,onSend){
+ const root=await directory(),id='ethereum-mainnet',own=deriveNativeAccountV1(entropy,id),recipient=deriveNativeAccountV1(otherEntropy,id);
+ const baseline=mockNetwork(t,id,own,root),originalFetch=globalThis.fetch,wires=[],times=[];
+ const state={nonce:'0x0',transaction:null,readFailure:false,preflights:0};let gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});
+ t.after(async()=>{await gateway.close();await rm(root,{recursive:true,force:true});});
+ t.mock.method(globalThis,'fetch',async(url,options)=>{
+  const request=JSON.parse(options.body),reply=result=>json({jsonrpc:'2.0',id:request.id,result});
+  if(request.method==='eth_getTransactionByHash'){if(state.readFailure)return json({jsonrpc:'2.0',id:request.id,error:{code:-32000,message:'fixture read unavailable'}});return reply(state.transaction);}
+  if(request.method==='eth_getTransactionCount'){state.preflights++;return reply(state.nonce);}
+  if(request.method==='eth_sendRawTransaction'){
+   wires.push(request.params[0]);times.push(performance.now());const saved=JSON.parse(await readFile(join(root,'native-wallet.json'),'utf8')).operations[0];
+   assert.equal(saved.rawTransaction,request.params[0]);assert.equal(saved.phase,'SUBMITTING');assert.equal(saved.broadcastAttempts,wires.length,'each attempt is durably counted before POST');
+   return onSend({attempt:wires.length,request,reply,saved,state});
+  }
+  return originalFetch(url,options);
+ });
+ const quote=await gateway.prepareSend({account:own,recipient:recipient.address,amountAtomic:'1000'}),signed=signNativeWalletTransactionV1(entropy,own,quote.transaction);
+ const input={quoteId:quote.id,rawTransaction:signed.rawTransaction};
+ return{root,quote,signed,input,state,wires,times,baseline,get gateway(){return gateway;},async reopen(){await gateway.close();gateway=await createNativeWalletGatewayV1({directory:root,configuration:configuration(id)});}};
+}
+
+test('native ETH recovers one 429 using identical signed bytes after fresh checks and cooldown',async t=>{
+ const fixture=await retryFixture(t,({attempt,reply,saved})=>attempt===1?new Response('',{status:429}):reply(saved.nativeId));
+ const first=await fixture.gateway.broadcast(fixture.input);
+ assert.equal(first.status,'SUBMITTED');assert.equal(first.errorCode,null);assert.equal(first.id,fixture.signed.id);
+ assert.deepEqual(fixture.wires,[fixture.signed.rawTransaction,fixture.signed.rawTransaction]);assert.ok(fixture.times[1]-fixture.times[0]>=2900);
+ assert.equal(fixture.state.preflights,3,'quote, first send, and retry each check the nonce');
+ await fixture.gateway.transactionStatus({id:fixture.quote.id});await fixture.gateway.broadcast(fixture.input);
+ assert.equal(fixture.wires.length,2,'ordinary polling or duplicate submission cannot repeat a successful send');
+});
+
+test('native ETH caps persistent transient sends at three, including after process reopen',async t=>{
+ const fixture=await retryFixture(t,()=>new Response('',{status:503}));
+ const status=await fixture.gateway.broadcast(fixture.input);assert.equal(status.status,'UNKNOWN');assert.equal(status.errorCode,'NATIVE_WALLET_BROADCAST_UNAVAILABLE');assert.equal(fixture.wires.length,3);
+ await fixture.reopen();await fixture.gateway.transactionStatus({id:fixture.quote.id});await fixture.gateway.broadcast(fixture.input);
+ assert.equal(fixture.wires.length,3);assert.equal((await fixture.gateway.balances(fixture.quote.account)).hasPendingTransfer,true);
+ await assert.rejects(fixture.gateway.cancelQuote({id:fixture.quote.id}),/SIGNED_CANNOT_CANCEL/);
+});
+
+test('aborting the native recovery cooldown prevents another POST and preserves the pending wire',async t=>{
+ const controller=new AbortController();
+ const fixture=await retryFixture(t,()=>{setTimeout(()=>controller.abort(),50);return new Response('',{status:429});});
+ const status=await fixture.gateway.broadcast(fixture.input,controller.signal);
+ assert.equal(status.errorCode,'NATIVE_WALLET_CANCELLED');assert.equal(fixture.wires.length,1);assert.equal(status.terminal,false);
+ await fixture.gateway.transactionStatus({id:fixture.quote.id});assert.equal(fixture.wires.length,1);
+});
+
+test('quote expiry during native cooldown prevents POST without releasing signed uncertainty',async t=>{
+ let offset=0;const now=Date.now;t.mock.method(Date,'now',()=>now()+offset);
+ const fixture=await retryFixture(t,()=>{setTimeout(()=>{offset=121000;},50);return new Response('',{status:429});});
+ const status=await fixture.gateway.broadcast(fixture.input);assert.equal(status.errorCode,'NATIVE_WALLET_QUOTE_EXPIRED');assert.equal(status.status,'UNKNOWN');assert.equal(status.terminal,false);assert.equal(fixture.wires.length,1);
+ await fixture.gateway.broadcast(fixture.input);assert.equal(fixture.wires.length,1);
+});
+
+for(const failure of ['nonce','observation'])test('native recovery stops when fresh '+failure+' checks fail',async t=>{
+ const fixture=await retryFixture(t,({state})=>{if(failure==='nonce')state.nonce='0x1';else state.readFailure=true;return new Response('',{status:429});});
+ const status=await fixture.gateway.broadcast(fixture.input);assert.equal(status.status,'UNKNOWN');assert.equal(fixture.wires.length,1);
+ assert.equal(status.errorCode,failure==='nonce'?'NATIVE_WALLET_EVM_NONCE_CHANGED':'NATIVE_WALLET_RPC_FAILED');
+});
+
+test('an exact mempool transaction ends native recovery before another POST',async t=>{
+ const fixture=await retryFixture(t,({state,saved})=>{
+  const tx=saved.quote.transaction,hex=n=>'0x'+BigInt(n).toString(16);
+  state.transaction={hash:saved.nativeId,from:saved.quote.account.address,to:saved.quote.recipient,nonce:hex(tx.nonce),value:hex(tx.value),gas:hex(tx.gasLimit),maxFeePerGas:hex(tx.maxFeePerGas),maxPriorityFeePerGas:hex(tx.maxPriorityFeePerGas),input:'0x',type:'0x2',chainId:hex(tx.chainId),accessList:[]};
+  return new Response('',{status:429});
+ });
+ const status=await fixture.gateway.broadcast(fixture.input);assert.equal(status.status,'SUBMITTED');assert.equal(status.errorCode,null);assert.equal(fixture.wires.length,1);
+ await fixture.gateway.transactionStatus({id:fixture.quote.id});assert.equal(fixture.wires.length,1);
+});
+
+test('a mismatched mempool transaction cannot authorize a resend or successful status',async t=>{
+ const fixture=await retryFixture(t,({state,saved})=>{state.transaction={hash:saved.nativeId,from:saved.quote.account.address,to:saved.quote.account.address};return new Response('',{status:429});});
+ const status=await fixture.gateway.broadcast(fixture.input);assert.equal(status.status,'UNKNOWN');assert.equal(status.errorCode,'NATIVE_WALLET_EVM_TRANSACTION_BINDING');assert.equal(fixture.wires.length,1);
+});
+
+test('native HTTP500 and changed signed bytes never enter automatic send recovery',async t=>{
+ const fixture=await retryFixture(t,()=>new Response('',{status:500}));
+ const status=await fixture.gateway.broadcast(fixture.input);assert.equal(status.errorCode,'NATIVE_WALLET_HTTP_STATUS');assert.equal(fixture.wires.length,1);
+ const changed=signNativeWalletTransactionV1(entropy,fixture.quote.account,{...fixture.quote.transaction,value:'1001'});
+ await assert.rejects(fixture.gateway.broadcast({...fixture.input,rawTransaction:changed.rawTransaction}),/NATIVE_SIGNATURE_BINDING/);
+ await fixture.gateway.broadcast(fixture.input);assert.equal(fixture.wires.length,1);
+});
+
+test('shared Ethereum adapter preserves PAEG missing-receipt observation without native recovery',async t=>{
+ const calls=[];t.mock.method(globalThis,'fetch',async(_url,options)=>{const request=JSON.parse(options.body);calls.push(request.method);assert.equal(request.method,'eth_getTransactionReceipt');return json({jsonrpc:'2.0',id:request.id,result:null});});
+ const adapter=ethereumWalletAdapterV1({endpoint:'https://native-fixture.example/api'});
+ const result=await adapter.observe({nativeId:'0x'+'a'.repeat(64),quote:{transaction:{kind:'PAGED_SEPOLIA_1559_V1'}}});
+ assert.equal(result.status,'UNKNOWN');assert.deepEqual(calls,['eth_getTransactionReceipt']);
+});
+
+test('switching only the native BTC RPC provider preserves quotes and network journal identity',async t=>{
+ const root=await directory(),id='bitcoin-mainnet',own=deriveNativeAccountV1(entropy,id),other=deriveNativeAccountV1(otherEntropy,id),fees={hourFee:2,paths:[]};
+ const network=mockNetwork(t,id,own,root,fees);let gateway=await createNativeWalletGatewayV1({directory:root,configuration:{networks:[{id,endpoint:'https://native-fixture.example/api',feeProvider:'MEMPOOL'}]}});
+ t.after(async()=>{await gateway.close();await rm(root,{recursive:true,force:true});});
+ const quote=await gateway.prepareSend({account:own,recipient:other.address,amountAtomic:'1000'});await gateway.close();
+ gateway=await createNativeWalletGatewayV1({directory:root,configuration:{networks:[{id,endpoint:'https://other-fixture.example/api',feeProvider:'ESPLORA'}]}});
+ assert.equal((await gateway.transactionStatus({id:quote.id})).status,'PREPARED');await gateway.cancelQuote({id:quote.id});
+ const changed=await gateway.prepareSend({account:own,recipient:other.address,amountAtomic:'1000'});assert.equal(changed.network.genesisHash,quote.network.genesisHash);
+ assert.deepEqual(fees.paths,['/v1/fees/recommended','/fee-estimates']);assert.equal(network.sends,0);
 });

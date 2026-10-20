@@ -118,3 +118,35 @@ test('overall deadline and service close abort original gateway signals and drai
  assert.equal(calls,2);assert.equal(aborts,2);assert.equal(closed,1);
  await service.close();assert.equal(closed,1,'close must not close a gateway twice');
 });
+
+test('only authenticated native submit extends processing, with the original signal and a fixed total deadline',async t=>{
+ const originalTimeout=globalThis.setTimeout,originalClear=globalThis.clearTimeout,timers=[];
+ t.mock.method(globalThis,'setTimeout',(callback,delay,...args)=>{
+  const handle=originalTimeout(callback,delay,...args);if(delay===limits.requestDeadlineMs||delay>limits.requestDeadlineMs&&delay<=limits.nativeSubmitDeadlineMs)timers.push({callback,delay,handle,cleared:false});return handle;
+ });
+ t.mock.method(globalThis,'clearTimeout',handle=>{const entry=timers.find(row=>row.handle===handle);if(entry)entry.cleared=true;return originalClear(handle);});
+ let entered=deferred(),release=deferred(),receivedSignal,calls=0;
+ const {service,url}=await fixture(t,async()=>({
+  submitSigned:async(_body,signal)=>{calls++;receivedSignal=signal;entered.resolve();return Promise.race([release.promise,new Promise((_resolve,reject)=>{signal.addEventListener('abort',()=>reject(Error('NATIVE_HTTP_CANCELLED')),{once:true});})]);},
+  close:async()=>{},
+ }));
+ assert.equal(service.server.requestTimeout,limits.requestDeadlineMs);assert.equal(service.server.headersTimeout,15000);
+ const path='/v1/native/submit',body={quoteId:'12345678-1234-1234-1234-123456789abc',rawTransaction:'synthetic-fixture-wire'},own=identity(17);
+ const invalid=await signedRequest(url,own,path,{quoteId:'invalid',rawTransaction:'fixture'}),before=timers.length;
+ const rejected=await fetch(url+path,{method:'POST',headers:jsonHeaders,body:JSON.stringify(invalid)});assert.equal(rejected.status,400);assert.ok(timers.slice(before).every(row=>row.delay===limits.requestDeadlineMs));assert.equal(calls,0);
+ const payload=await signedRequest(url,own,path,body),pending=fetch(url+path,{method:'POST',headers:jsonHeaders,body:JSON.stringify(payload)});
+ await entered.promise;const extended=timers.at(-1),initial=timers.at(-2);
+ assert.equal(initial.delay,limits.requestDeadlineMs);assert.equal(initial.cleared,true);assert.ok(extended.delay>limits.requestDeadlineMs&&extended.delay<=limits.nativeSubmitDeadlineMs);assert.equal(receivedSignal.aborted,false);
+ release.resolve({status:'SUBMITTED'});const success=await pending;assert.equal(success.status,200);assert.deepEqual(await success.json(),{status:'SUBMITTED'});assert.equal(extended.cleared,true);
+ entered=deferred();release=deferred();const again=await signedRequest(url,own,path,body),expiring=fetch(url+path,{method:'POST',headers:jsonHeaders,body:JSON.stringify(again)});
+ await entered.promise;timers.at(-1).callback();const expired=await expiring;
+ assert.equal(expired.status,504);assert.deepEqual(await expired.json(),{error:'NATIVE_HTTP_DEADLINE'});assert.equal(receivedSignal.aborted,true);assert.equal(calls,2,'HTTP layer never repeats submit');
+});
+
+test('disconnecting an extended native submission cancels its gateway immediately',async t=>{
+ const entered=deferred(),cancelled=deferred();let calls=0;
+ const {url}=await fixture(t,async()=>({submitSigned:async(_body,signal)=>{calls++;entered.resolve();return new Promise((_resolve,reject)=>{signal.addEventListener('abort',()=>{cancelled.resolve();reject(Error('NATIVE_HTTP_CANCELLED'));},{once:true});});},close:async()=>{}}));
+ const path='/v1/native/submit',payload=await signedRequest(url,identity(18),path,{quoteId:'12345678-1234-1234-1234-123456789abc',rawTransaction:'synthetic-fixture-wire'}),controller=new AbortController();
+ const pending=fetch(url+path,{method:'POST',headers:jsonHeaders,body:JSON.stringify(payload),signal:controller.signal}).then(()=>null,error=>error);
+ await entered.promise;controller.abort();assert.equal((await pending).name,'AbortError');await cancelled.promise;assert.equal(calls,1);
+});

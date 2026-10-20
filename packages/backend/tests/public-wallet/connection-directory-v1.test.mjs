@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,writeFile,readFile,rm,symlink} from 'node:fs/promises';
+import {mkdtemp,writeFile,readFile,rm,symlink,rename} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -27,7 +27,7 @@ async function setup(t){
  const data={profile:'LIANUM_CLOUD_CONNECTION_DIRECTORY_V1',connections:[packet(a),packet(b)]},file=join(directory,'connections.json');await writeFile(file,JSON.stringify(data),{mode:0o640});return{directory,file,data,a,b,packet};
 }
 test('discovery authenticates the wallet, isolates profiles, prevents replay and never creates native custody',async t=>{
- const {directory,file,a,b}=await setup(t);let created=0;
+ const {directory,file,a,b,data}=await setup(t);let created=0;
  const service=await createPublicWalletHttpServiceV1({origin,directory:join(directory,'state'),connectionDirectoryPath:file,nativeConfiguration:{},nativeFactory:async()=>{created++;throw Error('SHOULD_NOT_CREATE');}});
  const address=await service.listen(),url='http://127.0.0.1:'+address.port;t.after(()=>service.close());
  const send=(route,value)=>fetch(url+route,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(value)});
@@ -42,6 +42,10 @@ test('discovery authenticates the wallet, isolates profiles, prevents replay and
   assert.ok(result.connections.every(row=>row.descriptor.devicePublicKey===who.devicePublicKey));
   assert.equal((await send(path,envelope)).status,403);
  }
+ const server=service.server;data.connections[0].descriptor.pairingId='same-owner-new-pairing';const staging=join(directory,'connections-next.json');await writeFile(staging,JSON.stringify(data),{mode:0o640});await rename(staging,file);
+ async function readUpdated(){const body='{}',expected={origin,path,bodySHA256:nativeWalletBodyHashV1(body),devicePublicKey:a.devicePublicKey},challenge=await(await send('/v1/auth/challenge',expected)).json(),signature=hex.encode(secp256k1.sign(nativeWalletAuthMessageV1(challenge,expected),a.key,{prehash:true,lowS:true}));return send(path,{challenge,signature,body});}
+ const updated=await readUpdated();assert.equal(updated.status,200);assert.equal((await updated.json()).connections[0].descriptor.pairingId,'same-owner-new-pairing');assert.strictEqual(service.server,server,'discovery refresh never restarts the service');
+ data.connections[0].transport.certificateSHA256='0'.repeat(64);await writeFile(staging,JSON.stringify(data),{mode:0o640});await rename(staging,file);assert.equal((await readUpdated()).status,400,'every replacement is validated; invalid metadata is not served');
  assert.equal((await send(path,{})).status,403);assert.equal((await fetch(url+path)).status,404);assert.equal(created,0);
 });
 test('directory rejects foreign origins, secret fields, wrong pins and ambiguous wallets; symlinks are not followed',async t=>{
