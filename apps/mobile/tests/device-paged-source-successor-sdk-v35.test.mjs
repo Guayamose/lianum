@@ -24,3 +24,24 @@ test('V35 custody handoff needs original provisioning and original encrypted pre
  phase='FULFILLED';const crossed=await read();assert.throws(()=>G.readDevicePagedSourceSuccessorContinuationV35(crossed,provision),/ORIGINAL_SDK/);phase='PREPARED';tamper=true;await assert.rejects(read());tamper=false;
  await api.close();assert.throws(()=>G.readDevicePagedSourceSuccessorContinuationV35(reply,provision),/ORIGINAL_SDK/);await graph.close();assert.throws(()=>G.readDevicePagedGraphReplyV3(reply),/ORIGINAL_SDK/);
 });
+test('V35 reports only bounded public successor rejections and never retries a rejected request',async()=>{
+ const SDK=await import('../src/api/device-paged-source-successor-api-v35.mjs');
+ const key=Buffer.from(secp256k1.getPublicKey(Buffer.alloc(32,1),false)).toString('hex');
+ const fixture=sepoliaDefiSourceFixtureV8(key);
+ const cases=[
+  [403,{error:'PAGED_MIXED_SUCCESSOR_WALLET_QUOTA'},'WALLET_QUOTA'],
+  [403,{error:'MIXED_SUCCESSOR_SIGNED_WALLET_QUOTA'},'WALLET_QUOTA'],
+  [403,{error:'PAGED_MIXED_SUCCESSOR_NOT_SETTLED'},'NOT_SETTLED'],
+  [403,{error:'PAGED_MIXED_SUCCESSOR_BUSY'},'BUSY'],
+  [403,{error:'PAGED_MIXED_SUCCESSOR_REJECTED'},'UNAVAILABLE'],
+  [403,{error:'PAGED_MIXED_SUCCESSOR_WALLET_QUOTA',private:'not exposed'},'UNAVAILABLE'],
+  [500,{error:'PAGED_MIXED_SUCCESSOR_WALLET_QUOTA'},'UNAVAILABLE'],
+  [403,'not json','UNAVAILABLE'],
+  [403,'x'.repeat(65537),'UNAVAILABLE'],
+ ];
+ for(const [status,body,suffix] of cases){
+  let posts=0;
+  const api=SDK.createDevicePagedSourceSuccessorApiV35({descriptor:fixture.paegSource.descriptor,transport:fixture.transport,fetchImpl:async()=>{posts++;return new Response(typeof body==='string'?body:JSON.stringify(body),{status});}});
+  try{await assert.rejects(api.challenge({action:'PREPARE_SUCCESSOR',intentId:'successor-rejected-intent-host'}),{message:'MOBILE_PAGED_SOURCE_SUCCESSOR_'+suffix});assert.equal(posts,1);}finally{await api.close();}
+ }
+});
