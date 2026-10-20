@@ -3,11 +3,11 @@
  */
 import assert from 'node:assert/strict';
 import {constants,closeSync,fstatSync,lstatSync,openSync,readFileSync,readSync,realpathSync} from 'node:fs';
-import {resolve} from 'node:path';
+import {publicProvingCRSCachePath} from '@lianum/proofs/tooling/public-proving-crs-location-v1';
 import {createHash} from 'node:crypto';
-import {ROOT,LIMITS} from '@lianum/proofs/catalog';
+import {LIMITS} from '@lianum/proofs/catalog';
 import {hash,regular,resourceModuleURL} from '@lianum/proofs/tooling/tooling';
-const PATH=resolve(ROOT,'../../../dev/cache/public-crs/full-v1/bn254_g1_full_uncompressed.dat');
+const PATH=publicProvingCRSCachePath;
 const SHA256='2bb84462a0bdad2f6e6dd6182c7779c30aac703115e28f32ca2cc3b57c140622';
 const identity=s=>['dev','ino','size','mode','nlink','mtimeNs','ctimeNs'].map(key=>[key,s[key].toString()]);
 export function i84PublicCRSCachePinV1(){

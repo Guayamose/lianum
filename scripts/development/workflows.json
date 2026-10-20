@@ -109,6 +109,7 @@
         "packages/proofs/tests/toolchain/paged-authority.test.mjs",
         "packages/proofs/tests/execution/assembly-workers.test.mjs",
         "packages/proofs/tests/toolchain/operational-toolchain.test.mjs",
+        "packages/proofs/tests/toolchain/public-proving-crs-location-v1.test.mjs",
         "packages/proofs/tests/toolchain/retained-node-artifacts.test.mjs",
         "packages/proofs/tests/toolchain/paged-reuse.test.mjs"
       ]

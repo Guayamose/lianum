@@ -5,6 +5,7 @@ import { constants, closeSync, existsSync, fstatSync, lstatSync, openSync, readF
 import { join, relative, resolve } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
+import { publicProvingCRSCachePath } from '../tooling/public-proving-crs-location-v1.mjs';
 import { ROOT, LOCAL, PROFILE, SETTINGS, LIMITS, MEMORY, DISCLOSURE, operation, pagesFor } from '../catalog.mjs';
 import { argumentsFor, authenticateSupervisor, attemptPath, regular, hash, jsonBytes,
   writeNew, writeJSON, replaceJSON, ensureDirectory, circuitIdentity, versionDirectory,
@@ -43,8 +44,7 @@ const report = { format: 'FLAT_WALLET_WORKER_ATTEMPT_V1', profile: PROFILE, rela
 // the pinned official API and reviewed. Only exact absence uses the original
 // route; a present cache with wrong bytes, metadata or identity is rejected.
 const FULL_PUBLIC_CRS_CACHE_PIN = '2bb84462a0bdad2f6e6dd6182c7779c30aac703115e28f32ca2cc3b57c140622';
-const FULL_PUBLIC_CRS_CACHE_PATH = resolve(ROOT,
-  '../../../dev/cache/public-crs/full-v1/bn254_g1_full_uncompressed.dat');
+const FULL_PUBLIC_CRS_CACHE_PATH = publicProvingCRSCachePath;
 let context,helpers,api,compressedWitness,rawWitness,crsBefore,job,nodeNativeActive=false,reservationNativeActive=false;
 let publicCRSFile, publicCRSIdentity;
 const publicFileIdentity = stat => ['dev', 'ino', 'size', 'mode', 'nlink', 'mtimeNs', 'ctimeNs']

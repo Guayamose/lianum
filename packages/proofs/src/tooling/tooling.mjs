@@ -34,6 +34,7 @@ const currentFixedSources = Object.freeze([
   fileURLToPath(new URL('../catalog.mjs', import.meta.url)), fileURLToPath(import.meta.url), workerEntry, boundedEntry,
   currentJobSources['wallet-platform/modules/paeg/statements.mjs'],
   fileURLToPath(resourceModuleURL), fileURLToPath(verifierCRSModuleURL),
+  fileURLToPath(new URL('./public-proving-crs-location-v1.mjs', import.meta.url)),
   fileURLToPath(new URL('../../../components/src/resources/private-resource-policy.mjs', import.meta.url)),
 ]);
 const currentScopeSources = Object.freeze([

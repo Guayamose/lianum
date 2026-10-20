@@ -32,6 +32,7 @@
     "./tooling/scoped-proof-tools": "./src/tooling/scoped-proof-tools.mjs",
     "./tooling/solidity-compiler": "./src/tooling/solidity-compiler.mjs",
     "./tooling/tooling": "./src/tooling/tooling.mjs",
+    "./tooling/public-proving-crs-location-v1": "./src/tooling/public-proving-crs-location-v1.mjs",
     "./wrapped-claims/metadata/wrapped-claim-profile-v1": "./src/wrapped-claims/metadata/wrapped-claim-profile-v1.mjs",
     "./wrapped-claims/metadata/wrapped-claim-proof-pins-v1": "./src/wrapped-claims/metadata/wrapped-claim-proof-pins-v1.mjs",
     "./host/native-flow-limits": "./src/host/native-flow-limits.mjs",
