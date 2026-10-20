@@ -24,7 +24,25 @@ export async function createDeviceSepoliaDefiPaegInvestmentV8(raw:unknown,signal
  const sourceReady=()=>need(sourceVault&&Date.now()<source.deadlineMs,'MOBILE_SEPOLIA_DEFI_SOURCE_EXPIRED');
  function close(){if(closeWork)return closeWork;closed=true;return closeWork=(async()=>{shareApi.close();await Promise.allSettled([sourceApi.close(),graphApi.close()]);await sourceVault?.close();await shareVault?.close();await transport.close();})();}
  async function serial<T>(fn:()=>Promise<T>):Promise<T>{live();need(!busy,'MOBILE_SEPOLIA_DEFI_BUSY');busy=true;try{return await fn();}finally{busy=false;}}
- async function readSource(){await sourceVault.beginReadStorage(signal);try{const draft=await sourceVault.readDraft(),consent=await sourceApi.challenge(draft),signature=await signDevicePagedOwnerPermissionV3(consent,source.origin,source.pairingId,signal);status=await sourceApi.submit(consent,signature);live();await sourceVault.acceptStatus(status);return sourceVault.summary();}finally{await sourceVault.endReadStorage();}}
+ async function readSource(){
+  // Fixed stage names only: never log custody, permissions or response data.
+  console.info('LIANUM_DEFI_OBSERVATION_STAGE','SOURCE_STORAGE');
+  await sourceVault.beginReadStorage(signal);
+  try{
+   console.info('LIANUM_DEFI_OBSERVATION_STAGE','SOURCE_DRAFT');
+   const draft=await sourceVault.readDraft();
+   console.info('LIANUM_DEFI_OBSERVATION_STAGE','SOURCE_ACCESS');
+   const consent=await sourceApi.challenge(draft);
+   console.info('LIANUM_DEFI_OBSERVATION_STAGE','SOURCE_SIGNATURE');
+   const signature=await signDevicePagedOwnerPermissionV3(consent,source.origin,source.pairingId,signal);
+   console.info('LIANUM_DEFI_OBSERVATION_STAGE','SOURCE_STATE');
+   status=await sourceApi.submit(consent,signature);live();
+   console.info('LIANUM_DEFI_OBSERVATION_STAGE','SOURCE_ACCEPT');
+   await sourceVault.acceptStatus(status);
+   console.info('LIANUM_DEFI_OBSERVATION_STAGE','SOURCE_COMPLETE');
+   return sourceVault.summary();
+  }finally{await sourceVault.endReadStorage();}
+ }
  async function readSourceForPreparation(){
   // Only this live SDK's accepted, still-fresh observation can avoid another
   // read. New proof/send challenges independently validate the original state.
@@ -51,7 +69,7 @@ export async function createDeviceSepoliaDefiPaegInvestmentV8(raw:unknown,signal
    // turn the last saved budget into a fresh spendable balance.
    let original:Awaited<ReturnType<typeof observeSource>>={source:null,graph:null,automation:null},sourceReadError:string|null=null;
    try{original=await observeSource();}catch(error){live();sourceReadError=error instanceof Error&&/^[A-Z][A-Z0-9_]{1,120}$/.test(error.message)?error.message:'MOBILE_SEPOLIA_DEFI_SOURCE_UNAVAILABLE';}
-   try{await shareApi.observe(shareVault);live();return{...original,sourceReadError,reception:await shareVault.summary(),receptionReadError:null};}catch(error){live();const code=error instanceof Error&&/^[A-Z][A-Z0-9_]{1,120}$/.test(error.message)?error.message:'MOBILE_SEPOLIA_DEFI_RECEPTION_UNAVAILABLE';return{...original,sourceReadError,reception:await shareVault.summary(),receptionReadError:code};}
+   try{console.info('LIANUM_DEFI_OBSERVATION_STAGE','SHARE_STATE');await shareApi.observe(shareVault);live();console.info('LIANUM_DEFI_OBSERVATION_STAGE','SHARE_COMPLETE');return{...original,sourceReadError,reception:await shareVault.summary(),receptionReadError:null};}catch(error){live();const code=error instanceof Error&&/^[A-Z][A-Z0-9_]{1,120}$/.test(error.message)?error.message:'MOBILE_SEPOLIA_DEFI_RECEPTION_UNAVAILABLE';return{...original,sourceReadError,reception:await shareVault.summary(),receptionReadError:code};}
   }),
   fund:(amountAtomic:string)=>serial(async()=>{sourceReady();
    // Observing an exact retained job needs its own read consent, not a new
