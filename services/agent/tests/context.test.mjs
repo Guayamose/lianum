@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {createECDH,createHash,randomUUID} from 'node:crypto';
 import {openAgentStore} from '../../../packages/agent/src/store.mjs';
 import {createAgentRuntime} from '../../../packages/agent/src/runtime.mjs';
-import {conversationInput,conversationVoice} from '../../../packages/agent/src/conversation.mjs';
+import {conversationInput,conversationVoice,toolPresentation} from '../../../packages/agent/src/conversation.mjs';
 import {conversationReference} from '../../../packages/agent/src/context.mjs';
 import {runAgentTool} from '../../../packages/agent/src/tools.mjs';
 
@@ -77,4 +77,10 @@ test('reference size and memory tool results remain bounded with many Unicode pr
  for(let n=0;n<105;n++){const task=randomUUID();f.store.schedule(id,task,'Antiguo',f.now()+10000);f.store.cancelTask(id,task);}
  const pending=randomUUID();f.store.schedule(id,pending,'El seguimiento vigente',f.now()+10000);assert.equal(conversationReference(f.store,state,'hola',f.now()).followups.next[0].id,pending);
  const input=conversationInput({text:'Hola'},f.now());assert.ok(input.length<conversationVoice.length/2);assert.equal(reference(input).timeZone,null);
+});
+
+test('wallet cards show the actual transfer cost separately from temporarily paused funds',()=>{
+ const output={currency:'EUR',stale:false,totals:{total:'10000',available:'0',reserved:'0',occupied:'10',paused:'9990'}};
+ const card=toolPresentation('read_wallet',{success:true,output});assert.deepEqual(card.facts.map(row=>row.label),['Total','Available','Reserved','In progress','Temporarily unavailable']);assert.deepEqual(card.facts.map(row=>row.value),['€100.00','€0.00','€0.00','€0.10','€99.90']);
+ const legacy={...output,totals:{total:'10000',available:'9990',reserved:'0',occupied:'10'}};assert.equal(toolPresentation('read_wallet',{success:true,output:legacy}).facts.length,4);
 });

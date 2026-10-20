@@ -11,3 +11,12 @@ test('agent context contains aggregates and excludes wallet addresses, keys and 
  const testData={...data,network:'testnet',accounts:[{...account,network:'testnet'}],balances:[]};const testContext=agentContextV1(testData,market,'EUR');assert.equal(testContext.network,'testnet');assert.equal(testContext.totals.total,null);assert.throws(()=>normalizeAgentContextV1({...context,network:'other'}),/NATIVE_AGENT_DATA/);
  assert.equal(agentContextV1({...data,balances:[]},market,'EUR').totals.total,null);
 });
+
+test('agent context retains old snapshots and distinguishes paused funds from actual reservations',()=>{
+ const account={chain:'ethereum',network:'mainnet',networkId:'ethereum',address:'host',publicKey:'host',path:'host'},market=normalizeMarketSnapshotV1({data:{currency:'USD',rates:{BTC:'0.00002',ETH:'0.0005',SOL:'0.01',EUR:'0.9'}}});
+ const context=agentContextV1({accounts:[account],balances:[{account,status:'CONFIRMED',balance:{balanceAtomic:'1000000000000000000',spendableAtomic:'0',reservedAtomic:'1000000000000000',hasPendingTransfer:true}}],transactions:[],observedAt:Date.now(),reading:false},market,'USD');
+ assert.deepEqual(context.totals,{total:'200000',available:'0',reserved:'0',occupied:'200',paused:'199800'});
+ const old=structuredClone(context);delete old.totals.paused;delete old.assets[0].paused;old.totals.available='199800';old.assets[0].available='199800';assert.deepEqual(normalizeAgentContextV1(old),old,'legacy snapshots retain their original four categories');
+ for(const amount of ['0','-1',null]){const invalid=structuredClone(context);invalid.totals.paused=amount;invalid.assets[0].paused=amount;assert.throws(()=>normalizeAgentContextV1(invalid),/NATIVE_AGENT_DATA/);}
+ const mixed=structuredClone(context);delete mixed.assets[0].paused;assert.throws(()=>normalizeAgentContextV1(mixed),/NATIVE_AGENT_DATA/);
+});

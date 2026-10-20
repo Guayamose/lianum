@@ -8,7 +8,7 @@ const data={accounts:[account],balances:[balance],transactions:[],observedAt:Dat
 const market=normalizeMarketSnapshotV1({data:{currency:'USD',rates:{BTC:'0.00002',ETH:'0.0005',SOL:'0.01',EUR:'0.9'}}});
 test('agent summary uses the actual observed amounts and fiat conversion without fictional allocations',()=>{
  const reply=localAgentReplyV1('Summarize my wallet',data,market,'EUR');
- assert.deepEqual(reply.facts.map(row=>row.value),['€3,600.00','€1,800.00','€1,350.00','€450.00']);
+ assert.deepEqual(reply.facts.map(row=>row.value),['€3,600.00','€1,800.00','€0.00','€450.00','€1,350.00']);
  assert.equal(reply.action.target,'wallet');assert.match(reply.text,/latest observed summary/);
  assert.equal(localAgentReplyV1('mi saldo',data,market,'USD').facts[0].value,'$4,000.00');
 });

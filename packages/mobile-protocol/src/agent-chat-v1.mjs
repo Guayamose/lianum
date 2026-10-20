@@ -12,11 +12,12 @@ export function normalizeAgentContextV1(value){
  exact(value,['currency','observedAt','marketObservedAt','reading','totals','assets','operations',...(Object.hasOwn(value??{},'network')?['network']:[])]);
  if(value.network!==undefined)need(value.network==='mainnet'||value.network==='testnet');
  need(['EUR','USD'].includes(value.currency)&&typeof value.reading==='boolean');time(value.observedAt);time(value.marketObservedAt);
- const keys=['total','available','reserved','occupied'];exact(value.totals,keys);keys.forEach(key=>amount(value.totals[key]));
+ // Older retained snapshots omit paused; their four original categories remain valid.
+ const keys=['total','available','reserved','occupied',...(Object.hasOwn(value.totals??{},'paused')?['paused']:[])];exact(value.totals,keys);keys.forEach(key=>amount(value.totals[key]));
  need(Array.isArray(value.assets)&&value.assets.length<=3);const seen=new Set();
  for(const row of value.assets){exact(row,['symbol',...keys]);need(['BTC','ETH','SOL'].includes(row.symbol)&&!seen.has(row.symbol));seen.add(row.symbol);keys.forEach(key=>amount(row[key]));
   need(keys.every(key=>row[key]===null)||keys.every(key=>row[key]!==null));
-  if(row.total!==null)need(BigInt(row.total)===BigInt(row.available)+BigInt(row.reserved)+BigInt(row.occupied));
+  if(row.total!==null)need(BigInt(row.total)===BigInt(row.available)+BigInt(row.reserved)+BigInt(row.occupied)+BigInt(row.paused??'0'));
  }
  const complete=value.assets.length>0&&value.assets.every(row=>row.total!==null);
  for(const key of keys)need(complete?value.totals[key]!==null&&BigInt(value.totals[key])===value.assets.reduce((sum,row)=>sum+BigInt(row[key]),0n):value.totals[key]===null);

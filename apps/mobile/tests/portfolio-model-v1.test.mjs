@@ -28,7 +28,7 @@ test('large atomic amounts and cents retain precision beyond Number.MAX_SAFE_INT
  const result=fiatCentsV1('9007199254740993000000000000000000',18,'ETH',market,'USD');assert.equal(result,1801439850948198600000n);assert.equal(formatFiatV1(123456789n,'EUR'),'€1,234,567.89');assert.equal(formatFiatV1(null,'USD'),'—');
 });
 test('pending sends move their actual reservation into operations without double counting',()=>{
- const rows=balances.map(b=>({...b,balance:{...b.balance,hasPendingTransfer:true}}));const p=portfolioOverviewV1(accounts,rows,market,'USD');assert.equal(p.occupied,50000n);assert.equal(p.available+p.reserved+p.occupied,p.total);
+ const rows=balances.map(b=>({...b,balance:{...b.balance,hasPendingTransfer:true}}));const p=portfolioOverviewV1(accounts,rows,market,'USD');assert.equal(p.occupied,50000n);assert.equal(p.reserved,0n);assert.equal(p.paused,150000n);assert.equal(p.available+p.reserved+p.occupied+p.paused,p.total);
 });
 test('malformed, negative and missing market observations are rejected',()=>{
  assert.throws(()=>normalizeMarketSnapshotV1({data:{currency:'EUR',rates:market.rates}}));assert.throws(()=>normalizeMarketSnapshotV1({data:{currency:'USD',rates:{...market.rates,BTC:'0'}}}));assert.throws(()=>fiatCentsV1('-1',18,'ETH',market,'USD'));
@@ -41,4 +41,9 @@ test('explicit environment selection values only that environment and never comb
  const test=portfolioOverviewV1(all,observations,market,'USD','testnet');assert.equal(test.total,0n);assert.equal(test.rows.length,3);assert.ok(test.rows.every(r=>r.account.network==='testnet'));
  assert.equal(portfolioOverviewV1(all,balances,market,'USD','testnet').total,null,'mainnet observations cannot complete testnet balances');
  assert.throws(()=>portfolioOverviewV1(all,observations,market,'USD','unknown'),/PORTFOLIO_NETWORK/);
+});
+
+test('one small pending transfer pauses the rest without presenting it as reserved or spendable',()=>{
+ const own=accounts[1],balance={...balances[1],balance:{...balances[1].balance,spendableAtomic:'0',reservedAtomic:'1000000000000000',hasPendingTransfer:true}};
+ const p=portfolioOverviewV1([own],[balance],market,'USD');assert.equal(p.total,400000n);assert.equal(p.available,0n);assert.equal(p.reserved,0n);assert.equal(p.occupied,200n);assert.equal(p.paused,399800n);assert.equal(p.available+p.reserved+p.occupied+p.paused,p.total);
 });

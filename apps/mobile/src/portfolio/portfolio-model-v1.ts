@@ -20,9 +20,9 @@ import {nativeFiatAmountsV1} from '@lianum/mobile-protocol/wallet/valuation-v1';
 export function formatFiatV1(cents:bigint|null,currency:DisplayCurrency){if(cents===null)return '—';const negative=cents<0n,value=negative?-cents:cents,whole=(value/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','),fraction=(value%100n).toString().padStart(2,'0');return `${negative?'−':''}${currency==='USD'?'$':'€'}${whole}.${fraction}`;}
 export function portfolioOverviewV1(accounts:readonly NativeWalletAccountV1[],balances:readonly NativeWalletAccountBalanceV1[],market:MarketSnapshot|null,currency:DisplayCurrency,network:'mainnet'|'testnet'='mainnet'){
  if(network!=='mainnet'&&network!=='testnet')throw Error('PORTFOLIO_NETWORK');
- const rows=accounts.filter(a=>a.network===network).map(account=>{const asset=portfolioAssets[account.chain],entry=balances.find(b=>same(b.account,account)),balance=entry?.status==='CONFIRMED'?entry.balance:null;const {total,available,reserved,occupied}=nativeFiatAmountsV1(balance,asset.decimals,asset.symbol,market,currency);
-  return {account,asset,balance,total,available,reserved,occupied};});
- const complete=rows.length>0&&rows.every(row=>row.total!==null);const sum=(key:'total'|'available'|'reserved'|'occupied')=>complete?rows.reduce((s,row)=>s+row[key]!,0n):null;
- return {rows,complete,total:sum('total'),available:sum('available'),reserved:sum('reserved'),occupied:sum('occupied'),knownRows:rows.filter(row=>row.total!==null).length};
+ const rows=accounts.filter(a=>a.network===network).map(account=>{const asset=portfolioAssets[account.chain],entry=balances.find(b=>same(b.account,account)),balance=entry?.status==='CONFIRMED'?entry.balance:null;const {total,available,reserved,occupied,paused}=nativeFiatAmountsV1(balance,asset.decimals,asset.symbol,market,currency);
+  return {account,asset,balance,total,available,reserved,occupied,paused};});
+ const complete=rows.length>0&&rows.every(row=>row.total!==null);const sum=(key:'total'|'available'|'reserved'|'occupied'|'paused')=>complete?rows.reduce((s,row)=>s+row[key]!,0n):null;
+ return {rows,complete,total:sum('total'),available:sum('available'),reserved:sum('reserved'),occupied:sum('occupied'),paused:sum('paused'),knownRows:rows.filter(row=>row.total!==null).length};
 }
 export function pendingTransfersV1(rows:readonly NativeWalletTransferV1[]){return rows.filter(row=>['SUBMITTED','PENDING','INCLUDED','UNKNOWN'].includes(row.status));}

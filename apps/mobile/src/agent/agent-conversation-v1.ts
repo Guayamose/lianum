@@ -40,7 +40,7 @@ export function localAgentReplyV1(text:string,data:WalletOverviewData,market:Mar
   const p=portfolioOverviewV1(data.accounts,data.balances,market,currency,data.network??'mainnet');
   return p.complete?{
    text:"Here is the latest observed summary of your wallet. Values use indicative market prices; open your wallet for the latest balances.",
-   facts:[{label:"Total balance",value:formatFiatV1(p.total,currency)},{label:"Available",value:formatFiatV1(p.available,currency)},{label:"Reserved",value:formatFiatV1(p.reserved,currency)},{label:"In progress",value:formatFiatV1(p.occupied,currency)}],
+   facts:[{label:"Total balance",value:formatFiatV1(p.total,currency)},{label:"Available",value:formatFiatV1(p.available,currency)},{label:"Reserved",value:formatFiatV1(p.reserved,currency)},{label:"In progress",value:formatFiatV1(p.occupied,currency)},...(p.paused!==null&&p.paused>0n?[{label:"Temporarily unavailable",value:formatFiatV1(p.paused,currency)}]:[])],
    checks:[{label:"Wallet balances available",complete:true},{label:"Indicative market valuation calculated",complete:true}],
    action:{label:"Open Wallet",target:'wallet'},
   }:{
