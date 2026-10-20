@@ -1,0 +1,287 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="2820" height="1445" viewBox="60 200 2820 1445" role="img" aria-labelledby="title desc">
+<title id="title">Lianum: current deployment architecture</title>
+<desc id="desc">Current deployment. The mobile wallet holds the keys and talks to an API host on Google Compute Engine (Caddy, API gateway, native wallet relay and the AI agent). A private engine host runs PAEG and the zero-knowledge proof workers, reachable only from the API host. The agent plans payments; the owner grants one permission per plan and the engine executes it on Ethereum Sepolia, Bitcoin Testnet3 and Solana devnet.</desc>
+<defs><pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="0.85" fill="#DCDCCE" opacity="0.56" /></pattern>
+<marker id="blue-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#245E9D" /></marker>
+<marker id="orange-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#B85D2E" /></marker>
+<marker id="purple-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#7260B4" /></marker>
+<marker id="green-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#658348" /></marker>
+<marker id="ink-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#222321" /></marker>
+<marker id="muted-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 Z" fill="#666A60" /></marker>
+</defs>
+<path d="M622,224 H642 M1130,224 H2510 V1355 H600 V224 H622" stroke="#222321" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<svg x="664" y="204" width="37" height="37" viewBox="0 -25 256 256" preserveAspectRatio="xMidYMid meet"><path fill="#EA4335" d="m170.252 56.819 22.253-22.253 1.483-9.37C153.437-11.677 88.976-7.496 52.42 33.920 42.267 45.423 34.734 59.764 30.717 74.573l7.97-1.123 44.505-7.340 3.436-3.513c19.797-21.742 53.270-24.667 76.128-6.168l7.496.39Z" /><path fill="#4285F4" d="M224.205 73.918a100.249 100.249 0 0 0-30.217-48.722l-31.232 31.232a55.515 55.515 0 0 1 20.379 44.037v5.544c15.35 0 27.797 12.445 27.797 27.796 0 15.352-12.446 27.485-27.797 27.485h-55.671l-5.466 5.934v33.34l5.466 5.231h55.67c39.93.311 72.553-31.494 72.864-71.424a72.303 72.303 0 0 0-31.793-60.453" /><path fill="#34A853" d="M71.87 205.796h55.593V161.29H71.87a27.275 27.275 0 0 1-11.399-2.498l-7.887 2.42-22.409 22.253-1.952 7.574c12.567 9.489 27.9 14.825 43.647 14.757" /><path fill="#FBBC05" d="M71.87 61.425C31.94 61.664-.237 94.228.001 134.159a72.301 72.301 0 0 0 28.222 56.88l32.248-32.246c-13.99-6.322-20.208-22.786-13.887-36.776 6.32-13.99 22.786-20.208 36.775-13.888a27.796 27.796 0 0 1 13.887 13.888l32.248-32.248A72.224 72.224 0 0 0 71.87 61.425" /></svg>
+<text x="718" y="234" font-family="DejaVu Sans, Arial, sans-serif" font-size="27" font-weight="500" fill="#222321" text-anchor="start">Google Cloud</text>
+<text x="904" y="234" font-family="DejaVu Sans Mono, monospace" font-size="21" font-weight="400" fill="#666A60" text-anchor="start">· europe-west1-b</text>
+<text x="2469" y="263" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="end" letter-spacing="0.6">CLOUD = COORDINATION</text>
+<path d="M2460,290 l10,10 v312 l-10,-10 Z" stroke="#222321" stroke-width="1.8" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M675,602 h1785 l10,10 h-1785 Z" stroke="#222321" stroke-width="1.8" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="675" y="290" width="1785" height="312" rx="0" fill="#FFFCF0" stroke="#222321" stroke-width="1.8" />
+<g transform="translate(719,340) scale(0.85)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M0,-24 L21,-12 V12 L0,24 -21,12 V-12 Z" /><path d="M-5,-10 L10,0 -5,10 Z" /></g>
+<text x="757" y="342" font-family="DejaVu Sans, Arial, sans-serif" font-size="36" font-weight="500" fill="#222321" text-anchor="start">lianum-wallet-api</text>
+<text x="757" y="376" font-family="DejaVu Sans Mono, monospace" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Compute Engine · e2-small · Debian 12 · static IP · ports 80/443</text>
+<text x="1985" y="340" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#245E9D" text-anchor="end" letter-spacing="1">API HOST</text>
+<text x="1985" y="371" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#666A60" text-anchor="end">public entry point</text>
+<path d="M1107,420 l5,5 v108 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M707,528 h400 l5,5 h-400 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="707" y="420" width="400" height="108" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(741,451) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><rect x="-16" y="-3" width="32" height="24" rx="2" /><path d="M-10,-3 v-8 a10,10 0 0 1 20,0 v8 M0,6 v7" /></g>
+<text x="777" y="459" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#222321" text-anchor="start">Caddy</text>
+<text x="729" y="491" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">TLS termination · 2 MB cap</text>
+<text x="729" y="516" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Reverse proxy to loopback</text>
+<path d="M1537,420 l5,5 v108 l-5,-5 Z" stroke="#245E9D" stroke-width="1.3" fill="#CDDEE4" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1137,528 h400 l5,5 h-400 Z" stroke="#245E9D" stroke-width="1.3" fill="#CDDEE4" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1137" y="420" width="400" height="108" rx="0" fill="#E5EDED" stroke="#245E9D" stroke-width="1.3" />
+<g transform="translate(1171,451) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-9,-12 L-21,0 -9,12 M9,-12 L21,0 9,12 M4,-18 L-4,18" /></g>
+<text x="1207" y="459" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#245E9D" text-anchor="start">API gateway</text>
+<text x="1159" y="491" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Device-signed one-use requests</text>
+<text x="1159" y="516" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Owner scope · rate limits</text>
+<path d="M1967,420 l5,5 v108 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1567,528 h400 l5,5 h-400 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1567" y="420" width="400" height="108" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(1601,451) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-3,-9 l6,-6 a10,10 0 0 1 14,14 l-6,6 M3,9 l-6,6 a10,10 0 0 1 -14,-14 l6,-6 M-8,8 L8,-8" /></g>
+<text x="1637" y="459" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#222321" text-anchor="start">Wallet relay</text>
+<text x="1589" y="491" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Native quotes · submit · status</text>
+<text x="1589" y="516" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">ETH · BTC · SOL accounts</text>
+<path d="M2440,312 l8,8 v270 l-8,-8 Z" stroke="#B85D2E" stroke-width="1.8" fill="#F1CEB1" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2040,582 h400 l8,8 h-400 Z" stroke="#B85D2E" stroke-width="1.8" fill="#F1CEB1" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="2040" y="312" width="400" height="270" rx="0" fill="#FBE8D7" stroke="#B85D2E" stroke-width="1.8" />
+<text x="2065" y="360" font-family="DejaVu Sans, Arial, sans-serif" font-size="32" font-weight="500" fill="#B85D2E" text-anchor="start">AI agent</text>
+<text x="2065" y="393" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">agent service · loopback · SQLite</text>
+<text x="2065" y="438" font-family="DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="400" fill="#222321" text-anchor="start">Goals · planning · monitoring</text>
+<text x="2065" y="469" font-family="DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="400" fill="#222321" text-anchor="start">Memory · follow-ups · voice</text>
+<rect x="2074.0" y="510" width="182" height="32" rx="16" fill="#FBE8D7" stroke="#B85D2E" stroke-width="1" />
+<text x="2165" y="532" font-family="DejaVu Sans Mono, monospace" font-size="14" font-weight="400" fill="#B85D2E" text-anchor="middle">per plan · revocable</text>
+<path d="M2320,497 L2385,513 V551 L2320,535 Z" stroke="#B85D2E" stroke-width="1.7" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2320,535 L2297,550 2364,568 2385,551 Z" stroke="#B85D2E" stroke-width="1.7" fill="#F1CEB1" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2328,507 L2377,519 V540 L2328,527 Z" stroke="#B85D2E" stroke-width="1.2" fill="#FBE8D7" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2341,519 l7,-3 8,9 M2357,525 l8,-3" stroke="#B85D2E" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2460,640 l10,10 v488 l-10,-10 Z" stroke="#222321" stroke-width="1.8" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M675,1128 h1785 l10,10 h-1785 Z" stroke="#222321" stroke-width="1.8" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="675" y="640" width="1785" height="488" rx="0" fill="#FFFCF0" stroke="#222321" stroke-width="1.8" />
+<g transform="translate(719,690) scale(0.85)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-17,-13 L17,-13 M-17,-13 L0,14 M17,-13 L0,14" /><circle cx="-17" cy="-13" r="5" fill="#FFFCF0" /><circle cx="17" cy="-13" r="5" fill="#FFFCF0" /><circle cx="0" cy="14" r="5" fill="#FFFCF0" /></g>
+<text x="757" y="692" font-family="DejaVu Sans, Arial, sans-serif" font-size="36" font-weight="500" fill="#222321" text-anchor="start">lianum-paeg-demo</text>
+<text x="757" y="726" font-family="DejaVu Sans Mono, monospace" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Compute Engine · n2-standard-4 · 16 GiB · no public IP</text>
+<text x="1985" y="690" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#245E9D" text-anchor="end" letter-spacing="1">ENGINE HOST</text>
+<text x="1985" y="721" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#666A60" text-anchor="end">private · one process</text>
+<path d="M1225,752 l5,5 v108 l-5,-5 Z" stroke="#245E9D" stroke-width="1.3" fill="#CDDEE4" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M707,860 h518 l5,5 h-518 Z" stroke="#245E9D" stroke-width="1.3" fill="#CDDEE4" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="707" y="752" width="518" height="108" rx="0" fill="#E5EDED" stroke="#245E9D" stroke-width="1.3" />
+<g transform="translate(741,783) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-17,-13 L17,-13 M-17,-13 L0,14 M17,-13 L0,14" /><circle cx="-17" cy="-13" r="5" fill="#FFFCF0" /><circle cx="17" cy="-13" r="5" fill="#FFFCF0" /><circle cx="0" cy="14" r="5" fill="#FFFCF0" /></g>
+<text x="777" y="791" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#245E9D" text-anchor="start">PAEG core</text>
+<text x="729" y="823" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Private graphs · state machine</text>
+<text x="729" y="848" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Commitments · nullifiers · proof requests</text>
+<path d="M1775,752 l5,5 v108 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1257,860 h518 l5,5 h-518 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1257" y="752" width="518" height="108" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(1291,783) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-21,13 H-10 V-1 H2 V-13 H16 M10,-19 l7,6 -7,6 M-20,-12 h7 M10,14 h11" /></g>
+<text x="1327" y="791" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#222321" text-anchor="start">Executors</text>
+<text x="1279" y="823" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Signed quotes · fee ceilings</text>
+<text x="1279" y="848" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Native delivery · payout notes</text>
+<path d="M1225,874 l5,5 v108 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M707,982 h518 l5,5 h-518 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="707" y="874" width="518" height="108" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(741,905) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M0,-22 L19,-13 V1 Q19,16 0,23 Q-19,16 -19,1 V-13 Z M-9,0 l6,7 13,-16" /></g>
+<text x="777" y="913" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#222321" text-anchor="start">Settlement &amp; recovery</text>
+<text x="729" y="945" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Fulfil · expiry · full refund</text>
+<text x="729" y="970" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Uncertain results reconciled, no resend</text>
+<path d="M1775,874 l5,5 v108 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1257,982 h518 l5,5 h-518 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1257" y="874" width="518" height="108" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(1291,905) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-3,-9 l6,-6 a10,10 0 0 1 14,14 l-6,6 M3,9 l-6,6 a10,10 0 0 1 -14,-14 l6,-6 M-8,8 L8,-8" /></g>
+<text x="1327" y="913" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#222321" text-anchor="start">Chain adapters</text>
+<text x="1279" y="945" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">EVM · Bitcoin · Solana</text>
+<text x="1279" y="970" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Finality watchers · reorg detection</text>
+<path d="M1225,996 l5,5 v108 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M707,1104 h518 l5,5 h-518 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="707" y="996" width="518" height="108" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(741,1027) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-21,-9 H18 M10,-17 l9,8 -9,8 M21,10 H-18 M-10,2 l-9,8 9,8" /></g>
+<text x="777" y="1035" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#222321" text-anchor="start">DeFi adapters</text>
+<text x="729" y="1067" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Swaps · lending · vaults</text>
+<text x="729" y="1092" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Uniswap · Aave · Morpho</text>
+<path d="M1775,996 l5,5 v108 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1257,1104 h518 l5,5 h-518 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1257" y="996" width="518" height="108" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(1291,1027) scale(0.67)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-22,2 h8 l6,-17 10,30 7,-19 h13 M-22,-22 v44 h44" /></g>
+<text x="1327" y="1035" font-family="DejaVu Sans, Arial, sans-serif" font-size="25" font-weight="500" fill="#222321" text-anchor="start">Attestation &amp; journals</text>
+<text x="1279" y="1067" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">3-of-4 attester quorum</text>
+<text x="1279" y="1092" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">AEAD vault · durable journals</text>
+<path d="M2440,752 l8,8 v352 l-8,-8 Z" stroke="#7260B4" stroke-width="1.8" fill="#D9CFEB" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2040,1104 h400 l8,8 h-400 Z" stroke="#7260B4" stroke-width="1.8" fill="#D9CFEB" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="2040" y="752" width="400" height="352" rx="0" fill="#EDE8F6" stroke="#7260B4" stroke-width="1.8" />
+<text x="2065" y="801" font-family="DejaVu Sans, Arial, sans-serif" font-size="32" font-weight="500" fill="#7260B4" text-anchor="start">Proof workers</text>
+<text x="2065" y="835" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Noir · UltraHonk · child processes</text>
+<text x="2065" y="881" font-family="DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="400" fill="#222321" text-anchor="start">Sealed inputs → verified proofs</text>
+<text x="2065" y="947" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#7260B4" text-anchor="start">Verified twice before use</text>
+<text x="2065" y="979" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">No wallet keys</text>
+<path d="M2344,909 l18,-10 18,10 -18,10 Z" stroke="#7260B4" stroke-width="1.5" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2344,909 l18,10 v55 l-18,-10 Z" stroke="#7260B4" stroke-width="1.5" fill="#EDE8F6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2362,919 l18,-10 v55 l-18,10 Z" stroke="#7260B4" stroke-width="1.5" fill="#D9CFEB" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2339,966 l23,13 24,-14 0,8 -24,14 -23,-13 Z" stroke="#7260B4" stroke-width="1.5" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2310,948 l18,-10 18,10 -18,10 Z" stroke="#7260B4" stroke-width="1.5" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2310,948 l18,10 v41 l-18,-10 Z" stroke="#7260B4" stroke-width="1.5" fill="#EDE8F6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2328,958 l18,-10 v41 l-18,10 Z" stroke="#7260B4" stroke-width="1.5" fill="#D9CFEB" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2305,991 l23,13 24,-14 0,8 -24,14 -23,-13 Z" stroke="#7260B4" stroke-width="1.5" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2379,960 l18,-10 18,10 -18,10 Z" stroke="#7260B4" stroke-width="1.5" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2379,960 l18,10 v41 l-18,-10 Z" stroke="#7260B4" stroke-width="1.5" fill="#EDE8F6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2397,970 l18,-10 v41 l-18,10 Z" stroke="#7260B4" stroke-width="1.5" fill="#D9CFEB" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2374,1003 l23,13 24,-14 0,8 -24,14 -23,-13 Z" stroke="#7260B4" stroke-width="1.5" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<text x="675" y="1171" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start" letter-spacing="1">SHARED INFRASTRUCTURE</text>
+<path d="M1075,1180 l6,6 v148 l-6,-6 Z" stroke="#222321" stroke-width="1.5" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M675,1328 h400 l6,6 h-400 Z" stroke="#222321" stroke-width="1.5" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="675" y="1180" width="400" height="148" rx="0" fill="#FFFCF0" stroke="#222321" stroke-width="1.5" />
+<g transform="translate(709,1210) scale(0.62)" fill="none" stroke="#222321" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><rect x="-21" y="-17" width="42" height="34" /><path d="M-21,-6 H21 M-21,6 H21 M-7,-17 V-6 M9,-6 V6 M-7,6 V17" /></g>
+<text x="744" y="1219" font-family="DejaVu Sans, Arial, sans-serif" font-size="26" font-weight="500" fill="#222321" text-anchor="start">VPC + firewall</text>
+<text x="698" y="1251" font-family="DejaVu Sans Mono, monospace" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">lianum-wallet · 10.71.0.0/24</text>
+<text x="698" y="1284" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">Public 80/443 → API host only</text>
+<text x="698" y="1310" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">Engine :9445 ← API host only</text>
+<path d="M1525,1180 l6,6 v148 l-6,-6 Z" stroke="#245E9D" stroke-width="1.5" fill="#CDDEE4" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1125,1328 h400 l6,6 h-400 Z" stroke="#245E9D" stroke-width="1.5" fill="#CDDEE4" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1125" y="1180" width="400" height="148" rx="0" fill="#E5EDED" stroke="#245E9D" stroke-width="1.5" />
+<g transform="translate(1159,1210) scale(0.62)" fill="none" stroke="#245E9D" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><circle cx="-12" cy="0" r="8" /><path d="M-4,0 H20 M12,-8 l8,8 -8,8" /></g>
+<text x="1194" y="1219" font-family="DejaVu Sans, Arial, sans-serif" font-size="26" font-weight="500" fill="#245E9D" text-anchor="start">Cloud NAT</text>
+<text x="1148" y="1251" font-family="DejaVu Sans Mono, monospace" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">egress only</text>
+<text x="1148" y="1284" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">Engine host → RPC providers</text>
+<text x="1148" y="1310" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">No inbound path to the engine</text>
+<path d="M1975,1180 l6,6 v148 l-6,-6 Z" stroke="#222321" stroke-width="1.5" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1575,1328 h400 l6,6 h-400 Z" stroke="#222321" stroke-width="1.5" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1575" y="1180" width="400" height="148" rx="0" fill="#FFFCF0" stroke="#222321" stroke-width="1.5" />
+<g transform="translate(1609,1210) scale(0.62)" fill="none" stroke="#222321" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><ellipse cx="0" cy="-12" rx="19" ry="7" /><path d="M-19,-12 v24 c0,9 38,9 38,0 v-24 M-19,0 c0,9 38,9 38,0" /></g>
+<text x="1644" y="1219" font-family="DejaVu Sans, Arial, sans-serif" font-size="26" font-weight="500" fill="#222321" text-anchor="start">SQLite</text>
+<text x="1598" y="1251" font-family="DejaVu Sans Mono, monospace" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">agent store · API host</text>
+<text x="1598" y="1284" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">Conversations · memory · tasks</text>
+<text x="1598" y="1310" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">Owner-scoped · WAL · 0600</text>
+<path d="M2425,1180 l6,6 v148 l-6,-6 Z" stroke="#222321" stroke-width="1.5" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2025,1328 h400 l6,6 h-400 Z" stroke="#222321" stroke-width="1.5" fill="#E4E2D6" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="2025" y="1180" width="400" height="148" rx="0" fill="#FFFCF0" stroke="#222321" stroke-width="1.5" />
+<g transform="translate(2059,1210) scale(0.62)" fill="none" stroke="#222321" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><circle cx="-8" cy="-7" r="13" /><path d="M2,2 l18,18 M11,11 l6,-6 M16,16 l6,-6" /></g>
+<text x="2094" y="1219" font-family="DejaVu Sans, Arial, sans-serif" font-size="26" font-weight="500" fill="#222321" text-anchor="start">Journals + keyset</text>
+<text x="2048" y="1251" font-family="DejaVu Sans Mono, monospace" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">engine host · AEAD on disk</text>
+<text x="2048" y="1284" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">Plan state · retained proofs</text>
+<text x="2048" y="1310" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">Server keys · no user root keys</text>
+<text x="2860" y="263" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="end" letter-spacing="0.6">EXTERNAL SERVICES</text>
+<path d="M2860,380 l5,5 v104 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2570,484 h290 l5,5 h-290 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="2570" y="380" width="290" height="104" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(2600,410) scale(0.6)" fill="none" stroke="#666A60" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-20,-16 H20 V8 H-2 L-12,17 V8 H-20 Z M-11,-5 h22 M-11,1 h14" /></g>
+<text x="2628" y="418" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="500" fill="#222321" text-anchor="start">OpenAI</text>
+<text x="2592" y="448" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start">agents API · realtime voice</text>
+<text x="2592" y="472" font-family="DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="400" fill="#666A60" text-anchor="start">model provider</text>
+<path d="M2860,520 l5,5 v104 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2570,624 h290 l5,5 h-290 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="2570" y="520" width="290" height="104" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(2600,550) scale(0.6)" fill="none" stroke="#666A60" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M-14,10 V-2 a14,14 0 0 1 28,0 V10 l5,6 H-19 Z M-5,20 a5,5 0 0 0 10,0" /></g>
+<text x="2628" y="558" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="500" fill="#222321" text-anchor="start">Firebase</text>
+<text x="2592" y="588" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start">cloud messaging</text>
+<text x="2592" y="612" font-family="DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="400" fill="#666A60" text-anchor="start">generic push notifications</text>
+<path d="M2860,860 l5,5 v104 l-5,-5 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2570,964 h290 l5,5 h-290 Z" stroke="#A6A99C" stroke-width="1.3" fill="#EFEEE3" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="2570" y="860" width="290" height="104" rx="0" fill="#FFFCF0" stroke="#A6A99C" stroke-width="1.3" />
+<g transform="translate(2600,890) scale(0.6)" fill="none" stroke="#666A60" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><circle cx="0" cy="0" r="6" /><circle cx="-18" cy="-12" r="4" /><circle cx="18" cy="-12" r="4" /><circle cx="0" cy="20" r="4" /><path d="M-5,-4 L-15,-10 M5,-4 L15,-10 M0,6 V16" /></g>
+<text x="2628" y="898" font-family="DejaVu Sans, Arial, sans-serif" font-size="23" font-weight="500" fill="#222321" text-anchor="start">RPC providers</text>
+<text x="2592" y="928" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start">Tenderly · mempool.space</text>
+<text x="2592" y="952" font-family="DejaVu Sans, Arial, sans-serif" font-size="16" font-weight="400" fill="#666A60" text-anchor="start">Solana devnet RPC</text>
+<path d="M150,446 L172,433 302,507 280,520 Z" stroke="#245E9D" stroke-width="2.6" fill="#E5EDED" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M280,520 L302,507 V729 L280,742 Z" stroke="#245E9D" stroke-width="2.6" fill="#CDDEE4" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M150,446 L280,520 V742 L150,668 Z" stroke="#245E9D" stroke-width="2.6" fill="#E5EDED" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M164,475 L266,533 V713 L164,655 Z" stroke="#245E9D" stroke-width="2.2" fill="#FFFCF0" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M198,484 L235,505" stroke="#245E9D" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M199,695 L231,713" stroke="#245E9D" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M192,563 V546 Q214,531 236,569 V588" stroke="#245E9D" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M184,557 L245,592 V647 L184,612 Z" stroke="#245E9D" stroke-width="2.2" fill="#E5EDED" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M213,597 v17" stroke="#245E9D" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<text x="104" y="823" font-family="DejaVu Sans, Arial, sans-serif" font-size="34" font-weight="500" fill="#222321" text-anchor="start">mobile wallet</text>
+<text x="106" y="861" font-family="DejaVu Sans Mono, monospace" font-size="18" font-weight="400" fill="#666A60" text-anchor="start">Android · iOS (Expo)</text>
+<text x="106" y="912" font-family="DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="400" fill="#666A60" text-anchor="start">Portfolio · manual actions</text>
+<text x="106" y="944" font-family="DejaVu Sans, Arial, sans-serif" font-size="19" font-weight="400" fill="#666A60" text-anchor="start">Approve plans · stop the agent</text>
+<text x="106" y="995" font-family="DejaVu Sans Mono, monospace" font-size="19" font-weight="400" fill="#245E9D" text-anchor="start">root keys stay here</text>
+<path d="M106,1012 H362" stroke="#245E9D" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M302,540 H430 V270 H2240 V312" stroke="#B85D2E" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7" marker-start="url(#orange-arrow)" marker-end="url(#orange-arrow)" />
+<rect x="1350.0" y="254" width="420" height="32" rx="16" fill="#FFFCF0" stroke="#B85D2E" stroke-width="1" />
+<text x="1560" y="276" font-family="DejaVu Sans Mono, monospace" font-size="17" font-weight="400" fill="#B85D2E" text-anchor="middle">goals · chat · voice · plan review</text>
+<path d="M302,474 H707" stroke="#245E9D" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-start="url(#blue-arrow)" marker-end="url(#blue-arrow)" />
+<rect x="460.0" y="426" width="230" height="32" rx="16" fill="#FFFCF0" stroke="#245E9D" stroke-width="1" />
+<text x="575" y="448" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#245E9D" text-anchor="middle">signed requests</text>
+<path d="M907,528 V640" stroke="#245E9D" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-start="url(#blue-arrow)" marker-end="url(#blue-arrow)" />
+<text x="925" y="590" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#245E9D" text-anchor="start">pinned TLS · :9445 · device consents</text>
+<path d="M2240,590 V640" stroke="#B85D2E" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#orange-arrow)" />
+<text x="2258" y="676" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#B85D2E" text-anchor="start">progress reads</text>
+<text x="2258" y="698" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#B85D2E" text-anchor="start">read-only grant</text>
+<path d="M1783,928 H2040" stroke="#7260B4" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-start="url(#purple-arrow)" marker-end="url(#purple-arrow)" />
+<text x="1911" y="905" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#7260B4" text-anchor="middle">sealed proof jobs</text>
+<text x="1911" y="957" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#7260B4" text-anchor="middle">verified proofs</text>
+<path d="M2448,432 H2570" stroke="#B85D2E" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#orange-arrow)" />
+<path d="M2448,572 H2570" stroke="#666A60" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#muted-arrow)" />
+<path d="M2468,1060 H2532 Q2540,1060 2540,1052 V920 Q2540,912 2548,912 H2570" stroke="#658348" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#green-arrow)" />
+<path d="M2715,964 V1450" stroke="#658348" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-start="url(#green-arrow)" marker-end="url(#green-arrow)" />
+<path d="M675,880 H560 V1554 H638" stroke="#658348" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-start="url(#green-arrow)" marker-end="url(#green-arrow)" />
+<path d="M1567,1138 V1164 M920,1164 H2225 M2240,1136 V1150 H2225 V1164" stroke="#666A60" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M920,1164 V1180" stroke="#666A60" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<circle cx="920" cy="1164" r="3" fill="#FFFCF0" stroke="#666A60" stroke-width="1.3" />
+<path d="M1325,1164 V1180" stroke="#666A60" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<circle cx="1325" cy="1164" r="3" fill="#FFFCF0" stroke="#666A60" stroke-width="1.3" />
+<path d="M1775,1164 V1180" stroke="#666A60" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<circle cx="1775" cy="1164" r="3" fill="#FFFCF0" stroke="#666A60" stroke-width="1.3" />
+<path d="M2225,1164 V1180" stroke="#666A60" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<circle cx="2225" cy="1164" r="3" fill="#FFFCF0" stroke="#666A60" stroke-width="1.3" />
+<text x="107" y="1140" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start" letter-spacing="1">CONNECTIONS</text>
+<path d="M107,1175 H165" stroke="#245E9D" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#blue-arrow)" />
+<text x="183" y="1181" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">wallet API</text>
+<path d="M107,1219 H165" stroke="#B85D2E" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#orange-arrow)" />
+<text x="183" y="1225" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">agent · per-plan permission</text>
+<path d="M107,1263 H165" stroke="#7260B4" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#purple-arrow)" />
+<text x="183" y="1269" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">proofs</text>
+<path d="M107,1307 H165" stroke="#658348" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#green-arrow)" />
+<text x="183" y="1313" font-family="DejaVu Sans, Arial, sans-serif" font-size="17" font-weight="400" fill="#666A60" text-anchor="start">execution + observation</text>
+<text x="533" y="1413" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#658348" text-anchor="end">signed transactions + proofs</text>
+<text x="533" y="1441" font-family="DejaVu Sans Mono, monospace" font-size="16" font-weight="400" fill="#658348" text-anchor="end">confirmations + events</text>
+<path d="M620,1450 H640 M1218,1450 H2860 V1638 H600 V1450 H620" stroke="#658348" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+<text x="660" y="1460" font-family="DejaVu Sans, Arial, sans-serif" font-size="24" font-weight="500" fill="#658348" text-anchor="start">sovereign blockchains</text>
+<text x="945" y="1460" font-family="DejaVu Sans Mono, monospace" font-size="19" font-weight="400" fill="#658348" text-anchor="start">· public testnets</text>
+<text x="2690" y="1431" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#658348" text-anchor="end" letter-spacing="0.4">EXECUTION + ENFORCEMENT</text>
+<path d="M1088,1514 l5,5 v80 l-5,-5 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M638,1594 h450 l5,5 h-450 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="638" y="1514" width="450" height="80" fill="#FFFCF0" stroke="#CAD3BE" stroke-width="1.2" />
+<path d="M676,1529 L661,1554 676,1563 691,1554 Z" fill="#69727B" transform="translate(0,0)" />
+<path d="M676,1567 L661,1558 676,1581 691,1558 Z" fill="#AAB0B6" transform="translate(0,0)" />
+<path d="M676,1529 V1563 L691,1554 Z" fill="#9098A1" transform="translate(0,0)" />
+<text x="715" y="1550" font-family="DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="500" fill="#222321" text-anchor="start">Ethereum Sepolia</text>
+<text x="715" y="1576" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start">finalized tag · chainId 11155111</text>
+<path d="M1566,1514 l5,5 v80 l-5,-5 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1116,1594 h450 l5,5 h-450 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1116" y="1514" width="450" height="80" fill="#FFFCF0" stroke="#CAD3BE" stroke-width="1.2" />
+<circle cx="1154" cy="1554" r="23" fill="#F7931A" />
+<g transform="translate(1154,1554) rotate(12)"><path d="M-8,-13 V13 M-10,-13 H2 C13,-13 13,0 2,0 H-8 M-8,0 H3 C15,0 15,13 3,13 H-10" stroke="#FFFFFF" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round" /><path d="M-4,-18 V-14 M3,-18 V-14 M-4,14 V18 M3,14 V18" stroke="#FFFFFF" stroke-width="2.8" fill="none" stroke-linecap="round" /></g>
+<text x="1193" y="1550" font-family="DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="500" fill="#222321" text-anchor="start">Bitcoin Testnet3</text>
+<text x="1193" y="1576" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start">6 confirmations · P2WPKH</text>
+<path d="M2044,1514 l5,5 v80 l-5,-5 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M1594,1594 h450 l5,5 h-450 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="1594" y="1514" width="450" height="80" fill="#FFFCF0" stroke="#CAD3BE" stroke-width="1.2" />
+<path d="M1715,1533 h35 l-9,10 h-35 Z" fill="#A14CFF" transform="translate(-96,0)" />
+<path d="M1706,1549 h35 l9,10 h-35 Z" fill="#38CBCC" transform="translate(-96,0)" />
+<path d="M1715,1565 h35 l-9,10 h-35 Z" fill="#16E6A0" transform="translate(-96,0)" />
+<text x="1671" y="1550" font-family="DejaVu Sans, Arial, sans-serif" font-size="21" font-weight="500" fill="#222321" text-anchor="start">Solana devnet</text>
+<text x="1671" y="1576" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start">finalized commitment</text>
+<g opacity="0.42">
+<path d="M2822,1514 l5,5 v80 l-5,-5 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<path d="M2072,1594 h750 l5,5 h-750 Z" stroke="#CAD3BE" stroke-width="1.2" fill="#DDE6CE" stroke-linecap="round" stroke-linejoin="round" />
+<rect x="2072" y="1514" width="750" height="80" fill="#FFFCF0" stroke="#CAD3BE" stroke-width="1.2" />
+</g>
+<text x="2096" y="1546" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start" letter-spacing="1">NEXT</text>
+<text x="2096" y="1572" font-family="DejaVu Sans Mono, monospace" font-size="15" font-weight="400" fill="#666A60" text-anchor="start">adapters in progress</text>
+<g opacity="0.5">
+<path d="M2310,1538 L2337,1544 2321,1570 Z" stroke="#ED343D" stroke-width="2.2" fill="none" stroke-linejoin="round" /><path d="M2310,1538 L2327,1548 2321,1570 M2327,1548 L2337,1544" stroke="#ED343D" stroke-width="1.3" fill="none" />
+<text x="2346" y="1561" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="500" fill="#222321" text-anchor="start">Tron</text>
+<circle cx="2430" cy="1554" r="15" fill="#0052FF" /><path d="M2422,1554 h16" stroke="#FFFCF0" stroke-width="3" stroke-linecap="round" />
+<text x="2453" y="1561" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="500" fill="#222321" text-anchor="start">Base</text>
+<path d="M2530,1538 l14,8 v16 l-14,8 -14,-8 v-16 Z" stroke="#A0B4C4" stroke-width="1.2" fill="#243A4D" /><path d="M2534,1543 l-8,23 M2540,1546 l-8,23" stroke="#28A0F0" stroke-width="3.2" stroke-linecap="round" />
+<text x="2553" y="1561" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="500" fill="#222321" text-anchor="start">Arbitrum</text>
+<path d="M2672,1538 l5,5 -5,5 -5,-5 Z" fill="#F0B90B" />
+<path d="M2661,1549 l5,5 -5,5 -5,-5 Z" fill="#F0B90B" />
+<path d="M2672,1549 l5,5 -5,5 -5,-5 Z" fill="#F0B90B" />
+<path d="M2683,1549 l5,5 -5,5 -5,-5 Z" fill="#F0B90B" />
+<path d="M2672,1560 l5,5 -5,5 -5,-5 Z" fill="#F0B90B" />
+<text x="2693" y="1561" font-family="DejaVu Sans, Arial, sans-serif" font-size="18" font-weight="500" fill="#222321" text-anchor="start">BNB Chain</text>
+</g>
+</svg>
