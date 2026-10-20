@@ -1,0 +1,143 @@
+{
+  "profile": "LIANUM_PUBLIC_TRANSACTION_VERIFICATION_V1",
+  "verifiedAtUTC": "2026-10-20T13:10:31.786919+00:00",
+  "readOnly": true,
+  "transactionsBroadcast": 0,
+  "networks": {
+    "solana": {
+      "status": "VERIFIED",
+      "network": "solana-devnet",
+      "transactionHash": "36iGX4DZYmpvSDHwpgu6jSzTMJcL7w7x5JnZmBKegdjWYCZogYUdbVPPNkw9vUiHLY3wWbZgiSXUFB7vLhSD8KaM",
+      "slot": 512462487,
+      "blockTimestampUTC": "2026-10-18T14:14:23+00:00",
+      "confirmationStatus": "finalized",
+      "transfer": {
+        "destination": "AwsCt95vmbdbShqHkAi1U378b1FWZnbn69C637t8bxr9",
+        "lamports": 1000000,
+        "source": "AwsCt95vmbdbShqHkAi1U378b1FWZnbn69C637t8bxr9"
+      },
+      "feeLamports": 5000,
+      "provider": "https://api.devnet.solana.com",
+      "explorer": "https://explorer.solana.com/tx/36iGX4DZYmpvSDHwpgu6jSzTMJcL7w7x5JnZmBKegdjWYCZogYUdbVPPNkw9vUiHLY3wWbZgiSXUFB7vLhSD8KaM?cluster=devnet"
+    },
+    "evm": {
+      "status": "VERIFIED",
+      "transactions": [
+        {
+          "id": "eth-self-transfer",
+          "network": "ethereum-sepolia",
+          "chainId": 11155111,
+          "transactionHash": "0xdd3c90b08fcb11cf6c33889b484e8e870876ababd78dae591c527642c1284a68",
+          "status": "SUCCESS_FINALIZED",
+          "blockNumber": 11943529,
+          "blockHash": "0x2d9fb7926630d939cae6fec20fc55144446c1e89ed9ccb8f7c99ee15194b877f",
+          "blockTimestampUTC": "2026-10-18T20:45:48+00:00",
+          "from": "0xe9a5aeff7da21a48f66a4e37feb12359fd3b73fb",
+          "to": "0xe9a5aeff7da21a48f66a4e37feb12359fd3b73fb",
+          "transactionValueWei": "1000000000000",
+          "nonce": 0,
+          "gasUsed": 12000,
+          "effectiveGasPriceWei": "20",
+          "gasFeeWei": "240000",
+          "finalizedHeightAtVerification": 11955431,
+          "provider": "https://gateway.tenderly.co/public/sepolia",
+          "explorer": "https://sepolia.etherscan.io/tx/0xdd3c90b08fcb11cf6c33889b484e8e870876ababd78dae591c527642c1284a68"
+        },
+        {
+          "id": "paeg-source-deposit",
+          "network": "ethereum-sepolia",
+          "chainId": 11155111,
+          "transactionHash": "0x8d89e9a337ef89d601f2fd836086b823181d222b9b4f82daad64d38d1003bf81",
+          "status": "SUCCESS_FINALIZED",
+          "blockNumber": 11940902,
+          "blockHash": "0x3980182310b705a4a01fe9bb64322b1c4f16f989944ab66fd5ddd4ca14845c5e",
+          "blockTimestampUTC": "2026-10-18T11:54:00+00:00",
+          "from": "0x7e0b90ca2a69181e3b0160fcd30f1129a0cc32b6",
+          "to": "0xc107582c4eccac4e072aef540d7bc43f233272d4",
+          "transactionValueWei": "1000000000000",
+          "nonce": 88,
+          "gasUsed": 4693165,
+          "effectiveGasPriceWei": "19",
+          "gasFeeWei": "89170135",
+          "finalizedHeightAtVerification": 11955431,
+          "provider": "https://gateway.tenderly.co/public/sepolia",
+          "explorer": "https://sepolia.etherscan.io/tx/0x8d89e9a337ef89d601f2fd836086b823181d222b9b4f82daad64d38d1003bf81"
+        },
+        {
+          "id": "defi-budget-funding",
+          "network": "ethereum-sepolia",
+          "chainId": 11155111,
+          "transactionHash": "0xc80cb6041b400b5549e060bc55e436ffb8d2d9d2f40aea8002299f6e3a7af6da",
+          "status": "SUCCESS_FINALIZED",
+          "blockNumber": 11952496,
+          "blockHash": "0x2cbc331ca490a19e48e13212d1ffbbdb8488d4e4eb55dc26e87ad4eacb9534b8",
+          "blockTimestampUTC": "2026-10-20T03:04:24+00:00",
+          "from": "0x7e0b90ca2a69181e3b0160fcd30f1129a0cc32b6",
+          "to": "0xcf1114efa2c520dbf064dc933c8601bb279a4d30",
+          "transactionValueWei": "1000000000000",
+          "nonce": 89,
+          "gasUsed": 4693297,
+          "effectiveGasPriceWei": "20",
+          "gasFeeWei": "93865940",
+          "finalizedHeightAtVerification": 11955431,
+          "provider": "https://gateway.tenderly.co/public/sepolia",
+          "explorer": "https://sepolia.etherscan.io/tx/0xc80cb6041b400b5549e060bc55e436ffb8d2d9d2f40aea8002299f6e3a7af6da"
+        },
+        {
+          "id": "paeg-owner-withdrawal",
+          "network": "ethereum-sepolia",
+          "chainId": 11155111,
+          "transactionHash": "0x290447b8d81be03de0b844abb16998a5b92cb675e35194e0c7e86ef7aaf7f4c4",
+          "status": "SUCCESS_FINALIZED",
+          "blockNumber": 11955350,
+          "blockHash": "0x099b92c84ab64aba34f08005e8706ee9ed3a57fa1c3ca7726280d9d63d7697c0",
+          "blockTimestampUTC": "2026-10-20T12:39:24+00:00",
+          "from": "0x7e0b90ca2a69181e3b0160fcd30f1129a0cc32b6",
+          "to": "0xc107582c4eccac4e072aef540d7bc43f233272d4",
+          "transactionValueWei": "0",
+          "nonce": 90,
+          "gasUsed": 4367794,
+          "effectiveGasPriceWei": "21",
+          "gasFeeWei": "91723674",
+          "finalizedHeightAtVerification": 11955431,
+          "provider": "https://gateway.tenderly.co/public/sepolia",
+          "explorer": "https://sepolia.etherscan.io/tx/0x290447b8d81be03de0b844abb16998a5b92cb675e35194e0c7e86ef7aaf7f4c4",
+          "verifiedEvent": {
+            "signature": "Withdrawal(address,uint64,bytes32)",
+            "recipient": "0xe9a5aeff7da21a48f66a4e37feb12359fd3b73fb",
+            "amountWei": "1000000000000",
+            "topics": [
+              "0x8c6afca18616d300c4fb7eff2f714229e89e93825b143dc4ecc04231972aa19f",
+              "0x000000000000000000000000e9a5aeff7da21a48f66a4e37feb12359fd3b73fb"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000e8d4a51000ba7c2cdb303ebd98ed14d698b062b2fd222b167f710fe0eb202a8a4b051dcafe"
+          }
+        }
+      ]
+    },
+    "bitcoin": {
+      "status": "VERIFIED",
+      "network": "bitcoin-testnet3",
+      "transactionHash": "55a9c96bb3278777b99bbd17eee9ac7bfa65b59a5dedc356556e1ea62cc3bc70",
+      "blockHeight": 5195472,
+      "blockHash": "0000000000d9da76a07a2fa111c3f852355200e4becb7bd6348bf636764a5aa8",
+      "blockTimestampUTC": "2026-10-18T22:15:23+00:00",
+      "tipHeightAtVerification": 5195878,
+      "confirmations": 407,
+      "outputs": [
+        {
+          "address": "tb1q2c4azdmv9xpew03d2fzt9jmjsava7hsz6lryck",
+          "valueSatoshi": 1000
+        },
+        {
+          "address": "tb1q2c4azdmv9xpew03d2fzt9jmjsava7hsz6lryck",
+          "valueSatoshi": 113252
+        }
+      ],
+      "feeSatoshi": 141,
+      "provider": "https://blockstream.info/testnet/api",
+      "explorer": "https://mempool.space/testnet/tx/55a9c96bb3278777b99bbd17eee9ac7bfa65b59a5dedc356556e1ea62cc3bc70"
+    }
+  },
+  "completedAtUTC": "2026-10-20T13:12:24.226026+00:00"
+}

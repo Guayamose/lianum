@@ -1,8 +1,8 @@
 {
   "profile": "LIANUM_SUBMISSION_EXECUTION_EVIDENCE_V1",
-  "assembledAtUTC": "2026-10-19T00:10:41.441818+00:00",
-  "freshNetworkVerificationPerformedInThisAudit": false,
-  "scope": "Previously recorded phone and public-testnet acceptance. These three self-transfers do not prove agent initiation, PAEG execution or a cross-chain plan.",
+  "assembledAtUTC": "2026-10-20T13:16:25.301952+00:00",
+  "freshNetworkVerificationPerformedInThisAudit": true,
+  "scope": "Actual public-testnet native self-transfers, PAEG note funding and owner-authorized withdrawal, and DeFi execution-budget funding. Separately identified genuine-proof local integration. These receipts do not prove public agent initiation, a public multi-network payment graph, a public swap or a DeFi investment.",
   "transactions": [
     {
       "network": "ethereum-sepolia",
@@ -16,7 +16,12 @@
       "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/v29-native-eth-finality-sixth.json",
       "manualIdenticalRetransmissions": 1,
       "automaticRecoveryProven": false,
-      "agentInitiationProven": false
+      "agentInitiationProven": false,
+      "latestVerification": {
+        "status": "SUCCESS_FINALIZED",
+        "file": "public-transaction-verification.json",
+        "blockNumber": 11943529
+      }
     },
     {
       "network": "solana-devnet",
@@ -28,7 +33,12 @@
       "observedAtUTC": "2026-10-18T14:17:48.922388+00:00",
       "explorer": "https://explorer.solana.com/tx/36iGX4DZYmpvSDHwpgu6jSzTMJcL7w7x5JnZmBKegdjWYCZogYUdbVPPNkw9vUiHLY3wWbZgiSXUFB7vLhSD8KaM?cluster=devnet",
       "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/physical-v21-sol-send-finalized.json",
-      "agentInitiationProven": false
+      "agentInitiationProven": false,
+      "latestVerification": {
+        "status": "FINALIZED",
+        "file": "public-transaction-verification.json",
+        "slot": 512462487
+      }
     },
     {
       "network": "bitcoin-testnet3",
@@ -40,7 +50,74 @@
       "observedAtUTC": "2026-10-18T20:28:10.387481+00:00",
       "explorer": "https://mempool.space/testnet/tx/55a9c96bb3278777b99bbd17eee9ac7bfa65b59a5dedc356556e1ea62cc3bc70",
       "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/v28-btc-depth.json",
-      "agentInitiationProven": false
+      "agentInitiationProven": false,
+      "latestVerification": {
+        "status": "CONFIRMED",
+        "file": "public-transaction-verification.json",
+        "confirmations": 407,
+        "provider": "https://blockstream.info/testnet/api"
+      }
+    },
+    {
+      "network": "ethereum-sepolia",
+      "transactionHash": "0x8d89e9a337ef89d601f2fd836086b823181d222b9b4f82daad64d38d1003bf81",
+      "amountAtomic": "1000000000000",
+      "asset": "ETH",
+      "kind": "PAEG_NOTE_DEPOSIT",
+      "recordedResult": "SUCCESS_FINALIZED",
+      "observedAtUTC": "2026-10-20T13:12:24.226026+00:00",
+      "explorer": "https://sepolia.etherscan.io/tx/0x8d89e9a337ef89d601f2fd836086b823181d222b9b4f82daad64d38d1003bf81",
+      "sourceEvidence": "public-transaction-verification.json",
+      "contract": "0xc107582c4eccac4e072aef540d7bc43f233272d4",
+      "scope": "Operator-sponsored deposit into the original PAEG Source4 pool; not a payment to a third party.",
+      "agentInitiationProven": false,
+      "latestVerification": {
+        "status": "SUCCESS_FINALIZED",
+        "file": "public-transaction-verification.json",
+        "blockNumber": 11940902
+      }
+    },
+    {
+      "network": "ethereum-sepolia",
+      "transactionHash": "0xc80cb6041b400b5549e060bc55e436ffb8d2d9d2f40aea8002299f6e3a7af6da",
+      "amountAtomic": "1000000000000",
+      "asset": "ETH",
+      "kind": "DEFI_EXECUTION_BUDGET_FUNDING",
+      "recordedResult": "SUCCESS_FINALIZED",
+      "observedAtUTC": "2026-10-20T13:12:24.226026+00:00",
+      "explorer": "https://sepolia.etherscan.io/tx/0xc80cb6041b400b5549e060bc55e436ffb8d2d9d2f40aea8002299f6e3a7af6da",
+      "sourceEvidence": "public-transaction-verification.json",
+      "contract": "0xcf1114efa2c520dbf064dc933c8601bb279a4d30",
+      "scope": "Operator-sponsored ETH execution budget for DeFi; not an Aave/Morpho investment, share mint or user-funded deposit.",
+      "agentInitiationProven": false,
+      "latestVerification": {
+        "status": "SUCCESS_FINALIZED",
+        "file": "public-transaction-verification.json",
+        "blockNumber": 11952496
+      }
+    },
+    {
+      "network": "ethereum-sepolia",
+      "transactionHash": "0x290447b8d81be03de0b844abb16998a5b92cb675e35194e0c7e86ef7aaf7f4c4",
+      "amountAtomic": "1000000000000",
+      "asset": "ETH",
+      "kind": "PAEG_OWNER_WITHDRAWAL",
+      "recordedResult": "SUCCESS_FINALIZED",
+      "observedAtUTC": "2026-10-20T13:12:24.226026+00:00",
+      "explorer": "https://sepolia.etherscan.io/tx/0x290447b8d81be03de0b844abb16998a5b92cb675e35194e0c7e86ef7aaf7f4c4",
+      "sourceEvidence": "public-transaction-verification.json",
+      "contract": "0xc107582c4eccac4e072aef540d7bc43f233272d4",
+      "scope": "Mobile-authorized withdrawal of the same Source4 note; verifies pool recovery, not completed graph settlement or executor payout.",
+      "agentInitiationProven": false,
+      "latestVerification": {
+        "status": "SUCCESS_FINALIZED",
+        "file": "public-transaction-verification.json",
+        "blockNumber": 11955350
+      },
+      "recipient": "0xe9a5aeff7da21a48f66a4e37feb12359fd3b73fb",
+      "amountCheckedFrom": "Withdrawal(address,uint64,bytes32) event; transaction.value is zero",
+      "physicalPhoneAuthorizationObserved": true,
+      "physicalPhoneConfirmationObservedAtUTC": "2026-10-20T12:40:45Z"
     }
   ],
   "localIntegration": {
@@ -63,7 +140,8 @@
       "tokenWithdrawn": false,
       "publicNetwork": false,
       "physicalPhone": false,
-      "originalResourcesClosed": true
+      "originalResourcesClosed": true,
+      "recordedNotRerunForSubmission": true
     },
     "sourceEvidence": ".local/maintenance/20261018-mobile-core-acceptance/v32-campaign/mixed-financial-summary.json",
     "eligibleAsPublicTransactionEvidence": false
@@ -75,5 +153,30 @@
   ],
   "unknownWithdrawalExcludedFromConfirmedTransactions": true,
   "provenanceFilesAreLocal": true,
-  "provenanceNote": "sourceEvidence paths identify private local reports; this versioned file is the curated public summary. The hashes are public testnet transactions."
+  "provenanceNote": "Curated public summary and fresh public verification snapshot are versioned. Earlier sourceEvidence paths identify retained private local reports; no custody or witnesses are published. Public testnet assets are not mainnet funds. Native self-transfers do not demonstrate transfer to another person.",
+  "publicVerificationFile": "public-transaction-verification.json",
+  "verificationCompletedAtUTC": "2026-10-20T13:12:24.226026+00:00",
+  "publicRuntime": {
+    "release": "88e1eec3acbcb8720546c50dc6f0b31a288fd8cca7e329fca1dd070f0fe5e0be",
+    "sourceGeneration": "782e31e9311a75685684caf96300cb4ea9e96af0ba377a59dd2b4e20cbbab8cb",
+    "repositoryCodeCommit": "0e04b8fe77791b20a0e1796a28b53312f8042f2c",
+    "localAdoptedSourceGeneration": "d6a4e78ebd2557935147bbe0e2ce0ca36e1a7401cb57671151365d39356ed9a4",
+    "note": "The repository includes later prepared proof-cache fixes; they are not deployed to the recorded running engine. Source/deployment/financial acceptance are distinct."
+  },
+  "phoneAcceptance": {
+    "confirmed": [
+      "Native ETH/SOL/BTC self-transfers",
+      "Original Source4 PAEG note withdrawal to the reviewed recipient"
+    ],
+    "blocked": [
+      "Next Source4 plan rejected at approved cumulative source limit 4; approved increase to 5 rejected because the live Source journal retains CONFIRMED rather than FINALIZED"
+    ],
+    "newPlanCreatedInLatestAttempt": false,
+    "engineRestartedDuringLatestAcceptance": false,
+    "unexecuted": [
+      "Public PAEG single/multiple/dependent/cross-network payment graph",
+      "Public Uniswap step and executor payout",
+      "Public Aave/Morpho investment and redemption"
+    ]
+  }
 }

@@ -47,11 +47,12 @@ The complete [documentation index](docs/README.md) provides a short reading rout
 | Demonstration | Recorded result | Scope |
 | --- | --- | --- |
 | ETH, BTC and SOL wallet transfers | Three confirmed native self-transfers, with public transaction identifiers | Physical phone and public testnets; not PAEG or agent initiation |
+| PAEG note funding and recovery | Original pool deposit and phone-authorized withdrawal of **0.000001 test ETH**, with finalized public receipts | Same Sepolia pool; recovery of an unreserved note, not graph completion or executor payout |
 | Mixed financial graph | Four nodes, Uniswap plus three native deliveries, **21 genuine proofs**, five withdrawals | Local synthetic networks using the real SDK, custody, proof pipeline and consumers |
 | Settlement accounting | 600 deposited units, 200 returned as change, 400 paid to four executors; final held/backed amounts zero | The recorded local integration generation |
 | Component verification | Focused suites for recovery, native operations, mobile behavior, DeFi and startup caching | Exact suite results and limits in [validation](docs/VALIDATION.md) |
 
-Full public-testnet PAEG and DeFi acceptance remains tracked separately. The repository does not claim an external security audit or production-wide mainnet readiness.
+The [public verification snapshot](docs/submission/public-transaction-verification.json) freshly checks six transaction hashes across the three testnets. DeFi budget funding is recorded separately from investment. Full public-testnet PAEG payment-graph and DeFi round-trip acceptance remains tracked separately. The repository does not claim an external security audit or production-wide mainnet readiness.
 
 ## Start developing
 

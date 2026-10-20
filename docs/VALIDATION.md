@@ -4,17 +4,19 @@ Lianum's validation separates ordinary component checks, genuine-proof local int
 
 ## Recorded financial evidence
 
-The [machine-readable evidence](submission/execution-evidence.json) contains the public hashes, observation times, source-generation identity and local integration accounting. It is a curated summary of existing records, not a claim of a fresh network check every time the documentation is read.
+The [machine-readable evidence](submission/execution-evidence.json) contains the public hashes, observation times, source-generation identity and local integration accounting. The [public verification snapshot](submission/public-transaction-verification.json) records a fresh read-only check of all six public transaction hashes on 20 October 2026. Ethereum receipts and canonical blocks were checked against a finalized head, Solana was finalized, and Bitcoin had 407 confirmations at the recorded tip. Reading these documents does not itself repeat the network verification.
 
 | Result | What it demonstrates | What it does not demonstrate |
 | --- | --- | --- |
 | ETH Sepolia native self-transfer | Phone-originated transfer, recorded finality from two providers | Agent initiation, PAEG settlement or automatic recovery; the identical signed transaction was manually retransmitted once |
 | SOL devnet native self-transfer | 0.001 SOL transfer, finalized result and phone confirmation | A multi-network graph |
 | BTC Testnet3 native self-transfer | 1,000 satoshi transfer, recorded seven confirmations from two providers | PAEG executor payout |
+| PAEG note funding and withdrawal | Same Sepolia pool; deposit and phone-authorized return of 0.000001 test ETH; recipient/amount checked in the Withdrawal event and receipt block finalized | Completed graph, executor payout or agent initiation |
+| DeFi execution-budget funding | Separate finalized Sepolia deposit of 0.000001 test ETH | Aave/Morpho investment, share mint or redemption |
 | Four-node mixed local integration | Uniswap plus ETH/BTC/SOL delivery using real SDK, custody, consumers and 21 genuine proofs | Public networks or phone acceptance |
 | Local settlement | Five withdrawals; 600 synthetic units accounted as 200 change plus 400 executor payout; held/backed zero | Withdrawal of the separately received swap token |
 
-The unknown PAEG withdrawal is deliberately excluded from confirmed transactions. Full public, agent-originated and mobile-authorized PAEG execution, public settlement, and public DeFi round trips remain acceptance items in [STATUS.md](../STATUS.md).
+Earlier uncertain or expired attempts remain excluded from confirmed transactions. The successful Source4 withdrawal is now included with its actual public receipt; it does not retroactively confirm those attempts. Full public, agent-originated and mobile-authorized PAEG payment execution, public graph settlement/executor payout, and public DeFi round trips remain acceptance items in [STATUS.md](../STATUS.md).
 
 ## Fast checks
 
