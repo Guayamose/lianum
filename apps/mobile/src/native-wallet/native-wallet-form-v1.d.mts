@@ -5,3 +5,5 @@ export function nativeWalletAmountTextV1(atomic:string,decimals:number):string;
 export function nativeWalletQuoteReviewV1(quote:NativeWalletSendQuoteV1,account:NativeWalletAccountV1,input:{recipient:string;amountAtomic:string},now?:number):{symbol:string;network:string;recipient:string;amount:string;maximumFee:string;maximumTotal:string;expiresAt:number};
 export function nativeWalletFiatEnabledV1(capabilities:NativeWalletFiatCapabilitiesV1|null,account:NativeWalletAccountV1,flow:'BUY'|'SELL'):boolean;
 export function nativeWalletGatewayUrlV1(order:NativeWalletFiatOrderV1):string;
+
+export function nativeWalletNetworkLabelV1(account:NativeWalletAccountV1):string;
