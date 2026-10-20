@@ -47,4 +47,24 @@ test('Paged wire epochs stay real while owner and graph frames retain monotonic 
   else if(validate===C.validateDevicePagedGraphPublicFreshV3)assert.throws(()=>validate(frame),error=>error.code==='MOBILE_PAGED_GRAPH_STATUS_EXPIRED');
   else assert.throws(()=>validate(frame),/MOBILE_PAGED_CLOCK_EXPIRED/);
  }
+ // New permissions retain their declared one-hour lifetime; the immutable
+ // legacy frames above stay expired. A larger constant cannot revive them.
+ wall=base+3600000;monotonic+=3600000;
+ const longOwner={...consent,challengeId:'clock-one-hour-owner',nonce:hex('2'),issuedAt:wall,expiresAt:wall+P.DEVICE_OPERATION_CONSENT_MS_V41};
+ const longGraph={...graphConsent,challengeId:'clock-one-hour-graph',nonce:hex('3'),issuedAt:wall,expiresAt:wall+P.DEVICE_OPERATION_CONSENT_MS_V41};
+ assert.equal(P.DEVICE_OPERATION_CONSENT_MS_V41,3600000);assert.equal(P.DEVICE_OPERATION_REQUEST_MS_V41,1800000);
+ assert.equal(P.DEVICE_PLAN_RESERVATION_MINUTES_V46,360);assert.equal(P.DEVICE_PLAN_EXECUTION_MINUTES_V46,480);
+ P.validateDevicePagedConsentFreshV3(longOwner);C.validateDevicePagedGraphConsentFreshV3(longGraph);
+ wall+=30*60000;monotonic+=30*60000;
+ P.validateDevicePagedConsentFreshV3(longOwner);C.validateDevicePagedGraphConsentFreshV3(longGraph);
+ assert.throws(()=>P.validateDevicePagedConsentFreshV3({...longOwner,challengeId:'clock-too-long',expiresAt:longOwner.expiresAt+1}),/MOBILE_PAGED_OWNER_BINDING/);
+ assert.throws(()=>C.validateDevicePagedGraphConsentFreshV3({...longGraph,challengeId:'clock-too-long',expiresAt:longGraph.expiresAt+1}),/MOBILE_PAGED_GRAPH_MESSAGE/);
+ // Wall rollback cannot buy another thirty minutes of the same permission.
+ wall-=5*60000;monotonic+=30*60000;
+ assert.throws(()=>P.validateDevicePagedConsentFreshV3(longOwner),/MOBILE_PAGED_CLOCK_EXPIRED/);
+ assert.throws(()=>C.validateDevicePagedGraphConsentFreshV3(longGraph),consentCode('MOBILE_PAGED_GRAPH_CONSENT_EXPIRED'));
+ wall=base+3*3600000;monotonic+=3600000;
+ for(let i=0;i<1000;i++)P.validateDevicePagedConsentFreshV3({...consent,challengeId:'clock-retained-hour-'+i,nonce:hex('4'),issuedAt:wall,expiresAt:wall+P.DEVICE_OPERATION_CONSENT_MS_V41});
+ assert.throws(()=>P.validateDevicePagedConsentFreshV3(consent),/MOBILE_PAGED_OWNER_BINDING/,'longer new permissions never revive the old expired request');
+
 });

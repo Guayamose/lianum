@@ -1,5 +1,5 @@
 export const DEVICE_PAGED_OWNER_V3:string,DEVICE_PAGED_CUSTODY_V3:string,DEVICE_PAGED_GRAPH_V3:string,DEVICE_PAGED_SPARSE_V3:string;
-export {devicePagedNowV3,devicePagedWallNowV3,assertDevicePagedFrameElapsedV3,awaitDevicePagedIssuedTimeV3} from './device-paged-clock-v3.mjs';
+export {devicePagedNowV3,devicePagedWallNowV3,assertDevicePagedFrameElapsedV3,assertDevicePagedFrameElapsedV41,DEVICE_OPERATION_CONSENT_MS_V41,DEVICE_OPERATION_OBSERVATION_MS_V41,DEVICE_OPERATION_REQUEST_MS_V41,DEVICE_OPERATION_REVIEW_MS_V46,DEVICE_OPERATION_EXECUTION_MS_V46,DEVICE_OPERATION_IDLE_MS_V46,DEVICE_PLAN_RESERVATION_MINUTES_V46,DEVICE_PLAN_EXECUTION_MINUTES_V46,awaitDevicePagedIssuedTimeV3} from './device-paged-clock-v3.mjs';
 export function normalizeDevicePagedDescriptorV3(raw:unknown):any;
 export function assertDevicePagedGraphDeadlineV3(raw:unknown,settleBefore:string):void;
 export function normalizeDevicePagedConsentV3(raw:unknown):any;

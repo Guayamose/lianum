@@ -51,6 +51,22 @@ test('Protected Target signing uses one ETH queue, seven durable nonce slots and
    await assert.rejects(T.finalizeOriginalSepoliaUniswapTargetV4(receiver,plan));const failedReads=rpcCounts.get('eth_getTransactionReceipt');saved.status=status;
    await T.finalizeOriginalSepoliaUniswapTargetV4(receiver,plan);assert.ok(rpcCounts.get('eth_getTransactionReceipt')>failedReads,'a rejected check cannot become a cached success');
    finalizedNumber=null;
+  });
+  await t.test('cold retained target replays seven exact receipts without repeated full parent scans or signing',async t=>{
+   // Only the supervisor's one-use component seam is HOST here; compilation,
+   // private target ownership, receipt/wire/code checks and finalization are real.
+   const retained=await T.retainOriginalSepoliaUniswapTargetV4(receiver,target),token=Object.freeze(Object.create(null)),recoveryURL=new URL('../../../src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs',import.meta.url),recovery=await import(recoveryURL.href);let used=false;
+   t.mock.module(recoveryURL.href,{exports:{...recovery,consumeOriginalPagedPublicUniswapMixedComponentV4(actual,kind){assert.strictEqual(actual,token,'HOST_ORIGINAL_TARGET_COMPONENT');assert.equal(kind,'target');assert.equal(used,false);used=true;return structuredClone(retained);}}});
+   const Cold=await import('../../../src/operations/local/sepolia-uniswap-target-kernel-v4.mjs?host-cold-replay-v33'),coldPlan=await Cold.prepareOriginalSepoliaUniswapTargetReopenV4(receiver,initial,venue,token),count=()=>[...rpcCounts.values()].reduce((a,b)=>a+b,0),beforePosts=posts;let replayReads=0;
+   for(let index=0;index<7;index++){
+    const constructor=index<5,ordinal=constructor?index:index-5,cap=constructor?Cold.issueOriginalSepoliaUniswapTargetConstructorV4(receiver,coldPlan,ordinal):Cold.issueOriginalSepoliaUniswapTargetRegistrationV4(receiver,coldPlan,ordinal),before=count(),data=await Cold.readOriginalSepoliaUniswapTargetInitializationV4(receiver,cap);assert.equal(count(),before,'Retained command read performs no current dependency scan');assert.equal(data.kind,constructor?'CREATE':'CALL');await assert.rejects(Cold.consumeOriginalSepoliaUniswapTargetInitializationV4(receiver,cap),/SIGN_ALREADY_CONSUMED/);
+    const saved=(constructor?target.constructors:target.registrations)[ordinal].receipt,advance=constructor?Cold.advanceOriginalSepoliaUniswapTargetConstructorV4:Cold.advanceOriginalSepoliaUniswapTargetRegistrationV4;
+    const actual=receipts.get(saved.transactionHash),status=actual.status;actual.status='0x0';await assert.rejects(advance(receiver,coldPlan,cap,saved.transactionHash),/RETAINED_CONSTRUCTOR|RETAINED_REGISTRATION/);actual.status=status;
+    const observedBefore=count();await advance(receiver,coldPlan,cap,saved.transactionHash);replayReads+=count()-observedBefore;
+   }
+   assert.ok(replayReads<=84,'Seven historical Uniswap receipts remain bounded by 84 HOST RPC reads');t.diagnostic('Retained Uniswap seven-row replay: '+replayReads+' HOST RPC reads');
+   const parentCode=initial.deployments[0],originalCode=codes.get(parentCode.address);finalizedNumber='0x1003';codes.set(parentCode.address,'0x00');await assert.rejects(Cold.finalizeOriginalSepoliaUniswapTargetV4(receiver,coldPlan));codes.set(parentCode.address,originalCode);
+   const coldTarget=await Cold.finalizeOriginalSepoliaUniswapTargetV4(receiver,coldPlan);assert.deepEqual(coldTarget,target);assert.equal(posts,beforePosts);Cold.closeOriginalSepoliaUniswapTargetSystemV5(receiver,coldTarget);finalizedNumber=null;
   });V.closeOriginalPagedSepoliaUniswapVenueV4(venue);
  }finally{release?.();await supervisor?.close();await receiver?.close();await native?.close();await rm(directory,{recursive:true,force:true});}
 });

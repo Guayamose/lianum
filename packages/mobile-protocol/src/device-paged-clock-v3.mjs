@@ -4,7 +4,10 @@ const wallNow=Date.now.bind(Date),monotonicNow=performance.now.bind(performance)
 let lastWall=wallNow(),lastMonotonic=monotonicNow();
 let lastObservedMonotonic=lastMonotonic;
 const future=gap=>Object.defineProperties(Error('MOBILE_PAGED_CLOCK_FUTURE'),{code:{value:'MOBILE_PAGED_CLOCK_FUTURE'},clockGapMs:{value:Math.min(3600000,Math.max(0,Math.ceil(gap)))}});
-const frames=new Map(),FRAME_LIMIT=512,FRAME_LIFETIME=15000;
+export const DEVICE_OPERATION_CONSENT_MS_V41=3600000,DEVICE_OPERATION_OBSERVATION_MS_V41=120000,DEVICE_OPERATION_REQUEST_MS_V41=1800000;
+export const DEVICE_OPERATION_REVIEW_MS_V46=3600000,DEVICE_OPERATION_EXECUTION_MS_V46=28800000,DEVICE_OPERATION_IDLE_MS_V46=3600000;
+export const DEVICE_PLAN_RESERVATION_MINUTES_V46=360,DEVICE_PLAN_EXECUTION_MINUTES_V46=480;
+const frames=new Map(),FRAME_LIMIT=16384,FRAME_LIFETIME=15000;
 let retiredExpiry=0;
 const clockError=code=>{throw Error(code);};
 const wallInteger=value=>{if(!Number.isSafeInteger(value)||value<0||Object.is(value,-0))clockError('MOBILE_PAGED_CLOCK_INVALID');return value;};
@@ -25,7 +28,19 @@ export function devicePagedWallNowV3(){
  * an expiry watermark, so a retired frame cannot revive after a larger rollback;
  * new frames behind that watermark fail closed until wall time catches up. */
 export function assertDevicePagedFrameElapsedV3(key,expiresAt,nowWall){
- if(arguments.length!==3||typeof key!=='string'||key.length<1||key.length>512||!/^[A-Za-z0-9:._-]+$/.test(key)||!Number.isSafeInteger(expiresAt)||expiresAt<=0)clockError('MOBILE_PAGED_CLOCK_ARGUMENTS');
+ if(arguments.length!==3)clockError('MOBILE_PAGED_CLOCK_ARGUMENTS');
+ return assertFrame(key,expiresAt,nowWall,FRAME_LIFETIME);
+}
+/** New signed frames declare their issue time. Legacy frames retain 15 seconds. */
+export function assertDevicePagedFrameElapsedV41(key,expiresAt,nowWall,issuedAt,kind){
+ if(arguments.length!==5||!['CONSENT','OBSERVATION'].includes(kind))clockError('MOBILE_PAGED_CLOCK_ARGUMENTS');
+ wallInteger(issuedAt);
+ const lifetime=kind==='CONSENT'?DEVICE_OPERATION_CONSENT_MS_V41:DEVICE_OPERATION_OBSERVATION_MS_V41;
+ if(expiresAt<=issuedAt||expiresAt-issuedAt>lifetime)clockError('MOBILE_PAGED_CLOCK_ARGUMENTS');
+ return assertFrame(key,expiresAt,nowWall,lifetime,issuedAt);
+}
+function assertFrame(key,expiresAt,nowWall,lifetime,issuedAt){
+ if(typeof key!=='string'||key.length<1||key.length>512||!/^[A-Za-z0-9:._-]+$/.test(key)||!Number.isSafeInteger(expiresAt)||expiresAt<=0)clockError('MOBILE_PAGED_CLOCK_ARGUMENTS');
  wallInteger(nowWall);
  const remaining=expiresAt-nowWall;
  if(remaining<=0)clockError('MOBILE_PAGED_CLOCK_EXPIRED');
@@ -38,10 +53,11 @@ export function assertDevicePagedFrameElapsedV3(key,expiresAt,nowWall){
   return;
  }
  if(expiresAt<=retiredExpiry)clockError('MOBILE_PAGED_CLOCK_EXPIRED');
- if(remaining>FRAME_LIFETIME)throw future(remaining-FRAME_LIFETIME);
+ if(issuedAt!==undefined&&issuedAt>nowWall)throw future(issuedAt-nowWall);
+ if(remaining>lifetime)throw future(remaining-lifetime);
  if(frames.size>=FRAME_LIMIT)clockError('MOBILE_PAGED_CLOCK_CAPACITY');
- const deadline=monotonic+Math.min(FRAME_LIFETIME,remaining);
- frames.set(key,{expiresAt,deadline,retainUntil:deadline+FRAME_LIFETIME});
+ const deadline=monotonic+Math.min(lifetime,remaining);
+ frames.set(key,{expiresAt,deadline,retainUntil:deadline+lifetime});
 }
 export function devicePagedNowV3(){
  if(arguments.length!==0)throw Error('MOBILE_PAGED_CLOCK_ARGUMENTS');

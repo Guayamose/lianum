@@ -6,6 +6,7 @@ import {mkdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {Vault} from '@lianum/engine/crypto/vault';
 import {canonical} from '@lianum/engine/crypto/privacy';
+import {publicKeccak256} from '@lianum/engine/cohorts/private-cohort-public-native';
 import {fixture} from './paged-mixed-host-v7.mjs';
 import * as M from '../../../src/operations/recovery/paged-public-uniswap-mixed-supervisor-v4.mjs';
 import * as Owner from '../../../src/operations/local/device-paged-private-graph-v3.mjs';
@@ -21,6 +22,7 @@ export async function prepareMixedStorageHostV8({directory,supervisor,anchor,des
  for(const key of ['origin','devicePublicKey','chainId','genesis','assetIdentity','manifestSHA256','consumerSHA256'])a.descriptor[key]=descriptor[key];
  // Child has its own original lifetime, which remains live after Root expires.
  a.descriptor.deadlineMs=Date.now()+(process.env.LIANUM_ACTIVE_EXPIRED_BROKER_V10==='1'?2000:3600000);
+ if(process.env.LIANUM_ACTIVE_MIXED_NOTES_V36==='1')a.descriptor.poolCodeHash=publicKeccak256(Buffer.from('6000','hex')).toString('hex');
  const ownerPassword=sha('LIANUM/PAGED/OWNER-RETENTION/V3\0'+mixedJournalPassword+'\0'+a.descriptor.pairingId),ownerPath=join(mixedDir,'private-owner.vault'),retention=await createDevicePagedOwnerRetentionV3({path:ownerPath,password:ownerPassword,expected:null},a.descriptor),controller=Owner.createOriginalDevicePagedPrivateGraphV3(a.descriptor),capsule=Owner.retainOriginalDevicePagedPrivateGraphV3(controller);
  try{a.ownerCheckpoint=await retention.commit(capsule);}finally{retention.close();await controller.close();}
  const mixedPath=join(mixedDir,'journal.vault'),mixedRecord=await new Vault(mixedPath).create({schema:'LIANUM_DEVICE_PAGED_OWNER_V3',identity:a.identity,descriptor:a.descriptor,jobs:[],pending:null,graph:null},mixedJournalPassword);a.journalRevision=mixedRecord.revision;a.journalDataSHA256=sha(canonical(mixedRecord.data));snapshot.authority.entries[0].journalPath=mixedPath;

@@ -20,3 +20,7 @@ export function normalizeDevicePagedNativePageRequestV3(raw:unknown):any;
 
 export {normalizeDevicePagedUniswapIntentV3,normalizeDevicePagedUniswapPreparationV3,DEVICE_PAGED_UNISWAP_INTENT_V3} from './device-paged-uniswap-v3.mjs';
 export type {DevicePagedUniswapIntentV3,DevicePagedUniswapPreparationV3} from './device-paged-uniswap-v3.mjs';
+
+export function normalizeDevicePagedBeginRetirementV47(raw:unknown):any;
+export function normalizeDevicePagedBeginRetirementReceiptV47(raw:unknown):any;
+export function validateDevicePagedBeginRetirementReceiptFreshV47(raw:unknown):any;

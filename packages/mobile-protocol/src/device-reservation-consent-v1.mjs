@@ -1,3 +1,4 @@
+import {DEVICE_OPERATION_CONSENT_MS_V41} from './device-paged-clock-v3.mjs';
 /** Device U/S domains, never a constructor or native-dispatch capability.
  * The exact owner openings enter one original ephemeral worker. Neither a
  * signing key nor an encryption root is a field of this transport. Custody is
@@ -174,7 +175,7 @@ function notePath(raw){const value=exact(raw,['root','index','leaf','siblings'])
 /** @param {unknown} raw @returns {DeviceReservationQuoteV1} */
 export function normalizeDeviceReservationQuoteV1(raw) {
   const value=exact(raw,['version','profile','origin','pairingId','devicePublicKey','quoteId','depositJobId','rootId',
-    'sourceCommitment','sourceNullifier','poolTerms','proposal','capsuleOptions','invoiceSignatures','observed','expiresAt']);
+    'sourceCommitment','sourceNullifier','poolTerms','proposal','capsuleOptions','invoiceSignatures','observed','expiresAt',...(Object.hasOwn(raw??{},'issuedAt')?['issuedAt']:[])]);if(Object.hasOwn(value,'issuedAt'))need(typeof value.issuedAt==='number'&&typeof value.expiresAt==='number'&&Number.isSafeInteger(value.issuedAt)&&value.issuedAt>=0&&value.expiresAt>value.issuedAt&&value.expiresAt-value.issuedAt<=DEVICE_OPERATION_CONSENT_MS_V41);
   need(value.version===1&&value.profile==='LIANUM_DEVICE_ORIGINAL_US_QUOTE_V1');const origin=normalizeMobileOrigin(value.origin);
   const hashes=readFields(value,['pairingId','quoteId','depositJobId','rootId','sourceCommitment','sourceNullifier'],raw=>hex(raw,64,false));
   need(typeof value.devicePublicKey==='string'&&/^04[0-9a-f]{128}$/.exec(value.devicePublicKey)?.[0]===value.devicePublicKey

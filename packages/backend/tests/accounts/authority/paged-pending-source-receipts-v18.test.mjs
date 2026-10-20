@@ -47,7 +47,7 @@ test('a missing receipt retains the pending intent and never scans cached histor
 });
 test('reverted receipts and substituted intents cannot be accepted as successful funding',async()=>{
  const f=fixture(),a=authority(f,{receipt:{transactionHash,status:'0x0'}});
- await assert.rejects(a.reconcile(f.record),/PAGED_ORIGINAL_RECEIPT_SUCCESS/);assert.equal(a.calls.saves,0);
+ assert.equal(await a.reconcile(f.record),f.record,'a reverted receipt remains pending for the explicit finalized-epoch retirement path');assert.equal(a.calls.saves,0);assert.equal(a.calls.canonical,1);
  for(const key of ['from','to','value','data']){
   const g=fixture();g.row.command[key]=key==='data'?'0xabcdef':key==='value'?'11':address(99);
   const rejected=authority(g);await assert.rejects(rejected.reconcile(g.record),/PAGED_PENDING_SOURCE_INTENT/);assert.equal(rejected.calls.receipt.length,0);

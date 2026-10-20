@@ -40,19 +40,19 @@ export async function createDevicePagedConnectionTransportV3(profile:DevicePaged
  const packet=parseDevicePagedConnectionProfileV3(JSON.stringify(profile)),descriptor=packet.descriptor;
  // Transport lifetime is independent of the signed financial permission.
  // Android bounds each TLS session to nine hours, even for longer permissions.
- const transportDeadline=Math.min(descriptor.deadlineMs,Date.now()+9*60*60*1000);
+ const transportDeadline=Math.min(descriptor.deadlineMs,Date.now()+24*60*60*1000);
  return createPinnedTransport('PAGED',descriptor.origin,transportDeadline,packet.transport,signal,descriptor.pairingId);
 }
 export async function createDeviceExternalFlatPinnedTransportV1(input:{descriptor:unknown;certificatePEM:string;certificateSHA256:string;signal?:AbortSignal}):Promise<Transport>{
  const descriptor=normalizeExternalFlatDescriptorV1(input.descriptor);
- return createPinnedTransport('EXTERNAL_FLAT',descriptor.origin,Date.now()+9*60*60*1000,input,input.signal);
+ return createPinnedTransport('EXTERNAL_FLAT',descriptor.origin,Date.now()+24*60*60*1000,input,input.signal);
 }
 export function parseDeviceSepoliaDefiConnectionV7(text:string):DeviceSepoliaDefiConnectionV7{
  if(typeof text!=='string'||text.length===0||text.length>65536)fail('MOBILE_PAGED_TLS_PROFILE');return normalizeDeviceSepoliaDefiConnectionV7(JSON.parse(text));
 }
 export async function createDeviceSepoliaDefiPinnedTransportV7(profile:DeviceSepoliaDefiConnectionV7,signal?:AbortSignal):Promise<Transport>{
  const packet=normalizeDeviceSepoliaDefiConnectionV7(profile);
- return createPinnedTransport('SEPOLIA_DEFI_V7',packet.descriptor.origin,Date.now()+9*60*60*1000,packet.transport,signal,packet.descriptor.pairingId);
+ return createPinnedTransport('SEPOLIA_DEFI_V7',packet.descriptor.origin,Date.now()+24*60*60*1000,packet.transport,signal,packet.descriptor.pairingId);
 }
 export async function readDeviceSepoliaDefiConnectionClipboardV7():Promise<string>{
  if(Platform.OS!=='android'||!bridge?.readConnectionProfile)fail('MOBILE_PAGED_TLS_BRIDGE_REQUIRED');
@@ -60,7 +60,7 @@ export async function readDeviceSepoliaDefiConnectionClipboardV7():Promise<strin
 }
 export async function createDeviceDefiPositionsPinnedTransportV1(profile:DeviceDefiPositionsConnectionProfileV1,signal?:AbortSignal):Promise<Transport>{
  const packet=parseDeviceDefiPositionsConnectionProfileV1(JSON.stringify(profile));
- return createPinnedTransport('POSITIONS',packet.descriptor.origin,Date.now()+9*60*60*1000,packet.transport,signal);
+ return createPinnedTransport('POSITIONS',packet.descriptor.origin,Date.now()+24*60*60*1000,packet.transport,signal);
 }
 // This original handle owns only a short pinned recovery transport. It is
 // never accepted by the ordinary financial V3 SDK or caller-supplied fetch.

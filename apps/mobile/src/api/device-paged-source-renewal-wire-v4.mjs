@@ -20,7 +20,7 @@ export async function createDevicePagedSourceRenewalWireV4(raw){
  const live=()=>need(!state.closed);
  const current=async()=>{live();await input.guard();live();readOriginalDevicePagedSourceRenewalTransportCoreV4(input.transport,sourceToken);live();};
  function track(fn){live();need(!state.busy);state.busy=true;const task=Promise.resolve().then(fn);state.work.add(task);task.finally(()=>{state.busy=false;state.work.delete(task);}).catch(()=>{});return task;}
- async function post(path,body){await current();const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);state.controllers.add(controller);
+ async function post(path,body){await current();const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),300000);state.controllers.add(controller);
   try{const response=await transport.fetchImpl(descriptor.origin+'/v1/mobile/paged-owner/source-renewal/'+path,{method:'POST',headers:{'Content-Type':'application/json','x-lianum-paged-pairing-id':descriptor.pairingId},body:JSON.stringify(body),signal:controller.signal});await current();need(response.status===200);const text=await response.text();await current();need(typeof text==='string'&&new TextEncoder().encode(text).length<=65536);return JSON.parse(text);}
   catch(error){if(path==='renewals'){const failure=Error('MOBILE_PAGED_SOURCE_RENEWAL_RESPONSE_UNCONFIRMED');unconfirmed.set(failure,{api});throw failure;}throw error;}
   finally{clearTimeout(timer);state.controllers.delete(controller);}

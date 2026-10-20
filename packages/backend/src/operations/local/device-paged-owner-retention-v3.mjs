@@ -51,7 +51,7 @@ export async function validateOriginalDevicePagedOwnerReadRecoveryV4(config,desc
   const data={profile:'ORIGINAL_PAGED_OWNER_READ_RECOVERY_VALIDATION_V4',checkpoint,public:pub,automation:automation===null?null:{terms:structuredClone(automation.terms),commandsUsed:automation.commandsUsed,revoked:automation.revoked},current:false};
   await controller.close();controller=null;
   let expiry;const close=()=>{if(closed)return;closed=true;clearTimeout(expiry);store.close();wipePrivateProofInputsV1(data);readRecoveryValidations.delete(validation);};
-  readRecoveryValidations.set(validation,{store,data,close});expiry=setTimeout(close,15000);expiry.unref?.();
+  readRecoveryValidations.set(validation,{store,data,close});expiry=setTimeout(close,300000);expiry.unref?.();
   return validation;
  }catch(error){closed=true;await controller?.close();store.close();throw error;}
 }
@@ -70,7 +70,7 @@ export async function openOriginalDevicePagedOwnerTerminalOutputTargetsV5(config
  try{
   const owner=await import('./device-paged-private-graph-v3.mjs');controller=await owner.reopenOriginalDevicePagedPrivateGraphReadRecoveryV4(store.opening);await store.assertCurrent();
   const pub=controller.summary();assert.ok(['FULFILLED','RECOVERED'].includes(pub.phase),'PAGED_TERMINAL_OUTPUT_TERMINAL_OWNER');assert.deepEqual(pub,expected.public,'PAGED_TERMINAL_OUTPUT_OWNER_CHECKPOINT');
-  const token=Object.freeze(Object.create(null)),entry={store,controller,owner,closed:false,timer:null};terminalOutputReaders.set(token,entry);entry.timer=setTimeout(()=>{void closeOriginalDevicePagedOwnerTerminalOutputTargetsV5(token);},15000);entry.timer.unref?.();return token;
+  const token=Object.freeze(Object.create(null)),entry={store,controller,owner,closed:false,timer:null};terminalOutputReaders.set(token,entry);entry.timer=setTimeout(()=>{void closeOriginalDevicePagedOwnerTerminalOutputTargetsV5(token);},300000);entry.timer.unref?.();return token;
  }catch(error){await controller?.close();store.close();throw error;}
 }
 export async function readOriginalDevicePagedOwnerTerminalOutputTargetV5(token,selection){

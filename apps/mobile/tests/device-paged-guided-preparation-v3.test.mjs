@@ -16,7 +16,7 @@ test('guided payments keep native amounts separate and reserve only explicit dem
  for(const family of ['EVM','BTC','SOL'])rows.push(pagedNativePaymentDraftV3(configuration,{family,recipient:addresses[family],amount:'0.001',knownIds:rows.map(row=>row.id)}));
  assert.equal(pagedPaymentBudgetV3(rows),'300');assert.deepEqual(rows.map(row=>row.intent.amount),['1000000000000000','100000','1000000']);
  assert.deepEqual(rows.map(row=>row.dependsOn),[[],['ethereum'],['bitcoin']]);
- assert.equal(PAGED_GUIDED_DEFAULTS_V3.reservationMinutes,'60');assert.equal(PAGED_GUIDED_DEFAULTS_V3.executionMinutes,'120');
+ assert.equal(PAGED_GUIDED_DEFAULTS_V3.reservationMinutes,'360');assert.equal(PAGED_GUIDED_DEFAULTS_V3.executionMinutes,'480');
  assert.equal(pagedNativePaymentDraftV3(configuration,{family:'EVM',recipient:addresses.EVM,amount:'0.002',knownIds:['ethereum']}).id,'ethereum2');
  assert.equal(pagedNativePaymentDraftV3(configuration,{family:'EVM',recipient:addresses.EVM,amount:'0.002',knownIds:Array.from({length:64},(_,i)=>'saved'+i)}).id,'ethereum','saved pages do not cap a new page at64 total nodes');
  assert.throws(()=>pagedNativePaymentDraftV3(configuration,{family:'BTC',recipient:addresses.EVM,amount:'0.001',knownIds:[]}),/DESTINATION/);

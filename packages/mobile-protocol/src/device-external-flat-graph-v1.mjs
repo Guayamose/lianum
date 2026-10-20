@@ -1,3 +1,5 @@
+import {DEVICE_OPERATION_CONSENT_MS_V41} from './device-paged-clock-v3.mjs';
+import {assertDevicePagedFrameElapsedV41} from './device-paged-clock-v3.mjs';
 import {boundedPermissionSha256V1} from './bounded-permission-sha256-v1.mjs';
 import * as Note from './device-external-flat-note-v1.mjs';
 import {normalizeDeviceExitStatementV1} from './device-exit-consent-v1.mjs';
@@ -33,7 +35,7 @@ export function normalizeExternalFlatGraphPreparationV1(raw){
  v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);nonzero(v.preparationId);
  v.terms=exact(v.terms,['depositJobId','rootId','assetAmount','shareAmount','payoutAmount','validFrom','settleBefore']);nonzero(v.terms.depositJobId);nonzero(v.terms.rootId);
  for(const k of ['assetAmount','shareAmount','payoutAmount','validFrom','settleBefore'])uint(v.terms[k]);for(const k of ['assetAmount','shareAmount','payoutAmount'])need(v.terms[k]!=='0');
- need(BigInt(v.terms.validFrom)<BigInt(v.terms.settleBefore)&&['PREPARING','FAILED','UNKNOWN'].includes(v.stage));integer(v.observedAt);integer(v.expiresAt);need(v.expiresAt===v.observedAt+15000);return freeze(v);
+ need(BigInt(v.terms.validFrom)<BigInt(v.terms.settleBefore)&&['PREPARING','FAILED','UNKNOWN'].includes(v.stage));integer(v.observedAt);integer(v.expiresAt);need([15000,120000].includes(v.expiresAt-v.observedAt));return freeze(v);
 }
 export function normalizeExternalFlatGraphDraftV1(raw){
  const v=exact(raw,['action','depositJobId','rootId','quoteId','jobId','custody','statement','witnessSHA256','proofSHA256','publicInputsSHA256']);
@@ -47,7 +49,7 @@ export function normalizeExternalFlatGraphDraftV1(raw){
 }
 export function normalizeExternalFlatGraphConsentV1(raw){
  const privateField=raw&&typeof raw==='object'?Object.getOwnPropertyDescriptor(raw,'privateProof'):null;need(!privateField||Object.hasOwn(privateField,'value'));
- const v=exact(raw,['profile','descriptor','challengeId','nonce','expiresAt','draft','observed','openingDisclosure',...(privateField?['privateProof']:[])]);
+ const v=exact(raw,['profile','descriptor','challengeId','nonce','expiresAt','draft','observed','openingDisclosure',...(privateField?['privateProof']:[]),...(Object.hasOwn(raw??{},'issuedAt')?['issuedAt']:[])]);if(Object.hasOwn(v,'issuedAt')){integer(v.issuedAt);need(v.expiresAt>v.issuedAt&&v.expiresAt-v.issuedAt<=DEVICE_OPERATION_CONSENT_MS_V41);}
  need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_V1);v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);
  nonzero(v.challengeId);nonzero(v.nonce);need(v.challengeId!==v.nonce);integer(v.expiresAt);
  v.draft=normalizeExternalFlatGraphDraftV1(v.draft);v.observed=normalizeExternalFlatObservedV1(v.observed);
@@ -56,7 +58,7 @@ export function normalizeExternalFlatGraphConsentV1(raw){
  need(v.openingDisclosure===(v.draft.action==='PROVE_U'?DEVICE_RESERVATION_DISCLOSURE_V1:null));return freeze(v);
 }
 export function validateExternalFlatGraphFreshV1(raw,now=Date.now()){
- const v=normalizeExternalFlatGraphConsentV1(raw);integer(now);need(v.expiresAt>now&&v.expiresAt<=now+15000);return v;
+ const v=normalizeExternalFlatGraphConsentV1(raw);integer(now);need(v.expiresAt>now);if(v.issuedAt===undefined)need(v.expiresAt<=now+15000);else assertDevicePagedFrameElapsedV41('external:graph:'+v.descriptor.pairingId+':'+v.challengeId+':'+v.nonce,v.expiresAt,now,v.issuedAt,'CONSENT');return v;
 }
 /** Fixed domain V2 binds every normalized field through portable SHA256.
  * Recursive DATA canonicalization keeps object order independent of AEAD JSON;
@@ -96,7 +98,7 @@ export function normalizeExternalFlatGraphRowV1(raw){
 }
 export function normalizeExternalFlatGraphStatusV1(raw){
  const hasWithdrawals=Object.hasOwn(raw,'withdrawals');const v=exact(raw,['profile','descriptor','jobs','observed','observedAt','expiresAt',...(hasWithdrawals?['withdrawals']:[])]);need(v.profile===DEVICE_EXTERNAL_FLAT_GRAPH_V1);
- v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);v.observed=normalizeExternalFlatObservedV1(v.observed);integer(v.observedAt);integer(v.expiresAt);need(v.expiresAt===v.observedAt+15000);
+ v.descriptor=normalizeExternalFlatDescriptorV1(v.descriptor);v.observed=normalizeExternalFlatObservedV1(v.observed);integer(v.observedAt);integer(v.expiresAt);need([15000,120000].includes(v.expiresAt-v.observedAt));
  need(Array.isArray(v.jobs)&&Object.getPrototypeOf(v.jobs)===Array.prototype&&v.jobs.length<=1&&Reflect.ownKeys(v.jobs).length===v.jobs.length+1);
  v.jobs=Array.from({length:v.jobs.length},(_,i)=>{const p=Object.getOwnPropertyDescriptor(v.jobs,String(i));need(p?.enumerable&&Object.hasOwn(p,'value'));
   const r=normalizeExternalFlatGraphRowV1(p.value);need(same(r.descriptor,v.descriptor));return r;});v.withdrawals=hasWithdrawals?normalizeOutputRows(v.withdrawals,v):[];return freeze(v);
@@ -146,7 +148,7 @@ export function normalizeExternalFlatGraphPrivateProofV2(raw){
 export function externalFlatGraphPrivateTranscriptBytesV2(raw){
  const c=normalizeExternalFlatGraphConsentV1(raw);need(c.privateProof);const p=c.privateProof;
  return new TextEncoder().encode(permissionCanonicalV1({profile:p.profile,recipient:p.recipient,resultRecipient:p.resultRecipient,context:p.context,descriptor:c.descriptor,
-  draft:c.draft,observed:c.observed,challengeId:c.challengeId,nonce:c.nonce,expiresAt:c.expiresAt}));
+  draft:c.draft,observed:c.observed,challengeId:c.challengeId,nonce:c.nonce,expiresAt:c.expiresAt,...(c.issuedAt===undefined?{}:{issuedAt:c.issuedAt})}));
 }
 export function externalFlatGraphPrivateDigestV2(raw){const body=new TextEncoder().encode(permissionCanonicalV1(raw));let digest;try{need(body.length<=8192);digest=sha256(body);return Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('');}finally{body.fill(0);digest?.fill(0);}}
 export function validateExternalFlatGraphPrivateWitnessV2(rawConsent,rawWitness){

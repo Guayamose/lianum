@@ -99,7 +99,7 @@ export function consumeOriginalDevicePagedOwnerReadRecoveryOpeningV4(token){
  * authenticates the existing physical OWNER vault and its exact checkpoint. */
 export async function openOriginalDevicePagedOwnerReadRecoveryStoreV4(config,descriptor,expected){
  assert.equal(arguments.length,3);P.pagedOwnerExactV3(config,['path','password']);assert.ok(expected!==null,'PAGED_OWNER_READ_RECOVERY_EXISTING_REQUIRED');
- const reader=await createDevicePagedOwnerRetentionV3({...config,expected},descriptor),started=performance.now(),deadline=started+15000;let last=started,closed=false,token,expiry;
+ const reader=await createDevicePagedOwnerRetentionV3({...config,expected},descriptor),started=performance.now(),deadline=started+300000;let last=started,closed=false,token,expiry;
  const current=()=>{const now=performance.now();assert.ok(!closed&&Number.isFinite(now)&&now>=last&&now<deadline,'PAGED_OWNER_READ_RECOVERY_EXPIRED');last=now;};
  const close=()=>{if(closed)return;closed=true;clearTimeout(expiry);const unused=readRecoveryOpenings.get(token);if(unused){wipePrivateProofInputsV1(unused.capsule);readRecoveryOpenings.delete(token);}reader.close();};
  try{await reader.assertCheckpointCurrentV4();current();token=Object.freeze(Object.create(null));readRecoveryOpenings.set(token,{descriptor:P.normalizeDevicePagedDescriptorV3(descriptor),capsule:reader.restored(),current});expiry=setTimeout(close,Math.max(1,Math.ceil(deadline-performance.now())));expiry.unref?.();

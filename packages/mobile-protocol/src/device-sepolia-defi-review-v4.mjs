@@ -1,5 +1,7 @@
+import {DEVICE_OPERATION_CONSENT_MS_V41} from './device-paged-clock-v3.mjs';
 /** Public DATA and a fixed signature vocabulary. Normalization creates no
  * financial permission; the original device and issuer must sign/consume it. */
+import {assertDevicePagedFrameElapsedV41} from './device-paged-clock-v3.mjs';
 import {externalFlatExactV1 as exact,externalFlatHexV1 as hex,externalFlatUintV1 as uint,normalizeExternalFlatDescriptorV1} from './device-external-flat-note-v1.mjs';
 export const DEVICE_SEPOLIA_DEFI_REVIEW_V4='DEVICE_SEPOLIA_DEFI_REVIEW_V4';
 export const DEVICE_SEPOLIA_DEFI_REVIEW_CHALLENGE_V4='DEVICE_SEPOLIA_DEFI_REVIEW_CHALLENGE_V4';
@@ -19,6 +21,6 @@ export function normalizeDeviceSepoliaDefiReviewV4(raw){
  else{need(v.maximumInputAtomic===null&&v.receiptCommitment===null);uint(v.minimumAssetsAtomic);need(BigInt(v.minimumAssetsAtomic)>0n);}
  return freeze(v);
 }
-export function normalizeDeviceSepoliaDefiReviewChallengeV4(raw){const v=exact(raw,['profile','review','challengeId','nonce','expiresAt']);need(v.profile===DEVICE_SEPOLIA_DEFI_REVIEW_CHALLENGE_V4);v.review=normalizeDeviceSepoliaDefiReviewV4(v.review);nonzero(v.challengeId);nonzero(v.nonce);need(Number.isSafeInteger(v.expiresAt)&&v.expiresAt>0);return freeze(v);}
-export function validateDeviceSepoliaDefiReviewFreshV4(raw,now=Date.now()){const v=normalizeDeviceSepoliaDefiReviewChallengeV4(raw);need(Number.isSafeInteger(now)&&v.expiresAt>now&&v.expiresAt<=now+15000);return v;}
+export function normalizeDeviceSepoliaDefiReviewChallengeV4(raw){const v=exact(raw,['profile','review','challengeId','nonce','expiresAt',...(Object.hasOwn(raw??{},'issuedAt')?['issuedAt']:[])]);if(Object.hasOwn(v,'issuedAt'))need(Number.isSafeInteger(v.issuedAt)&&v.issuedAt>=0&&v.expiresAt>v.issuedAt&&v.expiresAt-v.issuedAt<=DEVICE_OPERATION_CONSENT_MS_V41);need(v.profile===DEVICE_SEPOLIA_DEFI_REVIEW_CHALLENGE_V4);v.review=normalizeDeviceSepoliaDefiReviewV4(v.review);nonzero(v.challengeId);nonzero(v.nonce);need(Number.isSafeInteger(v.expiresAt)&&v.expiresAt>0);return freeze(v);}
+export function validateDeviceSepoliaDefiReviewFreshV4(raw,now=Date.now()){const v=normalizeDeviceSepoliaDefiReviewChallengeV4(raw);need(Number.isSafeInteger(now)&&v.expiresAt>now);if(v.issuedAt===undefined)need(v.expiresAt<=now+15000);else assertDevicePagedFrameElapsedV41('defi:review:'+v.challengeId+':'+v.nonce,v.expiresAt,now,v.issuedAt,'CONSENT');return v;}
 export function deviceSepoliaDefiReviewPermissionMessageV4(raw){const v=normalizeDeviceSepoliaDefiReviewChallengeV4(raw),domain=new TextEncoder().encode('LIANUM/SEPOLIA/DEFI/REVIEW/4'),body=new TextEncoder().encode(JSON.stringify(v));need(body.length<=8192);const out=new Uint8Array(8+domain.length+body.length),dv=new DataView(out.buffer);dv.setUint32(0,domain.length);out.set(domain,4);dv.setUint32(4+domain.length,body.length);out.set(body,8+domain.length);return out;}

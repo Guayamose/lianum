@@ -156,7 +156,7 @@ async function createRecipientProcessV1(input,recovery) {
       }
     } catch (error) { fail(error); }
   });
-  timer = setTimeout(() => fail(problem('PAEG_RECIPIENT_START_TIMEOUT')), 15000);
+  timer = setTimeout(() => fail(problem('PAEG_RECIPIENT_START_TIMEOUT')), 300000);
   child.stdio[3].end(encoded, () => encoded.fill(0));
   async function rawRequest(operation, value, internalCapture=false) {
     need(!capturing||internalCapture||operation==='close','PAEG_RECIPIENT_CAPTURE_FENCED');
@@ -164,7 +164,7 @@ async function createRecipientProcessV1(input,recovery) {
     const message = Buffer.from(canonical({ id: ++count, operation, input: value }));
     need(message.length <= MAX_BYTES, 'PAEG_RECIPIENT_IPC_SIZE');
     const response = new Promise((resolve, reject) => { pending = { id: count, resolve, reject }; });
-    timer = setTimeout(() => fail(problem('PAEG_RECIPIENT_REQUEST_TIMEOUT')), 15000);
+    timer = setTimeout(() => fail(problem('PAEG_RECIPIENT_REQUEST_TIMEOUT')), 300000);
     child.stdin.write(Buffer.concat([message, Buffer.from('\n')]), error => { message.fill(0); if (error) fail(problem('PAEG_RECIPIENT_IO')); });
     return response;
   }

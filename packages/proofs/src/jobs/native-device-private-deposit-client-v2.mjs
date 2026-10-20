@@ -55,7 +55,7 @@ function createFixedPrivateClient(privateWorker){
      if(message?.type==='flat-private-proof-input-ready'){
       exact(message,['type','profile','relation','role','jobId','recipientPublicKey']);assert.equal(s.ready,null,'PW_PRIVATE_WALLET_ONE_RECIPIENT');
       assert.equal(message.profile,'ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1');assert.equal(message.relation,mode);assert.equal(message.role,'owner');assert.match(message.jobId,/^[a-z0-9-]{8,100}$/);assert.match(message.recipientPublicKey,/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/);
-      s.ready=frozen(copy(message));s.cancelWait=()=>clearTimeout(waitTimer);waitTimer=setTimeout(()=>s.stop('PW_PRIVATE_WALLET_CONSENT_EXPIRED'),15000);readyResolve(s.ready);return;
+      s.ready=frozen(copy(message));s.cancelWait=()=>clearTimeout(waitTimer);waitTimer=setTimeout(()=>s.stop('PW_PRIVATE_WALLET_CONSENT_EXPIRED'),300000);readyResolve(s.ready);return;
      }
      if(message?.type==='original-native-private-deposit-failure-v2'){assert.equal(s.sent,true,'PW_PRIVATE_WALLET_FAILURE_BEFORE_HANDOFF');assert.equal(privateDiagnostic,null,'PW_PRIVATE_WALLET_ONE_FAILURE');assert.equal(result,null,'PW_PRIVATE_WALLET_ONE_RESULT');privateDiagnostic=normalizeOriginalNativePrivateDepositFailureV2(message);s.stop(privateDiagnostic.code);return;}
      exact(message,['type','mode','recipientJobId','derivation','result']);assert.equal(message.type,privateWorker?'original-native-private-deposit-result-v3':'original-native-private-deposit-result-v2');assert.equal(message.mode,mode);assert.equal(s.sent,true);assert.equal(result,null,'PW_PRIVATE_WALLET_ONE_RESULT');assert.equal(message.recipientJobId,s.binding.jobId);

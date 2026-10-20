@@ -130,7 +130,7 @@ export function createRoleProofClient(role) {
               sent=true;clearTimeout(preparation.waitTimer);
               child.send(cloneInput(packet),error=>{if(error)stop('ROLE_CLIENT_IPC_FAILED');});
             };
-            preparation.waitTimer=setTimeout(()=>stop('ROLE_CLIENT_PRIVATE_PERMISSION_WAIT_EXPIRED'),15000);
+            preparation.waitTimer=setTimeout(()=>stop('ROLE_CLIENT_PRIVATE_PERMISSION_WAIT_EXPIRED'),300000);
             preparation.resolveReady(preparation.kind==='authorization'?frozenInput({recipient:preparation.ready,resultRecipient:readPrivateProofRecipientV1(preparation.resultHandle)}):preparation.ready);return;
           }
           assert.equal(sent, false, 'ROLE_CLIENT_ONE_HANDOFF'); sent = true;

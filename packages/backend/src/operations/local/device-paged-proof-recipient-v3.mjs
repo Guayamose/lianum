@@ -21,7 +21,7 @@ async function awaitOriginalConsentClock(opened){
  assert.deepEqual(opened.expectedPublicInputs,P.assertDevicePagedPublicJoinV3(consent));assert.match(raw.signature,/^[0-9a-f]{128}$/);
  const pub=consent.descriptor.devicePublicKey,key=createPublicKey({key:{kty:'EC',crv:'secp256k1',x:Buffer.from(pub.slice(2,66),'hex').toString('base64url'),y:Buffer.from(pub.slice(66),'hex').toString('base64url')},format:'jwk'});
  assert.ok(verify('sha256',message,{key,dsaEncoding:'ieee-p1363'},Buffer.from(raw.signature,'hex')),'PAGED_PRIVATE_DEVICE_POP');
- await P.awaitDevicePagedIssuedTimeV3(consent.expiresAt-15000);P.validateDevicePagedConsentFreshV3(consent);
+ await P.awaitDevicePagedIssuedTimeV3((consent.issuedAt??consent.expiresAt-15000));P.validateDevicePagedConsentFreshV3(consent);
 }
 // Private failure metadata only. Never persist an exception message, assertion
 // comparison, witness, signature, key or returned private payload.

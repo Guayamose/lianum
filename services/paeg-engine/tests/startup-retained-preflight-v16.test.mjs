@@ -42,3 +42,11 @@ test('mismatched signed-intent metadata and unsafe directories stop before long 
 test('a nonmixed installation has no renewal preflight or filesystem side effects',async()=>{
  const result=await check('/HOST_NO_FILES',null,null,null);assert.equal(result.sourcesChecked,0);assert.equal(result.pendingRenewalsChecked,0);assert.equal(result.rpcCalls,0);
 });
+
+test('a separately authenticated quota-only descendant preserves the completed renewal; spending or other limits reject',async()=>{
+ const {assertRetainedRenewalQuotaDescendantV35:validate}=await import('../../../packages/backend/src/operations/recovery/paged-public-startup-preflight-v16.mjs');
+ const intent={intentId:'a'.repeat(64),expiresAt:Date.now()+7200000,maximumSourcesPerWallet:'4'},policy={expiresAt:intent.expiresAt,maximumTotalFeeAtomic:'500',maximumTotalValueAtomic:'200'},limits={maximumSourcesPerWallet:'4',maximumTotalSuccessorPools:'1',maximumTotalMixedSources:'2'},original={nonce:intent.intentId,epochId:'b'.repeat(64),policy,limits},next={...original,nonce:'c'.repeat(64),epochId:'d'.repeat(64),limits:{...limits,maximumSourcesPerWallet:'5'}},history={effectivePolicy:policy,limits:next.limits,history:[{epoch:original},{epoch:next}]},financial={effectivePolicy:policy,limits:next.limits,epoch:next};
+ assert.equal(validate(financial,intent,history),true);
+ for(const mutate of [h=>h.history[1].epoch.policy={...policy,maximumTotalFeeAtomic:'600'},h=>h.history[1].epoch.limits.maximumTotalSuccessorPools='2',h=>h.history[0].epoch.nonce='e'.repeat(64),h=>h.history[0].epoch.limits.maximumSourcesPerWallet='3',h=>h.history[1].epoch.limits.maximumSourcesPerWallet='3']){const changed=structuredClone(history);mutate(changed);assert.throws(()=>validate(financial,intent,changed));}
+ assert.equal(intent.maximumSourcesPerWallet,'4','the old renewal is never rewritten');
+});

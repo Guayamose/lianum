@@ -57,7 +57,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
   private val expiryTimer = Executors.newSingleThreadScheduledExecutor()
   private val limit = 4 * 1024 * 1024
   private fun routeLimits(group: String): Map<String, Int> = when (group) {
-    "PAGED" -> listOf("/v1/mobile/paged-owner/challenges", "/v1/mobile/paged-owner/operations", "/v1/mobile/paged-owner/graph/pairing", "/v1/mobile/paged-owner/graph/challenges", "/v1/mobile/paged-owner/graph/operations").associateWith { limit }
+    "PAGED" -> listOf("/v1/mobile/paged-owner/challenges", "/v1/mobile/paged-owner/operations", "/v1/mobile/paged-owner/graph/pairing", "/v1/mobile/paged-owner/graph/challenges", "/v1/mobile/paged-owner/graph/operations", "/v1/mobile/paged-owner/source-successor/challenges", "/v1/mobile/paged-owner/source-successor/requests").associateWith { limit }
     "PAGED_SOURCE_RENEWAL_V4" -> listOf("/v1/mobile/paged-owner/source-renewal/challenges", "/v1/mobile/paged-owner/source-renewal/renewals").associateWith { 8192 }
     "PAGED_EXPIRED_WITHDRAWAL_V10" -> listOf("challenges", "requests").associate { "/v1/mobile/paged-owner/expired-withdrawal/$it" to 8192 }
     "POSITIONS" -> listOf("/v1/mobile/defi-positions/challenges", "/v1/mobile/defi-positions/reviews", "/v1/mobile/defi-positions/observations").associateWith { 8192 }
@@ -98,16 +98,21 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
 
   @ReactMethod @Synchronized
   override fun open(group: String, origin: String, certificatePEM: String, certificateSHA256: String, deadlineMs: Double, pairingId: String, promise: Promise) {
+    var stage = "SESSION_AVAILABILITY"
     try {
-      require(sessions.isEmpty() && certificatePEM.length <= 32768)
+      require(sessions.isEmpty())
+      stage = "PROFILE"
+      require(certificatePEM.length <= 32768)
       require(if (group == "PAGED" || group == "PAGED_SOURCE_RENEWAL_V4" || group == "PAGED_EXPIRED_WITHDRAWAL_V10") pairingId.matches(Regex("[a-z0-9-]{8,100}")) else if (group == "SEPOLIA_DEFI_V7") pairingId.matches(Regex("[0-9a-f]{64}")) else pairingId.isEmpty())
       val uri = URI(origin)
       require(uri.scheme == "https" && uri.host != null && (uri.port == -1 || uri.port in 1..65535) && uri.rawPath.isNullOrEmpty() && uri.rawQuery == null && uri.rawFragment == null && uri.rawUserInfo == null)
       require(certificateSHA256.matches(Regex("[a-f0-9]{64}")))
+      stage = "DEADLINE"
       val now = System.currentTimeMillis()
       require(deadlineMs.isFinite() && deadlineMs == deadlineMs.toLong().toDouble())
       val deadline = deadlineMs.toLong()
-      require(deadline > now && deadline - now <= if (group == "PAGED_SOURCE_RENEWAL_V4" || group == "PAGED_EXPIRED_WITHDRAWAL_V10") 60000L else 9L * 60 * 60 * 1000)
+      require(deadline > now && deadline - now <= if (group == "PAGED_SOURCE_RENEWAL_V4" || group == "PAGED_EXPIRED_WITHDRAWAL_V10") 2L * 60 * 60 * 1000 else 24L * 60 * 60 * 1000)
+      stage = "CERTIFICATE"
       val certificates = CertificateFactory.getInstance("X.509").generateCertificates(ByteArrayInputStream(certificatePEM.toByteArray(Charsets.UTF_8)))
       require(certificates.size == 1)
       val certificate = certificates.single() as X509Certificate
@@ -115,6 +120,7 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
       require(certificate.basicConstraints == -1)
       val expected = ByteArray(32) { certificateSHA256.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
       require(MessageDigest.isEqual(expected, MessageDigest.getInstance("SHA-256").digest(certificate.encoded)))
+      stage = "TLS_CLIENT"
       val store = KeyStore.getInstance(KeyStore.getDefaultType()).apply { load(null); setCertificateEntry("exact-paged-leaf", certificate) }
       val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(store) }
       val original = factory.trustManagers.filterIsInstance<X509TrustManager>().single()
@@ -135,15 +141,19 @@ class PagedPinnedTlsModule(context: ReactApplicationContext) : NativeLianumPaged
         // OkHttp's original hostname verifier still checks the exact origin.
         .connectionSpecs(listOf(ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS).tlsVersions(TlsVersion.TLS_1_3).build()))
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
-        .connectTimeout(15, TimeUnit.SECONDS).writeTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(900, TimeUnit.SECONDS).callTimeout(900, TimeUnit.SECONDS).build()
+        .connectTimeout(60, TimeUnit.SECONDS).writeTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(1800, TimeUnit.SECONDS).callTimeout(1800, TimeUnit.SECONDS).build()
       val id = UUID.randomUUID().toString()
       val session = Session(group, origin, minOf(deadline, certificate.notAfter.time), client, routeLimits(group), if (group == "PAGED") limit else 65536, pairingId)
       require(live(session))
       sessions[id] = session
       session.expiry = expiryTimer.schedule({ closeSession(id) }, session.deadline - now, TimeUnit.MILLISECONDS)
       promise.resolve(id)
-    } catch (_: Exception) { deny(promise, "MOBILE_PAGED_TLS_PROFILE") }
+    } catch (error: Exception) {
+      // Fixed stage/class only: no origin, certificate, body or credential.
+      android.util.Log.w("LianumPinnedTLS", "Open rejected at $stage (${error.javaClass.simpleName})")
+      deny(promise, "MOBILE_PAGED_TLS_PROFILE")
+    }
   }
 
   @ReactMethod

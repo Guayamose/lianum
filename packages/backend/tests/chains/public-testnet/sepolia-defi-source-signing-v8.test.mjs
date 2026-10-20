@@ -99,22 +99,22 @@ for(const staleBoundary of ['fee-clock-before-key','capital-before-post','withdr
   const finalDisk=await readFile(join(directory,'source-operations/native-wallet.json'),'utf8');await K.closeOriginalPublicPagedSourceSignerV4(source);source=await K.openOriginalPublicPagedSourceSignerV4(keys,runtime,policy,new AbortController().signal);assert.equal((await K.observeOriginalPublicSepoliaDefiCommandV8(source,accountHandle,grant.jobId,'INVEST')).transactionHash,submitted.transactionHash);assert.equal(posts,10);assert.equal(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8'),finalDisk);
   // An Original permission remains necessary, but cannot renew the fee clock
   // observed before its final asynchronous consumption. No key or wire is
-  // produced when that work exhausts the preparation's thirty seconds.
+  // produced when that work exhausts the preparation's five minutes.
   const stale=Object.freeze(Object.create(null)),staleGrant={...structuredClone(grant),jobId:'b'.repeat(64),review:{...grant.review,reference:'c'.repeat(64)}};
   if(staleBoundary==='fee-clock-before-key'){
-   staleGrant.kind='WITHDRAW';staleGrant.to=addresses[2];const now=Date.now;let offset=0;t.mock.method(Date,'now',()=>now()+offset);commands.set(stale,{runtime,grant:staleGrant,used:false,beforeKey:()=>{offset=31000;}});
+   staleGrant.kind='WITHDRAW';staleGrant.to=addresses[2];const now=Date.now;let offset=0;t.mock.method(Date,'now',()=>now()+offset);commands.set(stale,{runtime,grant:staleGrant,used:false,beforeKey:()=>{offset=300001;}});
    await assert.rejects(K.executeOriginalPublicSepoliaDefiCommandV8(source,stale),/SEPOLIA_DEFI_FINANCIAL_PREPARATION_EXPIRED/);offset=0;
    const rejected=JSON.parse(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8')).operations.at(-1);assert.equal(rejected.command.grant.jobId,staleGrant.jobId);assert.equal(rejected.phase,'KEY_PENDING');assert.equal(rejected.signed,null);assert.equal(posts,10,'a stale fee preparation never reaches the protected key or broadcast');
   }else if(staleBoundary==='capital-before-post'){
    commands.set(stale,{runtime,grant:staleGrant,used:false});capitalCommands.set(stale,{runtime,data:{...structuredClone(capital),jobId:staleGrant.jobId,reference:staleGrant.review.reference},used:false,beforeRead:()=>{assert.ok(!commands.get(stale).nativeId,'HOST_CAPITAL_AUTHORIZATION_EXPIRED');}});
    await assert.rejects(K.executeOriginalPublicSepoliaDefiCommandV8(source,stale),/HOST_CAPITAL_AUTHORIZATION_EXPIRED/);
-   const rejected=JSON.parse(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8')).operations.at(-1);assert.equal(rejected.phase,'SIGNED');assert.ok(rejected.signed.nativeId);assert.equal(posts,10,'expired capital never broadcasts an already retained wire');
+   const rejected=JSON.parse(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8')).operations.at(-1);assert.equal(rejected.phase,'SUBMITTING');assert.ok(rejected.signed.nativeId);assert.equal(posts,10,'expired capital never broadcasts an already retained wire');
    const pending=await K.observeOriginalPublicSepoliaDefiCommandV8(source,accountHandle,staleGrant.jobId,'INVEST');assert.equal(pending.transactionHash,rejected.signed.nativeId);assert.equal(posts,10,'recovery only observes the same retained wire');
   }else{
    staleGrant.kind='WITHDRAW';staleGrant.to=addresses[2];const now=Date.now,expiresAt=now()+15000;let offset=0;t.mock.method(Date,'now',()=>now()+offset);
    commands.set(stale,{runtime,grant:staleGrant,used:false,beforeDispatch:()=>{assert.ok(Date.now()<expiresAt,'HOST_WITHDRAWAL_AUTHORIZATION_EXPIRED');}});afterSignedBalance=()=>{if(commands.get(stale).nativeId)offset=16000;};
    await assert.rejects(K.executeOriginalPublicSepoliaDefiCommandV8(source,stale),/HOST_WITHDRAWAL_AUTHORIZATION_EXPIRED/);offset=0;afterSignedBalance=null;
-   const rejected=JSON.parse(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8')).operations.at(-1);assert.equal(rejected.phase,'SIGNED');assert.ok(rejected.signed.nativeId);assert.equal(posts,10,'a withdrawal expiry during fee RPCs never reaches POST');
+   const rejected=JSON.parse(await readFile(join(directory,'source-operations/native-wallet.json'),'utf8')).operations.at(-1);assert.equal(rejected.phase,'SUBMITTING');assert.ok(rejected.signed.nativeId);assert.equal(posts,10,'a withdrawal expiry during fee RPCs never reaches POST');
   }
  }finally{if(source)await K.closeOriginalPublicPagedSourceSignerV4(source);await created?.runtime.close();K.closePublicPagedServerKeysV1(keys);await rm(directory,{recursive:true,force:true});}
 });

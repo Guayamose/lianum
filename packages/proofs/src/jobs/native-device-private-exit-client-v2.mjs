@@ -29,7 +29,7 @@ function createFixedPrivateClient(privateWorker){
      if(message?.type==='flat-private-proof-input-ready'){
       exact(message,['type','profile','relation','role','jobId','recipientPublicKey']);assert.equal(s.ready,null,'PW_PRIVATE_WALLET_ONE_RECIPIENT');
       assert.equal(message.profile,'ORIGINAL_ROLE_PRIVATE_PROOF_TRANSIT_V1');assert.equal(message.relation,mode);assert.equal(message.role,'owner');assert.match(message.jobId,/^[a-z0-9-]{8,100}$/);assert.match(message.recipientPublicKey,/^MCowBQYDK2VuAyEA[A-Za-z0-9+/]{43}=$/);
-      s.ready=frozen(copy(message));s.cancelWait=()=>clearTimeout(waitTimer);waitTimer=setTimeout(()=>s.stop('PW_PRIVATE_WALLET_CONSENT_EXPIRED'),15000);readyResolve(s.ready);return;
+      s.ready=frozen(copy(message));s.cancelWait=()=>clearTimeout(waitTimer);waitTimer=setTimeout(()=>s.stop('PW_PRIVATE_WALLET_CONSENT_EXPIRED'),300000);readyResolve(s.ready);return;
      }
      exact(message,['type','mode','recipientJobId','derivation','result']);assert.equal(message.type,privateWorker?'original-native-private-exit-result-v3':'original-native-private-exit-result-v2');assert.equal(message.mode,mode);assert.equal(s.sent,true);assert.equal(result,null,'PW_PRIVATE_WALLET_ONE_RESULT');assert.equal(message.recipientJobId,s.binding.jobId);
      const d=message.derivation;exact(d,['profile','mode','jobId','commitment','nullifier','consentSHA256','witnessSHA256']);assert.equal(d.profile,'ORIGINAL_NATIVE_DEVICE_W39_PRIVATE_DERIVATION_V2');assert.equal(d.mode,mode);assert.equal(d.jobId,s.binding.jobId);for(const k of ['commitment','nullifier','consentSHA256','witnessSHA256'])assert.match(d[k],/^[0-9a-f]{64}$/);assert.equal(d.consentSHA256,s.binding.consentSHA256);assert.equal(d.witnessSHA256,s.binding.witnessSHA256);

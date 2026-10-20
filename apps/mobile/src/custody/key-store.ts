@@ -538,7 +538,7 @@ export async function openDevicePagedGraphExecutionSessionV3(rawReview:unknown,s
   const review=custody.readDevicePagedExecutionReviewV3(rawReview),current=()=>{if(signal?.aborted||AppState.currentState==='background')throw Error('MOBILE_PAGED_CANCELLED');custody.assertDevicePagedExecutionReviewActiveV3(rawReview);};
   current();await assertProtectedStorage();const publicKey=await readDevicePublicKey();current();
   if(publicKey!==review.descriptor.devicePublicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
-  const approval=await LocalAuthentication.authenticateAsync({promptMessage:`Authorize ${review.steps.length} payments and reserve ${review.budget} units of this note. Session up to 15 minutes with the app open.`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
+  const approval=await LocalAuthentication.authenticateAsync({promptMessage:`Authorize ${review.steps.length} payments and reserve ${review.budget} units of this note. Session up to 8 hours with the app open.`,cancelLabel:"Cancel",disableDeviceFallback:true,biometricsSecurityLevel:'strong'});
   current();if(!approval.success)throw Error('MOBILE_AUTHENTICATION_CANCELLED');
   let retained:string|null=null,key:Uint8Array|undefined,session:object|undefined;
   try{
@@ -547,7 +547,7 @@ export async function openDevicePagedGraphExecutionSessionV3(rawReview:unknown,s
    if(devicePublicKey(key)!==publicKey||await readDevicePublicKey()!==publicKey)throw Error('MOBILE_KEY_BINDING_CHANGED');
    custody.readDevicePagedExecutionReviewV3(rawReview);current();
    if(activePagedExecution)closeDevicePagedGraphExecutionSessionV3(activePagedExecution);
-   session=permission.createDevicePagedGraphExecutionSessionV3(key,{descriptor:review.descriptor,rootId:review.rootId,graphId:review.graphId,authorizationRoot:review.authorizationRoot,reserveNullifier:review.reserveNullifier,budget:review.budget,settleBefore:review.settleBefore,deadlineMs:Math.min(devicePagedNowV3()+15*60*1000,review.descriptor.deadlineMs)},()=>{current();if(AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');});
+   session=permission.createDevicePagedGraphExecutionSessionV3(key,{descriptor:review.descriptor,rootId:review.rootId,graphId:review.graphId,authorizationRoot:review.authorizationRoot,reserveNullifier:review.reserveNullifier,budget:review.budget,settleBefore:review.settleBefore,deadlineMs:Math.min(devicePagedNowV3()+8*60*60*1000,review.descriptor.deadlineMs)},()=>{current();if(AppState.currentState!=='active')throw Error('MOBILE_PAGED_CANCELLED');});
    const opened=session,onAbort=()=>closeDevicePagedGraphExecutionSessionV3(opened),subscription=AppState.addEventListener('change',state=>{if(state==='background')closeDevicePagedGraphExecutionSessionV3(opened);});
    const timer=setTimeout(onAbort,permission.readDevicePagedGraphExecutionSessionV3(opened).deadlineMs-devicePagedNowV3());
    signal?.addEventListener('abort',onAbort,{once:true});

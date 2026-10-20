@@ -47,5 +47,5 @@ export function readDeviceSourceNoteV1(v,data){
  * @param {Descriptor} descriptor @param {JournalData} data @param {View} view
  * @param {boolean} share @param {number} [observedAt] @returns {Status} */
 export function readDeviceNoteStatusV1(descriptor,data,view,share,observedAt=Date.now()){
- return normalizeExternalFlatStatusV1({descriptor:copy(descriptor),jobs:data.jobs.map(row=>publicDeviceNoteRowV1(descriptor,row)),observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},observedAt,expiresAt:observedAt+15000,...(share?{note:readDeviceShareNoteV1(view,data)}:{graphClaimed:data.graphClaim!=null,note:readDeviceSourceNoteV1(view,data)})});
+ return normalizeExternalFlatStatusV1({descriptor:copy(descriptor),jobs:data.jobs.map(row=>publicDeviceNoteRowV1(descriptor,row)),observed:{blockNumber:view.head.number,blockHash:view.head.hash,timestamp:view.head.timestamp},observedAt,expiresAt:observedAt+120000,...(share?{note:readDeviceShareNoteV1(view,data)}:{graphClaimed:data.graphClaim!=null,note:readDeviceSourceNoteV1(view,data)})});
 }

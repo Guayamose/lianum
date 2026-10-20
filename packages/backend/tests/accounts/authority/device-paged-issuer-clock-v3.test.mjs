@@ -34,23 +34,28 @@ test('Paged issuer uses wall epochs while original permissions and RPC work reta
  function permission(consent){let signature=sign('sha256',P.devicePagedPermissionMessageV3(consent),{key:device.privateKey,dsaEncoding:'ieee-p1363'});const order=0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n,s=BigInt('0x'+signature.subarray(32).toString('hex'));if(s>order/2n)signature=Buffer.concat([signature.subarray(0,32),Buffer.from((order-s).toString(16).padStart(64,'0'),'hex')]);return signature.toString('hex');}
 
  const first=await authority.challenge(draft('first'));
- assert.equal(first.expiresAt-15000,wall,'wire permission begins at actual wall epoch, without ratchet drift');
- await P.awaitDevicePagedIssuedTimeV3(first.expiresAt-15000);
+ assert.equal(first.issuedAt,wall,'wire permission begins at actual wall epoch, without ratchet drift');
+ await P.awaitDevicePagedIssuedTimeV3(first.issuedAt);
  await authority.challenge(draft('second'));
  elapsed+=14500;
  const status=await authority.submit(JSON.parse(JSON.stringify(first)),permission(first),null);
- assert.equal(status.issuedAt,wall);assert.equal(status.expiresAt,status.issuedAt+15000);
+ assert.equal(status.issuedAt,wall);assert.equal(status.expiresAt,status.issuedAt+120000);
  assert.equal(status.note,null);assert.equal(status.jobs.length,0);
  assert.equal(P.devicePagedNowV3()-wall,74500,'frame registration does not steal elapsed time from local descriptor/lease clock');
  assert.throws(()=>P.validateDevicePagedStatusFreshV3(status,status.expiresAt),/MOBILE_PAGED_OWNER_BINDING/);
  await assert.rejects(()=>authority.submit(first,permission(first),null),/PAGED_DEVICE_ORIGINAL_PERMISSION/);
 
+ const slow=await authority.challenge(draft('slow-success'));
+ healthElapsed=26000;
+ const slowStatus=await authority.submit(slow,permission(slow),null);
+ assert.equal(slowStatus.note,null);
+ await assert.rejects(()=>authority.submit(slow,permission(slow),null),/PAGED_DEVICE_ORIGINAL_PERMISSION/);
  const delayed=await authority.challenge(draft('delayed'));
- healthElapsed=15000;
- await assert.rejects(()=>authority.submit(delayed,permission(delayed),null),error=>error.code==='ERR_ASSERTION','status RPC cannot exceed 15 elapsed seconds even while wall time stands still');
+ healthElapsed=120000;
+ await assert.rejects(()=>authority.submit(delayed,permission(delayed),null),error=>error.code==='ERR_ASSERTION','status RPC cannot exceed two elapsed minutes even while wall time stands still');
 
  const expired=await authority.challenge(draft('expired'));
- elapsed+=15001;wall++;
+ elapsed+=300001;wall++;
  await assert.rejects(()=>authority.submit(JSON.parse(JSON.stringify(expired)),permission(expired),null),/MOBILE_PAGED_CLOCK_EXPIRED/,'serialization and still-fresh wall time do not reset the issuer registered lifetime');
  assert.equal(journalWrites,1,'READ challenges and rejected submissions never mutate the journal');
 });

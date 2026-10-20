@@ -1,3 +1,4 @@
+import {DEVICE_OPERATION_CONSENT_MS_V41} from './device-paged-clock-v3.mjs';
 /** Independent READ_RECOVER framing. These parsers bind DATA only. They do
  * not reopen a source, make old V3 status current or authorize an effect. */
 import * as P from './device-paged-owner-v3.mjs';
@@ -24,11 +25,11 @@ export function normalizeDevicePagedSourceRenewalRequestDataV4(raw,descriptor){
 }
 export function normalizeDevicePagedSourceRenewalChallengeDataV4(raw,descriptor){
  need(arguments.length===2);const row=P.pagedOwnerExactV3(raw,['version','profile','request','challengeId','nonce','issuedAt','expiresAt']);
- need(row.version===4&&row.profile===DEVICE_PAGED_SOURCE_RENEWAL_CHALLENGE_V4);row.request=normalizeDevicePagedSourceRenewalRequestDataV4(row.request,descriptor);id(row.challengeId);P.pagedOwnerHexV3(row.nonce);integer(row.issuedAt);integer(row.expiresAt);need(row.expiresAt===row.issuedAt+15000);return freeze(row);
+ need(row.version===4&&row.profile===DEVICE_PAGED_SOURCE_RENEWAL_CHALLENGE_V4);row.request=normalizeDevicePagedSourceRenewalRequestDataV4(row.request,descriptor);id(row.challengeId);P.pagedOwnerHexV3(row.nonce);integer(row.issuedAt);integer(row.expiresAt);need([15000,300000,DEVICE_OPERATION_CONSENT_MS_V41].includes(row.expiresAt-row.issuedAt));return freeze(row);
 }
 export function validateDevicePagedSourceRenewalChallengeFreshV4(raw,descriptor,now=P.devicePagedWallNowV3()){
  const row=normalizeDevicePagedSourceRenewalChallengeDataV4(raw,descriptor);integer(now,true);need(row.issuedAt<=now&&now<row.expiresAt,'MOBILE_PAGED_SOURCE_RENEWAL_EXPIRED');
- P.assertDevicePagedFrameElapsedV3('source-renewal:challenge:'+row.request.sourceBinding.pairingId+':'+row.challengeId+':'+row.nonce,row.expiresAt,now);return row;
+ (row.expiresAt-row.issuedAt<=15000?P.assertDevicePagedFrameElapsedV3:P.assertDevicePagedFrameElapsedV41)('source-renewal:challenge:'+row.request.sourceBinding.pairingId+':'+row.challengeId+':'+row.nonce,row.expiresAt,now,...(row.expiresAt-row.issuedAt<=15000?[]:[row.issuedAt,'CONSENT']));return row;
 }
 export function devicePagedSourceRenewalPermissionMessageV4(raw,descriptor){
  const bytes=new TextEncoder().encode('LIANUM_DEVICE_PAGED_SOURCE_RENEWAL/4\n'+JSON.stringify(normalizeDevicePagedSourceRenewalChallengeDataV4(raw,descriptor)));need(bytes.length<=8192);return bytes;
@@ -57,9 +58,9 @@ export function normalizeDevicePagedSourceRenewalReplyDataV4(raw,descriptor,rawC
  need(arguments.length===3);const challenge=normalizeDevicePagedSourceRenewalChallengeDataV4(rawChallenge,descriptor),row=P.pagedOwnerExactV3(raw,['profile','intentState','lease','observation','issuedAt','expiresAt']);
  need(row.profile===DEVICE_PAGED_SOURCE_RENEWAL_REPLY_V4);need(challenge.request.action==='READ_CHANNEL_STATE'?row.intentState==='CHANNEL_STATE':challenge.request.action==='RENEW_CHANNEL'?row.intentState==='ISSUED':['ISSUED','NOT_ISSUED'].includes(row.intentState),'MOBILE_PAGED_SOURCE_RENEWAL_INTENT');need(row.intentState==='NOT_ISSUED'?row.lease===null:row.intentState==='ISSUED'?row.lease!==null:true,'MOBILE_PAGED_SOURCE_RENEWAL_INTENT');row.observation=normalizeDevicePagedSourceReadRecoveryObservationDataV4(row.observation,descriptor);if(row.lease!==null){row.lease=L.normalizeDevicePagedChannelLeaseDataV4(row.lease,descriptor);need(same(row.lease.source,row.observation.source),'MOBILE_PAGED_SOURCE_RENEWAL_BINDING');}
  if(challenge.request.action!=='READ_CHANNEL_STATE'&&row.intentState==='ISSUED')need(row.lease!==null&&row.lease.intentId===challenge.request.intentId&&BigInt(row.lease.generation)===BigInt(challenge.request.expectedGeneration)+1n&&row.lease.predecessorLeaseId===challenge.request.expectedLeaseId,'MOBILE_PAGED_SOURCE_RENEWAL_GENERATION');
- integer(row.issuedAt);integer(row.expiresAt);need(row.expiresAt===row.issuedAt+15000);return freeze(row);
+ integer(row.issuedAt);integer(row.expiresAt);need([15000,120000].includes(row.expiresAt-row.issuedAt));return freeze(row);
 }
 export function validateDevicePagedSourceRenewalReplyFreshV4(raw,descriptor,challenge,now=P.devicePagedWallNowV3()){
  const row=normalizeDevicePagedSourceRenewalReplyDataV4(raw,descriptor,challenge);integer(now,true);need(row.issuedAt<=now&&now<row.expiresAt,'MOBILE_PAGED_SOURCE_RENEWAL_EXPIRED');
- P.assertDevicePagedFrameElapsedV3('source-renewal:reply:'+challenge.request.sourceBinding.pairingId+':'+challenge.challengeId+':'+challenge.nonce,row.expiresAt,now);return row;
+ (row.expiresAt-row.issuedAt<=15000?P.assertDevicePagedFrameElapsedV3:P.assertDevicePagedFrameElapsedV41)('source-renewal:reply:'+challenge.request.sourceBinding.pairingId+':'+challenge.challengeId+':'+challenge.nonce,row.expiresAt,now,...(row.expiresAt-row.issuedAt<=15000?[]:[row.issuedAt,'OBSERVATION']));return row;
 }

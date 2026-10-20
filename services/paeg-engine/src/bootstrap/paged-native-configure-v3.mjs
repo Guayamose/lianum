@@ -73,7 +73,7 @@ async function configureNewPagedStartupV3(directory,signal,mixed){
  try{
   const pair=generateKeyPairSync('ec',{namedCurve:'prime256v1'});privatePEM=pair.privateKey.export({format:'pem',type:'pkcs8'});
   await writeExclusive(temporary,'key.pem',Buffer.from(privatePEM),8192);
-  try{await run('/usr/bin/openssl',['req','-new','-x509','-key',join(temporary,'key.pem'),'-out',join(temporary,'certificate.pem'),'-days','1','-subj',`/CN=${host}`,'-addext',`subjectAltName=IP:${host}`,'-addext','basicConstraints=critical,CA:FALSE','-addext','keyUsage=critical,digitalSignature','-addext','extendedKeyUsage=serverAuth'],{timeout:15000,maxBuffer:8192,signal});}catch{signal.throwIfAborted();throw Error('PAGED_NATIVE_SETUP_TLS_GENERATION');}
+  try{await run('/usr/bin/openssl',['req','-new','-x509','-key',join(temporary,'key.pem'),'-out',join(temporary,'certificate.pem'),'-days','90','-subj',`/CN=${host}`,'-addext',`subjectAltName=IP:${host}`,'-addext','basicConstraints=critical,CA:FALSE','-addext','keyUsage=critical,digitalSignature','-addext','extendedKeyUsage=serverAuth'],{timeout:15000,maxBuffer:8192,signal});}catch{signal.throwIfAborted();throw Error('PAGED_NATIVE_SETUP_TLS_GENERATION');}
   await chmod(join(temporary,'certificate.pem'),0o600);
   certificatePEM=await readFile(join(temporary,'certificate.pem'),'utf8');const certificate=new X509Certificate(certificatePEM);
   assert.ok(certificate.checkIP(host),'PAGED_NATIVE_SETUP_TLS_HOST');assert.ok(certificate.publicKey.export({type:'spki',format:'der'}).equals(createPublicKey(pair.privateKey).export({type:'spki',format:'der'})),'PAGED_NATIVE_SETUP_TLS_KEY');

@@ -110,6 +110,10 @@
       "types": "./src/device-paged-source-continuation-v4.d.mts",
       "default": "./src/device-paged-source-continuation-v4.mjs"
     },
+    "./device/paged-source-successor-v35": {
+      "types": "./src/device-paged-source-successor-v35.d.mts",
+      "default": "./src/device-paged-source-successor-v35.mjs"
+    },
     "./device/paged-channel-lease-v4": {
       "types": "./src/device-paged-channel-lease-v4.d.mts",
       "default": "./src/device-paged-channel-lease-v4.mjs"

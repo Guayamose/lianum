@@ -22,8 +22,9 @@ export function devicePagedSourceIdentityV4(previousDescriptor,rawScope){
 
 export function normalizeDevicePagedSourceContinuationDataV4(raw,previousDescriptor){
  const previous=P.normalizeDevicePagedDescriptorV3(previousDescriptor);
- const row=P.pagedOwnerExactV3(raw,['profile','predecessor','descriptor','walletRootId','sourceRevision','status']);
+ const row=P.pagedOwnerExactV3(raw,['profile','predecessor','descriptor','walletRootId','sourceRevision','status',...(Object.hasOwn(raw??{},'terminalKind')?['terminalKind']:[])]);
  need(row.profile===DEVICE_PAGED_SOURCE_CONTINUATION_V4&&row.status==='EMPTY');
+ if(row.terminalKind!==undefined)need(['WITHDRAWN_UNRESERVED','FULFILLED','RECOVERED','WITHDRAWN'].includes(row.terminalKind));
  const predecessor=P.pagedOwnerExactV3(row.predecessor,['pairingId','sourceId','walletRootId','sourceRevision']);
  need(predecessor.pairingId===previous.pairingId,'MOBILE_PAGED_SOURCE_CONTINUATION_PREDECESSOR');
  P.pagedOwnerHexV3(predecessor.sourceId);P.pagedOwnerHexV3(predecessor.walletRootId);P.pagedOwnerUintV3(predecessor.sourceRevision);

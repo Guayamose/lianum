@@ -14,7 +14,7 @@ export function signDevicePagedGraphConsentV3(key,raw){const c=C.validateDeviceP
 /** Finite foreground key lease. The hardware/key-store entrypoint supplies the
  * authenticated Vault review and revokes its activity callback on background.
  * Each server permission is still freshly validated and signed only once. */
-export const DEVICE_PAGED_EXECUTION_MAX_MS_V3=30*60*1000;
+export const DEVICE_PAGED_EXECUTION_MAX_MS_V3=P.DEVICE_OPERATION_EXECUTION_MS_V46;
 const executionSessions=new WeakMap();
 const automationSigningActions=new Set(['SIGN_EXECUTOR_PAYOUT_INVOICES_V5','SIGN_GRAPH','READ_GRAPH','OBSERVE_GRAPH','READ_ECONOMIC_OPERATION','READ_PORTFOLIO','START_AUTOMATION']);
 const executionActions=new Set(['SIGN_EXECUTOR_PAYOUT_INVOICES_V5','SIGN_GRAPH','READ_GRAPH','OBSERVE_GRAPH','READ_ECONOMIC_OPERATION','READ_PORTFOLIO','NEXT_COMMAND','PROVE_R','RESERVE_R','PROVE_EDGE','FOLD','EXECUTE_NATIVE','PROVE_ADMISSION','ADMIT','PROVE_NODE','PROVE_T','FULFILL','RECOVER_CUTOFF']);
