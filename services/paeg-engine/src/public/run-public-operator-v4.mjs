@@ -11,7 +11,7 @@ import {readCapturedOriginalPublicFinancialWindowV5} from './read-public-financi
 import {readPendingPrebirthFinancialReviewV5,acknowledgeOriginalPrebirthFinancialReviewV5} from './prebirth-financial-control-v5.mjs';
 import {continueCapturedOriginalPublicFinancialReviewV5} from './captured-financial-epoch-control-v5.mjs';
 import {readPublicUniswapModeV6} from './public-uniswap-mode-v6.mjs';
-import {readPublicSepoliaDefiModeV8,assertPublicSepoliaDefiConnectionsV8,assertReopenedPublicSepoliaDefiConnectionsV11,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8,publishLivePublicSepoliaDefiRenewalV10} from './public-sepolia-defi-mode-v8.mjs';
+import {readPublicSepoliaDefiModeV8,assertPublicSepoliaDefiConnectionsV8,assertReopenedPublicSepoliaDefiConnectionsV11,PUBLIC_SEPOLIA_DEFI_CONNECTION_NAMES_V8,publishLivePublicSepoliaDefiRenewalV10,publishLivePublicSepoliaDefiSuccessorV35} from './public-sepolia-defi-mode-v8.mjs';
 import {completeLivePublicEmptySourceRenewalV10} from './complete-live-empty-source-renewal-v10.mjs';
 import {channel} from 'node:diagnostics_channel';
 import {createPublicStartupProgressV10} from './startup-progress-v10.mjs';
@@ -44,6 +44,7 @@ const diagnosticRPCMethods=new Set(['eth_chainId','eth_blockNumber','eth_getBloc
 const failure=(stage,error)=>{const firstLine=typeof error?.message==='string'?error.message.split('\n',1)[0]:'';const reason=/^[A-Z][A-Z0-9_]{1,120}$/.test(firstLine)?firstLine:'UNCLASSIFIED_ORIGINAL_FAILURE';const httpStatus=Number.isInteger(error?.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599?error.httpStatus:undefined;const rpcMethod=diagnosticRPCMethods.has(error?.rpcMethod)?error.rpcMethod:undefined;process.stderr.write(JSON.stringify({stage,phase:startupPhase,code:'PAEG_PUBLIC_ORIGINAL_OPERATION_FAILED',reason,httpStatus,rpcMethod,diagnostic:publicErrorDataV9(error),automaticRebroadcast:false,...rpcMetrics.readPublicRpcMetricsV1()})+'\n');};
 async function close(){
  stopping=true;acquisitionControl.abort();captureTimer?.cancel();return closing??=(async()=>{
+  try{
   clearInterval(startupProgress);startupChannel.unsubscribe(startupObserver);
   await startupReadCache?.close();
   let controlledCapture=false,coldReopenFenced=false;
@@ -55,12 +56,13 @@ async function close(){
   if(readOpening)try{readServer=await readOpening;}catch{}
   await readServer?.close();
   if(ingress)transport.closeOriginalPagedRemoteIngressBindingV4(ingress);
-  process.removeListener('SIGTERM',stop);process.removeListener('SIGINT',stop);process.removeListener('SIGUSR1',ignoreFinancialSignalBeforeReady);
   emit({stage:coldReopenFenced?'STOPPED_COLD_REOPEN_FENCED':'STOPPED',controlledCapture,coldReopenFenced,externalChainsStopped:false,automaticRebroadcast:false});
   captureChannelV25.unsubscribe(captureObserverV25);
+  }finally{process.removeListener('SIGTERM',stop);process.removeListener('SIGINT',stop);process.removeListener('SIGUSR1',ignoreFinancialSignalBeforeReady);}
  })();
 }
-function stop(){void close().catch(error=>{process.exitCode=1;failure('CAPTURE',error);});}
+let stopPromise;
+function stop(){stopPromise??=close().catch(error=>{process.exitCode=1;failure('CAPTURE',error);});}
 async function beginReadOnly(){
  const bytes=await readPrivateOperatorFileV4(PUBLIC_OPERATOR_STATE_V4,'operator.json');let input;
  try{input={...JSON.parse(bytes.toString('utf8')),providerDirectory:configuration.providerDirectory};if(!stopping){readOpening=openCapturedPublicReadServerV4(root,input,ingress,uniswapMode?.input??null,defiMode);readServer=await readOpening;}}
@@ -78,7 +80,9 @@ function captureToReadOnly(){
  })();
  void transition.catch(error=>{process.exitCode=1;failure('CAPTURE_TO_READ',error);stop();});
 }
-process.once('SIGTERM',stop);process.once('SIGINT',stop);
+// Keep both handlers until capture settles: another stop signal must not kill
+// the process halfway through retaining its original state.
+process.on('SIGTERM',stop);process.on('SIGINT',stop);
 try{
  startupPhase='CHECKING_RESOURCES';
  emit(await assertPublicStartupResourcesV12(root,(await original('packages/components/src/resources/private-resource-policy.mjs')).PRIVATE_RESOURCE_POLICY));
@@ -146,6 +150,7 @@ try{
   else if(partialReview&&initialFinancialReview){const openWithReview=recoveryMode==='RETAINED_PARTIAL_BOOTSTRAP_V5'?backend.reopenOriginalPagedPublicPartialNativeOperatorWithFinancialReviewV5:backend.startOriginalPagedPublicPartialNativeOperatorWithFinancialReviewV5;assert.equal(typeof openWithReview,'function','PAEG_PREBIRTH_ORIGINAL_OPENER_REQUIRED');acquisition=openWithReview(input,initialFinancialReview,ingress,acquisitionControl.signal);}else acquisition=openOriginal(input,ingress,acquisitionControl.signal);
   startupPhase='REOPENING_ORIGINAL';product=await acquisition;
   emit({stage:'ORIGINAL_COMPOSITION_OPENED',elapsedSeconds:Math.floor((Date.now()-startupStarted)/1000),...rpcMetrics.readPublicRpcMetricsV1()});
+  if(defiMode?.publicationOriginalModeV35&&!stopping){const published=await publishLivePublicSepoliaDefiSuccessorV35(root,configuration,product,defiMode);defiMode={...defiMode,mode:published.mode,state:published.state};delete defiMode.publicationOriginalModeV35;}
   if(defiMode&&!stopping){startupPhase='RENEWING_EMPTY_SOURCE4_7';assertReopenedPublicSepoliaDefiConnectionsV11(await backend.readOriginalPagedPublicSepoliaDefiConnectionsV8(product),defiMode);const renewal=await completeLivePublicEmptySourceRenewalV10(root,product);if(renewal){const published=await publishLivePublicSepoliaDefiRenewalV10(root,configuration,product,defiMode,renewal);defiMode={...defiMode,state:published.state,mode:published.mode};emit({stage:'EMPTY_SOURCES_RENEWED_LIVE',...renewal,...rpcMetrics.readPublicRpcMetricsV1()});}}
   if(startupReadCache){await startupReadCache.close();startupReadCache=null;emit({stage:'STARTUP_HISTORY_CACHE_CLOSED',...historyCache.readPublicFinalizedCacheMetricsV16()});}
   startupLedger.complete('EMPTY_RENEWAL');startupPhase='PUBLISHING_CONNECTIONS';
@@ -176,6 +181,12 @@ try{
    }
    if(phone&&!stopping&&!transition)await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(phone)+'\n'),'paired-phone-connection.json');
    if(uniswapMode&&!stopping&&!transition){const mixed=backend.readOriginalPagedPublicUniswapMixedConnectionV5(product),flat=backend.readOriginalPagedPublicUniswapFlatConnectionV5(product);assert.equal(mixed.descriptor.devicePublicKey,phone.descriptor.devicePublicKey,'PAEG_UNISWAP_PHONE_BINDING');await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(mixed)+'\n'),'paired-uniswap-connection.json');await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,Buffer.from(JSON.stringify(flat)+'\n'),'paired-uniswap-flat-connection.json');}
+   if(uniswapMode&&!stopping&&!transition)backend.installOriginalPagedPublicSourceSuccessorPublicationV35(product,async()=>{
+    assert.ok(!stopping&&!transition,'PAEG_SUCCESSOR_PUBLICATION_CLOSED');
+    if(defiMode){const published=await publishLivePublicSepoliaDefiSuccessorV35(root,configuration,product,defiMode);defiMode={...defiMode,state:published.state,mode:published.mode,connections:await backend.readOriginalPagedPublicSepoliaDefiConnectionsV8(product)};}
+    const current=backend.readOriginalPagedPublicUniswapMixedConnectionV5(product),bytes=Buffer.from(JSON.stringify(current)+'\n');
+    try{assert.equal(current.descriptor.devicePublicKey,uniswapMode.input.mixed.devicePublicKey);await publishOriginalPublicConnectionFileV4(PUBLIC_OPERATOR_STATE_V4,bytes,'paired-uniswap-connection.json');}finally{bytes.fill(0);}
+   });
    if(!stopping&&!transition)financialControl=await openOriginalPublicFinancialEpochControlV5(product,async expiresAt=>{assert.ok(!stopping&&!transition,'PAEG_FINANCIAL_CAPTURE_ALREADY_STARTED');assert.ok(Number.isSafeInteger(expiresAt)&&expiresAt>0,'PAEG_FINANCIAL_CAPTURE_WINDOW');captureTimer?.cancel();financialDeadline=expiresAt;captureTimer=armFiniteDeadlineV17(financialDeadline-30*60*1000,captureToReadOnly);});
    if(stopping)await close();else if(transition)await transition;else if(financialDeadline-30*60*1000<=Date.now())captureToReadOnly();else {startupLedger.complete('CONNECTIONS_PUBLISHED');startupLedger.complete('READY');clearInterval(startupProgress);startupChannel.unsubscribe(startupObserver);emit({stage:'READY',profile:product.profile,origin:product.origin,reopenedOriginalState:product.reopenedOriginalState,rootWalletAccess:product.descriptor.deadlineMs>Date.now()?'AUTHORIZED':'READ_ONLY',sources:(phone?2:1)+(uniswapMode?1:0)+(defiMode?1:0),...(uniswapMode?{defi:['UNISWAP'],wallets:2}:{}),...(defiMode?{preparedDefi:['AAVE_STATIC','MORPHO_V2'],defiFinancialReady:false}:{}),publicConnectionPath:join(PUBLIC_OPERATOR_STATE_V4,'paired-connection.json'),phoneConnectionPath:phone?join(PUBLIC_OPERATOR_STATE_V4,'paired-phone-connection.json'):null,publicReceiver:product.publicReceiver,automaticFunding:false,automaticRebroadcast:false,startupElapsedSeconds:Math.floor((Date.now()-startupStarted)/1000),...rpcMetrics.readPublicRpcMetricsV1(),...startupLedger.snapshot(rpcMetrics.readPublicRpcMetricsV1())});}
   }

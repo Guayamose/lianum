@@ -14,7 +14,9 @@ ExecStart=/var/lib/lianum-paeg-public/current/candidate/resources/tools/node --m
 KillMode=process
 KillSignal=SIGTERM
 SendSIGKILL=no
-TimeoutStopSec=900
+# Retaining a public composition can exceed 15 minutes of bounded RPC reads.
+# Keep a finite stop window while the entrypoint coalesces repeated signals.
+TimeoutStopSec=3600
 Restart=no
 NoNewPrivileges=yes
 ProtectSystem=strict
