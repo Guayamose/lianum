@@ -50,8 +50,8 @@
   ],
   "repository": {
     "url": "https://github.com/Guayamose/lianum",
-    "branch": "limpieza-estructura",
-    "defaultBranch": "limpieza-estructura",
+    "branch": "master",
+    "defaultBranch": "master",
     "readAccessVerified": true,
     "functionalCheckpointCommit": "8f2f33f3e526cbf421de973ccb99b99f54fe57a1",
     "readmeLanguage": "English",

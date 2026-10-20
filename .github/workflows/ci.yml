@@ -1,0 +1,53 @@
+name: CI
+
+# Reproducible checks from a clean clone: module contracts and the security-relevant
+# component suites. Laboratories that need retained local resources (native
+# runtimes, original proof artifacts, private custody) stay explicit; see
+# docs/VALIDATION.md.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install verified Node runtime
+        run: python3 scripts/development/prepare-host-runtime.py
+      - name: Install public dependencies
+        run: |
+          ./dev prepare host
+          ./dev prepare mobile
+          ./dev prepare api-server
+          ./dev npm --prefix services/agent ci --ignore-scripts
+      - name: Verify module contracts
+        run: |
+          ./dev boundaries
+          ./dev static
+          python3 -B scripts/development/workflow.py docs-check
+      - name: Wallet gateway
+        run: ./dev test --component wallet
+      - name: Device custody
+        run: ./dev test --component custody
+      - name: Mobile wallet
+        run: ./dev test --component mobile
+      - name: API server
+        run: ./dev test --component api-server
+      - name: Agent
+        run: ./dev test --component agent
+      - name: PAEG engine
+        run: ./dev test --component engine
+      - name: Protocol
+        run: ./dev test --component protocol

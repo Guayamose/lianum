@@ -40,11 +40,7 @@ The execution is sequential: audit of imports runtime—including Mobile—, bor
 
 Each performance retains its own report in `.internal/dev/reports/block-check-<id>/report.json`, with inventory, content footprint, review before/after and results per file. Skip tests, `todo`, expected failures or zero tests do not count as complete closure. A normal failure allows to check the following families; cancellation, orphan processes, run-out time or changes in sources prevent a complete result. The command does not install dependencies or prepare or adopt a generation: first fix the sources and environment with those responsible for the block. Economic drivers, browser and nameless phone `*.test.*` keep their acceptance paths separate; a host PASS does not credit them.
 
-El workflow [host-tests.yml](../.github/workflows/host-tests.yml) executes those controls from an empty checkout, without product credentials. There is no Git remote currently configured: its execution in GitHub is pending uploading the repository.
-
-El workflow [applications.yml](../.github/workflows/applications.yml) installs the public mobile and API locks, verifies contracts/types and exports the bundles. Also check real PostgreSQL in Docker and Terraform with simulated supplier. It does not require keys, GCP account or private laboratory status.
-
-The previous restoration checks keep their reports in `.internal/dev/reports/clean-*-ci*.json`; correspond to that review. GitHub Actions has not yet been executed remotely. Tool changes add small regressions of routes, installation, selection and generations. A remote is not published or configured as part of preparing the local environment.
+The workflow [ci.yml](../.github/workflows/ci.yml) runs from an empty checkout on every push, without product credentials. It installs the verified Node runtime and the public dependency locks, checks module boundaries, static imports and the command catalog, then runs the wallet, custody, mobile, API server, agent, engine and protocol component suites. Laboratories and checks that need retained local resources (native runtimes, original proof artifacts, private custody) remain explicit local commands.
 
 With Google Chrome installed, it also checks the real DOM of the disconnected wallet:
 
