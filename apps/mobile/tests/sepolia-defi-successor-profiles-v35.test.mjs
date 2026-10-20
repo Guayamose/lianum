@@ -1,0 +1,21 @@
+/** Public routing and atomic persistence only; no custody or execution grant. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {normalizeDevicePagedDescriptorV3} from '../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
+import {sepoliaDefiSourceFixtureV8} from './helpers/sepolia-defi-source-fixture-v8.mjs';
+import {sepoliaDefiFixtureV7} from './helpers/sepolia-defi-fixture-v7.mjs';
+import {sepoliaDefiSuccessorProfilesV35 as rebuild} from '../src/state/sepolia-defi-successor-profiles-v35.mjs';
+test('Aave and Morpho move together to one successor while target custody routes stay identical',async t=>{
+ t.mock.module('expo-crypto',{exports:{CryptoDigestAlgorithm:{SHA256:'SHA-256'},digest:async(_,bytes)=>createHash('sha256').update(bytes).digest()}});
+ const {createPublicConnectionRegistryV1}=await import('../src/state/public-connection-registry-v1.mjs'),a=sepoliaDefiSourceFixtureV8(),m={...sepoliaDefiFixtureV7('MORPHO_V2').connection,descriptor:a.paegSource.preparation.defi.targetDescriptors.MORPHO_V2,transport:a.transport,paegSource:a.paegSource},old=[a,m].map(value=>JSON.stringify(value)),connection={format:'DEVICE_PAGED_PRIVATE_GRAPH_CONNECTION_V3',descriptor:{...a.paegSource.descriptor,pairingId:'successor-source7-next-host'},transport:a.transport},pairing={descriptor:normalizeDevicePagedDescriptorV3(connection.descriptor),nativePreparation:a.paegSource.preparation},next=rebuild(old,connection,pairing);
+ assert.deepEqual(next.map(text=>JSON.parse(text).descriptor),old.map(text=>JSON.parse(text).descriptor));assert.ok(next.every(text=>JSON.parse(text).paegSource.descriptor.pairingId===connection.descriptor.pairingId));
+ assert.throws(()=>rebuild([old[0],old[0]],connection,pairing));assert.throws(()=>rebuild(old,{...connection,transport:{...connection.transport,certificateSHA256:'0'.repeat(64)}},pairing));assert.throws(()=>rebuild(old,connection,{...pairing,descriptor:a.paegSource.descriptor}));const changed=structuredClone(pairing);changed.nativePreparation.defi.targetDescriptors.MORPHO_V2.poolTerms.pool='9'.repeat(40);assert.throws(()=>rebuild(old,connection,changed));
+ const store=new Map();let fail=false,count=0;const storage={get:async key=>store.get(key)??null,set:async(key,value)=>{if(fail&&key.includes('.profile.')&&++count===2)throw Error('HOST_CHUNK_LOST');store.set(key,value);},remove:async key=>store.delete(key)},registry=createPublicConnectionRegistryV1({devicePublicKey:a.descriptor.devicePublicKey,storage});await registry.remember(old[0]);const selected=await registry.remember(old[1]);const indexKey=[...store.keys()].find(key=>key.endsWith('.index')),indexBefore=store.get(indexKey);
+ fail=true;await assert.rejects(registry.replaceDefiSourcesV35(old,next),/HOST_CHUNK_LOST/);fail=false;assert.equal(store.get(indexKey),indexBefore,'partial successor cannot become selected');assert.equal((await registry.selected('EXTERNAL_FLAT')).id,selected.id);
+ const updated=await registry.replaceDefiSourcesV35(old,next);assert.equal(updated.length,2);assert.equal((await registry.list()).length,2);assert.equal((await registry.selected('EXTERNAL_FLAT')).protocol,'MORPHO');assert.equal(JSON.parse(store.get(indexKey)).revision,JSON.parse(indexBefore).revision+1,'both sources change in one index commit');
+ for(const entry of updated){assert.equal(entry.observation,'UNKNOWN');const d=entry.descriptors[0];assert.equal((await registry.forRoute({origin:d.origin,pairingId:d.pairingId,pool:d.poolTerms.pool})).id,entry.id);}
+ // An API snapshot can be rediscovered; applying the durable source override
+ // removes the obsolete twin profiles and preserves selected target identity.
+ await registry.remember(old[0],{select:false});await registry.remember(old[1],{select:false});await registry.replaceDefiSourcesV35(old,next);assert.equal((await registry.list()).length,2);const reopened=createPublicConnectionRegistryV1({devicePublicKey:a.descriptor.devicePublicKey,storage});assert.equal((await reopened.selected('EXTERNAL_FLAT')).protocol,'MORPHO');assert.ok((await reopened.list()).every(entry=>JSON.parse(entry.profile).paegSource.descriptor.pairingId===connection.descriptor.pairingId));
+});

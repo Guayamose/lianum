@@ -1,3 +1,4 @@
+import {DEVICE_OPERATION_REQUEST_MS_V41} from '@lianum/mobile-protocol/device/paged-owner-v3';
 /** Fixed paired transport for already reviewed Original DeFi jobs. Read calls
  * use the unlocked session; only the existing review/note signer authorizes
  * effects. A lost write reply is observed, never automatically submitted again. */
@@ -10,7 +11,7 @@ import {assertOriginalDeviceExternalFlatNoteVaultV1} from '../custody/device-ext
 import {signWalletSessionExternalV1} from '../custody/wallet-session-v1.ts';
 const need=value=>{if(!value)throw Error('MOBILE_SEPOLIA_DEFI_FINANCIAL_BINDING');};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-const publicErrors=new Set(['SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED','SEPOLIA_DEFI_PROPOSAL_SPONSOR_WINDOW','SEPOLIA_DEFI_PROPOSAL_INPUT_LIMIT','SEPOLIA_DEFI_PROPOSAL_MINIMUM_OUTPUT','SEPOLIA_DEFI_PROPOSAL_LIQUIDITY','SEPOLIA_DEFI_PROPOSAL_SHARE_LIMIT']);
+const publicErrors=new Set(['SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED','SEPOLIA_DEFI_PROPOSAL_SPONSOR_WINDOW','SEPOLIA_DEFI_PROPOSAL_INPUT_LIMIT','SEPOLIA_DEFI_PROPOSAL_MINIMUM_OUTPUT','SEPOLIA_DEFI_PROPOSAL_LIQUIDITY','SEPOLIA_DEFI_PROPOSAL_TOKEN_FUNDS_REQUIRED','SEPOLIA_DEFI_PROPOSAL_SHARE_LIMIT']);
 export function createDeviceSepoliaDefiFinancialApiV7({connection,fetchImpl=globalThis.fetch}={}) {
   const profile=normalizeDeviceSepoliaDefiConnectionV7(connection),d=profile.descriptor;
   need(typeof fetchImpl==='function');
@@ -22,7 +23,10 @@ export function createDeviceSepoliaDefiFinancialApiV7({connection,fetchImpl=glob
     need(new TextEncoder().encode(body).length<=8192);
     const controller=new AbortController();controllers.add(controller);let reader,timer,bytes;
     const stop=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('MOBILE_SEPOLIA_DEFI_REQUEST_CLOSED')),{once:true}));
-    timer=setTimeout(()=>controller.abort(),30000);
+    // Preparation can warm the service before it issues a fresh short consent.
+    // Financial effects keep their original timeout and are never replayed.
+    const timeoutMs=DEVICE_OPERATION_REQUEST_MS_V41;
+    timer=setTimeout(()=>controller.abort(),timeoutMs);
     const work=(async()=>{
       const response=await fetchImpl(target,{method:'POST',headers:{Accept:'application/json',Origin:d.origin,'Content-Type':'application/json','x-lianum-defi-pairing-id':d.pairingId},body,redirect:'error',credentials:'omit',cache:'no-store',signal:controller.signal});
       live();need(!controller.signal.aborted&&!response.redirected&&(!response.url||response.url===target)&&/^application\/json(?:;\s*charset=utf-8)?$/i.test(response.headers.get('content-type')??''));

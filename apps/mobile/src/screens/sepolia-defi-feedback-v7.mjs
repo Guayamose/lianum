@@ -1,4 +1,5 @@
 const messages=Object.freeze({
+  SEPOLIA_DEFI_PROPOSAL_TOKEN_FUNDS_REQUIRED:"The test funding account does not have enough of this investment’s USDC. No investment has been authorized. The service must replenish the correct test token before you continue.",
   MOBILE_PAGED_NOTE_EPOCH_TOO_SHORT:"There is little time left in the current network window. Preparation has not started. Wait at most three minutes and reauthorize the same entry or withdrawal.",
   SEPOLIA_DEFI_PAEG_CAPITAL_NOT_CONNECTED:"The investment is not yet available: you need to connect the fund reserve. Do not authorize or send another transaction to resolve it.",
   SEPOLIA_DEFI_PROPOSAL_SPONSOR_WINDOW:"The service needs to renew its temporary authorization before preparing this investment. No other transfer has been authorized.",
@@ -14,6 +15,7 @@ const messages=Object.freeze({
   MOBILE_SEPOLIA_DEFI_EXISTING_OPERATION:"This account retains an investment prepared. It continues the same operation to maintain its budget and reception.",
   MOBILE_SEPOLIA_DEFI_ALREADY_AUTHORIZED:"The investment already has an authorization on the server. Please check its progress without reauthorizing it.",
   MOBILE_SEPOLIA_DEFI_ORIGINAL_SEND_PENDING:"The server retains the original operation pending confirmation. Please check its progress before authorizing or sending another one.",
+  MOBILE_SEPOLIA_DEFI_PREPARATION_EXPIRED:"The saved investment request has passed its original authorization deadline. Its budget and history are preserved; do not repeat the deposit. Recovery must check that original request before preparing another investment.",
   MOBILE_SEPOLIA_DEFI_EXECUTION_WINDOW:"The deadline for this test connection is too short. The service must renew its authorization before preparing the investment.",
   MOBILE_AUTHENTICATION_CANCELLED:"You can check the same operation anytime you want.",
   MOBILE_SEPOLIA_DEFI_RECIPIENT:"Enter a valid Ethereum address to receive USDC in Sepolia.",

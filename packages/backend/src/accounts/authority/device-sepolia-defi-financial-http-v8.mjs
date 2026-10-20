@@ -49,7 +49,7 @@ export function createOriginalDeviceSepoliaDefiFinancialHttpV8(runtime,account){
     assert.equal(data.job.financialRequested,true,'SEPOLIA_DEFI_FINANCIAL_INTENT_REQUIRED');assert.equal(data.job.capitalNodeId,payload.capitalNodeId,'SEPOLIA_DEFI_CAPITAL_NODE_REBOUND');requireSource();await source.Core.bindOriginalPagedPublicNativeSepoliaDefiPreparationV8(source.provider,slot(data),{id:data.job.capitalNodeId});return normalizeDeviceSepoliaDefiFinancialStatusV7({jobId:data.job.jobId,reference:data.review.reference,phase:'PREPARED',transactionHash:null,canonical:false,protocol:binding.protocol,kind:'INVEST'});
    }
    redeemReview(data);
-   if(action==='withdrawal-review')return{consent:await A.challengeOriginalDeviceSepoliaDefiWithdrawalV4(slot(data))};
+   if(action==='withdrawal-review'){await warmBeforeChallenge();return{consent:await A.challengeOriginalDeviceSepoliaDefiWithdrawalV4(slot(data))};}
    if(action==='withdrawal-arm'){
     if(data.financial.submission?.dispatchLatched||data.job.stage!=='PROVED')return observe(data,'WITHDRAW');
     const command=await A.armOriginalDeviceSepoliaDefiWithdrawalCommandV4(slot(data),payload.consent,payload.consentSignature);return execute(data,'WITHDRAW',command);
@@ -80,8 +80,9 @@ export function createOriginalDeviceSepoliaDefiFinancialHttpV8(runtime,account){
  }
  function background(){if(workerRunning||closed)return;workerRunning=true;runApprovedPending().catch(()=>{}).finally(()=>{workerRunning=false;});}
  function scheduleApprovedWork(){if(kick||closed)return;kick=setImmediate(()=>{kick=null;background();});kick.unref?.();}
- const dispatcher=Object.freeze({descriptor,dispatch,runExclusive:serial,runApprovedPending,assertPaegSource:requireSource,async warmAfterProof(){requireSource();await source.Core.warmOriginalPagedPublicNativeSepoliaDefiDispatchV8(source.provider);await A.assertOriginalDeviceSepoliaDefiFinancialAccountV8(account);},
-  startApprovedWorker(){assert.equal(arguments.length,0);current();if(!source.provider)return;requireSource();if(!timer){timer=setInterval(background,5000);timer.unref?.();}scheduleApprovedWork();},
+ async function warmBeforeChallenge(){requireSource();await source.Core.warmOriginalPagedPublicNativeSepoliaDefiDispatchV8(source.provider);await A.assertOriginalDeviceSepoliaDefiFinancialAccountV8(account);}
+ const dispatcher=Object.freeze({descriptor,dispatch,runExclusive:serial,runApprovedPending,assertPaegSource:requireSource,warmBeforeChallenge,warmAfterProof:warmBeforeChallenge,
+  startApprovedWorker(){assert.equal(arguments.length,0);current();if(!source.provider)return;requireSource();source.Core.startOriginalPagedPublicNativeSepoliaDefiDispatchV8(source.provider);if(!timer){timer=setInterval(background,5000);timer.unref?.();}scheduleApprovedWork();},
   async close(){if(closing)return closing;closed=true;clearInterval(timer);clearImmediate(kick);timer=null;kick=null;return closing=(async()=>{await work;})();},
  });originals.set(dispatcher,{runtime,account,binding,current,source,assertIdle(){assert.equal(queued,0,'SEPOLIA_DEFI_FINANCIAL_MOUNT_BUSY');}});return dispatcher;
 }

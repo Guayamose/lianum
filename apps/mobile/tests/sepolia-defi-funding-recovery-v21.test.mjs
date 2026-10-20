@@ -5,20 +5,21 @@ import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
 import ts from '../node_modules/typescript/lib/typescript.js';
 import * as P from '../../../packages/mobile-protocol/src/device-paged-owner-v3.mjs';
+import {readDevicePagedStatusV3} from '../src/api/device-paged-owner-api-v3.mjs';
 import {deviceSepoliaDefiFeedbackV7} from '../src/screens/sepolia-defi-feedback-v7.mjs';
 const source=await readFile(new URL('../src/api/device-sepolia-defi-paeg-investment-v8.ts',import.meta.url),'utf8');
-const tree=ts.createSourceFile('actor.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);let method;
-function find(n){if(ts.isPropertyAssignment(n)&&n.name.getText(tree)==='fund')method=n.initializer;ts.forEachChild(n,find);}find(tree);assert.ok(method);
-function funding(summary,proofResult={stage:'PROVED'}){const calls=[],jobId='same-original-deposit',prepared={draft:{action:'PROVE_D26',jobId},witness:{HOST:true}};
- const host={serial:fn=>fn(),sourceReady:()=>{},source:{origin:'https://host.invalid',pairingId:'host'},signal:new AbortController().signal,P,status:{HOST:true},need:(ok,code)=>{assert.ok(ok,code);},readSource:async()=>{calls.push('read');return summary;},
+const tree=ts.createSourceFile('actor.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);let method,pendingObservation,preparationRead;
+function find(n){if(ts.isPropertyAssignment(n)&&n.name.getText(tree)==='fund')method=n.initializer;if(ts.isFunctionDeclaration(n)&&n.name?.text==='observePendingDeposit')pendingObservation=n;if(ts.isFunctionDeclaration(n)&&n.name?.text==='readSourceForPreparation')preparationRead=n;ts.forEachChild(n,find);}find(tree);assert.ok(method&&pendingObservation&&preparationRead);
+function funding(summary,proofResult={stage:'PROVED'},validateStatus=readDevicePagedStatusV3){const calls=[],jobId='same-original-deposit',prepared={draft:{action:'PROVE_D26',jobId},witness:{HOST:true}};
+ const host={readDevicePagedStatusV3:validateStatus,serial:fn=>fn(),sourceReady:()=>{},source:{origin:'https://host.invalid',pairingId:'host'},signal:new AbortController().signal,P,status:{HOST:true},need:(ok,code)=>{assert.ok(ok,code);},readSource:async()=>{calls.push('read');return summary;},
   sourceVault:{summary:async()=>summary,effectDraft:async(action,id)=>{calls.push(action);assert.equal(id,jobId);return{action,jobId:id};},prearmDraft:async d=>d,consumeArm:async()=>{},acceptRow:async()=>{},prepareEpochRetry:async(_status,id)=>{assert.equal(id,jobId);calls.push('same-note-reproof');return prepared;},prepareDeposit:async()=>assert.fail('must not allocate another deposit'),resumePreparedDeposit:async()=>assert.fail('must reuse the original job')},
   sourceApi:{challenge:async d=>d,submit:async c=>({jobId:c.jobId,...proofResult})},signDevicePagedOwnerPermissionV3:async()=> 'HOST_NO_REAL_SIGNATURE',approveWalletSessionPagedDepositV1:async()=>{calls.push('approve');return{HOST:true};},bindWalletSessionPagedDepositV1:()=>calls.push('bind'),closeWalletSessionAuthorizationV1:()=>calls.push('close-approval'),fundingEffect:async row=>{assert.equal(row.jobId,jobId);calls.push('fund-same-job');}};
- const code=ts.transpileModule('const fund='+method.getText(tree)+';fund',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
+ const code=ts.transpileModule(pendingObservation.getText(tree)+'\n'+preparationRead.getText(tree)+'\nconst fund='+method.getText(tree)+';fund',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText;
  return{fund:vm.runInNewContext(code,host),calls};
 }
 test('a pending funding button observes its original job without another proof, approval or send',async()=>{
  const ui=funding({noteState:'UNKNOWN',pending:{jobId:'same-original-deposit'},jobs:[{jobId:'same-original-deposit',mode:'deposit',stage:'UNKNOWN'}]});
- await ui.fund('1000');assert.deepEqual(ui.calls,['read','OBSERVE_JOB','read']);
+ await ui.fund('1000');assert.deepEqual(ui.calls,['OBSERVE_JOB','read']);
 });
 test('an expired funding proof renews the same note/job with a fresh approval',async()=>{
  const ui=funding({noteState:'UNKNOWN',pending:null,jobs:[{jobId:'same-original-deposit',mode:'deposit',stage:'FAILED',errorCode:P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8}]});
@@ -30,7 +31,17 @@ test('expiry during reproof reports the actual failure and closes approval witho
  await assert.rejects(ui.fund('1000'),error=>error.message===P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8);
  assert.deepEqual(ui.calls,['read','same-note-reproof','approve','close-approval']);
  const message=deviceSepoliaDefiFeedbackV7(Error(P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8));
- assert.match(message,/caducado/);assert.ok(!message.includes('sigue pendiente'));
+ assert.match(message,/expired/);assert.ok(!message.includes('still pending'));
+});
+test('fresh SDK observation avoids a duplicate preparation read while keeping fresh approval and the same funding job',async()=>{
+ const summary={noteState:'UNKNOWN',pending:null,jobs:[{jobId:'same-original-deposit',mode:'deposit',stage:'FAILED',errorCode:P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8}]};
+ const ui=funding(summary,undefined,status=>{assert.equal(status.HOST,true);return status;});
+ await ui.fund('1000');assert.deepEqual(ui.calls,['same-note-reproof','approve','bind','fund-same-job','read','close-approval']);
+});
+test('an expired observation falls back to a new read before preparing or approving',async()=>{
+ const summary={noteState:'UNKNOWN',pending:null,jobs:[{jobId:'same-original-deposit',mode:'deposit',stage:'FAILED',errorCode:P.DEVICE_PAGED_NOTE_EPOCH_REPROOF_V8}]};
+ const ui=funding(summary,undefined,()=>{throw Error('HOST_EXPIRED_STATUS');});
+ await ui.fund('1000');assert.deepEqual(ui.calls,['read','same-note-reproof','approve','bind','fund-same-job','read','close-approval']);
 });
 const uiSource=await readFile(new URL('../src/screens/SepoliaDefiInvestmentScreenV8.tsx',import.meta.url),'utf8');
 const uiTree=ts.createSourceFile('screen.tsx',uiSource,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX),functions=[];
