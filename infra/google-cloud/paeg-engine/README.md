@@ -1,5 +1,9 @@
 # Execution engine deployment
 
+<p><a href="../../../README.md"><img src="../../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../../docs/README.md) · [Architecture](../../../docs/ARCHITECTURE.md) · [Validation](../../../docs/VALIDATION.md)
+
 The default `local` profile prepares a **new LOCAL synthetic mixed operator** on Linux x86-64: one Paged
 hub, separate Ethereum/Bitcoin/Solana fixtures and the official Uniswap fixture
 with fake tokens. It does not deploy PAEG to public chains or make those provider

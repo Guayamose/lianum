@@ -1,5 +1,7 @@
 # Wallet Shared Client
 
+[Lianum documentation](../../../../../docs/README.md) · [Architecture](../../../../../docs/ARCHITECTURE.md) · [Validation](../../../../../docs/VALIDATION.md)
+
 This code serves both the browser and the local SDK. It has no keys, economic authority or persistent storage. The interface revisions describe the original terms; the backend retains the authorization and execution decision.
 
 | Folder / File | Responsibility | Where to change something |

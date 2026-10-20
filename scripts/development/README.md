@@ -1,5 +1,9 @@
 # Development tooling
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 Run commands from the repository root:
 
 ```sh

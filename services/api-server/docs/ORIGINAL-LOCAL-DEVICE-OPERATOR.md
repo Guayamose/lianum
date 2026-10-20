@@ -1,5 +1,9 @@
 # Paired local device operator
 
+<p><a href="../../../README.md"><img src="../../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../../docs/README.md) · [Architecture](../../../docs/ARCHITECTURE.md) · [Validation](../../../docs/VALIDATION.md)
+
 This entry creates a new original local EVM realm and pairs one device public
 key. It serves the app's existing D26, U/S, execution, output READ and W39 clients
 on one TLS origin. It has no SQL/Cloud executor and uses local fake values.

@@ -1,11 +1,22 @@
-# Product vision
+# Product direction
 
-Lianum aims to make a complex financial action feel like one understandable decision. The user should see their capital, available and reserved amounts, active operations and exposure in one wallet, then use a persistent agent to understand options and prepare a plan.
+[Project overview](README.md) · [Documentation](docs/README.md)
 
-The agent's usefulness depends on an execution system that can enforce what the user approved. PAEG connects that experience to explicit dependencies, budgets, proofs and settlement rules across heterogeneous networks. The mobile device remains the authority boundary: intelligence helps construct a plan, while the user reviews its concrete financial terms.
+**Make a complex financial action feel like one understandable decision.** A user should see their available capital, reservations, active operations and exposure in one wallet, then use a persistent agent to understand options and prepare a plan.
 
-The implemented foundation includes the native wallet, independent agent service, API gateway, PAEG engine, proof pipeline, recovery journals and supported DeFi integrations. Mainnet and Testnet wallet environments are explicit. The current evidence includes public native testnet transfers and composed local financial integrations; complete public PAEG and DeFi acceptance has its own checklist.
+PAEG connects that experience to explicit dependencies, budgets, scoped proofs and settlement rules across heterogeneous networks. The phone remains the authority boundary: intelligence helps construct the plan, and the owner reviews its concrete financial terms.
 
-The broader direction is a more general financial assistant: richer strategies, more networks and protocols, clearer portfolio accounting, faster execution, and eventually fiat onboarding. MoonPay and unrestricted autonomous mainnet execution are not completed capabilities of the present delivery.
+## The foundation
 
-Read the [architecture](docs/ARCHITECTURE.md), [execution model](docs/FINANCIAL-EXECUTION.md), [current status](STATUS.md) and [roadmap](ROADMAP.md). Earlier design decisions are retained in the [historical vision](docs/history/2026-10-19/PROJECT-VISION.md).
+| Product layer | Role |
+| --- | --- |
+| Mobile wallet | Protected authority, portfolio, native transfers and financial review |
+| Persistent agent | One conversation, bounded context, tools, voice and follow-ups |
+| Execution engine | Private accounting, graph execution, evidence, compensation and recovery |
+| Shared platform | Authenticated APIs, explicit network contexts, durable state and source integrity |
+
+## Direction
+
+The broader direction is richer financial strategies, wider network/protocol coverage, clearer private/DeFi portfolio accounting and measured execution-latency improvements. Fiat onboarding, including MoonPay, is an extension rather than a completed capability of this delivery.
+
+The [architecture](docs/ARCHITECTURE.md) explains the implemented boundaries. [Validation](docs/VALIDATION.md) provides the recorded demonstration scope; product direction is not an acceptance claim for unrestricted autonomous mainnet execution.

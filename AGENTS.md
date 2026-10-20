@@ -21,6 +21,6 @@ Retained cryptographic artifacts have immutable provenance. Use `docs/SOURCE-GEN
 
 Read `docs/WORKFLOW.md`. Run the affected regression or component suite first, and `./dev check` once when closing a code change. `./dev test --changed --plan` describes selection without running it. Documentation alone does not need an economic campaign. UI changes do not require restarting the engine.
 
-Deployment, public readiness and financial acceptance are different results. Report each with its actual evidence. `docs/VALIDATION.md` and `docs/submission/execution-evidence.json` identify the recorded scopes; `STATUS.md` tracks unresolved acceptance.
+Deployment, public readiness and financial acceptance are different results. Report each with its actual evidence. `docs/VALIDATION.md` and `docs/submission/execution-evidence.json` identify the recorded scopes; `docs/VALIDATION.md` centralizes demonstrated scope and unresolved acceptance.
 
-Keep current documentation and user-visible mobile copy in English. Preserve technical detail in references and put dated investigations in `docs/history`, rather than appending them to the main README or current status. Do not commit secrets, private state, build output or presentation working directories.
+Keep current documentation and user-visible mobile copy in English. Preserve technical detail in references and keep dated investigations in the private `.local/documentation-archive`, rather than appending them to the main README or current status. Do not commit secrets, private state, build output or presentation working directories.

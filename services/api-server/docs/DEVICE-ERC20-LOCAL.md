@@ -1,5 +1,9 @@
 # Local service for an ERC20 note
 
+<p><a href="../../../README.md"><img src="../../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../../docs/README.md) · [Architecture](../../../docs/ARCHITECTURE.md) · [Validation](../../../docs/VALIDATION.md)
+
 This entry prepares a new lab realm with the Anvil fixed and the USDC local six decimals of the original fixture. Create the device's system and account before opening TLS. It does not generate user keys or test, finance or remove a note when booting. He doesn't publish contracts on a public network.
 
 The root and note key remain in the app. The public identity key of the device is used to match; the private key TLS belongs to the operator. Openings are sent only to the original worker when the test is authorized.
@@ -18,12 +22,12 @@ Keep it there. `operator.json` with mode 600. No additional fields allowed:
 
 ```json
 {
-  "origin": "https://HOST_CON_CERTIFICADO:9447",
-  "devicePublicKey": "04_CLAVE_PUBLICA_ORIGINAL_DE_128_HEX",
+  "origin": "https://CERTIFICATE_HOST:9447",
+  "devicePublicKey": "04_ORIGINAL_PUBLIC_KEY_128_HEX",
   "depositAmountAtomic": "500",
   "tls": {
-    "certificate": "PEM_DEL_CERTIFICADO_TLS_DEL_OPERADOR",
-    "privateKey": "PEM_DE_LA_CLAVE_TLS_DEL_OPERADOR"
+    "certificate": "OPERATOR_TLS_CERTIFICATE_PEM",
+    "privateKey": "OPERATOR_TLS_PRIVATE_KEY_PEM"
   }
 }
 ```
@@ -32,7 +36,7 @@ Replaces those bookmarks with the actual public key of the app, the exact Origin
 
 `depositAmountAtomic` It's a positive integer in atomic units. For this USDC, `500` means `0.000500 USDC`. The boot approves exactly that amount for the original pool once; it does not grant infinite allowance or renew it. The amount entered in the app must match. The approval prepares the laboratory token and does not finance the note.
 
-From the root of the project, starts the only fixed streetr without arguments:
+From the root of the project, starts the fixed launcher without arguments:
 
 ```sh
 env -u NODE_OPTIONS -u NODE_PATH .internal/dev/toolchains/node-v24.19.0-linux-x64/bin/node --max-old-space-size=384 scripts/development/profiles/run-device-external-flat-local-v1.mjs

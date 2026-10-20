@@ -1,5 +1,9 @@
 # Fixed owned EVM native-value profiles
 
+<p><a href="../../../README.md"><img src="../../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../README.md) · [Architecture](../../ARCHITECTURE.md) · [Validation](../../VALIDATION.md)
+
 Status: source-only, disabled release. No actual positive native-value execution,
 new admission key, proof, generated verifier or production-client acceptance is
 established by this patch. Host checks are not integrated wallet acceptance.

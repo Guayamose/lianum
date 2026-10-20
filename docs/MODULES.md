@@ -1,5 +1,9 @@
 # Modules and dependencies
 
+<p><a href="../README.md"><img src="assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](README.md) · [Architecture](ARCHITECTURE.md) · [Validation](VALIDATION.md)
+
 Each JavaScript package declares its public entries in `package.json` by `exports`. Consumers use these entries and stated dependencies:
 
 ```js

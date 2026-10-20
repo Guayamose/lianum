@@ -1,5 +1,7 @@
 # Native account authority operations
 
+[Lianum documentation](../../../../../../docs/README.md) · [Architecture](../../../../../../docs/ARCHITECTURE.md) · [Validation](../../../../../../docs/VALIDATION.md)
+
 The entry point is `../native-value-account-authority-v2.mjs`. It creates and registers the original account, vault, operation lock and capture/closure/recovery state. Modules in this directory are backend-private: constructing a factory does not register an account or grant financial authorization.
 
 | File `native-value-authority-…` | Responsibility | Owned state |

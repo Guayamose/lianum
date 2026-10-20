@@ -1,5 +1,9 @@
 # Wrapped custody plus generic graph deployment V1
 
+<p><a href="../../../README.md"><img src="../../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../README.md) · [Architecture](../../ARCHITECTURE.md) · [Validation](../../VALIDATION.md)
+
 Status: source-only, not activated. All operational, deployment, and proof release constants remain null. No compiler, prover, ACVM, native node, signing, funding, deployment, or network operation was run for this change.
 
 ## Distinct contract identity

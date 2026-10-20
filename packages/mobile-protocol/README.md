@@ -1,5 +1,9 @@
 # Mobile public protocol
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 Shared contracts for mobile, wallet clients, platform and backend. They contain no private keys, Node-only dependencies or authority to credit funds.
 
 `src/wallet/contracts/` owns the schemas, validators and reviews previously located in the web client. `src/wallet/client/view-model.mjs` provides shared projection and explicit transport with an injected `fetchImpl`. Tokens stay in memory; it does not access the DOM. Former wallet paths re-export these implementations.

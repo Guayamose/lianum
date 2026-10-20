@@ -1,5 +1,9 @@
 # Integrated generations, manual authorization and DeFi recovery
 
+<p><a href="../../../README.md"><img src="../../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../README.md) · [Architecture](../../ARCHITECTURE.md) · [Validation](../../VALIDATION.md)
+
 The current source selects one private mixed portfolio keeper/journal before
 admission. TOP_UP/EXIT expiry can reach a positively proven, durably retained
 no-dispatch state. Only a new explicit owner review/confirmation advances that

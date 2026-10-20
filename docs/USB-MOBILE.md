@@ -1,5 +1,9 @@
 # Build and test on an Android phone
 
+<p><a href="../README.md"><img src="assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](README.md) · [Architecture](ARCHITECTURE.md) · [Validation](VALIDATION.md)
+
 A standalone local APK contains the JavaScript bundle and can connect to the configured public API without Metro. USB is needed for installation and device diagnostics, not for keeping the cloud engine running. See the [mobile guide](../apps/mobile/README.md) for build prerequisites.
 
 ## Install while preserving app data
@@ -43,4 +47,4 @@ Removing a USB tunnel does not reopen or reset the engine. Start a new financial
 
 Windows ADB can manage a phone connected to Windows without attaching it to WSL through USBIP. Use one known Google Platform Tools installation and, if needed, a dedicated server port such as `5038`; pass the same port to every command. The reverse connection terminates on the ADB host, so confirm that the WSL operator is reachable from Windows before importing its public profile. A Linux ADB installation is an alternative only when it actually lists the authorized phone.
 
-Earlier clock, TLS, storage and physical-device investigations are retained in the [engineering journal](history/2026-10-19/STATUS.md) and the original-language version of this guide in Git history. Short host-clock samples or a successful installation alone do not demonstrate financial acceptance.
+Record the installed release and operation evidence together. The [validation guide](VALIDATION.md) distinguishes successful installation, physical approval and confirmed financial results.

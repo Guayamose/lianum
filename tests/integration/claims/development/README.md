@@ -1,5 +1,7 @@
 # Private laboratory of claims BTC/SOL
 
+[Lianum documentation](../../../../docs/README.md) · [Architecture](../../../../docs/ARCHITECTURE.md) · [Validation](../../../../docs/VALIDATION.md)
+
 `./dev lab claims` creates a new lab with synthetic backgrounds. First it validates or reuses the revised public compilation of the original CI51 and CO42 circuits; then it executes the fixed income and redemption profile. Historical runners remain closed and a lost private acceptance is not recovered.
 
 The path of each asset is D27 → original native income → CI51 → private note → EXIT by original HTTP (W39) → redemption by original HTTP → original payout → CO42. Eight real proofs are expected for BTC and SOL. The system retains the contracts, keys/VK, four registered operators, the V4 quorum and the original WeakMap authorities. Graph peers participate in their original source coverage, but do not send out graph transfers.

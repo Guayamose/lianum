@@ -1,5 +1,9 @@
 # Repository map
 
+<p><a href="../README.md"><img src="assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](README.md) · [Architecture](ARCHITECTURE.md) · [Validation](VALIDATION.md)
+
 Lianum separates the mobile application, independently deployed services, shared libraries, contracts and validation tools. Start with [the architecture](ARCHITECTURE.md) for the relationship between them.
 
 ## Application and services
@@ -53,4 +57,4 @@ The old local web application has been retired. Its retained HTTP/browser fixtur
 
 The resource inventory is [`scripts/development/resources/public-resources.json`](../scripts/development/resources/public-resources.json). Use `./dev resources status` to inspect classification and `./dev clean` for explicitly regenerable paths. Never assume an entire `.local` tree is disposable.
 
-Current documentation starts at [docs/README.md](README.md). Dated engineering records live in [docs/history](history/README.md). Earlier archive labels can remain inside immutable manifests as provenance; they do not imply those historical directories are active source roots. Presentation working files and large videos remain local until final delivery packaging.
+Current documentation starts at [docs/README.md](README.md). Public documentation follows the product/reference routes in that index; internal engineering journals are retained locally outside the published tree. Earlier archive labels can remain inside immutable manifests as provenance; they do not imply those historical directories are active source roots. Presentation working files and large videos remain local until final delivery packaging.

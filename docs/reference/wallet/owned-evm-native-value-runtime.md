@@ -1,5 +1,9 @@
 # Owned EVM native-value runtime V1
 
+<p><a href="../../../README.md"><img src="../../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../README.md) · [Architecture](../../ARCHITECTURE.md) · [Validation](../../VALIDATION.md)
+
 This is inactive, source-only integration work. No actual runtime, key, signature,
 transaction, deployment, compiler or prover was run for this change. The source
 and synthetic lower-port checks do not establish an accepted graph delivery.

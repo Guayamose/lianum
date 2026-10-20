@@ -1,4 +1,8 @@
-# Migrations of the permit register
+# Authorization registry migrations
+
+<p><a href="../../../README.md"><img src="../../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../../docs/README.md) · [Architecture](../../../docs/ARCHITECTURE.md) · [Validation](../../../docs/VALIDATION.md)
 
 The executable list is set to `src/storage/schema-migrations.mjs`. Each version unites a file name and its SHA256. The runner checks those bytes before opening a connection; it does not scan the folder or accept routes, SQL or an alternative plan.
 
@@ -21,7 +25,7 @@ The first command prints only status, version and applied versions. It does not 
 
 Normal booting and `store.ready()` They only read the history and shape of the scheme. `createPostgresAuthorizationStore(pool)` preserves its async builder and creates access without DDL: whoever prepares a new base must explicitly migrate it. The store’s queries always point to `public`, even if the SQL URL changes the `search_path`. Test fixtures migrate their own isolated bases.
 
-## Concurrence and errors
+## Concurrency and errors
 
 A transaction includes the common lock `pg_advisory_xact_lock`, the creation or adoption of the schema and row of `public.platform_schema_migrations`. Two concurrent migrators are serialized and each version is registered once. The application date does not change when repeating an already completed command.
 

@@ -1,5 +1,9 @@
 # Product API and SDK
 
+<p><a href="../../README.md"><img src="../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../README.md) · [Architecture](../ARCHITECTURE.md) · [Validation](../VALIDATION.md)
+
 This reference describes the implemented wallet and financial contracts. Versioned DTO names do not imply a new URL with the same version suffix. For the conversational service's separate chat, streaming, voice, memory and notification API, see [the agent service](../../services/agent/README.md).
 
 ## SDK entry points

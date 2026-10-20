@@ -1,56 +1,67 @@
-# PAEG: private plans with verifiable settlement
+# PAEG · Private Atomic Execution Graphs
 
-The Private Atomic Execution Graph is Lianum's financial core. A user can authorize a structured plan whose steps span different networks and financial primitives. The engine tracks what each step must prove, when its dependencies are satisfied, how much value is reserved and when executors may be paid.
+[Overview](../README.md) / [Documentation](README.md) / Financial execution
 
-That makes the plan itself a first-class financial object. It has authority, a budget, a lifecycle and recoverable evidence, beyond a sequence of independent RPC calls.
+**The plan itself is a financial object.** PAEG binds a workflow's nodes, dependencies, amounts, evidence requirements and settlement rules to an owner authorization. The engine can account for the complete plan while each execution/proof role receives its relevant inputs.
 
-## From intent to settlement
+[![Financial nodes, scoped proof evidence and conditional settlement](assets/paeg.svg)](assets/paeg.svg)
 
-1. **Propose.** The user or agent describes supported payments or a financial route. An agent proposal is not permission to spend.
-2. **Prepare.** The backend resolves concrete operation data, dependencies, amounts, network context and validity windows. The mobile presents those terms for review.
-3. **Authorize.** The device approves the exact plan under its owner authority. The signed terms include the relevant budget and executor compensation.
-4. **Reserve and execute.** The engine accounts for committed value, admits operations and tracks native or venue-specific results. Dependencies constrain which steps can proceed.
-5. **Prove and reconcile.** Proof workers and chain readers produce or verify the evidence required by the applicable transition. Lost responses retain the original operation identity.
-6. **Settle or recover.** Completed plans follow their payout and change rules. Interrupted or expired work follows its documented recovery route, respecting effects that already happened.
+## From a goal to settlement
 
-## What “atomic” means here
+| Stage | What becomes concrete |
+| --- | --- |
+| **1 · Propose** | A user or agent describes supported payments or a financial route. |
+| **2 · Prepare** | The backend resolves operations, dependencies, amounts, network context, recipients and validity windows. |
+| **3 · Authorize** | The phone reviews and signs the exact plan, including its budget and executor compensation. |
+| **4 · Reserve and execute** | Private accounting records committed value. Dependencies gate the native or venue-specific operations. |
+| **5 · Prove and reconcile** | Workers and chain readers supply the evidence required by each transition; uncertain results retain their original identity. |
+| **6 · Settle or recover** | Completion follows payout/change rules. Interrupted or expired work follows its state-bound recovery route. |
 
-PAEG applies conditional economic settlement to the plan and its private accounting. Independent chains do not share a rollback mechanism. An already confirmed Bitcoin, Ethereum or Solana transfer cannot be undone by marking the graph failed. Recovery must account for actual delivery, retained reservations, remaining value and the applicable executor terms.
+An agent proposal is a proposal. Financial authority is created through the owner's review and signature, with explicit scope.
 
-The strength of the design is making those conditions explicit and verifiable. It is not a promise that arbitrary third-party protocols or every external side effect can be reversed.
+## The meaning of atomic settlement
 
-## Operation families
+PAEG applies **conditional economic settlement** to the graph and its private reserve. Executors receive compensation according to the signed settlement conditions. Change and recovery remain accounted for in the same lifecycle.
 
-| Family | Implementation role | Evidence to consult |
+Independent chains have independent finality. An ETH, BTC or SOL transfer already confirmed on its network remains final even if another graph node cannot complete. PAEG recovery therefore accounts for actual effects, retained reservations, remaining value and executor terms; it does not promise cross-chain rollback.
+
+## Proof-bound state
+
+Commitments bind the relevant plan and private values. Scoped witnesses disclose inputs needed for a particular proof job. Authenticated programs, verification keys, ABI data and consumers determine what evidence is acceptable; single-use nullifiers prevent a private spend from being accepted twice.
+
+The concrete circuit and consumer profiles remain explicit. A generic graph description is not proof that every adapter combination or arbitrary graph size is deployed. [Proof workers](../packages/proofs/README.md), [circuit components](../packages/components/README.md) and [source generations](SOURCE-GENERATIONS.md) describe the implementation contracts.
+
+## Financial operation families
+
+| Family | Implementation responsibility | Reference |
 | --- | --- | --- |
-| Native ETH, BTC and SOL transfers | Device wallet review/signing with network adapters | Recorded phone self-transfers in [execution evidence](submission/execution-evidence.json) |
-| PAEG payments and dependencies | Approved graph, reservation, delivery and settlement | Local mixed financial integration; public graph acceptance remains separate |
-| Private funding, notes and withdrawals | Source-bound accounting, proof construction and recovery | Domain tests and original-generation acceptance records |
-| Uniswap | Prepared swap bound to a supported operation and beneficiary | Local genuine-proof integration; public end-to-end acceptance pending |
-| Aave and Morpho | Position-aware investment/withdrawal adapters and mobile review | Local venue tests and recovery regressions; public phone round trips pending |
-| Executor payout and returned change | Conditional settlement and final withdrawal paths | Local integration accounting: 600 units = 200 change + 400 executor payout |
-| Stop, reconcile and recover | Resume the same accepted work and resolve its retained state | Focused recovery suites and lifecycle contracts |
+| Native transfers | Device review/signing and ETH, BTC or SOL wallet adapters | [Mobile wallet](../apps/mobile/README.md) |
+| Graph payments | Approved dependencies, reservation, delivery evidence and settlement | [Engine](../packages/engine/README.md) |
+| Private funding and withdrawal | Source-bound notes, proof construction, nullifiers and owner recovery | [Device-authorized accounts](ORIGINAL-ACCOUNT-V2.md) |
+| Uniswap | Prepared swap bound to a supported operation and beneficiary | [API/SDK](reference/product-api.md#uniswap) |
+| Aave and Morpho | Position-aware investment, withdrawal preparation and mobile review | [API/SDK](reference/product-api.md#aave-and-morpho) |
+| Payout and returned change | Conditional compensation and final withdrawal paths | [Validation](VALIDATION.md#local-proof-integration) |
+| Stop and recover | Reconcile the same accepted work under its retained state and terms | [Account recovery](../services/api-server/docs/NATIVE-RECOVERY.md) |
 
-“Implemented” describes code and its stated validation level. It does not mean every combination of these families has completed on public networks. The current mobile native payment proposal profile is bounded; arbitrary graph size belongs to the broader design, not to an unlimited deployed capacity claim.
+The [validation matrix](VALIDATION.md#acceptance-scope) identifies the demonstrated scope of each family.
 
-## A concrete integration result
+## A complete local integration
 
-A recorded local campaign executed a four-node route combining Uniswap and native ETH, BTC and SOL delivery. It produced **21 real proofs including D27**, completed five withdrawals, returned 200 units of change and paid four executors 100 units each from a 600-unit synthetic deposit. Final held and backed amounts were zero. The received swap token remained a separate, unwithdrawn asset.
+The recorded mixed campaign combined **Uniswap and native ETH/BTC/SOL delivery in four nodes**, using the actual SDK, custody, proof workers and consumers. It produced **21 genuine proofs**, including D27, and completed five withdrawals.
 
-The proof pipeline, SDK, custody and consumers were real. The network environments and funding in this campaign were local and synthetic. This is strong integration evidence for the composed system; the [recorded summary](submission/execution-evidence.json) preserves its generation and scope.
+| Reserve accounting | Synthetic units |
+| --- | ---: |
+| Initial deposit | 600 |
+| Returned owner change | 200 |
+| Four executor payouts | 400 |
+| Final held / backed | 0 / 0 |
 
-## Speed and restart behavior
+The swap's separately received token remained unwithdrawn. These were explicit local synthetic networks; the [machine-readable campaign](submission/execution-evidence.json) preserves the source identity and that distinction from public-network acceptance.
 
-Startup authenticates retained resources and reconciles the state required by the selected composition. The current implementation reduces repeated work with an anchored SQLite cache of finalized public reads, concurrent request deduplication, RPC batching and scoped block reuse. Mutable balances, nonces and permissions still require fresh reads.
+## Uncertain outcomes and performance
 
-This cache does not serialize the complete live cryptographic composition, nor does it make a previous financial acceptance transferable to new code. Startup time depends on retained state, provider limits and the selected profile. Measure the installed invocation rather than promising a fixed restart time.
+A timeout or disconnected subscription does not create a second operation. The accepted identity stays in the journal until its result can be reconciled. Observation and submission are separate paths.
 
-The user-facing path similarly separates accepted work from observation: pending operations keep their identity, reads have bounded windows, and polling does not submit another financial operation. UI copy and documentation can be updated without restarting the engine.
+Startup reuses anchored finalized RPC reads, concurrent request deduplication, batching and scoped block observations. Network/genesis/finalized-block anchors are checked before reuse; mutable balances, nonces and permissions remain fresh reads. This cache does not serialize the entire live cryptographic composition or transfer acceptance between source generations.
 
-## Follow the code
-
-- [Engine package](../packages/engine/README.md): graph semantics and shared contracts.
-- [Product API](reference/product-api.md): SDK, preparation, authorization and recovery boundaries.
-- [Backend modules](MODULES.md): accounts, native adapters, claims, DeFi and persistence ownership.
-- [Engine deployment](../infra/google-cloud/paeg-engine/README.md): retained startup and operating procedures.
-- [Security model](PRIVACY-AND-OPERATIONS.md): custody, witness visibility and remaining trust assumptions.
+[Backend ownership](MODULES.md) · [API/SDK contracts](reference/product-api.md) · [Engine deployment](../infra/google-cloud/paeg-engine/README.md) · [Security model](PRIVACY-AND-OPERATIONS.md)

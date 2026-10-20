@@ -1,5 +1,9 @@
 # Owner custody
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 This package owns key custody, signing authorization and owner bindings. `@lianum/custody/owner` exports [flat-owner-custody.mjs](src/signing/flat-owner-custody.mjs).
 
 | Domain in `src/` | Responsibility |

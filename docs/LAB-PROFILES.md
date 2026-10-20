@@ -1,5 +1,9 @@
 # Laboratory preparation profiles
 
+<p><a href="../README.md"><img src="assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](README.md) · [Architecture](ARCHITECTURE.md) · [Validation](VALIDATION.md)
+
 The profiles state what each route needs and prepare their dependencies separately from the execution. The editable catalogue is [`scripts/development/lab-profiles.json`](../scripts/development/lab-profiles.json).
 
 ```bash
@@ -11,7 +15,7 @@ The profiles state what each route needs and prepare their dependencies separate
 
 `profiles`, `plan` and `check` They're reading. They inspect routes, public manifests, locks and sources; they do not run native tools, services, or tests. `--json` produces a structured result in any of the four commands.
 
-| Perfil | Minimum inventory | Existing implementation, separately |
+| Profile | Minimum inventory | Existing implementation, separately |
 | --- | --- | --- |
 | `host` | Linux/WSL x64, Python 3.12+, Fixed Node and Workspace Dependencies/Links | `./dev check` |
 | `wallet` | Host environment and web wallet entry | `./dev start` |

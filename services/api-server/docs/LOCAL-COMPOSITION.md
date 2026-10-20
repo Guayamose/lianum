@@ -1,8 +1,12 @@
-# Local backend booting and diagnosis
+# Local API composition and diagnostics
 
-The entrance is `src/entry.mjs`also in the Docker image. The profile is chosen when booting, never using an HTTP request. The original builders retain account, owner, keeper and bridges in the same process.
+<p><a href="../../../README.md"><img src="../../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
 
-| Perfil | Composition | Status on startup |
+[Documentation](../../../docs/README.md) · [Architecture](../../../docs/ARCHITECTURE.md) · [Validation](../../../docs/VALIDATION.md)
+
+The entry point is `src/entry.mjs`, including in the Docker image. The profile is selected at startup, never by an HTTP request. The original builders retain account, owner, keeper and bridges in the same process.
+
+| Profile | Composition | Status on startup |
 |---|---|---|
 | `admission` (default) | HTTP V1 and PostgreSQL registry when configured | Live API, unavailable transactions; no account and no balance |
 | `original-native-new` | Original Native V3 Operator, Original SQL Admission, Custody, Workers & HTTP/TLS Gateway | Requires new valid configuration and original sources/crafts; does not automatically finance |
@@ -20,7 +24,7 @@ The original profiles need Node retained with `--max-old-space-size=384`; `./dev
 
 - Admission: `LIANUM_PUBLIC_ORIGIN`; `DATABASE_URL` and the Privacy Key
 corresponding if the SQL record is enabled. Explicit prior migration.
-- Original: configuration `operator.json` en
+- Original: configuration `operator.json` in
 `.internal/runtime/omnichain-flat-profile/flat-wallet/.local/original-device-cloud-local-v1/`, with the existing owner and permissions. It only contains the private configuration already described in the operator's guide; it does not accept an arbitrary executor.
 - Original: PostgreSQL with the original migrated scheme and the same key
 privacy, in addition to generated backend, toolchains and verified artifacts. The source check is still active; preparing a generation does not grant financial authority or turn an old catch into a new generation.
@@ -40,7 +44,7 @@ export LIANUM_LOCAL_WORKSPACE="$(pwd)"
 export LIANUM_LOCAL_UID="$(id -u)"
 export LIANUM_LOCAL_GID="$(id -g)"
 export LIANUM_LOCAL_PLATFORM_PROFILE=original-native-reopen
-# Configurar DATABASE_URL y LIANUM_PLATFORM_PRIVACY_KEY_FILE con los existentes.
+# Set DATABASE_URL and LIANUM_PLATFORM_PRIVACY_KEY_FILE to the existing values.
 docker compose -f services/api-server/compose.original.local.yml --profile original up
 ```
 

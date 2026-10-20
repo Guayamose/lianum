@@ -1,5 +1,9 @@
 # Native claim artifacts: inventory and reconstruction
 
+<p><a href="../../../README.md"><img src="../../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../../docs/README.md) · [Architecture](../../../docs/ARCHITECTURE.md) · [Validation](../../../docs/VALIDATION.md)
+
 Audit of 8 October 2026. Public sources are available; original acceptance receipts and several compilations were not recovered. The new development build prepares CI51 V3 and CO42 and allows the original preflight of the fixture BTC/Solana. Historical acceptances remain absent and the complete payout needs a new acceptance. `./dev artifacts` currently verifies its encoding scope; **does not accredit these claims or recover their acceptances**.
 
 The artefact routes in this document are related to the `ROOT` of runtime `omnichain-flat-profile/flat-wallet`locally reconstructed by `./dev`. Consumers link to the editable sources of the repository.

@@ -1,5 +1,9 @@
 # Frozen protocol compatibility
 
+<p><a href="../../README.md"><img src="../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../README.md) · [Architecture](../ARCHITECTURE.md) · [Validation](../VALIDATION.md)
+
 `packages/protocol` retains an earlier protocol generation for historical reproduction. It is not a second current application, and some historical dependencies remain unavailable. Its original README and sources preserve their bytes; current English navigation is provided here rather than altering a frozen inventory.
 
 | Area | Retained responsibility |

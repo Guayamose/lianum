@@ -1,5 +1,9 @@
 # API service
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 `src/wallet-entry.mjs` starts the public mobile wallet API. It requires `LIANUM_PUBLIC_WALLET_CONFIG`; see `infra/google-cloud/api-server/config.example.json`.
 
 ```sh

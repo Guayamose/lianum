@@ -1,5 +1,9 @@
 # Lianum mobile wallet
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 The React Native/Expo application brings the native wallet, PAEG plan review, private-account recovery and persistent agent into one interface. The delivery UI is English, including biometric prompts, validation messages and financial review labels.
 
 ## Product paths
@@ -59,4 +63,4 @@ Choose additional focused tests for the affected behavior. A copy or layout chan
 | `src/portfolio`, `src/state` | Observed balances, valuation and recoverable UI state |
 | `tests` | Focused host regressions; not a blanket phone-acceptance claim |
 
-The full [implementation record](../../docs/reference/mobile/implementation-record.md) preserves detailed authorization, custody, recovery and generation notes from the earlier guide. The [architecture](../../docs/ARCHITECTURE.md), [API reference](../../docs/reference/product-api.md) and [validation record](../../docs/VALIDATION.md) provide the current cross-service explanation.
+The [account authority guide](../../docs/ORIGINAL-ACCOUNT-V2.md), [architecture](../../docs/ARCHITECTURE.md), [API reference](../../docs/reference/product-api.md) and [validation record](../../docs/VALIDATION.md) explain authorization, custody, recovery and cross-service boundaries.

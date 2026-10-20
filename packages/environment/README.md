@@ -1,5 +1,9 @@
 # Source locations and portable execution
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 `sourcePath` and `sourceURL` locate active source. `resourceRoot(family)` and `resourcePath(family, relative)` locate separate resources. Supported families are `engine`, `wallet`, `crypto`, `components` and `protocol`; the retained `legacyDataRoot` API delegates to `resourceRoot`.
 
 In an ordinary checkout, resources keep their historical locations. A candidate produced by `scripts/development/source_bundle.py` uses `runtime-resources.json` to locate them under `resources/`, without falling back to `.internal/runtime`. The descriptor travels with source and still works when a worker clears its inherited environment.

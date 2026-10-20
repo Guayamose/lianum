@@ -1,5 +1,9 @@
 # Shared engine
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 The engine library provides state, generic coordination, storage and shared protocol mechanisms. Backend, custody and proofs consume it. Its source does not import those higher-level packages, applications or test drivers.
 
 | Domain in `src/` | Responsibility |

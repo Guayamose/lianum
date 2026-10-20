@@ -1,32 +1,51 @@
-# Explore Lianum
+<p><a href="../README.md"><img src="assets/lianum.svg" width="150" alt="Lianum"></a></p>
 
-Lianum brings an always-on financial agent, a mobile wallet and a verifiable execution engine into one system. The interesting part is the boundary between them: an agent can propose a complex financial plan while the wallet retains the authority to approve it and the engine checks its execution and settlement.
+# The Lianum documentation library
 
-Start with these six documents. They are the current explanation of the product; implementation details and earlier measurements remain linked below.
+**From a financial conversation to a verifiable plan.** This library explains the product, the execution model and the implementation behind it. The reading routes lead into detailed references without requiring a chronological engineering journal.
 
-| Read | What you will learn |
+## Understand the system
+
+| Read | The question it answers |
 | --- | --- |
-| [Project overview](../README.md) | The idea, differentiators, working components and first commands |
-| [Architecture](ARCHITECTURE.md) | How the phone, agent, gateway, engine, proof workers and networks fit together |
-| [Financial execution](FINANCIAL-EXECUTION.md) | PAEG plans, dependencies, authorization, proof binding, settlement and recovery |
-| [Development workflow](WORKFLOW.md) | Install, run and validate only the component you change |
-| [Security and privacy](PRIVACY-AND-OPERATIONS.md) | Keys, permissions, trust boundaries, data exposure and operating assumptions |
-| [Validation and evidence](VALIDATION.md) | What has been demonstrated, how to reproduce checks and what remains open |
+| **01 · [Architecture](ARCHITECTURE.md)** | Where do the wallet, agent, gateway, engine and workers run? |
+| **02 · [PAEG execution](FINANCIAL-EXECUTION.md)** | How does one approved graph bind actions, proofs and settlement? |
+| **03 · [Persistent agent](AGENT.md)** | How does the same conversation keep working with bounded context? |
+| **04 · [Security and privacy](PRIVACY-AND-OPERATIONS.md)** | Who may sign, propose, observe, execute and see private inputs? |
+| **05 · [Validation](VALIDATION.md)** | Which results have public receipts, local proofs or host verification? |
+| **06 · [Development](DEVELOPMENT.md)** | How do I prepare a checkout and run focused checks? |
 
-## Find the implementation
+[![Custody, coordination and execution in the current system](assets/system.svg)](ARCHITECTURE.md)
 
-| Area | Entry point | Detailed reference |
-| --- | --- | --- |
-| Mobile wallet | [`apps/mobile/App.tsx`](../apps/mobile/App.tsx) | [Mobile guide](../apps/mobile/README.md), [USB/device setup](USB-MOBILE.md) |
-| Persistent agent | [`services/agent/src/entry.mjs`](../services/agent/src/entry.mjs) | [Agent service](../services/agent/README.md) |
-| Public gateway | [`services/api-server/src/entry.mjs`](../services/api-server/src/entry.mjs) | [API service](../services/api-server/README.md), [product API/SDK](reference/product-api.md) |
-| Financial engine | [`services/paeg-engine/src/entry.mjs`](../services/paeg-engine/src/entry.mjs) | [Engine library](../packages/engine/README.md), [cloud deployment](../infra/google-cloud/paeg-engine/README.md) |
-| Chain adapters and DeFi | [`packages/backend`](../packages/backend) | [Module boundaries](MODULES.md), [network/DeFi laboratory](../packages/backend/docs/LOCAL-ACCEPTANCE.md) |
-| Cryptography and proofs | [`packages/proofs`](../packages/proofs) | [Source generations](SOURCE-GENERATIONS.md), [proof workers](../packages/proofs/README.md) |
-| Repository navigation | [`STRUCTURE.md`](STRUCTURE.md) | [Command reference](COMMANDS.md), [laboratory profiles](LAB-PROFILES.md) |
+## Choose a reading route
 
-## Status, submission and history
+**Review the project:** [overview](../README.md) → [PAEG](FINANCIAL-EXECUTION.md) → [security](PRIVACY-AND-OPERATIONS.md) → [evidence](VALIDATION.md).
 
-The [current status](../STATUS.md) and [roadmap](../ROADMAP.md) separate implemented functionality from pending acceptance. [Machine-readable execution evidence](submission/execution-evidence.json) includes transaction hashes and the scope of the recorded local integration. [Submission requirements](submission/requirements.json) record the delivery checklist.
+**Build on the project:** [development](DEVELOPMENT.md) → [repository map](STRUCTURE.md) → [module ownership](MODULES.md) → [API and SDK](reference/product-api.md).
 
-The [historical record](history/README.md) preserves earlier engineering decisions, failure analysis, measurements and acceptance reports. Read it for provenance, rather than treating every old status entry as a description of the current release. Frozen cryptographic artifacts retain their original bytes and identities.
+**Operate a deployment:** [API service](../services/api-server/README.md) → [engine deployment](../infra/google-cloud/paeg-engine/README.md) → [agent configuration](../services/agent/README.md) → [resources and source generations](SOURCE-GENERATIONS.md).
+
+## Implementation references
+
+| Domain | Source and reference |
+| --- | --- |
+| Mobile wallet | [Application](../apps/mobile/README.md) · [device installation](USB-MOBILE.md) · [shared protocol](../packages/mobile-protocol/README.md) |
+| Agent | [System guide](AGENT.md) · [service configuration](../services/agent/README.md) · [domain source](../packages/agent/src) |
+| API and accounts | [API service](../services/api-server/README.md) · [API/SDK contract](reference/product-api.md) · [device-authorized accounts](ORIGINAL-ACCOUNT-V2.md) |
+| Financial execution | [Engine](../packages/engine/README.md) · [backend](../packages/backend/README.md) · [Solidity contracts](../contracts/README.md) |
+| Cryptography | [Proof workers](../packages/proofs/README.md) · [circuit components](../packages/components/README.md) · [cryptographic primitives](../packages/crypto/README.md) |
+| Source integrity | [Source generations](SOURCE-GENERATIONS.md) · [portable bundles](../packages/environment/README.md) · [retained protocol compatibility](reference/protocol-compatibility.md) |
+| Network laboratories | [Profiles](LAB-PROFILES.md) · [EVM laboratory](EVM-LAB.md) · [network and DeFi acceptance](../packages/backend/docs/LOCAL-ACCEPTANCE.md) · [claim diagnosis](CLAIM-AUDIT-LAB.md) |
+| Tooling | [Workflow](WORKFLOW.md) · [generated command catalog](COMMANDS.md) · [local resources](LOCAL-ENVIRONMENT.md) |
+
+## Evidence records
+
+The [validation guide](VALIDATION.md) interprets the retained records together. Machine-readable files preserve exact operation hashes, source identities and verification scope:
+
+- [Execution evidence](submission/execution-evidence.json)
+- [Public transaction verification](submission/public-transaction-verification.json)
+- [Recorded host and mobile build checks](submission/english-delivery-validation.json)
+
+---
+
+[Project overview](../README.md) · [Product direction](../PROJECT-VISION.md) · [Repository map](STRUCTURE.md)

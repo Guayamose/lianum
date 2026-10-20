@@ -1,5 +1,9 @@
 # Original Tron in the integrated native-value wallet
 
+<p><a href="../../../README.md"><img src="../../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../README.md) · [Architecture](../../ARCHITECTURE.md) · [Validation](../../VALIDATION.md)
+
 This additive source handoff supersedes the earlier source-stage statements that
 Tron custody/dispatch always rejects and that no clock factory is defined. It is
 not a runtime or release acceptance record. Claims/private-credit authority stays

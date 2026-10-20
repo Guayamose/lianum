@@ -1,60 +1,65 @@
 # Lianum
 
-**One wallet. An always-on agent. Financial plans you can verify.**
+![Lianum — one wallet, your always-on agent, proof-bound execution](docs/assets/hero.svg)
 
-Lianum combines a mobile wallet, a persistent financial agent and **PAEG — Private Atomic Execution Graphs**. A user can discuss an intent, review a concrete plan on their phone and authorize its execution across supported networks and DeFi venues. The agent proposes; the device owns approval; the engine tracks execution, evidence and settlement.
+<p align="center">
+  <a href="https://github.com/Guayamose/lianum/actions/workflows/ci.yml"><img src="https://github.com/Guayamose/lianum/actions/workflows/ci.yml/badge.svg" alt="Repository CI"></a>
+  &nbsp; WeBank FinTechathon 2026 · International Track F · Agent Wallet
+</p>
 
-The project connects the conversational experience to the hard financial infrastructure underneath it: private notes, proof workers, heterogeneous chain adapters, explicit executor compensation and recovery after uncertain outcomes.
+<p align="center">
+  <a href="docs/README.md"><b>Explore the docs</b></a> ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
+  <a href="docs/FINANCIAL-EXECUTION.md">PAEG</a> ·
+  <a href="docs/AGENT.md">Agent</a> ·
+  <a href="docs/PRIVACY-AND-OPERATIONS.md">Security</a> ·
+  <a href="docs/VALIDATION.md">Evidence</a>
+</p>
 
-## What makes it interesting
+**Manage money privately, with every step under control.** Lianum brings a mobile wallet, a persistent financial agent and a verifiable execution engine into one system. Discuss a goal, review its concrete terms on your phone and authorize a plan whose dependencies, evidence and settlement rules travel together.
 
-- **A plan is more than a list of transactions.** PAEG carries dependencies, budgets, validity windows and settlement conditions through preparation, authorization and execution.
-- **The agent stays with the user.** Durable chat, streaming responses, voice, explicit memory, scheduled followups, operation observation and notifications share one owner-scoped service.
-- **Authority stays separate from intelligence.** The agent has a proposer identity. Wallet keys and financial approval remain on the device; a conversation is not a spending authorization.
-- **Private execution has a real proof pipeline.** The repository contains circuits, authenticated cryptographic artifacts, proof workers, verifier consumers and integration tests that produce genuine proofs.
-- **Recovery is part of the design.** Durable journals preserve accepted operation identities. Lost responses are reconciled, while anchored caching and RPC batching reduce repeated historical reads.
-- **One mobile experience spans different financial models.** Native ETH, BTC and SOL wallet flows sit alongside private plans and supported Uniswap, Aave and Morpho paths, with explicit Mainnet/Testnet context.
+The engineering behind that experience is **PAEG — Private Atomic Execution Graphs**: private notes and scoped zero-knowledge proofs connect financial actions across heterogeneous networks, with explicit executor compensation and recovery accounting.
 
-## Follow one plan
+## Three ideas, one product
 
-```mermaid
-flowchart LR
-    Intent[User intent] --> Agent[Agent proposal]
-    Agent --> Review[Phone review and approval]
-    Review --> Engine[PAEG execution]
-    Engine --> Evidence[Network results and proofs]
-    Evidence --> Settlement[Conditional settlement and recovery]
-    Settlement --> Wallet[Wallet and persistent conversation]
-```
+| Owner-held wallet | Always-on financial agent | Verifiable execution |
+| --- | --- | --- |
+| Portfolio, native transfers and financial review in React Native/Expo. Signing authority stays on the device. | A durable conversation with streaming, voice, tools, editable memory, follow-ups and notifications. | Graph-bound authorization, scoped proof jobs, durable operation identities and conditional settlement. |
 
-PAEG's atomicity concerns conditional economic settlement. It does not roll back transactions already confirmed on independent chains. [The execution model](docs/FINANCIAL-EXECUTION.md) explains that boundary.
+An agent proposal becomes financial authority only after the owner reviews and signs the exact terms. PAEG's atomicity applies to economic settlement; confirmed effects on independent native chains remain final. [See the execution model →](docs/FINANCIAL-EXECUTION.md)
 
-## Explore the engineering
+## Inside the system
 
-| Start here | Then go deeper |
-| --- | --- |
-| [Architecture](docs/ARCHITECTURE.md) | [Modules and ownership](docs/MODULES.md), [repository map](docs/STRUCTURE.md) |
-| [Financial execution](docs/FINANCIAL-EXECUTION.md) | [API and SDK](docs/reference/product-api.md), [engine](packages/engine/README.md) |
-| [Persistent agent](services/agent/README.md) | [Agent domain](packages/agent/src), [mobile conversation](apps/mobile/src/screens/WalletAgentScreen.tsx) |
-| [Security and privacy](docs/PRIVACY-AND-OPERATIONS.md) | [Source generations and retained artifacts](docs/SOURCE-GENERATIONS.md) |
-| [Validation and evidence](docs/VALIDATION.md) | [Machine-readable results](docs/submission/execution-evidence.json), [current status](STATUS.md) |
-| [Development workflow](docs/WORKFLOW.md) | [Command reference](docs/COMMANDS.md), [mobile build](apps/mobile/README.md) |
+[![Mobile custody, API and agent coordination, private PAEG execution and proof workers](docs/assets/system.svg)](docs/ARCHITECTURE.md)
 
-The complete [documentation index](docs/README.md) provides a short reading route without discarding the implementation detail.
+The current deployment uses two Google Compute Engine hosts: the public wallet API host runs the gateway, native relay and separate agent process; the private engine host runs PAEG and its proof workers. OpenAI supplies model/voice capabilities, Firebase delivers notifications, and network adapters observe the configured chains. [Explore the deployment drawing →](docs/ARCHITECTURE.md#deployment)
 
 ## Evidence you can inspect
 
-| Demonstration | Recorded result | Scope |
+[![Recorded evidence: three public testnets, six verified transactions, twenty-one genuine local proofs and 491 host checks](docs/assets/evidence.svg)](docs/VALIDATION.md)
+
+| Evidence layer | Recorded result | Inspect |
 | --- | --- | --- |
-| ETH, BTC and SOL wallet transfers | Three confirmed native self-transfers, with public transaction identifiers | Physical phone and public testnets; not PAEG or agent initiation |
-| PAEG note funding and recovery | Original pool deposit and phone-authorized withdrawal of **0.000001 test ETH**, with finalized public receipts | Same Sepolia pool; recovery of an unreserved note, not graph completion or executor payout |
-| Mixed financial graph | Four nodes, Uniswap plus three native deliveries, **21 genuine proofs**, five withdrawals | Local synthetic networks using the real SDK, custody, proof pipeline and consumers |
-| Settlement accounting | 600 deposited units, 200 returned as change, 400 paid to four executors; final held/backed amounts zero | The recorded local integration generation |
-| Component verification | Focused suites for recovery, native operations, mobile behavior, DeFi and startup caching | Exact suite results and limits in [validation](docs/VALIDATION.md) |
+| Public testnets | Phone-originated ETH, SOL and BTC transfers; original Sepolia pool funding and owner-authorized recovery; separate DeFi execution-budget funding | [Six transaction receipts](docs/VALIDATION.md#public-transactions) |
+| Genuine-proof local integration | A four-node route with Uniswap and native ETH/BTC/SOL delivery; **21 proofs**, five withdrawals and complete reserve accounting | [Campaign scope and source identity](docs/submission/execution-evidence.json) |
+| Reproducible host checks | Bounded repository, component, mobile and workflow checks; CI runs from a clean checkout | [Verification guide](docs/VALIDATION.md#reproduce-the-checks) |
 
-The [public verification snapshot](docs/submission/public-transaction-verification.json) freshly checks six transaction hashes across the three testnets. DeFi budget funding is recorded separately from investment. Full public-testnet PAEG payment-graph and DeFi round-trip acceptance remains tracked separately. The repository does not claim an external security audit or production-wide mainnet readiness.
+Public-network evidence and local integration establish different results. The [validation guide](docs/VALIDATION.md#acceptance-scope) records the demonstrated scope and the public PAEG/DeFi flows awaiting acceptance.
 
-## Start developing
+## Read the engineering
+
+| Guide | What it explains |
+| --- | --- |
+| [Architecture](docs/ARCHITECTURE.md) | Deployment, component ownership and trust boundaries |
+| [PAEG execution](docs/FINANCIAL-EXECUTION.md) | Private graphs, dependencies, proof binding, payout and recovery |
+| [Persistent agent](docs/AGENT.md) | One conversation, bounded context, background work and owner approval |
+| [Security and privacy](docs/PRIVACY-AND-OPERATIONS.md) | Custody, capabilities, disclosure and operational assumptions |
+| [Validation](docs/VALIDATION.md) | Public receipts, local accounting and reproducible checks |
+| [Development](docs/DEVELOPMENT.md) | Prepare a checkout and run the component you need |
+
+The [documentation library](docs/README.md) connects these guides to the API/SDK, circuits, module references and deployment procedures.
+
+## Run the first checks
 
 On Linux/WSL x64 with Git and Python 3.12+:
 
@@ -62,19 +67,10 @@ On Linux/WSL x64 with Git and Python 3.12+:
 ./dev prepare host
 ./dev status
 ./dev check
-./dev workflows
 ```
 
-`prepare host` installs or verifies the pinned Node toolchain. `check` runs the bounded repository checks; it does not start a financial engine or broadcast transactions. Network/proof laboratories need their declared resources and profiles. A source clone alone does not contain private runtime state or every retained cryptographic resource.
+The bootstrap installs or verifies pinned Node tooling. The bounded check runs without starting a financial laboratory. Follow the [development guide](docs/DEVELOPMENT.md) for mobile, agent and API setup; [laboratory profiles](docs/LAB-PROFILES.md) declare the additional resources for proof-producing and network integration runs.
 
-```sh
-# Mobile development
-./dev prepare mobile
-./dev npm --prefix apps/mobile run typecheck
+---
 
-# Agent service setup and configuration
-./dev npm --prefix services/agent ci --ignore-scripts
-cp services/agent/.env.example services/agent/.env
-```
-
-Follow the [mobile guide](apps/mobile/README.md), [agent setup](services/agent/README.md) and [engine deployment guide](infra/google-cloud/paeg-engine/README.md) for their separate run procedures. Credentials, custody, runtime databases and build outputs stay outside Git.
+[Product direction](PROJECT-VISION.md) · [Source map](docs/STRUCTURE.md) · [API and SDK](docs/reference/product-api.md) · [Command catalog](docs/COMMANDS.md)

@@ -1,5 +1,9 @@
 # Diagnosis of CLAIM and GRAPH audits
 
+<p><a href="../README.md"><img src="assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](README.md) · [Architecture](ARCHITECTURE.md) · [Validation](VALIDATION.md)
+
 From the root, in Linux/WSL with the restored originals:
 
 ```sh

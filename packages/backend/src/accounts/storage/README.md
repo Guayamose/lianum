@@ -1,5 +1,7 @@
 # Account persistence
 
+[Lianum documentation](../../../../../docs/README.md) · [Architecture](../../../../../docs/ARCHITECTURE.md) · [Validation](../../../../../docs/VALIDATION.md)
+
 `durable-generic-account-keeper.mjs` composes the generic engine coordinator with the encrypted parent record, SOURCE session and typed lifecycle record. It alone owns the private durable-keeper brand.
 
 The engine receives three persistence operations: initial state (`opening`), checkpoint retention (`retain`) and closure (`close`). It receives no session verifier or callback that could mint durable membership. The same keeper object, operation lock, child process and generic-account brand remain intact. Backend checks its own original objects before binding or reading a session.

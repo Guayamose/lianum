@@ -1,69 +1,68 @@
-# Architecture: conversation to verifiable execution
+# Architecture
 
-Lianum is a full-stack agent wallet built around a strict separation of proposal, authorization and execution. Its mobile application provides one place to inspect assets, talk to an agent and review a financial plan. Independent services turn an approved plan into network operations, track their evidence and account for settlement.
+[Overview](../README.md) / [Documentation](README.md) / Architecture
 
-## The running system
+Lianum separates **custody, coordination and execution**. The phone owns financial authority; the agent turns conversations into proposals; the gateway authenticates requests; PAEG tracks approved work, proofs and settlement.
 
-```mermaid
-flowchart TD
-    U[User] --> M[Mobile wallet: local keys and biometric approval]
-    M --> G[Authenticated API gateway]
-    G --> A[Persistent agent service]
-    A --> O[OpenAI sessions, tools and voice]
-    A --> D[(Conversation, memory, tasks and notification outbox)]
-    A --> P[Signed payment proposal]
-    P --> M
-    G --> E[PAEG financial engine]
-    E --> W[Local proof workers and verifiers]
-    E --> J[(Durable journals and retained state)]
-    E --> C[Chain adapters and DeFi integrations]
-    C --> N[Ethereum / Bitcoin / Solana and configured venues]
-    A --> F[FCM notification delivery]
-    F --> M
-```
+[![Current system boundaries](assets/system.svg)](assets/system.svg)
 
-The current Google Cloud deployment uses Compute Engine VMs. The API and agent run as separate processes on the wallet API host, communicating over authenticated loopback HTTP. The PAEG engine has its own host and service. Proof workers are local child processes of the corresponding financial composition. Deployment scripts live under [`infra/google-cloud`](../infra/google-cloud).
+## Deployment
 
-## 1. A wallet that owns its authority
+The current deployment uses two **Google Compute Engine** hosts in `europe-west1-b`:
 
-The React Native/Expo application holds the device identity and supported native wallet keys in protected device storage. Sensitive actions require local review and biometric authentication. Mainnet and Testnet environments keep their network context explicit. An unknown balance remains unknown instead of appearing as zero.
+| Boundary | What runs there | What crosses it |
+| --- | --- | --- |
+| **Mobile wallet** | React Native/Expo UI, protected device identity, native wallet keys and review controllers | Device-signed requests, scoped consent and approved operation terms |
+| **Wallet API host** | Caddy, API gateway, native wallet relay and the separate agent service | Public HTTPS; authenticated loopback service calls; restricted engine connection |
+| **Private engine host** | PAEG composition, chain/DeFi adapters, journals, attestation and proof workers | Pinned TLS from the API host; outbound RPC through Cloud NAT; scoped proof jobs |
+| **External services** | OpenAI model/voice, Firebase messaging and configured RPC providers | Explicit model context, generic notifications and network requests |
 
-Native transfers and PAEG plans are separate execution paths. A native transfer uses the appropriate wallet adapter. A PAEG plan binds a budget, recipients, dependencies, deadlines and executor compensation into a reviewed authorization. This distinction is preserved in the UI and in the evidence: a successful SOL transfer alone does not demonstrate a cross-network plan.
+The engine has **no public IP**. The API and agent are separate processes on the API host, rather than independent cloud machines. Proof workers run as child processes of the engine composition.
 
-## 2. An agent that can keep working
+<details>
+<summary><b>Full deployment drawing — hosts, ports, persistence and network boundaries</b></summary>
 
-The agent service owns durable conversations, explicit preferences, scheduled followups, operation observations and notification delivery. The phone can disconnect while accepted conversational work continues. Streaming output reconnects to saved results without resubmitting the user's message.
+[![Detailed current deployment](assets/architecture-detail.svg)](assets/architecture-detail.svg)
 
-Context is bounded. A turn receives current wallet observations and their freshness, selected preferences, related historical excerpts and upcoming tasks. Full history lives in owner-scoped storage; it is not blindly appended to every prompt. The same conversation supports text and voice. Hosted web search is configurable.
+[Open the vector drawing at full size](assets/architecture-detail.svg) · [PNG rendering](assets/architecture-detail.png)
 
-The agent has a distinct proposer identity. It can propose supported testnet payments, but it never receives the wallet's private signing key. Its proposal must pass through the mobile review and authorization path. Optional background read grants are scoped and finite. See the [agent service reference](../services/agent/README.md) for tool contracts, context limits, costs and recovery behavior.
+</details>
 
-## 3. A gateway with explicit capabilities
+## Mobile custody and review
 
-The public API authenticates device requests and routes them to the correct owner and service. Signed actions, one-use stream authentication, bounded bodies and scoped capabilities prevent a conversational tool from becoming a general account administrator. Shared wire types and SDK entry points reduce differences between the mobile and server interpretations of a request.
+The [mobile app](../apps/mobile/README.md) owns device identity, protected key storage and financial review. Sensitive actions use local authentication. Portfolio readings retain their network, freshness and uncertainty; unknown amounts stay unknown. Mainnet and Testnet contexts are explicit.
 
-[`packages/mobile-protocol`](../packages/mobile-protocol), [`packages/sdk`](../packages/sdk) and the [API reference](reference/product-api.md) define those boundaries. Agent credentials and provider API keys remain server-side.
+Native ETH/BTC/SOL transfers use their wallet adapters. PAEG preparation binds recipients, amounts, dependencies, validity windows and executor compensation into a plan reviewed on the device. These are separate execution paths with separate evidence.
 
-## 4. An engine built for difficult outcomes
+## Durable agent coordination
 
-PAEG—the Private Atomic Execution Graph—represents a financial workflow as nodes with explicit dependencies and evidence requirements. It connects private notes and proof-bound accounting to native delivery and supported DeFi venues. Executors are paid according to the plan's settlement rules. Retained journals preserve the identity of accepted work through timeouts, lost responses and process restarts.
+The [agent service](../services/agent/README.md) owns one durable conversation per authenticated device identity, explicit preferences, follow-ups, saved tool results and a notification outbox. Accepted work continues after a mobile subscription ends; saved output is reconciled when the client reconnects.
 
-The engine's complexity comes from combining heterogeneous networks, private accounting, cryptographic artifacts and recoverable execution. Its key engineering features are:
+Each turn selects bounded context from stored history and current wallet observations. Text and voice share the conversation and tool boundary. A separate proposer identity lets the agent propose supported payments while the mobile owner remains responsible for approval. [Read the agent design →](AGENT.md)
 
-- **Proof-bound transitions:** circuit programs, verification keys, ABI data and consumers are authenticated against retained identities.
-- **Explicit economic state:** reservations, delivered value, change and executor payouts have separate accounting and lifecycle rules.
-- **Recovery of the same operation:** an uncertain response triggers reconciliation of the original identifier, rather than creating another payment.
-- **Reusable historical reads:** finalized public RPC results can survive process restarts after their network and block anchors are revalidated.
-- **Observable startup:** milestone and RPC counters expose actual progress; a milestone count is not presented as a time estimate.
+## Gateway and shared contracts
 
-See [financial execution](FINANCIAL-EXECUTION.md) for the exact meaning and limits of atomic settlement.
+The [API service](../services/api-server/README.md) authenticates owner requests, validates scoped capabilities and routes work to the appropriate service. One-use stream authentication, bounded bodies and explicit operation identity remain part of the transport contract.
 
-## 5. Libraries, artifacts and generations
+[`mobile-protocol`](../packages/mobile-protocol), [`sdk`](../packages/sdk) and the [API reference](reference/product-api.md) keep mobile and server interpretations aligned. Model keys and internal service tokens remain server-side.
 
-The repository separates editable packages from retained cryptographic artifacts and private runtime state. Source-generation manifests identify exactly which current code consumes which original artifacts. A source change can require new pins and explicit adoption without recompiling identical circuits. Historical artifacts are verified rather than silently replaced.
+## Execution, proofs and recovery
 
-The [module map](MODULES.md) describes dependency ownership; [source generations](SOURCE-GENERATIONS.md) explains reproducibility and artifact reuse. `.local` contains private state and generated evidence, while `.internal` holds restored tools and resources. Neither belongs in a public source commit.
+The engine combines graph execution with private accounting and heterogeneous network observations:
 
-## Validation boundary
+| Mechanism | Responsibility |
+| --- | --- |
+| **Graph and authority** | Bind the approved nodes, dependencies, amounts and settlement terms |
+| **Private notes and commitments** | Represent reserved value and proof-bound state transitions |
+| **Scoped proof workers** | Produce and verify evidence against authenticated programs, keys and ABI data |
+| **Chain and DeFi adapters** | Prepare supported native/venue operations and interpret their finality |
+| **Durable journals** | Preserve accepted operation identities and reconcile uncertain outcomes |
+| **Anchored historical cache** | Reuse finalized public reads after checking network, genesis and block anchors |
 
-The repository contains real proof-producing local integrations and recorded public-testnet native transfers. Their scope differs from complete public PAEG acceptance. [Validation](VALIDATION.md) records that distinction, including current gaps. Mainnet availability in the wallet is not a claim of production readiness for every financial route.
+Mutable balances, nonces and permissions still require fresh observations. Reopening a process and proving a financial flow are separate checks. [PAEG execution](FINANCIAL-EXECUTION.md) explains payout conditions and recovery.
+
+## Source and resource boundaries
+
+Editable packages, retained cryptographic artifacts and private runtime state have different lifecycles. Source-generation manifests identify the exact code consuming original resources; unchanged circuits can reuse their authenticated artifacts. A checkout contains neither private custody nor live financial state.
+
+[Module ownership](MODULES.md) · [Source generations](SOURCE-GENERATIONS.md) · [Portable bundles](../packages/environment/README.md) · [Validation scope](VALIDATION.md)

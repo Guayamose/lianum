@@ -1,5 +1,9 @@
 # Source generations and artifact reuse
 
+<p><a href="../README.md"><img src="assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](README.md) · [Architecture](ARCHITECTURE.md) · [Validation](VALIDATION.md)
+
 A development generation identifies the current source and assembles a reviewable candidate. Preparation creates the compatibility copies required by historical readers and authenticates retained artifacts. Identical original circuits do not need to be recompiled merely because host code changed.
 
 ```sh

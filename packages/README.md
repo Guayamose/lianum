@@ -1,7 +1,13 @@
 # Product components
 
+<p><a href="../README.md"><img src="../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../docs/README.md) · [Architecture](../docs/ARCHITECTURE.md) · [Validation](../docs/VALIDATION.md)
+
 | Package | Function |
 | --- | --- |
+| [agent](agent) | Persistent conversation, bounded context, memory, tasks and tools |
+| [sdk](sdk) | Proposal, preparation and finite operation-read contracts |
 | [backend](backend) | API, accounts, chains, claims, execution and DeFi |
 | [custody](custody) | Custody, signatures, consent and processes of the owner |
 | [mobile-protocol](mobile-protocol) | Shared authorisation and mobile review contracts |

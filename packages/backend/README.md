@@ -1,5 +1,9 @@
 # Backend
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 This package composes accounts, custody, networks, execution and proof workers. Applications consume its APIs; backend does not import application code or test/experiment implementations.
 
 | Domain in `src/` | Responsibility |

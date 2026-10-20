@@ -1,39 +1,55 @@
-# Security, privacy and operating boundaries
+# Security and privacy
 
-Lianum separates the authority to propose, approve, execute and observe a financial operation. Its security model depends on keeping those roles explicit across the mobile wallet, agent, API gateway, engine and underlying networks.
+[Overview](../README.md) / [Documentation](README.md) / Security
 
-## Keys and authorization
+**Separate intelligence from financial authority.** Lianum treats proposal, approval, execution, observation and proof generation as distinct capabilities across the phone, agent, gateway, engine and networks.
 
-Native wallet keys and the device identity are protected on the phone. Sensitive actions use device authentication and a review of the concrete operation. The agent has a separate proposer identity and never receives the owner's wallet signing key. A signed proposal is still subject to mobile preparation and approval.
+[![Authority, disclosure and recovery boundaries](assets/security.svg)](assets/security.svg)
 
-Financial authorization binds the relevant plan, recipient, amount, dependencies, deadline and executor compensation. Operation lookup and background observation use their own scopes. A read grant is finite and does not imply permission to create a payment. The gateway authenticates the owner and enforces route-specific capabilities.
+## Who may do what
 
-Mainnet and Testnet contexts remain explicit. Public acceptance recorded for this delivery concerns testnets. The presence of a mainnet wallet profile does not certify the entire engine or every DeFi operation for production funds.
+| Principal | Capability | Boundary |
+| --- | --- | --- |
+| **Mobile owner** | Review and sign concrete financial terms; approve/revoke supported grants | Native keys and device identity remain in protected device storage |
+| **Agent proposer** | Read permitted observations, draft supported proposals and follow authorized progress | Proposer identity and read access do not grant wallet signing authority |
+| **API gateway** | Authenticate requests and enforce route-specific capabilities | Internal tokens, request limits and one-use stream authentication are separate from financial approval |
+| **Financial engine** | Apply approved execution, proof, settlement and recovery rules | Operations retain their original owner, source, domain and terms |
+| **Proof workers** | Prove or verify the selected transition | Jobs receive necessary witnesses; workers do not hold native wallet keys |
 
-## What privacy covers
+Authorization binds the applicable plan, recipient, amount, dependencies, deadline and executor compensation. Editing or canceling a review is distinct from approving it. Mainnet/Testnet context and observation freshness remain explicit in the UI and tool contracts.
 
-Private notes, commitments and proof-bound transitions limit what the applicable ledger path must disclose. Proof artifacts and their consumers are checked against retained identities. These properties must be evaluated per protocol and execution path.
+## Disclosure follows the execution path
 
-The current deployment is not a system-wide anonymity guarantee. RPC providers can observe network requests; the API and engine hosts process operation metadata; proof workers may access the private witnesses needed for their job. A local multi-role composition is not a deployment of independently operated parties. Native chain transfers retain their networks' public visibility.
+Private notes, commitments and proof-bound transitions limit disclosure for the relevant ledger path. Authenticated programs, keys, ABI data and consumers constrain which proof can support a transition. Scoped inputs reduce what a role needs to process.
 
-The agent service stores owner-scoped conversation history, preferences, tasks and notification state in private SQLite storage. Model requests are processed by the configured provider. This deployment does not claim Zero Data Retention. Deleting a saved preference does not erase earlier messages or provider-side history. [The agent reference](../services/agent/README.md) describes bounded context, retention and cancellation behavior.
+The system still has concrete trust assumptions. RPC providers can observe requests; API and engine hosts process operation metadata; workers can access the witnesses required by their jobs. Native transfers remain publicly visible on their networks. A multi-role local composition is not evidence of independently operated parties or system-wide anonymity.
 
-## Durable state and uncertain outcomes
+The agent persists owner-scoped history, preferences, tasks and notifications in private SQLite storage. The configured model provider processes its selected context. This deployment does not claim Zero Data Retention. Removing a saved preference does not erase earlier messages, frozen queued context or provider history.
 
-An accepted financial operation keeps its original identity through lost responses and restarts. An uncertain result must be reconciled before a new action is considered. Retained journals, source bindings and recovery transitions prevent an HTTP timeout from being treated as permission to pay twice.
+## Recovery preserves identity
 
-Unknown balances and unavailable valuations must remain visibly unknown. A journal entry, signed transaction or submitted proof is not final confirmation. The [evidence guide](VALIDATION.md) distinguishes submission, local verification and public confirmation.
+An accepted operation keeps its original identity through lost replies and process restarts. Its outcome must be reconciled before a new action is considered. A timeout, a journal entry or a submitted proof is not final confirmation.
 
-PAEG settlement accounts for completed effects; it does not reverse transactions finalized on other chains. Recovery must follow the relevant operation's state and terms.
+Unknown or stale balances stay visibly uncertain. The UI does not convert unavailable prices into zero-value assets. PAEG recovery accounts for actual finalized effects and remaining value; it cannot reverse native transactions finalized on independent chains.
 
-## Deployment and secrets
+[Financial lifecycle →](FINANCIAL-EXECUTION.md) · [Device-authorized accounts →](ORIGINAL-ACCOUNT-V2.md)
 
-The current cloud deployment uses separate API/agent and engine services on Compute Engine. The agent gateway link is authenticated loopback HTTP on the API host; moving it to another machine requires an authenticated secure transport. Model keys, gateway tokens, private databases, custody backups and runtime state are excluded from Git.
+## Operational controls
 
-Backups must retain the identity and state required by their original recovery route. A source checkout is not a custody backup. Runtime cleanup uses explicit regenerable paths; an entire `.local` directory is never assumed disposable.
+| Control | Implementation assumption |
+| --- | --- |
+| Network isolation | Separate API/agent and private engine hosts; engine ingress restricted to the API path |
+| Service credentials | Agent/gateway/backend credentials remain server-side and separately scoped |
+| Private storage | Owner-scoped databases, custody records, encrypted journals and protected key material stay outside Git |
+| Notifications | Generic payloads; no balances, account addresses or reply content |
+| Model spending | Explicit model/budget mode; no automatic escalation to a more expensive model or removal of a rejected cost control |
+| Historical read cache | Revalidated network/block anchors; balances, nonces and permissions remain fresh reads |
+| Artifact integrity | Source-generation manifests authenticate original programs, keys and retained resources |
 
-Startup caching reuses anchored finalized public reads. Mutable balances, nonces and permissions are checked again. A cache hit is neither a financial authorization nor evidence that the current release has completed a public operation.
+Backups must preserve the identity and state needed by their original recovery route. A source checkout is not a custody backup; `.local` is not a disposable cache directory. See [local resources](LOCAL-ENVIRONMENT.md) and [source generations](SOURCE-GENERATIONS.md).
 
-## Remaining security work
+## Review scope
 
-No external audit is claimed. Production expansion requires independent review of contracts and circuits, key and backup handling, host compromise assumptions, provider diversity, operational monitoring and each supported financial route. The [current status](../STATUS.md) identifies incomplete product paths; the [historical privacy assessment](history/2026-10-19/docs/PRIVACY-AND-OPERATIONS.md) retains earlier findings for provenance.
+This is an engineering security model and self-assessment, not an external audit. Production expansion requires independent contract/circuit review, operational hardening, key/backup review, provider diversity and acceptance of each supported financial route. [Validation](VALIDATION.md#acceptance-scope) records the present demonstration scope.
+
+[Architecture](ARCHITECTURE.md) · [Agent design](AGENT.md) · [Validation](VALIDATION.md) · [Engine operations](../infra/google-cloud/paeg-engine/README.md)

@@ -1,5 +1,9 @@
 # Owned local TRX native writer: source preparation only
 
+<p><a href="../../../README.md"><img src="../../assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../README.md) · [Architecture](../../ARCHITECTURE.md) · [Validation](../../VALIDATION.md)
+
 The fixed entry is `createOwnedLocalTronNativeValueV1()` in the new chain-adapter
 module. `inspectOwnedTronRuntimePrerequisites()` gives its explicit blocker report.
 The factory takes zero arguments. Today it rejects `OWNED_TRON_RUNTIME_RELEASE_ABSENT`

@@ -1,5 +1,9 @@
 # Cryptographic proofs
 
+<p><a href="../../README.md"><img src="../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../docs/README.md) · [Architecture](../../docs/ARCHITECTURE.md) · [Validation](../../docs/VALIDATION.md)
+
 This package owns proof clients, workers, tooling and tests. It consumes engine, custody and shared contracts. Compositions requiring accounts, networks and recovery belong to backend.
 
 | Location | Responsibility |

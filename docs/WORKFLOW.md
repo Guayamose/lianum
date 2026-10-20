@@ -1,5 +1,9 @@
 # Development workflow
 
+<p><a href="../README.md"><img src="assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](README.md) · [Architecture](ARCHITECTURE.md) · [Validation](VALIDATION.md)
+
 Edit the real sources in `apps/`, `packages/` and `services/`. Use the smallest relevant check first, then run the repository check once when closing a code change. A documentation or UI edit does not require reopening the financial engine.
 
 The command catalog is [`scripts/development/workflows.json`](../scripts/development/workflows.json). It drives `./dev help`, [COMMANDS.md](COMMANDS.md), component selection and declared entry points.
@@ -111,4 +115,4 @@ Startup can reuse finalized public reads from an anchored SQLite cache after rec
 
 Progress records milestones, RPC methods, batches and reading rate. Remaining milestone count is neither a time percentage nor a remaining RPC count. Report unknown time estimates honestly until measured data supports one.
 
-The [current status](../STATUS.md) tracks acceptance. The [detailed workflow record](reference/development-workflow-record.md) retains the earlier implementation notes; the [command reference](COMMANDS.md) remains generated from the executable catalog.
+The [validation guide](VALIDATION.md) centralizes acceptance scope. The [development guide](DEVELOPMENT.md) provides the first commands; the [command reference](COMMANDS.md) remains generated from the executable catalog.

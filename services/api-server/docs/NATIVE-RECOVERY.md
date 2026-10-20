@@ -1,5 +1,9 @@
 # Recover local native account
 
+<p><a href="../../../README.md"><img src="../../../docs/assets/lianum.svg" width="110" alt="Lianum"></a></p>
+
+[Documentation](../../../docs/README.md) · [Architecture](../../../docs/ARCHITECTURE.md) · [Validation](../../../docs/VALIDATION.md)
+
 The service `run-original-native-source-v1.mjs` retains the sources of the account before financing it. Saves the account, local node status, provider, executor, keeper, and device linkage to a private realm. The root and note keys remain in the client.
 
 This service uses local EVM and trial funds. The integrated acceptance of abrupt fall and the autonomous eight-hour wait are still pending.
@@ -10,11 +14,11 @@ From the root of the repository, the configuration is saved in `.local/original-
 
 ```json
 {
-  "origin": "https://127.0.0.1:PUERTO",
-  "devicePublicKey": "CLAVE_PUBLICA_SECP256K1_DEL_DISPOSITIVO",
+  "origin": "https://127.0.0.1:PORT",
+  "devicePublicKey": "DEVICE_SECP256K1_PUBLIC_KEY",
   "tls": {
-    "certificate": "CERTIFICADO_PEM",
-    "privateKey": "CLAVE_TLS_PEM"
+    "certificate": "CERTIFICATE_PEM",
+    "privateKey": "TLS_KEY_PEM"
   }
 }
 ```
@@ -33,13 +37,13 @@ After the original process and its dependent processes are finished, it reopens 
 
 The reopening checks the identity of the files, the sources of the code, the checkspoints and the absence of the original processes. Use a new generation of the same realm. A copy of a descriptor or an account ID does not allow you to adopt the account or grant financial permissions.
 
-## What happens after a fall
+## What happens after an interruption
 
 | Saved State | Behavior |
 | --- | --- |
 | Confirmed operation and complete checkpoint | Reopen the original sources. The readings need a new observation. |
 | Step not yet started | You can start with new consent on the same account and original terms. |
-| Ship started whose result remains uncertain | Conserva `UNKNOWN` and blocks the expense; a query does not allow to repeat the shipment. |
+| Ship started whose result remains uncertain | Preserves `UNKNOWN` and blocks the expense; a query does not allow to repeat the transfer. |
 | Mutation of a source without checkpoint confirmed | The entry returns `ORIGINAL_SOURCE_PENDING_UNKNOWN`, with unknown available balance and no economic capabilities. |
 | Original process still alive or source altered | Reject the reopening. |
 
