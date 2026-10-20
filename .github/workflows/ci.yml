@@ -37,6 +37,8 @@ jobs:
           ./dev boundaries
           ./dev static
           python3 -B scripts/development/workflow.py docs-check
+      - name: Verify documentation links and SVG assets
+        run: python3 -B scripts/documentation/check.py
       - name: Wallet gateway
         run: ./dev test --component wallet
       - name: Device custody
