@@ -1,6 +1,7 @@
-/** One shared start queue for the retained anonymous Sepolia route. This
- * changes read scheduling only: no result cache, endpoint switch, send retry,
- * signing permission or refresh of a caller's deadline is issued here. */
+/** One shared start queue for the retained anonymous Sepolia route. Readers
+ * use it through HTTP; the Original Source reserves one broadcast slot before
+ * rechecking its command. No result cache, endpoint switch, send retry, signing
+ * permission or refresh of a caller's deadline is issued here. */
 import {performance} from 'node:perf_hooks';
 import {setTimeout as pause} from 'node:timers/promises';
 import {need} from './common-v1.mjs';

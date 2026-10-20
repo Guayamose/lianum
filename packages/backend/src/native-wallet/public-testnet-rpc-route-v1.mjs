@@ -13,6 +13,17 @@ export const PUBLIC_SEPOLIA_RPC_ROUTE_V1=Object.freeze({
 export function resolvePublicTestnetRpcRouteV1(endpoint){
  return endpoint===RETAINED_SEPOLIA||endpoint===RETAINED_SEPOLIA+'/'?PUBLIC_SEPOLIA_RPC_ROUTE_V1.effectiveEndpoint:endpoint;
 }
+/** Fixed, independently authenticated send transport. The retained read route
+ * and its finalized cache stay unchanged. This is selected before attempting
+ * a send, never after a rejection or uncertain response. */
+export const PUBLIC_SEPOLIA_WRITE_ROUTE_V43=Object.freeze({
+ profile:'LIANUM_PUBLIC_SEPOLIA_WRITE_ROUTE_V43',
+ endpoint:'https://public.1rpc.io/sepolia',
+ signedSendAttempts:1,
+});
+export function resolvePublicTestnetWriteRpcRouteV43(endpoint,method){
+ return method==='eth_sendRawTransaction'&&endpoint===PUBLIC_SEPOLIA_RPC_ROUTE_V1.effectiveEndpoint?PUBLIC_SEPOLIA_WRITE_ROUTE_V43.endpoint:endpoint;
+}
 /** Some providers add a zero blob counter to non-blob receipts. Keep the
  * original receipt shape while preserving every consensus and log field. */
 export function normalizeNonBlobReceiptResultV1(method,value){

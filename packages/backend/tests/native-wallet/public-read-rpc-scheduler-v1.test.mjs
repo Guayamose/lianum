@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {performance} from 'node:perf_hooks';
 import {nativeRpcV1} from '../../src/native-wallet/http-v1.mjs';
-import {PUBLIC_SEPOLIA_RPC_ROUTE_V1 as policy} from '../../src/native-wallet/public-testnet-rpc-route-v1.mjs';
+import {PUBLIC_SEPOLIA_RPC_ROUTE_V1 as policy,PUBLIC_SEPOLIA_WRITE_ROUTE_V43 as writer} from '../../src/native-wallet/public-testnet-rpc-route-v1.mjs';
 import {readPublicRpcMetricsV1} from '../../src/native-wallet/public-read-rpc-coalescer-v1.mjs';
 
 test('independent retained RPC clients share paced reads without caching or changing request identities',async t=>{
@@ -26,7 +26,7 @@ test('cancelled queued reads never reach HTTP and do not release another predece
 
 test('a throttled read retains its same request; a throttled signed send has only one attempt',async t=>{
  const before=readPublicRpcMetricsV1();
- const reads=[],sends=[];t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{const body=JSON.parse(options.body);if(body.method==='eth_sendRawTransaction'){sends.push(options.body);return new Response('',{status:429});}reads.push(options.body);return reads.length===1?new Response('',{status:429,headers:{'retry-after':'0'}}):Response.json({jsonrpc:'2.0',id:body.id,result:'0xaa36a7'});});
+ const reads=[],sends=[];t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{const body=JSON.parse(options.body);if(_endpoint===writer.endpoint&&body.method!=='eth_sendRawTransaction')return Response.json({jsonrpc:'2.0',id:body.id,result:body.method==='eth_chainId'?'0xaa36a7':{hash:policy.genesis}});if(body.method==='eth_sendRawTransaction'){sends.push(options.body);return new Response('',{status:429});}reads.push(options.body);return reads.length===1?new Response('',{status:429,headers:{'retry-after':'0'}}):Response.json({jsonrpc:'2.0',id:body.id,result:'0xaa36a7'});});
  const rpc=nativeRpcV1(policy.retainedEndpoint);assert.equal(await rpc('eth_chainId'),'0xaa36a7');assert.equal(reads.length,2);assert.equal(reads[0],reads[1]);await assert.rejects(rpc('eth_sendRawTransaction',['HOST wire']),{code:'NATIVE_WALLET_HTTP_STATUS',httpStatus:429});assert.equal(sends.length,1);
  assert.equal(readPublicRpcMetricsV1().rpcThrottleResponsesV25-before.rpcThrottleResponsesV25,1,'send responses do not alter read pacing or its metrics');
 });
@@ -35,6 +35,7 @@ test('429 pauses independent readers together while signed sends keep one immedi
  const reads=[],sends=[];let notify;const firstSeen=new Promise(resolve=>{notify=resolve;});
  t.mock.method(globalThis,'fetch',async(_endpoint,options)=>{
   const body=JSON.parse(options.body),at=performance.now();
+  if(_endpoint===writer.endpoint&&body.method!=='eth_sendRawTransaction')return Response.json({jsonrpc:'2.0',id:body.id,result:body.method==='eth_chainId'?'0xaa36a7':{hash:policy.genesis}});
   if(body.method==='eth_sendRawTransaction'){sends.push({at,body:options.body});return new Response('',{status:429});}
   reads.push({at,body:options.body});
   if(reads.length===1){notify();return new Response('',{status:429,headers:{'retry-after':'0'}});}

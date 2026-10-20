@@ -4,7 +4,7 @@ import {setTimeout as pause} from 'node:timers/promises';
 import {need,fail,signalCurrent} from './common-v1.mjs';
 import {classifyNativeRpcContractRejectionDataV1} from './rpc-contract-rejection-data-v1.mjs';
 import {classifyNativeRpcWriteRejectionV18} from './rpc-write-rejection-data-v18.mjs';
-import {PUBLIC_SEPOLIA_RPC_ROUTE_V1,resolvePublicTestnetRpcRouteV1,normalizeNonBlobReceiptResultV1} from './public-testnet-rpc-route-v1.mjs';
+import {PUBLIC_SEPOLIA_RPC_ROUTE_V1,resolvePublicTestnetRpcRouteV1,resolvePublicTestnetWriteRpcRouteV43,normalizeNonBlobReceiptResultV1} from './public-testnet-rpc-route-v1.mjs';
 import {waitPublicSepoliaReadTurnV1,recordPublicSepoliaReadResponseV1} from './public-read-rpc-scheduler-v1.mjs';
 import {sharePublicMetadataReadV1,recordPublicRpcWireAttemptV1,recordPublicRpcHeadersV25,recordPublicScopedHeaderHitV27} from './public-read-rpc-coalescer-v1.mjs';
 import {batchPublicBlockReadV10} from './public-read-rpc-batch-v10.mjs';
@@ -57,10 +57,27 @@ async function request(endpoint,{method='GET',body,signal,text=false,missing=fal
  finally{clearTimeout(timer);signal?.removeEventListener('abort',onAbort);}
 }
 const canonicalReadScopeV25=new AsyncLocalStorage();
-function rpcTransport(endpoint){endpoint=resolvePublicTestnetRpcRouteV1(endpoint);const perform=async(method,params,signal)=>{const id=randomUUID();try{const result=await batchPublicBlockReadV10(endpoint,{jsonrpc:'2.0',id,method,params},signal,(payload,current,readUnits)=>request(endpoint,{method:'POST',body:JSON.stringify(payload),signal:current,readOnly:READ_RPC_METHODS.has(method),readUnits}));need(result?.jsonrpc==='2.0'&&result.id===id,'RPC_FAILED');if(Object.hasOwn(result,'error')){try{fail('RPC_FAILED');}catch(error){if((READ_RPC_METHODS.has(method)||method==='eth_sendRawTransaction')&&Number.isInteger(result.error?.code)){error.rpcErrorCode=result.error.code;if(method==='eth_sendRawTransaction'){const category=classifyNativeRpcWriteRejectionV18(result.error);if(category)error.rpcWriteRejection=category;}if(method==='eth_call'||method==='eth_estimateGas'){const rejection=classifyNativeRpcContractRejectionDataV1(result.error.data);if(rejection){error.rpcContractRejection=rejection;try{console.error('LIANUM_NATIVE_RPC_CONTRACT_REJECTION_V1',JSON.stringify({rpcMethod:method,...rejection}));}catch{}}}const cap=/^out of gas: gas required exceeds: ([1-9][0-9]{0,19})$/.exec(result.error.message??'');if(method==='eth_estimateGas'&&result.error.code===-32003&&cap)error.rpcGasCap=cap[1];}throw error;}}need(Object.hasOwn(result,'result'),'RPC_FAILED');return normalizeNonBlobReceiptResultV1(method,result.result);}catch(error){if((READ_RPC_METHODS.has(method)||method==='eth_sendRawTransaction')&&['NATIVE_WALLET_HTTP_STATUS','NATIVE_WALLET_RPC_FAILED','NATIVE_WALLET_HTTP_FAILED','NATIVE_WALLET_HTTP_TIMEOUT'].includes(error?.code))error.rpcMethod=method;throw error;}};const observe=(method,params,signal)=>sharePublicMetadataReadV1(endpoint,method,params,signal,(snapshot,current)=>perform(method,snapshot,current));const invoke=(method,params,signal)=>readPublicFinalizedCachedV16(endpoint,method,params,signal,observe);return {observe,rpc:async(method,params=[],signal)=>{
+function rpcTransport(endpoint){endpoint=resolvePublicTestnetRpcRouteV1(endpoint);const perform=async(method,params,signal)=>{
+ const sendEndpoint=resolvePublicTestnetWriteRpcRouteV43(endpoint,method);
+ if(sendEndpoint!==endpoint){
+  const writer=rpcTransport(sendEndpoint);
+  const [chain,genesis]=await Promise.all([writer.rpc('eth_chainId',[],signal),writer.rpc('eth_getBlockByNumber',['0x0',false],signal)]);
+  need(chain==='0xaa36a7'&&genesis?.hash===PUBLIC_SEPOLIA_RPC_ROUTE_V1.genesis,'WRITE_ROUTE_NETWORK');
+  // Only this preselected endpoint receives the exact original signed wire.
+  // The inner transport preserves one attempt and uncertain-result recovery.
+  return writer.rpc(method,params,signal);
+ }
+ const id=randomUUID();try{const result=await batchPublicBlockReadV10(endpoint,{jsonrpc:'2.0',id,method,params},signal,(payload,current,readUnits)=>request(endpoint,{method:'POST',body:JSON.stringify(payload),signal:current,readOnly:READ_RPC_METHODS.has(method),readUnits}));need(result?.jsonrpc==='2.0'&&result.id===id,'RPC_FAILED');if(Object.hasOwn(result,'error')){try{fail('RPC_FAILED');}catch(error){if((READ_RPC_METHODS.has(method)||method==='eth_sendRawTransaction')&&Number.isInteger(result.error?.code)){error.rpcErrorCode=result.error.code;if(method==='eth_sendRawTransaction'){const category=classifyNativeRpcWriteRejectionV18(result.error);if(category)error.rpcWriteRejection=category;}if(method==='eth_call'||method==='eth_estimateGas'){const rejection=classifyNativeRpcContractRejectionDataV1(result.error.data);if(rejection){error.rpcContractRejection=rejection;try{console.error('LIANUM_NATIVE_RPC_CONTRACT_REJECTION_V1',JSON.stringify({rpcMethod:method,...rejection}));}catch{}}}const cap=/^out of gas: gas required exceeds: ([1-9][0-9]{0,19})$/.exec(result.error.message??'');if(method==='eth_estimateGas'&&result.error.code===-32003&&cap)error.rpcGasCap=cap[1];}throw error;}}need(Object.hasOwn(result,'result'),'RPC_FAILED');return normalizeNonBlobReceiptResultV1(method,result.result);}catch(error){if((READ_RPC_METHODS.has(method)||method==='eth_sendRawTransaction')&&['NATIVE_WALLET_HTTP_STATUS','NATIVE_WALLET_RPC_FAILED','NATIVE_WALLET_HTTP_FAILED','NATIVE_WALLET_HTTP_TIMEOUT'].includes(error?.code))error.rpcMethod=method;throw error;}};const observe=(method,params,signal)=>sharePublicMetadataReadV1(endpoint,method,params,signal,(snapshot,current)=>perform(method,snapshot,current));const invoke=(method,params,signal)=>readPublicFinalizedCachedV16(endpoint,method,params,signal,observe);return {observe,rpc:async(method,params=[],signal)=>{
  const scope=canonicalReadScopeV25.getStore();
  if(scope){need(scope.active,'READ_SCOPE_CLOSED');need(READ_RPC_METHODS.has(method),'READ_SCOPE_WRITE');signalCurrent(signal);
-  if(scope.endpoint===endpoint&&method==='eth_getBlockByNumber'&&params.length===2&&params[0]===scope.head.number&&params[1]===false){recordPublicScopedHeaderHitV27();return structuredClone(scope.header);}
+  if(scope.endpoint===endpoint){
+   // The enclosing observation already authenticated this exact endpoint's
+   // chain and genesis. Reuse only that identity inside its live scope;
+   // mutable heads/balances/nonces still reach their original readers.
+   if(method==='eth_chainId'&&params.length===0)return scope.chain;
+   if(method==='eth_getBlockByNumber'&&params.length===2&&params[0]==='0x0'&&params[1]===false)return structuredClone(scope.genesis);
+   if(method==='eth_getBlockByNumber'&&params.length===2&&params[0]===scope.head.number&&params[1]===false){recordPublicScopedHeaderHitV27();return structuredClone(scope.header);}
+  }
  }
  return readPublicBlockCachedV12(endpoint,method,params,signal,invoke,scope?.endpoint===endpoint?scope.head:undefined);
 }};}
@@ -83,7 +100,7 @@ export async function withPublicCanonicalBlockReadsV25(endpoint,rawHead,work){
   await readPublicFinalizedCachedV16(endpoint,'eth_getBlockByNumber',[head.number,false],undefined,(method,params,signal)=>method==='eth_getBlockByNumber'&&params[0]===head.number?Promise.resolve(actual):observe(method,params,signal));
  };
  const [chain,genesis]=await Promise.all([observe('eth_chainId',[]),observe('eth_getBlockByNumber',['0x0',false])]);
- need(chain==='0xaa36a7'&&genesis?.hash===PUBLIC_SEPOLIA_RPC_ROUTE_V1.genesis,'READ_SCOPE_NETWORK');await check();scope.active=true;
+ need(chain==='0xaa36a7'&&genesis?.hash===PUBLIC_SEPOLIA_RPC_ROUTE_V1.genesis,'READ_SCOPE_NETWORK');scope.chain=chain;scope.genesis=structuredClone(genesis);await check();scope.active=true;
  try{return await canonicalReadScopeV25.run(scope,async()=>{const result=await work();await check();return result;});}
  finally{scope.active=false;}
 }

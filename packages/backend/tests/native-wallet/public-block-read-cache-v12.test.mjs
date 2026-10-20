@@ -13,11 +13,13 @@ test('a canonical observation group shares headers but pins each state read and 
  });
  const rpc=nativeRpcV1(endpoint);
  for(let pass=0;pass<2;pass++)await scoped(endpoint,head,async()=>{
-  for(let i=0;i<12;i++){const observed=await rpc('eth_getBlockByNumber',[head.number,false]);assert.deepEqual(observed,head);observed.hash=hash(999);assert.equal(await rpc('eth_getCode',[address(100+i),head.number]),'0x6000');}
+  for(let i=0;i<12;i++){assert.equal(await rpc('eth_chainId',[]),'0xaa36a7');const genesis=await rpc('eth_getBlockByNumber',['0x0',false]);assert.equal(genesis.hash,route.genesis);genesis.hash=hash(999);const observed=await rpc('eth_getBlockByNumber',[head.number,false]);assert.deepEqual(observed,head);observed.hash=hash(999);assert.equal(await rpc('eth_getCode',[address(100+i),head.number]),'0x6000');}
   await scoped(endpoint,head,()=>rpc('eth_getCode',[address(100),head.number]));
   await assert.rejects(rpc('eth_sendRawTransaction',['0x00']),/READ_SCOPE_WRITE/);
  });
  assert.equal(calls.filter(q=>q.method==='eth_getCode').length,12);
+ assert.equal(calls.filter(q=>q.method==='eth_chainId').length,2,'network identity is verified once per live scope, including nested readers');
+ assert.equal(calls.filter(q=>q.method==='eth_getBlockByNumber'&&q.params[0]==='0x0').length,2,'genesis is verified afresh for each scope, without repeating it inside');
  assert.equal(calls.filter(q=>q.method==='eth_getBlockByNumber'&&q.params[0]===head.number).length,4,'two fresh headers per group, including all warm cache hits');
  for(const q of calls.filter(q=>q.method==='eth_getCode'))assert.deepEqual(q.params[1],{blockHash:head.hash,requireCanonical:true});
  assert.equal(calls.some(q=>q.method==='eth_sendRawTransaction'),false);

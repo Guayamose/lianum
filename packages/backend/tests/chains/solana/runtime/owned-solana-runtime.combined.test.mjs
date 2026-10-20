@@ -30,7 +30,7 @@ const genesisBytes = Buffer.from('HOST_ONLY_FRESH_GENESIS'), identity = Buffer.f
 const named = module => Object.fromEntries(Object.entries(module).filter(([key]) => key !== 'default' && key !== 'module.exports'));
 let control;
 mock.module('node:crypto', { exports: { ...named(crypto),
-  randomBytes(size) { const result = crypto.randomBytes(size); if (size === 32) control.seeds.push(result); return result; },
+  randomBytes(size) { const result = crypto.randomBytes(size); if (size === 32 && control) control.seeds.push(result); return result; },
   createHash(algorithm) {
     const hash = crypto.createHash(algorithm); let isExecutable = false;
     return { update(bytes) { isExecutable = Buffer.isBuffer(bytes) && bytes.equals(executableFixture); hash.update(bytes); return this; },
