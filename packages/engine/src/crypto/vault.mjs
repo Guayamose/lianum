@@ -18,11 +18,30 @@
  */
 import { open, lstat, rename, unlink } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 import { types } from 'node:util';
 import { canonical, encryptJsonAsync, decryptJsonAsync } from './privacy.mjs';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
+// One authenticated envelope per live instance, for repeated checks within an
+// operation. Always reread the actual file; metadata, path and revision alone
+// are never cache keys. A process-private MAC binds the password without keeping
+// another plaintext copy of it. Returned objects never alias the cached record.
+// This is not rollback protection: callers still enforce their own highwater.
+const authenticatedReads = new WeakMap();
+const passwordBindingKey = randomBytes(32);
+const READ_CACHE_MS = 30000;
+const monotonicNow = performance.now.bind(performance);
+function passwordBinding(password) {
+  return typeof password === 'string' && password.length >= 1 && password.length <= 1024
+    ? createHmac('sha256', passwordBindingKey).update(password, 'utf16le').digest() : null;
+}
+
+function forgetAuthenticatedRead(vault) {
+  const previous = authenticatedReads.get(vault);
+  if (previous) clearTimeout(previous.timer);
+  authenticatedReads.delete(vault);
+}
 
 function problem(code, message) {
   return Object.assign(new Error(message), { code });
@@ -96,6 +115,7 @@ export class Vault {
   }
 
   async _write(record, password) {
+    forgetAuthenticatedRead(this);
     const envelope = await encryptJsonAsync(record, password);
     const serialized = JSON.stringify(envelope);
     const temporary = `${this.path}.tmp-${randomBytes(16).toString('hex')}`;
@@ -133,11 +153,27 @@ export class Vault {
 
   async read(password) {
     const serialized = await boundedRead(this.path, MAX_FILE_BYTES);
+    const binding = passwordBinding(password), cached = authenticatedReads.get(this);
+    if (cached && monotonicNow() < cached.deadline && serialized === cached.serialized &&
+        binding && timingSafeEqual(binding, cached.binding)) {
+      return JSON.parse(cached.record);
+    }
+    forgetAuthenticatedRead(this);
     const record = await decryptJsonAsync(JSON.parse(serialized), password);
     if (!record || typeof record !== 'object' || Array.isArray(record) ||
         Object.keys(record).sort().join(',') !== 'data,revision' ||
         !Number.isSafeInteger(record.revision) || record.revision < 0) {
       throw problem('VAULT_RECORD', 'Invalid authenticated vault record');
+    }
+    if (binding) {
+      const entry = { serialized, binding, record: JSON.stringify(record), deadline: monotonicNow() + READ_CACHE_MS };
+      // No sliding extension and no event-loop keepalive. Cache retention is
+      // bounded even if the instance remains open but is no longer read.
+      entry.timer = setTimeout(() => {
+        if (authenticatedReads.get(this) === entry) authenticatedReads.delete(this);
+      }, READ_CACHE_MS);
+      entry.timer.unref?.();
+      authenticatedReads.set(this, entry);
     }
     return record;
   }
